@@ -252,63 +252,96 @@
       .g-color-blue { background-color: #3b82f6; } .g-color-purple { background-color: #a855f7; } .g-color-green { background-color: #22c55e; } .g-color-gray { background-color: #94a3b8; } .g-color-red { background-color: #ef4444; } .g-color-yellow { background-color: #facc15; }
       .empty-msg { text-align: center; margin-top: 20%; color: var(--text-muted); font-weight: 800; font-size: 14px;}
 
-      /* 📱 MOBILE RESPONSIVE CSS (GYROSCOPE LOGIC) */
-      @media screen and (max-width: 768px) {
-          .top-nav { flex-direction: column; height: auto; align-items: stretch; padding: 12px; gap: 12px; }
-          .kpi-nav-container { margin-left: 0; justify-content: center; width: 100%; }
-          .filter-bar { display: none; flex-direction: column; width: 100%; }
-          .filter-bar.show-mobile { display: flex; }
-          input[type="text"], select { width: 100%; }
-          
-          .mobile-menu-toggle { display: block !important; padding: 6px 12px; background: var(--border); border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; text-align: center; }
-          
-          .workspace { flex-direction: column; overflow-y: auto; overflow-x: hidden; }
-          .inbox-sidebar { width: 100%; max-width: 100%; height: 100%; border-right: none; flex-shrink: 0; }
-          .reading-pane { width: 100%; padding: 12px; box-sizing: border-box; display: none; }
-          .outbox-pane { display: none; } 
-          
-          .workspace.view-detail .inbox-sidebar { display: none; }
-          .workspace.view-detail .reading-pane { display: flex; flex-direction: column; }
-          
-          .mobile-back-btn { display: flex !important; padding: 8px 12px; background: var(--text-main); color: var(--bg); border-radius: 6px; font-weight: bold; font-size: 12px; margin-bottom: 12px; align-items: center; gap: 6px; cursor: pointer; }
-          
-          .qb-grid, .review-grid { grid-template-columns: 1fr; gap: 12px; }
-          .pane-footer { flex-direction: column; align-items: stretch; gap: 8px; }
-          .pane-footer > div { margin-right: 0 !important; text-align: center; margin-bottom: 8px;}
-          .btn { width: 100%; justify-content: center; padding: 12px; font-size: 14px;}
-          .chat-bubble { min-height: 150px; } 
-          
-          .raw-data-strip { display: none; }
+      /* 📱 MOBILE ACTION BAR (base — hidden on desktop) */
+      .mobile-menu-toggle { display: none; }
+      .mobile-back-btn { display: none; }
+      .mobile-action-bar {
+          display: none; position: fixed; bottom: 0; left: 0; right: 0;
+          padding: 10px 16px; padding-bottom: calc(10px + env(safe-area-inset-bottom));
+          background: var(--card-bg); border-top: 2px solid var(--border);
+          gap: 8px; z-index: 200; box-shadow: 0 -4px 16px rgba(0,0,0,0.1);
+          transition: background 0.3s, border-color 0.3s;
       }
-      
+
+      /* 📱 PORTRAIT MOBILE */
+      @media screen and (max-width: 768px) {
+          /* NAV: brand + toggle on one row, KPIs + filters scroll below */
+          .top-nav { padding: 10px 14px; gap: 6px; flex-wrap: wrap; min-height: unset; align-items: center; }
+          .nav-brand { flex: 1; font-size: 14px; }
+          .mobile-menu-toggle { display: flex !important; align-items: center; padding: 6px 12px; background: var(--border); border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; border: none; color: var(--text-main); flex-shrink: 0; }
+          .kpi-nav-container { width: 100%; margin-left: 0; order: 3; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .filter-bar { display: none; width: 100%; order: 4; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 6px; padding-bottom: 4px; }
+          .filter-bar.show-mobile { display: flex; }
+          input[type="text"] { min-width: 130px; width: 130px; }
+          select { min-width: 110px; width: 110px; }
+
+          /* WORKSPACE: sliding panels */
+          .workspace { position: relative; overflow: hidden; flex-direction: row; }
+          .inbox-sidebar {
+              position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+              width: 100%; max-width: 100%; border-right: none; flex-shrink: 0;
+              transform: translateX(0); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          .reading-pane {
+              position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+              width: 100%; display: flex !important; flex-direction: column;
+              overflow-y: auto; padding: 12px; padding-bottom: 90px; box-sizing: border-box;
+              justify-content: flex-start;
+              transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          .workspace.view-detail .inbox-sidebar { transform: translateX(-100%); }
+          .workspace.view-detail .reading-pane { transform: translateX(0); }
+          .outbox-pane { display: none; }
+
+          /* BACK BUTTON */
+          .mobile-back-btn { display: flex !important; padding: 8px 0; background: transparent; color: var(--color-insight); border-radius: 0; font-weight: 900; font-size: 13px; margin-bottom: 12px; align-items: center; gap: 6px; cursor: pointer; border-bottom: 1px solid var(--border); width: 100%; }
+
+          /* GRIDS collapse to single column */
+          .qb-grid { grid-template-columns: 1fr !important; gap: 12px; }
+          .qb-grid > * { grid-column: span 1 !important; }
+          .review-grid { grid-template-columns: 1fr; gap: 12px; }
+
+          /* Hide desktop footer — mobile-action-bar takes its place */
+          .pane-footer { display: none !important; }
+          .raw-data-strip { display: none; }
+
+          /* Touch-friendly text + disable hover lifts */
+          .chat-bubble { min-height: 100px; font-size: 15px; }
+          .hover-trigger:hover { transform: none !important; }
+
+          /* Admin badges compact */
+          .admin-strip { padding: 6px 10px; gap: 6px; }
+          .admin-kpi-val { font-size: 16px; }
+
+          /* Mobile action bar visible */
+          .mobile-action-bar { display: flex; }
+      }
+
+      /* PORTRAIT: hide Gantt entirely */
       @media screen and (max-width: 768px) and (orientation: portrait) {
           .timeline-wrapper { display: none !important; }
       }
-      
-      /* 📱 MOBILE LANDSCAPE = FULLSCREEN GANTT CHART */
+
+      /* 📱 LANDSCAPE: fullscreen Gantt (position:fixed so it clears overflow:hidden) */
       @media screen and (max-width: 950px) and (orientation: landscape) {
           .top-nav { display: none !important; }
           .workspace { display: none !important; }
           .raw-data-strip { display: none !important; }
-          
-          .timeline-wrapper { 
-              height: 100dvh !important; border-top: none; position: absolute; 
-              top: 0; left: 0; width: 100vw; z-index: 99999; display: flex !important; 
-              flex-direction: column; background: var(--bg);
+          .mobile-action-bar { display: none !important; }
+
+          .timeline-wrapper {
+              position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
+              z-index: 99999; display: flex !important;
+              flex-direction: column; background: var(--bg); border-top: none;
           }
-          
-          /* Hide manual buttons, show Rotation Prompt */
           .gantt-controls button { display: none !important; }
-          .gantt-controls::after { 
-              content: "Rotate device to view project details ↻"; 
-              font-size: 11px; font-weight: bold; color: var(--color-insight); 
-              background: rgba(168, 85, 247, 0.15); padding: 4px 12px; border-radius: 12px; 
+          .gantt-controls::after {
+              content: "Rotate device to view project details ↻";
+              font-size: 11px; font-weight: bold; color: var(--color-insight);
+              background: rgba(168, 85, 247, 0.15); padding: 4px 12px; border-radius: 12px;
           }
           .timeline-container { -webkit-overflow-scrolling: touch; padding-bottom: 40px; }
       }
-      
-      .mobile-menu-toggle { display: none; }
-      .mobile-back-btn { display: none; }
     </style>
   </head>
   <body>
@@ -476,6 +509,12 @@
       </div>
     </div>
 
+    <div class="mobile-action-bar" id="mobile-action-bar" style="display:none;">
+      <button class="btn btn-skip" style="flex:1;" onclick="skipReview()">Skip</button>
+      <button class="btn btn-primary" style="flex:2;" onclick="commitReview()">✔ Commit</button>
+      <button class="btn btn-skip" style="flex:1;" onclick="promptEmailExport()">↑ Export</button>
+    </div>
+
     <div class="raw-data-strip" id="raw-data-strip"></div>
 
     <div class="timeline-wrapper" id="gantt-wrapper">
@@ -500,7 +539,10 @@
       const getEl = (id) => document.getElementById(id);
 
       function toggleMobileMenu() { let bar = getEl('filter-bar'); if(bar) bar.classList.toggle('show-mobile'); }
-      function backToQueue() { let ws = getEl('main-workspace'); if(ws) ws.classList.remove('view-detail'); }
+      function backToQueue() {
+          let ws = getEl('main-workspace'); if(ws) ws.classList.remove('view-detail');
+          let mab = getEl('mobile-action-bar'); if(mab) mab.style.display = 'none';
+      }
 
       function safeExecute(fnName, fn) {
           try { fn(); } catch (err) {
@@ -944,7 +986,10 @@
             
             card.onclick = () => {
                 openPane(item, card);
-                if (window.innerWidth <= 768) { let ws = getEl('main-workspace'); if(ws) ws.classList.add('view-detail'); }
+                if (window.innerWidth <= 768) {
+                    let ws = getEl('main-workspace'); if(ws) ws.classList.add('view-detail');
+                    let mab = getEl('mobile-action-bar'); if(mab) mab.style.display = 'flex';
+                }
             };
             
             card.innerHTML = `
