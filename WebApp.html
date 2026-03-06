@@ -37,10 +37,15 @@
       }
       .gantt-hud ::-webkit-scrollbar { width: 6px; } .gantt-hud ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 6px; }
 
-      .top-nav { background: var(--card-bg); min-height: 52px; box-sizing: border-box; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); z-index: 10000; position: relative; flex-shrink: 0; transition: background 0.3s, border-color 0.3s; flex-wrap: wrap; gap: 10px;}
+      .top-nav { background: var(--card-bg); height: 52px; box-sizing: border-box; padding: 0 24px; display: flex; align-items: center; border-bottom: 1px solid var(--border); z-index: 10000; position: relative; flex-shrink: 0; transition: background 0.3s, border-color 0.3s; gap: 10px; }
       .nav-brand { font-size: 16px; font-weight: 900; letter-spacing: -0.5px; display: flex; align-items: center; flex-shrink: 0; }
-      
-      .kpi-nav-container { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-right: auto; margin-left: 24px; flex-wrap: wrap;}
+      .nav-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
+      .btn-icon { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; cursor: pointer; color: var(--text-main); font-size: 15px; line-height: 1; display: flex; align-items: center; transition: all 0.2s; }
+      .btn-icon:hover { background: var(--border); }
+      .filter-strip { background: var(--bg); padding: 6px 24px; display: flex; align-items: center; gap: 6px; flex-shrink: 0; border-bottom: 1px solid var(--border); overflow-x: auto; -webkit-overflow-scrolling: touch; transition: background 0.3s, border-color 0.3s; }
+      .filter-strip::-webkit-scrollbar { height: 0; }
+
+      .kpi-nav-container { display: flex; align-items: center; gap: 6px; flex-shrink: 1; margin-left: 16px; overflow: hidden; }
       .kpi-nav-header { font-size: 10px; font-weight: 900; color: var(--color-critical); text-transform: uppercase; display: flex; align-items: center; gap: 6px; margin-right: 8px;}
       .kpi-dot { height: 6px; width: 6px; background: var(--color-critical); border-radius: 50%; display: inline-block; box-shadow: 0 0 6px var(--color-critical); }
       .kpi-nav-box { background: var(--bg); padding: 4px 10px; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-shadow: inset 0 1px 2px rgba(0,0,0,0.02); min-width: 45px; transition: background 0.3s, border-color 0.3s;}
@@ -51,8 +56,7 @@
       .kpi-nav-box.crit-box .kpi-val, .kpi-nav-box.crit-box .kpi-label { color: var(--color-critical); }
       body.dark-mode .kpi-nav-box.crit-box { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3);}
       body.dark-mode .kpi-nav-box.crit-box:hover { background: rgba(239, 68, 68, 0.15); }
-
-      .filter-bar { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap;}
+      
       input[type="text"], select { background: var(--card-bg); padding: 6px 10px; font-size: 12px; font-weight: 700; color: var(--text-main); border: 1px solid var(--border); border-radius: 6px; outline: none; transition: background 0.3s, color 0.3s; width: 130px; max-width:100%; box-sizing: border-box;}
       input[type="text"]:focus { border-color: var(--color-insight); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15); }
       .btn-nav { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; color: var(--text-main); font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; white-space: nowrap;}
@@ -282,9 +286,10 @@
           .nav-brand { flex: 1; font-size: 14px; }
           .mobile-menu-toggle { display: flex !important; align-items: center; padding: 6px 12px; background: var(--border); border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; border: none; color: var(--text-main); flex-shrink: 0; }
           .kpi-nav-container { width: 100%; margin-left: 0; order: 3; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-          .filter-bar { display: none; width: 100%; order: 4; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 6px; padding-bottom: 4px; }
-          .filter-bar.show-mobile { display: flex; }
-          input[type="text"] { min-width: 130px; width: 130px; }
+          .nav-actions { display: none; }
+          .filter-strip { display: none; }
+          .filter-strip.show-mobile { display: flex; }
+          .filter-strip input[type="text"] { min-width: 130px; width: 130px; }
           select { min-width: 110px; width: 110px; }
 
           /* WORKSPACE: sliding panels */
@@ -373,7 +378,14 @@
           </div>
       </div>
 
-      <div class="filter-bar" id="filter-bar">
+      <div class="nav-actions">
+        <button class="btn-nav" onclick="triggerRefresh()" id="btn-refresh">Sync Engine</button>
+        <span id="nav-ref-age" style="font-size:9px; font-weight:900; padding:3px 8px; border-radius:10px; border:1px solid; display:none; white-space:nowrap;"></span>
+        <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme">Dark Mode</button>
+      </div>
+    </div>
+
+    <div class="filter-strip" id="filter-strip">
         <input type="text" id="search-input" placeholder="Search FDH..." onkeyup="applyFilters()">
         <select id="filter-severity" onchange="applyFilters()">
            <option value="ALL">All Health</option>
@@ -384,10 +396,6 @@
         <select id="filter-vendor" onchange="applyFilters()"><option value="ALL">All Vendors</option></select>
         <select id="filter-city" onchange="applyFilters()"><option value="ALL">All Cities</option></select>
         <select id="filter-ofs" onchange="applyFilters()"><option value="ALL">All OFS Dates</option></select>
-        <button class="btn-nav" onclick="triggerRefresh()" id="btn-refresh">Sync Engine</button>
-        <span id="nav-ref-age" style="font-size:9px; font-weight:900; padding:3px 8px; border-radius:10px; border:1px solid; display:none; white-space:nowrap;"></span>
-        <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme">Dark Mode</button>
-      </div>
     </div>
 
     <div class="workspace" id="main-workspace">
@@ -569,7 +577,7 @@
       const setVal = (id, val) => { let el = document.getElementById(id); if(el) el.value = val; };
       const getEl = (id) => document.getElementById(id);
 
-      function toggleMobileMenu() { let bar = getEl('filter-bar'); if(bar) bar.classList.toggle('show-mobile'); }
+      function toggleMobileMenu() { let bar = getEl('filter-strip'); if(bar) bar.classList.toggle('show-mobile'); }
       function backToQueue() {
           let ws = getEl('main-workspace'); if(ws) ws.classList.remove('view-detail');
           let mab = getEl('mobile-action-bar'); if(mab) mab.style.display = 'none';
