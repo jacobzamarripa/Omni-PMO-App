@@ -924,7 +924,7 @@
           dateHtml += `<div class="gantt-today-label" style="left:${todayPct}%;" onmouseenter="showTodayHUD(event)" onmousemove="moveHUD(event)" onmouseleave="hideHUD()" onclick="toggleHudLock(event)">TODAY</div></div></div>`;
           gridLines += `<div class="gantt-today-line" style="left:${todayPct}%;"></div></div>`;
 
-          let html = `<div class="gantt-area" id="gantt-area-main" style="min-width:${chartWidth + 140}px;">${gridLines}${dateHtml}<div style="height: 15px;"></div>`;
+          let html = `<div class="gantt-area" id="gantt-area-main" style="width:${chartWidth + 140}px; min-width:${chartWidth + 140}px;">${gridLines}${dateHtml}<div style="height: 15px;"></div>`;
 
           const makeBead = (dateStr, icon, title, bgColor, borderColor, start, end, itemFdh) => {
               let d = new Date(dateStr); if(isNaN(d)) return ""; let pct = ((d - start) / (end - start)) * 100;
@@ -1043,24 +1043,62 @@
       }
 
       function generateSmartComment(item, daysLeft, isOverdue) {
-          let note = ""; let story = [];
-          if (item.flags && item.flags.trim() !== "") {
-              if (item.flags.includes("GHOST")) story.push("Verify reported activity against BOM (Ghost production).");
-              if (item.flags.includes("PACE")) story.push("Pace anomaly flagged. Need recovery plan from vendor.");
-              if (item.flags.includes("LIGHTING RISK")) story.push("Pending light to cabinets poses a delivery risk.");
-              if (item.flags.includes("BOM DISCREPANCY")) story.push("Verify production numbers against BOM.");
-              if (item.flags.includes("SCOPE DEVIATION")) story.push("Vendor reported production, but BOM shows 0. Verify if scope was expanded.");
-              if (item.flags.includes("STATUS MISMATCH")) story.push(`Vendor reported activity, but QB stage is incorrect. Update QB to Field CX | In Progress.`);
-              if (item.flags.includes("MISSING QB STATUS")) story.push(`Project is missing Stage or Status. Update QuickBase.`);
-              if (item.flags.includes("ADMIN: REFRESH REF DATA")) story.push(`QB Status updated. Awaiting new Reference Data import.`);
-              if (item.flags.includes("NOT IN QB REFERENCE")) story.push(`Project missing from Reference Data export. Ensure it exists in QuickBase.`);
-          }
-          if (isOverdue) story.push(`Project is OVERDUE by ${Math.abs(daysLeft)} days.`);
-          else if (daysLeft > 0 && daysLeft <= 7) story.push(`Project closing soon (${daysLeft} days left).`);
+          let st = (item.stage || "").toLowerCase(); let stat = (item.status || "").toLowerCase();
 
-          if (item.stage.includes("OFS") || item.status.includes("Complete")) { note += `Action: None. Project is ${item.status}.\nStatus: Tracking complete.`; } 
-          else { note += `Action: ${story.length > 0 ? story.join(" ") : "Monitor progress."}\nStatus: ${item.vendorComment ? `Vendor states: "${item.vendorComment}"` : "Awaiting vendor updates."}`; }
-          return note;
+          // OFS / Complete — nothing to action
+          if (st.includes('ofs') || stat.includes('complete')) {
+              return `Action: None. Project is ${item.status}.\nStatus: Tracking complete.`;
+          }
+
+          let parts = [];
+
+          // 1. Primary action from engine-generated draft (has specific reasons built-in)
+          if (item.draft && item.draft.trim() !== "" &&
+              !item.draft.includes("No specific action") && !item.draft.includes("No Anomalies")) {
+              parts.push(item.draft.trim());
+          }
+
+          // 2. Production velocity detail
+          let v = item.vel;
+          if (v) {
+              let todayParts = [];
+              if (v.ug.daily > 0) todayParts.push(`${v.ug.daily.toLocaleString()} ft UG`);
+              if (v.ae.daily > 0) todayParts.push(`${v.ae.daily.toLocaleString()} ft Strand`);
+              if (v.fib.daily > 0) todayParts.push(`${v.fib.daily.toLocaleString()} ft Fiber`);
+              if (v.nap.daily > 0) todayParts.push(`${v.nap.daily} NAPs`);
+              if (todayParts.length > 0) parts.push(`Vendor reported ${todayParts.join(', ')} today.`);
+
+              // Completion + pace for the primary work type
+              let paceAlerts = [];
+              [[v.ug, 'UG', 'ft', 450], [v.ae, 'Strand', 'ft', 5000], [v.nap, 'NAPs', '', 5]].forEach(([vel, label, unit, thresh]) => {
+                  if (!vel || vel.bom <= 0 || vel.tot >= vel.bom) return;
+                  let pct = Math.round((vel.tot / vel.bom) * 100);
+                  let remaining = vel.bom - vel.tot;
+                  let pace = daysLeft > 0 ? Math.round(remaining / daysLeft) : 0;
+                  let paceStr = unit ? `${pace.toLocaleString()} ${unit}/day` : `${pace}/day`;
+                  if (pace > thresh) paceAlerts.push(`${label} pace required ${paceStr} — above threshold.`);
+                  else if (pct > 0) parts.push(`${label}: ${pct}% complete (${vel.tot.toLocaleString()} / ${vel.bom.toLocaleString()}${unit ? ' ' + unit : ''}).`);
+              });
+              paceAlerts.forEach(a => parts.push(a));
+          }
+
+          // 3. Urgency
+          if (isOverdue) parts.push(`Project is OVERDUE by ${Math.abs(daysLeft)} days.`);
+          else if (daysLeft >= 0 && daysLeft <= 7) parts.push(`Closing in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — needs immediate attention.`);
+
+          // 4. Flag-based additions not covered by draft
+          let f = item.flags || "";
+          if (f.includes("ADMIN: CHECK CROSSINGS")) parts.push("Crossing check required before proceeding.");
+          if (f.includes("LIGHTING RISK")) parts.push("Pending light to cabinets is a delivery risk.");
+          if (f.includes("POSSIBLE REROUTE")) parts.push("Possible reroute detected — confirm scope with vendor.");
+          if (f.includes("NOT IN QB REFERENCE")) parts.push("Project missing from Reference Data export. Verify it exists in QuickBase.");
+
+          // Fallback if no flags or production
+          if (parts.length === 0) parts.push("No anomalies detected. Monitor progress.");
+
+          let actionText = parts.join(' ');
+          let statusText = item.vendorComment ? `Vendor states: "${item.vendorComment}"` : "Awaiting vendor updates.";
+          return `Action: ${actionText}\nStatus: ${statusText}`;
       }
 
       function buildVelocityBar(name, daily, tot, bom, typeKey, daysLeft) {
