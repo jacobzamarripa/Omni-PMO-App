@@ -42,7 +42,7 @@
       .nav-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
       .btn-icon { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; cursor: pointer; color: var(--text-main); font-size: 15px; line-height: 1; display: flex; align-items: center; transition: all 0.2s; }
       .btn-icon:hover { background: var(--border); }
-      .filter-strip { background: var(--bg); padding: 6px 24px; display: flex; align-items: center; gap: 6px; flex-shrink: 0; border-bottom: 1px solid var(--border); overflow-x: auto; -webkit-overflow-scrolling: touch; transition: background 0.3s, border-color 0.3s; }
+      .filter-strip { background: var(--bg); padding: 6px 24px; display: flex; align-items: center; gap: 6px; flex-shrink: 0; border-bottom: 1px solid var(--border); overflow-x: auto; -webkit-overflow-scrolling: touch; transition: background 0.3s, border-color 0.3s; position: relative; z-index: 10001; }
       .filter-strip::-webkit-scrollbar { height: 0; }
 
       .kpi-nav-container { display: flex; align-items: center; gap: 6px; flex-shrink: 1; margin-left: 16px; overflow: hidden; }
@@ -376,11 +376,11 @@
           <div class="kpi-nav-box crit-box has-tooltip" data-tooltip="Toggle Critical Filter" onclick="toggleCriticalFilter()">
               <div class="kpi-val" id="kpi-active-crit">0</div><div class="kpi-label">Critical</div>
           </div>
+          <span id="nav-ref-age" style="font-size:9px; font-weight:900; padding:3px 8px; border-radius:10px; border:1px solid; display:none; white-space:nowrap; margin-left: 6px;"></span>
       </div>
 
       <div class="nav-actions">
         <button class="btn-nav" onclick="triggerRefresh()" id="btn-refresh">Sync Engine</button>
-        <span id="nav-ref-age" style="font-size:9px; font-weight:900; padding:3px 8px; border-radius:10px; border:1px solid; display:none; white-space:nowrap;"></span>
         <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme">Dark Mode</button>
       </div>
     </div>
@@ -619,8 +619,10 @@
           let isFs = wrapper.classList.contains('fullscreen');
           if (isFs) {
               let navH = (document.querySelector('.top-nav') || {offsetHeight: 0}).offsetHeight;
-              wrapper.style.top = navH + 'px';
-              wrapper.style.height = 'calc(100vh - ' + navH + 'px)';
+              let filterH = (getEl('filter-strip') || {offsetHeight: 0}).offsetHeight;
+              let totalTopOffset = navH + filterH;
+              wrapper.style.top = totalTopOffset + 'px';
+              wrapper.style.height = `calc(100vh - ${totalTopOffset}px)`;
           } else {
               wrapper.style.top = '';
               wrapper.style.height = '';
