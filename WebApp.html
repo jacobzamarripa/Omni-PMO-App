@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+    <style>
+      :root {
+        --bg: #f1f5f9; --card-bg: #ffffff; --border: #e2e8f0; --text-main: #0f172a; --text-muted: #64748b;
+        --color-critical: #ef4444; --color-review: #f59e0b; --color-insight: #a855f7; 
+        --qb-ug: #f97316; --qb-ae: #94a3b8; --qb-fib: #000000; --qb-nap: #4338ca; --qb-done: #22c55e;
+        --qb-ae-bg: repeating-linear-gradient(115deg, #cbd5e1, #cbd5e1 3px, #f1f5f9 3px, #f1f5f9 6px);
+        --qb-fib-bg: linear-gradient(to bottom, #64748b 0%, #171717 25%, #171717 75%, #000000 100%);
+        --qb-fib-border: #ef4444; --qb-nap-border: #6366f1;
+        --qb-nap-bg: linear-gradient(90deg, #4338ca 0%, #6366f1 70%, #22d3ee 100%);
+        --starGold: #fbbf24;
+      }
+
+      body.dark-mode {
+        --bg: #09090b; --card-bg: #1e1e24; --border: #333338; --text-main: #fafafa; --text-muted: #a1a1aa; 
+        --qb-ae-bg: repeating-linear-gradient(115deg, #3f3f46, #3f3f46 3px, #27272a 3px, #27272a 6px);
+      }
+      
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background-color 0.3s, color 0.3s;}
+
+      .has-tooltip { position: relative; cursor: pointer; }
+      .has-tooltip:hover::after {
+          content: attr(data-tooltip); position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
+          background: #0f172a; color: #ffffff; font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: 999999; pointer-events: none; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+      }
+      body.dark-mode .has-tooltip:hover::after { background: #ffffff; color: #0f172a; }
+
+      .gantt-hud {
+          position: fixed; pointer-events: none; z-index: 999999; background: rgba(9, 9, 11, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          border: 1px solid #333338; border-radius: 8px; padding: 12px; color: #fafafa; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: none; flex-direction: column; gap: 8px; min-width: 220px; 
+      }
+      .gantt-hud ::-webkit-scrollbar { width: 6px; } .gantt-hud ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 6px; }
+
+      .top-nav { background: var(--card-bg); min-height: 52px; box-sizing: border-box; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); z-index: 10000; position: relative; flex-shrink: 0; transition: background 0.3s, border-color 0.3s; flex-wrap: wrap; gap: 10px;}
+      .nav-brand { font-size: 16px; font-weight: 900; letter-spacing: -0.5px; display: flex; align-items: center; flex-shrink: 0; }
+      
+      .kpi-nav-container { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-right: auto; margin-left: 24px; flex-wrap: wrap;}
+      .kpi-nav-header { font-size: 10px; font-weight: 900; color: var(--color-critical); text-transform: uppercase; display: flex; align-items: center; gap: 6px; margin-right: 8px;}
+      .kpi-dot { height: 6px; width: 6px; background: var(--color-critical); border-radius: 50%; display: inline-block; box-shadow: 0 0 6px var(--color-critical); }
+      .kpi-nav-box { background: var(--bg); padding: 4px 10px; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-shadow: inset 0 1px 2px rgba(0,0,0,0.02); min-width: 45px; transition: background 0.3s, border-color 0.3s;}
+      .kpi-nav-box .kpi-val { font-size: 14px; font-weight: 900; color: var(--text-main); line-height: 1.1; transition: color 0.3s;}
+      .kpi-nav-box .kpi-label { font-size: 8px; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-top: 2px; letter-spacing: 0.5px; transition: color 0.3s;}
+      .kpi-nav-box.crit-box { background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2); cursor: pointer; transition: all 0.2s;}
+      .kpi-nav-box.crit-box:hover { background: rgba(239, 68, 68, 0.1); transform: translateY(-1px); box-shadow: 0 2px 4px rgba(239,68,68,0.15);}
+      .kpi-nav-box.crit-box .kpi-val, .kpi-nav-box.crit-box .kpi-label { color: var(--color-critical); }
+      body.dark-mode .kpi-nav-box.crit-box { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3);}
+      body.dark-mode .kpi-nav-box.crit-box:hover { background: rgba(239, 68, 68, 0.15); }
+
+      .filter-bar { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap;}
+      input[type="text"], select { background: var(--card-bg); padding: 6px 10px; font-size: 12px; font-weight: 700; color: var(--text-main); border: 1px solid var(--border); border-radius: 6px; outline: none; transition: background 0.3s, color 0.3s; width: 130px; max-width:100%; box-sizing: border-box;}
+      input[type="text"]:focus { border-color: var(--color-insight); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15); }
+      .btn-nav { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; color: var(--text-main); font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; white-space: nowrap;}
+      .btn-nav:hover { background: var(--border); }
+      .btn-nav:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      .workspace { display: flex; flex-grow: 1; overflow: hidden; background: var(--bg); position: relative;}
+
+      .inbox-sidebar { width: 380px; min-width: 320px; max-width: 600px; resize: horizontal; overflow: hidden; background: var(--card-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5; flex-shrink: 0; transition: background 0.3s, border-color 0.3s;}
+      .inbox-header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s;}
+      .inbox-title { font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); }
+      .inbox-count { background: var(--border); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 900; color: var(--text-main);}
+      .inbox-list { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; padding: 0; gap: 0;}
+
+      .email-card { padding: 12px 16px; border: none; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s, border-color 0.3s; background: var(--card-bg); border-left: 4px solid transparent; display: flex; flex-direction: column; gap: 6px; }
+      .email-card:hover { background: var(--bg); }
+      .email-card.selected { background: rgba(59, 130, 246, 0.08); border-left-color: #3b82f6 !important; }
+      .email-card.crit { border-left-color: var(--color-critical); }
+      .email-card.warn { border-left-color: var(--color-review); }
+      .email-card.info { border-left-color: var(--color-insight); }
+      .em-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0;}
+      .em-fdh { font-size: 14px; font-weight: 900; color: var(--text-main); letter-spacing: -0.2px;}
+      .em-vendor { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;}
+      
+      .glass-pill { font-size: 9px; font-weight: bold; padding: 3px 8px; border-radius: 6px; border: 1.5px solid; text-transform: uppercase; white-space: nowrap; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: inline-flex; }
+      .pill-default { color: #854d0e; background: rgba(253, 224, 71, 0.2); border-color: #facc15; }
+      .pill-ofs { color: #1d4ed8; background: rgba(59, 130, 246, 0.15); border-color: #3b82f6; }
+      .pill-permit { color: #7e22ce; background: rgba(168, 85, 247, 0.15); border-color: #a855f7; }
+      .pill-complete { color: #15803d; background: rgba(34, 197, 94, 0.15); border-color: #22c55e; }
+      .pill-hold { color: #475569; background: rgba(148, 163, 184, 0.15); border-color: #94a3b8; }
+      .pill-missing { color: #b91c1c; background: rgba(239, 68, 68, 0.15); border-color: #ef4444; }
+      body.dark-mode .pill-default { color: #fde047; background: rgba(253, 224, 71, 0.1); border-color: #ca8a04; }
+      body.dark-mode .pill-ofs { color: #93c5fd; background: rgba(59, 130, 246, 0.1); border-color: #2563eb; }
+      body.dark-mode .pill-permit { color: #d8b4fe; background: rgba(168, 85, 247, 0.1); border-color: #9333ea; }
+      body.dark-mode .pill-complete { color: #86efac; background: rgba(34, 197, 94, 0.1); border-color: #16a34a; }
+      body.dark-mode .pill-hold { color: #cbd5e1; background: rgba(148, 163, 184, 0.1); border-color: #64748b; }
+      body.dark-mode .pill-missing { color: #fca5a5; background: rgba(239, 68, 68, 0.15); border-color: #dc2626; }
+
+      .em-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px;}
+      .tag { display: inline-flex; padding: 2px 4px; border-radius: 3px; font-size: 8px; font-weight: 900; white-space: nowrap; border: 1px solid; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);}
+      .tag-red { background: rgba(254, 226, 226, 0.5); color: #991b1b; border-color: #fca5a5; }
+      .tag-yellow { background: rgba(254, 252, 232, 0.5); color: #854d0e; border-color: #fde047; }
+      .tag-purple { background: rgba(250, 245, 255, 0.5); color: #6b21a8; border-color: #d8b4fe; }
+      .tag-admin { background: #171717; color: #facc15; border-color: #facc15; }
+      body.dark-mode .tag-red { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border-color: #ef4444;}
+      body.dark-mode .tag-yellow { background: rgba(234, 179, 8, 0.15); color: #fde047; border-color: #eab308;}
+      body.dark-mode .tag-purple { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border-color: #a855f7;}
+      body.dark-mode .tag-admin { background: rgba(250, 204, 21, 0.1); color: #fde047; border-color: #facc15; }
+
+      .reading-pane { flex-grow: 1; overflow-y: auto; padding: 24px; display: flex; justify-content: center; }
+      .pane-content { width: 100%; max-width: 1000px; display: none; flex-direction: column; gap: 16px; }
+      .qb-grid { display: grid; grid-template-columns: 4fr 6fr; gap: 20px; }
+
+      .qb-module { background: var(--card-bg); border-radius: 12px; border: 1.5px solid var(--border); padding: 14px 18px; display: flex; flex-direction: column; position: relative; transition: outline 0.2s, background 0.3s, border-color 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);}
+      .qb-module-header { font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;}
+
+      .qb-proj-title { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px;}
+      .qb-proj-title-left { display: flex; flex-direction: column; }
+      .qb-proj-id { font-size: 18px; font-weight: 900; color: var(--text-main); letter-spacing: -0.5px; line-height: 1.2;}
+      .qb-proj-meta { font-size: 11px; font-weight: 600; color: var(--text-muted);}
+
+      .qb-time-labels { display: flex; justify-content: space-between; font-size: 10px; font-weight: 800; color: var(--text-muted); margin-top: 12px; margin-bottom: 2px; text-transform: uppercase;}
+      .qb-time-bar { height: 12px; background: var(--bg); border-radius: 6px; position: relative; border: 1px solid var(--border); margin-bottom: 16px; overflow: visible;}
+      .qb-time-fill { height: 100%; border-radius: 6px; transition: width 0.5s;}
+      .qb-time-bead { position: absolute; top: -1px; width: 14px; height: 14px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); border-radius: 50%; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.2); box-sizing: border-box; border: 3px solid;}
+      .proj-bead { position: absolute; top: -3px; width: 18px; height: 18px; background: var(--card-bg); border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: 2px solid; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; z-index: 8; pointer-events: auto; cursor: pointer; font-size: 8px; font-weight: 900; }
+
+      .qb-target-wrap { margin-top: auto; border-radius: 12px 12px 0 0; transition: transform 0.2s;}
+      .qb-target-wrap.xing { padding: 3px 3px 0 3px; background: repeating-linear-gradient(45deg, #171717, #171717 8px, #facc15 8px, #facc15 16px); }
+      .qb-target-inner { background: var(--bg); border: 1.5px solid var(--border); border-bottom: none; border-radius: 12px 12px 0 0; padding: 14px 6px 10px 6px; text-align: center; position: relative; box-shadow: 0px -3px 8px rgba(0,0,0,0.04); height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center;}
+      .qb-target-label { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px;}
+      .qb-target-date { font-size: 16px; font-weight: 900; line-height: 1.2; margin-top: 2px; display: flex; align-items: center;}
+      #p-xing { position:absolute; bottom:4px; right:4px; display:flex; align-items:center; gap:4px; background:#171717; color:#facc15; padding:1px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #facc15; }
+
+      .velocity-grid { display: flex; flex-wrap: wrap; gap: 12px 24px; width: 100%; align-content: center; flex-grow: 1;}
+      .qb-vel-item { flex: 1 1 200px; min-width: 180px; transition: transform 0.2s;}
+      .qb-vel-labels { display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; color: var(--text-main); margin-bottom: 4px; align-items: center;}
+      .qb-vel-bar { height: 10px; background: var(--bg); border-radius: 5px; position: relative; border: 1px solid var(--border); margin-bottom: 4px; overflow: visible; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);}
+      .qb-vel-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px; transition: width 0.5s; z-index: 1;}
+      .qb-vel-bead { position: absolute; top: -2px; width: 14px; height: 14px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); border-radius: 50%; border: 3px solid; z-index: 2; box-sizing: border-box;}
+      .qb-vel-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-top: auto; border-top: 1px solid var(--border); padding-top: 8px; gap: 8px;}
+      .vel-footer-pill { font-size: 9px; font-weight: 800; background: var(--bg); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-main); transition: background 0.2s;}
+
+      .review-grid { display: grid; grid-template-columns: 4fr 6fr; gap: 24px; flex-grow: 1; align-items: stretch;}
+      .section-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 6px; margin-left: 4px; }
+      
+      .vendor-bubble { font-size: 11px; line-height: 1.4; padding: 12px 14px; margin-bottom: 16px; border: 1.5px solid #fde047; border-radius: 12px 12px 12px 2px; background: rgba(255, 251, 235, 0.7); box-shadow: 3px 3px 0px rgba(0,0,0,0.05); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); color: var(--text-main); font-style: italic; transition: transform 0.2s;}
+      body.dark-mode .vendor-bubble { background: rgba(66, 32, 6, 0.3); border-color: #713f12; }
+      
+      .action-box { background: var(--bg); border: 1px solid var(--border); border-left-width: 4px; border-left-style: solid; border-left-color: var(--text-muted); border-radius: 8px; padding: 14px; font-size: 12px; line-height: 1.5; color: var(--text-main); display: flex; flex-direction: column; gap: 10px; margin:0; transition: transform 0.2s;}
+      .action-box.warn { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
+      .action-box.crit { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
+
+      .comment-area { display: flex; flex-direction: column; height: 100%; transition: transform 0.2s;}
+      .chat-bubble { flex-grow: 1; padding: 14px; border-radius: 12px 12px 2px 12px; font-family: monospace; font-size: 12px; min-height: 100px; resize: none; transition: all 0.2s;}
+      body:not(.dark-mode) .chat-bubble { background: #faf5ff; color: #4c1d95; border: 1px solid #d8b4fe; box-shadow: 3px 3px 0px rgba(0,0,0,0.05);}
+      body:not(.dark-mode) .chat-bubble:focus { outline: none; border-color: #a855f7; background: #ffffff; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);}
+      body.dark-mode .chat-bubble { background: rgba(46, 16, 101, 0.3); color: #e9d5ff; border: 1px solid #6b21a8; }
+      body.dark-mode .chat-bubble:focus { outline: none; border-color: #a855f7; background: var(--card-bg); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.3);}
+
+      .pane-footer { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px;}
+      .btn { padding: 6px 14px; border-radius: 6px; font-size: 10px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; border: 1.5px solid; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;}
+      .btn-primary { background: var(--qb-done); color: white; border-color: #16a34a;}
+      .btn-primary:hover { opacity: 0.9; transform: translateY(-1px);}
+      .btn-skip { background: transparent; color: var(--text-main); border-color: var(--border);}
+      .btn-skip:hover { background: var(--bg); transform: translateY(-1px);}
+
+      .outbox-pane { width: 22%; min-width: 250px; max-width: 400px; background: var(--card-bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5; flex-shrink: 0; box-shadow: -1px 0 10px rgba(0,0,0,0.02); transition: background 0.3s, border-color 0.3s;}
+      .ob-header { padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s;}
+      .ob-list { padding: 12px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;}
+      .ob-card { padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--text-main);}
+      .ob-card:hover { border-color: var(--text-muted); }
+      .ob-footer { padding: 12px; border-top: 1px solid var(--border); background: var(--card-bg); transition: background 0.3s, border-color 0.3s;}
+      
+      .raw-data-strip { height: 60px; min-height: 60px; background: var(--bg); border-top: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; display: flex; align-items: center; padding: 0 12px; flex-shrink: 0; z-index: 8; transition: background 0.3s, border-color 0.3s;}
+      .raw-table { border-collapse: collapse; font-family: monospace; font-size: 10px; background: var(--card-bg); margin: auto 0; border: 1px solid var(--border);}
+      .raw-table th { background: var(--bg); color: var(--text-muted); font-weight: bold; padding: 4px 8px; border: 1px solid var(--border); white-space: nowrap;}
+      .raw-table td { padding: 4px 8px; border: 1px solid var(--border); white-space: nowrap; color: var(--text-main); transition: background-color 0.2s;}
+      .raw-highlight { background-color: rgba(59, 130, 246, 0.15) !important; outline: 2px solid #3b82f6 !important; outline-offset: -2px; color: #1d4ed8 !important; font-weight: 900 !important; }
+      body.dark-mode .raw-highlight { background-color: rgba(96, 165, 250, 0.2) !important; color: #93c5fd !important; }
+      .hover-trigger:hover { transform: translateY(-2px); }
+
+      /* 🧠 THEATER MODE GANTT STYLING */
+      .timeline-wrapper { flex: 0 0 auto; height: 35vh; min-height: 200px; background: var(--card-bg); border-top: 1px solid var(--border); position: relative; z-index: 10; display: flex; flex-direction: column; transition: all 0.3s ease; }
+      .timeline-wrapper.minimized { height: 40px; min-height: 40px; overflow: hidden; }
+      .timeline-wrapper.fullscreen { position: absolute; top: 52px; left: 0; width: 100vw; height: calc(100vh - 52px); z-index: 9999; }
+      .gantt-controls { display: flex; justify-content: space-between; padding: 8px 24px; background: var(--bg); border-bottom: 1px solid var(--border); align-items: center; cursor: pointer; transition: background 0.3s, border-color 0.3s;}
+      .timeline-container { flex-grow: 1; overflow: auto; position: relative; padding: 0 24px 20px 24px;}
+      .gantt-area { position: relative; padding-bottom: 20px; transition: background 0.3s;}
+      .gantt-area.has-focus .gantt-row:not(.is-active) { opacity: 0.35; filter: grayscale(40%); }
+      
+      .tl-header-bar { position: sticky; top: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 30; border-bottom: 1px solid var(--border); height: 30px; transition: background 0.3s, border-color 0.3s;}
+      body.dark-mode .tl-header-bar { background: rgba(30, 30, 36, 0.85); }
+
+      .gantt-today-line { position: absolute; top: 30px; bottom: 0; width: 2px; background: rgba(239,68,68,0.8); z-index: 10; border-left: 1px dashed #ef4444; pointer-events: none;}
+      .gantt-today-label { position: absolute; top: -2px; transform: translateX(-50%); font-size: 10px; font-weight: 900; color: #ffffff; background: #ef4444; padding: 4px 8px; border-radius: 6px; pointer-events: auto; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s; z-index: 50;}
+      .gantt-today-label:hover { transform: translateX(-50%) translateY(-2px); box-shadow: 0 6px 8px rgba(239, 68, 68, 0.4); }
+      
+      .gantt-eom-line { position: absolute; top: 0; bottom: 0; width: 1px; border-left: 1px dashed #3b82f6; pointer-events: none; z-index: 10; opacity: 0.7;}
+      .gantt-eom-label { position: absolute; transform: translateX(-50%); top: 32px; font-size: 10px; font-weight: 900; color: #1d4ed8; background: #eff6ff; padding: 4px 8px; border-radius: 6px; border: 1px solid #93c5fd; z-index: 12; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.05);}
+      body.dark-mode .gantt-eom-label { background: #1e3a8a; color: #bfdbfe; border-color: #1e40af;}
+      
+      .gantt-spike-bg { position: absolute; top: 0; bottom: 0; width: 25px; background: rgba(245, 158, 11, 0.1); z-index: 0; transform: translateX(-50%); border-left: 1px dashed rgba(245, 158, 11, 0.4); border-right: 1px dashed rgba(245, 158, 11, 0.4); pointer-events: none;}
+      .gantt-spike-label { position: absolute; transform: translateX(-50%); font-size: 10px; font-weight: 900; color: #b45309; background: #fefce8; padding: 4px 8px; border-radius: 6px; border: 1.5px solid #fde047; white-space: nowrap; cursor: pointer; pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;}
+      .gantt-spike-label:hover { transform: translateX(-50%) translateY(-2px); box-shadow: 0 6px 8px rgba(0,0,0,0.2); }
+      body.dark-mode .gantt-spike-label { background: #422006; color: #fde047; border-color: #713f12;}
+
+      .gantt-row { position: relative; height: 34px; margin-bottom: 6px; cursor: pointer; z-index: 6; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);}
+      .gantt-row.is-active { z-index: 50; }
+      .gantt-row.is-active .gantt-bar-fill { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--text-main), 0 10px 20px rgba(0,0,0,0.3) !important; transform: scaleY(1.15); }
+      .gantt-row.is-active .gantt-label { background: var(--text-main) !important; border-right: 1px solid var(--text-main) !important; border-bottom: 1px solid var(--text-main) !important; backdrop-filter: none; -webkit-backdrop-filter: none;}
+      .gantt-row.is-active .gantt-label-fdh { color: var(--bg) !important; }
+      .gantt-row.is-active .gantt-label-ven { color: var(--bg) !important; opacity: 0.8; }
+
+      .gantt-label { position: absolute; left: 0; top: 0; bottom: 0; width: 140px; position: sticky; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 10; padding: 0 12px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--bg); border-left: 4px solid transparent; display: flex; flex-direction: column; justify-content: center; transition: background 0.1s, border-color 0.3s;}
+      body.dark-mode .gantt-label { background: rgba(30, 30, 36, 0.85); }
+      .gantt-label:hover { background: var(--bg); }
+      .gantt-label.crit { border-left-color: var(--color-critical); }
+      .gantt-label.warn { border-left-color: var(--color-review); }
+      .gantt-label.info { border-left-color: var(--color-insight); }
+      .gantt-label-fdh { font-size: 11px; font-weight: 900; color: var(--text-main); letter-spacing: -0.2px; line-height: 1.1;}
+      .gantt-label-ven { font-size: 8px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; }
+
+      .gantt-bar-fill { position: absolute; top: 8px; height: 18px; border-radius: 9px; transition: width 0.3s, transform 0.4s, box-shadow 0.4s; display: flex; align-items: center; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.15);}
+      .gantt-bar-text { color: #ffffff; font-size: 10px; font-weight: bold; padding: 0 10px; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.6);}
+      
+      .gantt-bead { position: absolute; top: 8px; width: 18px; height: 18px; background: var(--card-bg); border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: 2px solid; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; z-index: 8; pointer-events: auto; cursor: pointer; font-size: 8px; font-weight: 900; box-sizing: border-box;}
+
+      .g-color-blue { background-color: #3b82f6; } .g-color-purple { background-color: #a855f7; } .g-color-green { background-color: #22c55e; } .g-color-gray { background-color: #94a3b8; } .g-color-red { background-color: #ef4444; } .g-color-yellow { background-color: #facc15; }
+      .empty-msg { text-align: center; margin-top: 20%; color: var(--text-muted); font-weight: 800; font-size: 14px;}
+
+      /* 📱 MOBILE RESPONSIVE CSS (GYROSCOPE LOGIC) */
+      @media screen and (max-width: 768px) {
+          .top-nav { flex-direction: column; height: auto; align-items: stretch; padding: 12px; gap: 12px; }
+          .kpi-nav-container { margin-left: 0; justify-content: center; width: 100%; }
+          .filter-bar { display: none; flex-direction: column; width: 100%; }
+          .filter-bar.show-mobile { display: flex; }
+          input[type="text"], select { width: 100%; }
+          
+          .mobile-menu-toggle { display: block !important; padding: 6px 12px; background: var(--border); border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; text-align: center; }
+          
+          .workspace { flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+          .inbox-sidebar { width: 100%; max-width: 100%; height: 100%; border-right: none; flex-shrink: 0; }
+          .reading-pane { width: 100%; padding: 12px; box-sizing: border-box; display: none; }
+          .outbox-pane { display: none; } 
+          
+          .workspace.view-detail .inbox-sidebar { display: none; }
+          .workspace.view-detail .reading-pane { display: flex; flex-direction: column; }
+          
+          .mobile-back-btn { display: flex !important; padding: 8px 12px; background: var(--text-main); color: var(--bg); border-radius: 6px; font-weight: bold; font-size: 12px; margin-bottom: 12px; align-items: center; gap: 6px; cursor: pointer; }
+          
+          .qb-grid, .review-grid { grid-template-columns: 1fr; gap: 12px; }
+          .pane-footer { flex-direction: column; align-items: stretch; gap: 8px; }
+          .pane-footer > div { margin-right: 0 !important; text-align: center; margin-bottom: 8px;}
+          .btn { width: 100%; justify-content: center; padding: 12px; font-size: 14px;}
+          .chat-bubble { min-height: 150px; } 
+          
+          .raw-data-strip { display: none; }
+      }
+      
+      @media screen and (max-width: 768px) and (orientation: portrait) {
+          .timeline-wrapper { display: none !important; }
+      }
+      
+      @media screen and (max-width: 950px) and (orientation: landscape) {
+          .top-nav { display: none; }
+          .workspace { display: none; }
+          .raw-data-strip { display: none; }
+          .timeline-wrapper { height: 100vh !important; border-top: none; position: absolute; top: 0; left: 0; width: 100vw; z-index: 99999; }
+          .gantt-controls { padding: 4px 12px; }
+      }
+      
+      .mobile-menu-toggle { display: none; }
+      .mobile-back-btn { display: none; }
+    </style>
+  </head>
+  <body>
+    
+    <div id="gantt-hud" class="gantt-hud"></div>
+    
+    <div class="top-nav">
+      <div style="display:flex; justify-content: space-between; width: 100%; align-items: center;">
+          <div class="nav-brand">Dailies Command Center</div>
+          <div class="mobile-menu-toggle" onclick="toggleMobileMenu()">Filters ⚙️</div>
+      </div>
+      
+      <div class="kpi-nav-container">
+          <div class="kpi-nav-header"><span class="kpi-dot"></span> Active Today</div>
+          <div class="kpi-nav-box"><div class="kpi-val" id="kpi-active-proj">0</div><div class="kpi-label">Projects</div></div>
+          <div class="kpi-nav-box"><div class="kpi-val" id="kpi-active-bsls">0</div><div class="kpi-label">BSLs</div></div>
+          <div class="kpi-nav-box crit-box has-tooltip" data-tooltip="Toggle Critical Filter" onclick="toggleCriticalFilter()">
+              <div class="kpi-val" id="kpi-active-crit">0</div><div class="kpi-label">Critical</div>
+          </div>
+      </div>
+
+      <div class="filter-bar" id="filter-bar">
+        <input type="text" id="search-input" placeholder="Search FDH..." onkeyup="applyFilters()">
+        <select id="filter-severity" onchange="applyFilters()">
+           <option value="ALL">All Health</option>
+           <option value="crit">Critical</option>
+           <option value="warn">Warnings</option>
+           <option value="info">Clear</option>
+        </select>
+        <select id="filter-vendor" onchange="applyFilters()"><option value="ALL">All Vendors</option></select>
+        <select id="filter-city" onchange="applyFilters()"><option value="ALL">All Cities</option></select>
+        <select id="filter-ofs" onchange="applyFilters()"><option value="ALL">All OFS Dates</option></select>
+        <button class="btn-nav" onclick="triggerRefresh()" id="btn-refresh">Sync Engine</button>
+        <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme">Dark Mode</button>
+      </div>
+    </div>
+
+    <div class="workspace" id="main-workspace">
+      <div class="inbox-sidebar">
+        <div class="inbox-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+              <div class="inbox-title">Diagnostic Queue</div>
+              <div class="inbox-count" id="inbox-count">0</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Sort:</span>
+              <select id="sort-queue" onchange="applyFilters()" style="font-size:9px; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer;">
+                 <option value="default">Default</option>
+                 <option value="admin">Admin Check</option>
+                 <option value="target">Target Date</option>
+                 <option value="start">CX Start</option>
+                 <option value="end">CX Complete</option>
+                 <option value="ofs">OFS Date</option>
+                 <option value="report">Report Date</option>
+              </select>
+          </div>
+        </div>
+        <div class="inbox-list" id="inbox-list"></div>
+      </div>
+
+      <div class="reading-pane">
+        <div id="welcome-screen" class="empty-msg"><div style="font-size:32px; margin-bottom:12px;">Select a Project</div></div>
+        
+        <div class="pane-content" id="pane-content">
+           <div class="mobile-back-btn" onclick="backToQueue()">◀ Back to Queue</div>
+           <div class="qb-grid">
+               <div class="qb-module hover-trigger" id="project-schedule-card" style="padding:12px 14px;" onmouseenter="hl('Forecasted OFS')" onmouseleave="hl('')">
+                   <div class="qb-module-header" style="background:transparent; border-bottom:none; margin-bottom:0;">Project Schedule</div>
+                   <div class="qb-proj-title">
+                       <div class="qb-proj-title-left">
+                           <div class="qb-proj-id" id="p-fdh">FDH-123</div>
+                           <div class="qb-proj-meta" id="p-meta">City</div>
+                       </div>
+                       <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+                           <div class="glass-pill" id="p-status" onmouseenter="hl('Status')" onmouseleave="hl('')">Field CX | In Progress</div>
+                       </div>
+                   </div>
+                   <div class="qb-time-labels">
+                       <span id="p-cx-start" onmouseenter="hl('CX Start')" onmouseleave="hl('')" style="cursor:pointer;">CX START: <span style="color:var(--text-main);">TBD</span></span>
+                       <span id="p-cx-end" onmouseenter="hl('CX Complete')" onmouseleave="hl('')" style="cursor:pointer;">CX COMPLETE: <span style="color:var(--text-main);">TBD</span></span>
+                   </div>
+                   <div class="qb-time-bar">
+                       <div class="qb-time-fill" id="p-time-fill" style="width:0%;"></div>
+                       <div id="p-time-stars"></div>
+                       <div class="qb-time-bead" id="p-time-bead" style="display:none; left:0%;"></div>
+                   </div>
+                   <div id="p-target-wrap" class="qb-target-wrap hover-trigger" onmouseenter="hl('Target Completion Date')" onmouseleave="hl('')">
+                       <div class="qb-target-inner" id="p-target-inner">
+                           <div class="qb-target-label">Target Date</div>
+                           <div class="qb-target-date" id="p-target">TBD</div>
+                           <div id="p-xing" style="display:none;">X-ING</div>
+                       </div>
+                   </div>
+               </div>
+
+               <div class="qb-module" style="padding:12px 14px;">
+                   <div class="qb-module-header" style="background:transparent; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                       <span>Field Velocity & Production</span>
+                       <div id="p-light-pill" style="display:flex; align-items:center; gap:6px; font-size:10px; font-weight:800;" onmouseenter="hl('Light to Cabinets')" onmouseleave="hl('')"></div>
+                   </div>
+                   <div class="velocity-grid" id="p-prod-bars"></div>
+                   <div class="qb-vel-footer">
+                       <div style="font-size:10px; font-weight:900; color:var(--text-muted);" id="p-days-left">DAYS LEFT: 0</div>
+                       <div style="display:flex; gap:8px;">
+                           <div class="vel-footer-pill hover-trigger" id="p-bsls" onmouseenter="hl('HHPs')" onmouseleave="hl('')" style="cursor:pointer;">BSLS: </div>
+                           <div class="vel-footer-pill hover-trigger" id="p-ofs" onmouseenter="hl('Forecasted OFS')" onmouseleave="hl('')" style="cursor:pointer; display:none;">OFS: </div>
+                       </div>
+                   </div>
+               </div>
+
+               <div class="qb-module" style="grid-column: span 2; padding:16px 20px;">
+                   <div class="qb-module-header" style="background:transparent; border-bottom:1px solid var(--border);">Diagnostic & Manager Review</div>
+                   <div class="review-grid">
+                       <div style="display:flex; flex-direction:column; gap:16px; height:100%;">
+                           <div>
+                               <div class="section-label">Vendor Update</div>
+                               <div class="vendor-bubble hover-trigger" id="p-vendor-bubble" onmouseenter="hl('Vendor Comment')" onmouseleave="hl('')">
+                                   <div id="p-vendor-comment">"No update provided."</div>
+                               </div>
+                           </div>
+                           <div style="flex-grow:1; display:flex; flex-direction:column;">
+                               <div class="section-label">System Diagnostics</div>
+                               <div id="p-action" class="action-box hover-trigger" style="flex-grow:1; display:flex; flex-direction:column;" onmouseenter="hl('Health Flags')" onmouseleave="hl('')"></div>
+                           </div>
+                       </div>
+                       <div class="comment-area hover-trigger" onmouseenter="hl('Action Required')" onmouseleave="hl('')">
+                           <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; padding:0 4px;">
+                               <div class="section-label" style="color:var(--color-insight); margin:0;">OMNI Manager Note</div>
+                               <div id="p-review-date" style="font-size:9px; font-weight:bold; color:var(--text-muted);"></div>
+                           </div>
+                           <textarea id="p-comment" class="chat-bubble"></textarea>
+                       </div>
+                   </div>
+                   <div class="pane-footer">
+                       <div style="font-size:9px; font-weight:900; color:var(--text-muted); align-self:center; margin-right:auto; text-transform:uppercase;">
+                           <span id="p-date" class="hover-trigger" onmouseenter="hl('Date')" onmouseleave="hl('')" style="cursor:pointer;">REPORT DATE: TBD</span>
+                           <span style="margin: 0 6px; color:var(--border);">|</span>
+                           <span id="p-last-check" class="hover-trigger" onmouseenter="hl('QB Context & Gaps')" onmouseleave="hl('')" style="cursor:pointer;">LAST CHECKED: NEVER</span>
+                       </div>
+                       <button class="btn btn-skip" onclick="skipReview()">Skip (Clear)</button>
+                       <button class="btn btn-primary" id="btn-commit" onclick="commitReview()">✔ Commit</button>
+                   </div>
+               </div>
+           </div>
+        </div>
+      </div>
+
+      <div class="outbox-pane">
+         <div class="ob-header">
+            <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted);">Reviewed</div>
+            <div id="ob-count" style="background:var(--border); padding:2px 8px; border-radius:12px; font-size:11px; font-weight:900; color:var(--text-main);">0</div>
+         </div>
+         <div class="ob-list" id="outbox-list"><div class="empty-msg" style="margin-top:50px;">No items reviewed.</div></div>
+         <div class="ob-footer">
+            <button class="btn btn-primary" style="width:100%; justify-content:center; font-size:12px; padding:10px;" id="btn-export-all" onclick="promptEmailExport()">Export All</button>
+         </div>
+      </div>
+    </div>
+
+    <div class="raw-data-strip" id="raw-data-strip"></div>
+
+    <div class="timeline-wrapper" id="gantt-wrapper">
+       <div class="gantt-controls" onclick="toggleMinimize()">
+           <div style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--text-muted);">Global Construction Timeline</div>
+           <div>
+               <button class="btn btn-nav" id="btn-exit-theater" style="display:none; padding: 4px 8px; font-size: 9px; margin-right:6px; background:var(--text-main); color:var(--bg);" onclick="event.stopPropagation(); exitTheaterMode()">Exit Focus</button>
+               <button class="btn btn-nav" style="display:inline-flex; padding: 4px 8px; font-size: 9px; margin-right:6px;" onclick="event.stopPropagation(); toggleMinimize()">Minimize</button>
+               <button class="btn btn-nav" style="display:inline-flex; padding: 4px 8px; font-size: 9px;" onclick="event.stopPropagation(); toggleFullscreen()">Fullscreen</button>
+           </div>
+       </div>
+       <div class="timeline-container" id="gantt-scroll" onclick="exitTheaterMode(event)">
+           <div id="gantt-container"><div class="empty-msg" style="margin-top:20px;">Loading Timeline...</div></div>
+       </div>
+    </div>
+
+    <script>
+      const setHtml = (id, val) => { let el = document.getElementById(id); if(el) el.innerHTML = val; };
+      const setTxt = (id, val) => { let el = document.getElementById(id); if(el) el.innerText = val; };
+      const setStyle = (id, prop, val) => { let el = document.getElementById(id); if(el) el.style[prop] = val; };
+      const setVal = (id, val) => { let el = document.getElementById(id); if(el) el.value = val; };
+      const getEl = (id) => document.getElementById(id);
+
+      function toggleMobileMenu() { let bar = getEl('filter-bar'); if(bar) bar.classList.toggle('show-mobile'); }
+      function backToQueue() { let ws = getEl('main-workspace'); if(ws) ws.classList.remove('view-detail'); }
+
+      function safeExecute(fnName, fn) {
+          try { fn(); } catch (err) {
+              console.error(`UI Error in ${fnName}:`, err);
+              let pc = getEl('pane-content');
+              if(pc) { pc.innerHTML = `<div class="error-msg" style="color:var(--color-critical); padding:20px; font-family:monospace;"><b>Dashboard Render Crash (${fnName}):</b><br/>${err.message}</div>`; pc.style.display = 'flex'; }
+          }
+      }
+
+      function getSeverity(flagsStr) {
+          let rawFlags = (flagsStr || "").split('\n').map(f => f.trim()).filter(f => f !== ""); let highestSev = "info";
+          rawFlags.forEach(f => {
+              if (f.includes("ADMIN: CHECK CROSSINGS") || f.includes("ADMIN: REFRESH REF DATA") || f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS") || f.includes("🚨") || f.includes("🛑") || f.includes("🚩")) { highestSev = "crit"; } 
+              else if (f.includes("⚠️") || f.includes("🖍️") || f.includes("🚧")) { if(highestSev !== "crit") highestSev = "warn"; }
+          });
+          return highestSev;
+      }
+      
+      function getQBStatusClass(stage, status, isMissing) {
+          if (isMissing) return 'pill-missing';
+          let st = (stage || "").toLowerCase(), stat = (status || "").toLowerCase();
+          if (st.includes('ofs')) return 'pill-ofs'; if (st.includes('permit')) return 'pill-permit'; if (stat.includes('complete')) return 'pill-complete'; if (stat.includes('hold') || stat.includes('assign')) return 'pill-hold';
+          return 'pill-default';
+      }
+
+      function populateDropdown(id, values) {
+          let el = getEl(id); if (!el) return; let current = el.value; while (el.options.length > 1) el.remove(1);
+          values.forEach(v => { let opt = document.createElement('option'); opt.value = v; opt.text = v; el.appendChild(opt); });
+          if ([...el.options].some(o => o.value === current)) el.value = current;
+      }
+
+      function toggleFullscreen() { let wrapper = getEl('gantt-wrapper'); if(wrapper) { wrapper.classList.remove('minimized'); wrapper.classList.toggle('fullscreen'); } }
+      function toggleMinimize() { let wrapper = getEl('gantt-wrapper'); if(wrapper && !wrapper.classList.contains('fullscreen')) wrapper.classList.toggle('minimized'); }
+      function toggleCriticalFilter() { let sevDropdown = getEl('filter-severity'); if (sevDropdown) { sevDropdown.value = (sevDropdown.value === 'crit') ? 'ALL' : 'crit'; applyFilters(); } }
+      
+      let hudLocked = false;
+      function toggleHudLock(e) {
+          if(e) e.stopPropagation(); hudLocked = !hudLocked; let hud = getEl('gantt-hud');
+          if (hudLocked && hud) { hud.style.pointerEvents = 'auto'; hud.style.boxShadow = '0 0 0 2px var(--color-insight), 0 10px 25px rgba(0,0,0,0.5)'; } 
+          else if (hud) { hud.style.pointerEvents = 'none'; hud.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)'; hideHUD(); }
+      }
+
+      function exitTheaterMode(e) {
+          if (e && e.target.closest('.gantt-row') && !e.target.closest('.gantt-spike-label') && !e.target.closest('.gantt-today-label')) return;
+          if (e && (e.target.closest('.gantt-spike-label') || e.target.closest('.gantt-today-label'))) return;
+          let ganttArea = getEl('gantt-area-main'); if (ganttArea) ganttArea.classList.remove('has-focus');
+          document.querySelectorAll('.gantt-row').forEach(r => r.classList.remove('is-active'));
+          let btn = getEl('btn-exit-theater'); if(btn) btn.style.display = 'none';
+          hudLocked = false; hideHUD();
+      }
+      
+      function toggleDarkMode() {
+          document.body.classList.toggle('dark-mode'); let btn = getEl('btn-theme'); if(btn) btn.innerText = document.body.classList.contains('dark-mode') ? "Light Mode" : "Dark Mode";
+      }
+
+      function triggerRefresh() {
+          let d = new Date(); d.setDate(d.getDate() - 1); let localDateStr = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0');
+          let dateInput = prompt("Run System Diagnostics (Fn 3a)\n\nEnter the date to review (YYYY-MM-DD):", localDateStr); if (!dateInput) return; 
+          let btn = getEl('btn-refresh'); if(btn) { btn.innerText = "Syncing..."; btn.disabled = true; }
+          setHtml('gantt-container', `<div class="empty-msg" style="margin-top:20px;">Running Engine...</div>`); setHtml('inbox-list', `<div class="empty-msg">Fetching new data...</div>`);
+          setStyle('pane-content', 'display', 'none'); setStyle('welcome-screen', 'display', 'block'); setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">Running Engine Diagnostics...</div>`);
+
+          google.script.run.withSuccessHandler((data) => {
+              if(btn) { btn.innerText = "Sync Engine"; btn.disabled = false; }
+              setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">Select a Project</div>`); initDashboard(data);
+          }).withFailureHandler((err) => {
+              if(btn) { btn.innerText = "Sync Engine"; btn.disabled = false; } alert("Engine Error: " + err.message);
+          }).webAppTrigger3a(dateInput.trim());
+      }
+
+      function markChecked(fdhId) {
+          let btn = getEl('btn-admin-check'); if(btn) { btn.innerText = "SAVING..."; btn.disabled = true; }
+          google.script.run.withSuccessHandler((dateStr) => {
+              if(btn) btn.remove();
+              let paneTags = document.querySelectorAll('#p-action .tag-admin'); paneTags.forEach(t => t.remove());
+              let qCard = getEl(`card-${fdhId}`);
+              if(qCard) { let qTags = qCard.querySelectorAll('.tag-admin'); qTags.forEach(t => { if(t.innerText.includes("ADMIN: CHECK CROSSINGS")) t.remove(); }); }
+              if(currentActiveItem) currentActiveItem.flags = currentActiveItem.flags.replace("🚩 ADMIN: CHECK CROSSINGS", "").trim();
+              setTxt('p-last-check', `LAST CHECKED: ${dateStr}`);
+          }).withFailureHandler(err => {
+              alert("Failed to save: " + err.message); if(btn) { btn.innerText = "🛡️ VERIFY CROSSINGS"; btn.disabled = false; }
+          }).markAdminCheckComplete(fdhId);
+      }
+
+      function markQbUpdated(fdhId) {
+          let btn = getEl('btn-qb-update'); if(btn) { btn.innerText = "SAVING..."; btn.disabled = true; }
+          google.script.run.withSuccessHandler((dateStr) => {
+              if(btn) btn.remove();
+              let paneTags = document.querySelectorAll('#p-action .tag-red');
+              paneTags.forEach(t => { if(t.innerText.includes("STATUS MISMATCH") || t.innerText.includes("MISSING QB STATUS")) { t.className = "tag tag-yellow admin-flag-tag"; t.innerText = "ADMIN: REFRESH REF DATA"; } });
+              let qCard = getEl(`card-${fdhId}`);
+              if(qCard) { let qTags = qCard.querySelectorAll('.tag-red'); qTags.forEach(t => { if(t.innerText.includes("STATUS MISMATCH") || t.innerText.includes("MISSING QB STATUS")) { t.className = "tag tag-yellow"; t.innerText = "ADMIN: REFRESH REF DATA"; } }); }
+              if(currentActiveItem) currentActiveItem.flags = currentActiveItem.flags.replace("🚩 STATUS MISMATCH", "⚠️ ADMIN: REFRESH REF DATA").replace("🚩 MISSING QB STATUS", "⚠️ ADMIN: REFRESH REF DATA").trim();
+          }).withFailureHandler(err => {
+              alert("Failed to save: " + err.message); if(btn) { btn.innerText = "🛠️ MARK QB UPDATED"; btn.disabled = false; }
+          }).markStatusSyncComplete(fdhId);
+      }
+
+      function hl(headerName) {
+          document.querySelectorAll('.raw-highlight').forEach(el => el.classList.remove('raw-highlight'));
+          if(!headerName) return; let safeName = headerName.replace(/"/g, '&quot;');
+          let els = document.querySelectorAll(`[data-header="${safeName}"]`); els.forEach(el => el.classList.add('raw-highlight'));
+          if(els.length > 0) { let strip = getEl('raw-data-strip'); if(strip) { let elRect = els[0].getBoundingClientRect(); let stripRect = strip.getBoundingClientRect(); if(elRect.left < stripRect.left || elRect.right > stripRect.right) els[0].scrollIntoView({behavior: "smooth", inline: "center", block: "nearest"}); } }
+      }
+
+      function positionHUD(e, hud) {
+          let x = e.clientX + 15; let y = e.clientY + 15; if(x + 250 > window.innerWidth) x = e.clientX - 265; if(y + hud.offsetHeight > window.innerHeight) y = e.clientY - hud.offsetHeight - 15;
+          hud.style.left = x + 'px'; hud.style.top = y + 'px';
+      }
+
+      function showHUD(e, fdh) {
+          if(hudLocked || !allActionItems) return; let item = allActionItems.find(i => i.fdh === fdh); if(!item) return;
+          let hud = getEl('gantt-hud'); if(!hud) return;
+          let html = `<div style="font-size:14px; font-weight:900; color:#fff; border-bottom:1px solid #333338; padding-bottom:4px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;"><span>${item.fdh}</span><span style="color:#a1a1aa; font-size:11px;">${item.vendor}</span></div><div style="font-size:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px;"><div><span style="color:#a1a1aa;">CX START:</span><br/>${item.cxStart || "TBD"}</div><div><span style="color:#a1a1aa;">TARGET:</span><br/>${item.targetDate || "TBD"}</div></div>`;
+          if(item.vel) {
+              let vels = [];
+              if(item.vel.ug.bom > 0) vels.push(`<span style="color:var(--qb-ug);">UG: ${Math.round((item.vel.ug.tot/item.vel.ug.bom)*100)}%</span>`);
+              if(item.vel.ae.bom > 0) vels.push(`<span style="color:#cbd5e1;">AE: ${Math.round((item.vel.ae.tot/item.vel.ae.bom)*100)}%</span>`);
+              if(item.vel.fib.bom > 0) vels.push(`<span style="color:#ef4444;">FIB: ${Math.round((item.vel.fib.tot/item.vel.fib.bom)*100)}%</span>`);
+              if(item.vel.nap.bom > 0) vels.push(`<span style="color:#6366f1;">NAP: ${Math.round((item.vel.nap.tot/item.vel.nap.bom)*100)}%</span>`);
+              if(vels.length > 0) html += `<div style="font-size:10px; border-top:1px solid #333338; padding-top:6px; margin-top:4px; display:flex; gap:8px; flex-wrap:wrap;">${vels.join(' | ')}</div>`;
+          }
+          let flags = (item.flags || "").split('\n').filter(f => f.trim()!=="").slice(0,3); 
+          if(flags.length > 0 && flags[0] !== "✅ No Anomalies") {
+              html += `<div style="display:flex; flex-direction:column; gap:4px; margin-top:6px; border-top:1px solid #333338; padding-top:6px;">`;
+              flags.forEach(f => { let cleanText = f.replace(/[🚨🛑🚩⚠️🖍️🚧]/g, '').trim(); let color = (f.includes("🚨") || f.includes("🚩") || f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) ? "#fca5a5" : "#fde047"; html += `<span style="font-size:9px; font-weight:bold; color:${color};">⚠️ ${cleanText}</span>`; });
+              html += `</div>`;
+          }
+          hud.innerHTML = html; hud.style.display = 'flex'; positionHUD(e, hud);
+      }
+      
+      function hideHUD() { if(hudLocked) return; let hud = getEl('gantt-hud'); if(hud) { hud.style.display = 'none'; hud.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)'; hud.style.pointerEvents = 'none'; } }
+      function moveHUD(e) { if(hudLocked) return; let hud = getEl('gantt-hud'); if(hud && hud.style.display === 'flex') positionHUD(e, hud); }
+      
+      function showSpikeHUD(e, dateKey) {
+          if(hudLocked) return; let data = globalEndCounts[dateKey]; if(!data) return; let hud = getEl('gantt-hud'); if(!hud) return;
+          let vendorHtml = ''; for(let v in data.vendors) { let projs = data.projects.filter(p => p.vendor === v).map(p => p.fdh).join(', '); vendorHtml += `<div style="margin-top:6px;"><span style="color:var(--starGold); font-weight:bold;">${v} (${data.vendors[v]}):</span><br/><span style="color:#a1a1aa; font-size:9px; line-height:1.2; display:block; margin-top:2px;">${projs}</span></div>`; }
+          let dArr = dateKey.split('-'); let fDate = `${dArr[1]}/${dArr[2]}/${dArr[0]}`;
+          let html = `<div style="font-size:12px; font-weight:900; color:#facc15; border-bottom:1px solid #333338; padding-bottom:6px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;"><span>🔥 CLOSEOUT SURGE</span><span style="color:#a1a1aa; font-size:10px;">${fDate}</span></div><div style="font-size:11px; display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#a1a1aa;">Total Projects: <b style="color:#fff;">${data.total}</b></span><span style="color:#a1a1aa;">Projected BSLs: <b style="color:#fff;">${data.bsls.toLocaleString()}</b></span></div><div style="border-top:1px solid #333338; padding-top:2px; max-height:300px; overflow-y:auto; padding-right:4px;">${vendorHtml}</div>`;
+          hud.innerHTML = html; hud.style.display = 'flex'; positionHUD(e, hud);
+      }
+      
+      function showTodayHUD(e) {
+          if(hudLocked) return; let data = globalTodayData; if(!data || data.total === 0) return; let hud = getEl('gantt-hud'); if(!hud) return;
+          let vendorArr = Object.keys(data.vendors).sort((a, b) => data.vendors[b] - data.vendors[a]); let colors = ['#3b82f6', '#a855f7', '#f59e0b', '#10b981', '#ec4899', '#06b6d4', '#6366f1'];
+          let conicStr = []; let legendHtml = ''; let currentPct = 0;
+          vendorArr.forEach((v, idx) => {
+              let count = data.vendors[v]; let pct = (count / data.total) * 100; let c = colors[idx % colors.length]; conicStr.push(`${c} ${currentPct}% ${currentPct + pct}%`); currentPct += pct;
+              legendHtml += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:6px;"><div style="display:flex; align-items:center; gap:8px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${c};"></span><span style="color:#fafafa; font-weight:bold;">${v}</span></div><span style="color:#a1a1aa; font-weight:bold; font-family:monospace;">${count}</span></div>`;
+          });
+          let pieStyle = `background: conic-gradient(${conicStr.join(', ')}); border-radius: 50%; width: 120px; height: 120px;`;
+          let d = new Date(); let fDate = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+          let html = `<div style="min-width: 300px; padding: 6px;"><div style="font-size:14px; font-weight:900; color:#ef4444; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;"><span>📍 ACTIVE TODAY</span><span style="color:#a1a1aa; font-size:11px;">${fDate}</span></div><div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; text-align: center;"><div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;"><div style="font-size:18px; font-weight:900; color:#fff;">${data.total}</div><div style="font-size:9px; color:#a1a1aa; text-transform:uppercase; font-weight:bold; margin-top:2px;">Projects</div></div><div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;"><div style="font-size:18px; font-weight:900; color:#fff;">${data.activeBsls.toLocaleString()}</div><div style="font-size:9px; color:#a1a1aa; text-transform:uppercase; font-weight:bold; margin-top:2px;">BSLs</div></div><div style="background: rgba(239,68,68,0.1); padding: 8px; border-radius: 6px; border: 1px solid rgba(239,68,68,0.2);"><div style="font-size:18px; font-weight:900; color:#fca5a5;">${data.criticalCount}</div><div style="font-size:9px; color:#fca5a5; text-transform:uppercase; font-weight:bold; margin-top:2px;">Critical</div></div></div><div style="display:flex; gap: 20px; align-items: center; border-top: 1px solid #333338; padding-top: 16px;"><div style="${pieStyle} flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"></div><div style="flex-grow: 1; display:flex; flex-direction:column; max-height:220px; overflow-y:auto; padding-right:8px; gap:4px;">${legendHtml}</div></div></div>`;
+          hud.innerHTML = html; hud.style.display = 'flex'; positionHUD(e, hud);
+      }
+
+      function moveSpikeHUD(e) { moveHUD(e); } function hideSpikeHUD() { hideHUD(); }
+
+      let allActionItems = []; let committedItems = []; let currentActiveItem = null; let globalHeaders = []; let globalEndCounts = {}; let globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 }; 
+
+      const QB_STYLES = {
+          "UG": { color: "var(--qb-ug)", bg: "var(--qb-ug)", border: "var(--qb-ug)" }, "AE": { color: "var(--text-main)", bg: "var(--qb-ae-bg)", border: "#94a3b8" },
+          "FIB": { color: "var(--text-main)", bg: "var(--qb-fib-bg)", border: "var(--qb-fib-border)" }, "NAP": { color: "var(--text-main)", bg: "var(--qb-nap-bg)", border: "var(--qb-nap-border)" },
+          "DONE": { color: "var(--qb-done)", bg: "var(--qb-done)", border: "var(--qb-done)" }
+      };
+
+      function getCardGlow(stage, status, isOverdue) {
+          let st = (stage || "").toLowerCase(), stat = (status || "").toLowerCase();
+          if (st.includes('ofs')) return '0 0 15px rgba(37, 99, 235, 0.25)'; if (st.includes('permit')) return '0 0 15px rgba(168, 85, 247, 0.25)';
+          if (stat.includes('complete')) return '0 0 15px rgba(34, 197, 94, 0.25)'; if (isOverdue) return '0 0 15px rgba(239, 68, 68, 0.4)';
+          return '0 4px 6px -1px rgba(0,0,0,0.05)';
+      }
+
+      function getGanttClass(stage, status, isOverdue) {
+          let st = (stage || "").toLowerCase(), stat = (status || "").toLowerCase();
+          if (st.includes('ofs')) return 'g-color-blue'; if (st.includes('permit')) return 'g-color-purple';
+          if (stat.includes('complete')) return 'g-color-green'; if (stat.includes('hold')) return 'g-color-gray';
+          if (isOverdue || st === "NOT IN QB REFERENCE" || st === "-") return 'g-color-red'; return 'g-color-yellow';
+      }
+
+      window.onload = function() { google.script.run.withSuccessHandler(initDashboard).getDashboardData(); };
+
+      function initDashboard(data) {
+        safeExecute('initDashboard', () => {
+            if (!data || !data.actionItems || data.actionItems.length === 0) { setHtml('gantt-container', `<div class="empty-msg" style="margin-top:40px;">All clear.</div>`); setHtml('inbox-list', `<div class="empty-msg">All clear.</div>`); return; }
+            allActionItems = data.actionItems; globalHeaders = data.headers;
+            populateDropdown('filter-vendor', [...new Set(allActionItems.map(i => i.vendor).filter(Boolean))]); populateDropdown('filter-city', [...new Set(allActionItems.map(i => i.city).filter(Boolean))]);
+            let ofsMonths = allActionItems.map(i => {
+                if(!i.ofsDate || i.ofsDate === "-" || i.ofsDate === "Unknown") return null;
+                try { let d = new Date(i.ofsDate); return !isNaN(d) ? d.toLocaleDateString('en-US', {month:'short', timeZone:'UTC'}).toUpperCase() : null; } catch(e) { return null; }
+            }).filter(Boolean);
+            populateDropdown('filter-ofs', [...new Set(ofsMonths)]);
+            applyFilters();
+        });
+      }
+
+      function applyFilters() {
+        safeExecute('applyFilters', () => {
+            const vVen = getEl('filter-vendor')?.value || 'ALL'; const vCit = getEl('filter-city')?.value || 'ALL'; const vOfs = getEl('filter-ofs')?.value || 'ALL'; const vSev = getEl('filter-severity')?.value || 'ALL'; 
+            const sortVal = getEl('sort-queue')?.value || 'default'; const searchTerm = (getEl('search-input')?.value || '').toLowerCase();
+
+            let filtered = allActionItems.filter(i => {
+                let matchOfs = true;
+                if(vOfs !== 'ALL') { try { let d = new Date(i.ofsDate); let mStr = !isNaN(d) ? d.toLocaleDateString('en-US', {month:'short', timeZone:'UTC'}).toUpperCase() : ""; matchOfs = (mStr === vOfs); } catch(e) { matchOfs = false; } }
+                let matchSearch = true; if (searchTerm !== '') matchSearch = i.fdh.toLowerCase().includes(searchTerm);
+                let matchSev = true; if (vSev !== 'ALL') matchSev = (getSeverity(i.flags) === vSev);
+                return (vVen==='ALL' || i.vendor===vVen) && (vCit==='ALL' || i.city===vCit) && matchOfs && matchSearch && matchSev;
+            });
+
+            let activeProjCount = 0; let activeBslsCount = 0; let activeCritCount = 0; let today = new Date(); today.setHours(0,0,0,0);
+            filtered.forEach(item => {
+                let start = item.cxStart ? new Date(item.cxStart) : new Date(item.reportDate);
+                let end = item.cxEnd ? new Date(item.cxEnd) : (item.targetDate ? new Date(item.targetDate) : new Date(start.getTime() + 86400000*30));
+                if(isNaN(start)) start = new Date(today); if(isNaN(end)) end = new Date(start.getTime() + 86400000*7); if(end < start) end = new Date(start.getTime() + 86400000);
+                if (today >= start && today <= end) {
+                    activeProjCount++; let bslStr = String(item.bsls).replace(/,/g, ''); activeBslsCount += parseInt(bslStr) || 0;
+                    if (getSeverity(item.flags) === 'crit') activeCritCount++;
+                }
+            });
+
+            setTxt('kpi-active-proj', activeProjCount); setTxt('kpi-active-bsls', activeBslsCount.toLocaleString()); setTxt('kpi-active-crit', activeCritCount);
+
+            if (sortVal !== 'default') {
+                filtered.sort((a, b) => {
+                    if (sortVal === 'admin') {
+                        let aAdmin = (a.flags.includes("ADMIN: CHECK CROSSINGS") || a.flags.includes("STATUS MISMATCH") || a.flags.includes("ADMIN: REFRESH REF DATA") || a.flags.includes("MISSING QB STATUS")) ? 0 : 1;
+                        let bAdmin = (b.flags.includes("ADMIN: CHECK CROSSINGS") || b.flags.includes("STATUS MISMATCH") || b.flags.includes("ADMIN: REFRESH REF DATA") || b.flags.includes("MISSING QB STATUS")) ? 0 : 1;
+                        if (aAdmin !== bAdmin) return aAdmin - bAdmin; return a.rowNum - b.rowNum; 
+                    }
+                    let valA, valB;
+                    if(sortVal === 'target') { valA = new Date(a.targetDate); valB = new Date(b.targetDate); } else if(sortVal === 'start') { valA = new Date(a.cxStart); valB = new Date(b.cxStart); } else if(sortVal === 'end') { valA = new Date(a.cxEnd); valB = new Date(b.cxEnd); } else if(sortVal === 'ofs') { valA = new Date(a.ofsDate); valB = new Date(b.ofsDate); } else if(sortVal === 'report') { valA = new Date(a.reportDate); valB = new Date(b.reportDate); }
+                    let isInvA = isNaN(valA); let isInvB = isNaN(valB);
+                    if (isInvA && isInvB) return a.rowNum - b.rowNum; if (isInvA) return 1; if (isInvB) return -1;
+                    return valA - valB;
+                });
+            } else { filtered.sort((a, b) => a.rowNum - b.rowNum); }
+            
+            renderList(filtered); renderGantt(filtered);
+        });
+      }
+
+      function renderGantt(items) {
+          let container = getEl('gantt-container'); if(!container) return; if(items.length === 0) { container.innerHTML = ""; return; }
+
+          globalEndCounts = {}; globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 }; 
+          let today = new Date(); today.setHours(0,0,0,0); let minDate = new Date("2099-01-01"), maxDate = new Date("2000-01-01"); let monthBsls = {}; 
+
+          items.forEach(item => {
+              let start = item.cxStart ? new Date(item.cxStart) : new Date(item.reportDate);
+              let end = item.cxEnd ? new Date(item.cxEnd) : (item.targetDate ? new Date(item.targetDate) : new Date(start.getTime() + 86400000*30));
+              if(isNaN(start)) start = new Date(today); if(isNaN(end)) end = new Date(start.getTime() + 86400000*7); if(end < start) end = new Date(start.getTime() + 86400000); 
+              if(start < minDate) minDate = new Date(start); if(end > maxDate) maxDate = new Date(end);
+              
+              let endKey = end.getFullYear() + "-" + (end.getMonth()+1) + "-" + end.getDate(); let monthKey = end.getFullYear() + "-" + (end.getMonth()+1); let v = item.vendor || "Unknown";
+              
+              if (!globalEndCounts[endKey]) globalEndCounts[endKey] = { total: 0, vendors: {}, bsls: 0, projects: [] };
+              globalEndCounts[endKey].total++; globalEndCounts[endKey].vendors[v] = (globalEndCounts[endKey].vendors[v] || 0) + 1;
+
+              let bslStr = String(item.bsls).replace(/,/g, ''); let bslNum = parseInt(bslStr) || 0;
+              monthBsls[monthKey] = (monthBsls[monthKey] || 0) + bslNum;
+              globalEndCounts[endKey].bsls += bslNum; globalEndCounts[endKey].projects.push({fdh: item.fdh, vendor: v});
+              
+              if (today >= start && today <= end) {
+                  globalTodayData.total++; globalTodayData.vendors[v] = (globalTodayData.vendors[v] || 0) + 1; globalTodayData.activeBsls += bslNum;
+                  if (getSeverity(item.flags) === 'crit') globalTodayData.criticalCount++;
+              }
+          });
+
+          let defaultPast = new Date(today); defaultPast.setDate(today.getDate() - 14); let defaultFuture = new Date(today); defaultFuture.setDate(today.getDate() + 28);
+          if (minDate > defaultPast) minDate = defaultPast; if (maxDate < defaultFuture) maxDate = defaultFuture;
+
+          let totalTime = maxDate - minDate; let totalDays = Math.ceil(totalTime / 86400000); let chartWidth = Math.max(1200, totalDays * 25); let todayPct = ((today - minDate) / totalTime) * 100;
+
+          let dateHtml = `<div class="tl-header-bar" style="width:${chartWidth}px;">`; let gridLines = ''; let spikeCount = 0; 
+
+          for(let i=0; i<=totalDays; i++) {
+             let curr = new Date(minDate.getTime() + (i * 86400000)); let pct = (i / totalDays) * 100;
+             let currKey = curr.getFullYear() + "-" + (curr.getMonth()+1) + "-" + curr.getDate(); let monthKey = curr.getFullYear() + "-" + (curr.getMonth()+1);
+             
+             let spikeData = globalEndCounts[currKey]; let isSpike = false; let spikeText = "";
+             if (spikeData) {
+                 let vendorSpikes = []; for (let v in spikeData.vendors) { if (spikeData.vendors[v] >= 3) vendorSpikes.push(`${spikeData.vendors[v]} ${v}`); }
+                 if (spikeData.total >= 5 || vendorSpikes.length > 0) {
+                     isSpike = true; let textParts = []; if (spikeData.total >= 5) textParts.push(`${spikeData.total} TOTAL`);
+                     if (vendorSpikes.length > 0) textParts.push(vendorSpikes.join(', ')); spikeText = textParts.join(' | ') + ` ENDING`;
+                 }
+             }
+             
+             let nextDay = new Date(curr.getTime() + 86400000); let isEOM = nextDay.getDate() === 1;
+
+             if (isSpike) {
+                 gridLines += `<div class="gantt-spike-bg" style="left:${pct}%;"></div>`; let topLevels = [48, 66, 84]; let tPos = topLevels[spikeCount % 3]; let zIdx = 100 - (spikeCount % 3);
+                 dateHtml += `<div class="gantt-spike-label" style="left:${pct}%; top:${tPos}px; z-index:${zIdx};" onmouseenter="showSpikeHUD(event, '${currKey}')" onmousemove="moveSpikeHUD(event)" onmouseleave="hideSpikeHUD()" onclick="toggleHudLock(event)">${spikeText}</div>`;
+                 spikeCount++;
+             }
+             if (isEOM) {
+                 let projBsl = monthBsls[monthKey] || 0; gridLines += `<div class="gantt-eom-line" style="left:${pct}%;"></div>`;
+                 dateHtml += `<div class="gantt-eom-label" style="left:${pct}%; top:32px;">EOM | PROJECTED BSLs: ${projBsl.toLocaleString()}</div>`;
+             }
+
+             if(curr.getDay() === 1) { 
+                 dateHtml += `<div style="position:absolute; left:${pct}%; top:8px; font-size:10px; font-weight:900; color:var(--text-muted); transform:translateX(-50%); background:transparent; padding:0 4px; border-radius:4px;">${curr.getMonth()+1}/${curr.getDate()}</div>`;
+                 if(!isEOM) gridLines += `<div style="position:absolute; left:${pct}%; top:0; bottom:0; width:1px; background:var(--border); z-index:0; opacity:0.5;"></div>`;
+             }
+          }
+          
+          dateHtml += `<div class="gantt-today-label" style="left:${todayPct}%;" onmouseenter="showTodayHUD(event)" onmousemove="moveHUD(event)" onmouseleave="hideHUD()" onclick="toggleHudLock(event)">TODAY</div>`;
+          gridLines += `<div class="gantt-today-line" style="left:${todayPct}%;"></div></div>`;
+
+          let html = `<div class="gantt-area" id="gantt-area-main" style="width:${chartWidth}px;">${gridLines}${dateHtml}<div style="height: 85px;"></div>`;
+
+          const makeBead = (dateStr, icon, title, bgColor, borderColor, start, end, itemFdh) => {
+              let d = new Date(dateStr); if(isNaN(d)) return ""; let pct = ((d - start) / (end - start)) * 100;
+              if(pct >= 0 && pct <= 100) return `<div class="gantt-bead has-tooltip" data-tooltip="${title}" style="left:${pct}%; background:${bgColor}; border-color:${borderColor}; color:${borderColor};" onclick="let c=document.getElementById('card-${itemFdh}'); if(c) c.click();">${icon}</div>`;
+              return "";
+          };
+
+          items.forEach(item => {
+              let start = item.cxStart ? new Date(item.cxStart) : new Date(item.reportDate);
+              let end = item.cxEnd ? new Date(item.cxEnd) : (item.targetDate ? new Date(item.targetDate) : new Date(start.getTime() + 86400000*30));
+              if(isNaN(start)) start = new Date(today); if(isNaN(end)) end = new Date(start.getTime() + 86400000*7); if(end < start) end = new Date(start.getTime() + 86400000); 
+
+              let leftPct = ((start - minDate) / totalTime) * 100; let widthPct = ((end - start) / totalTime) * 100;
+              let isOverdue = (!isNaN(end) && today > end); let ganttClass = getGanttClass(item.stage, item.status, isOverdue); 
+              let pillStage = item.stage ? item.stage : "-"; let pillStatus = item.status ? item.status : "-"; let highestSev = getSeverity(item.flags);
+
+              let beadHtml = ''; let benchStr = item.bench || "";
+
+              let locMatch = benchStr.match(/Loc:\s*([\d/]+)/); if(locMatch && locMatch[1]) beadHtml += makeBead(locMatch[1], 'L', `Locates Called (${locMatch[1]})`, 'var(--card-bg)', '#3b82f6', start, end, item.fdh);
+              let cabMatch = benchStr.match(/Cab:\s*([\d/]+)/); if(cabMatch && cabMatch[1]) beadHtml += makeBead(cabMatch[1], 'C', `Cabinets Set (${cabMatch[1]})`, 'var(--card-bg)', '#a855f7', start, end, item.fdh);
+              let litMatch = benchStr.match(/Lit:\s*([\d/]+)/); if(litMatch && litMatch[1]) beadHtml += makeBead(litMatch[1], '⚡', `Light Present (${litMatch[1]})`, 'var(--card-bg)', '#eab308', start, end, item.fdh);
+
+              let starMatch = benchStr.match(/(UG|AE|FIB|NAP):\s*[\d/]+\s*->\s*([\d/]+)\s*\(100%\)/g);
+              if(starMatch) {
+                  starMatch.forEach(m => {
+                     let phase = m.split(':')[0]; let dateExtract = m.match(/->\s*([\d/]+)\s*\(/);
+                     if (dateExtract && dateExtract[1]) {
+                         let starDate = new Date(dateExtract[1]);
+                         if(!isNaN(starDate)) {
+                             let starPct = ((starDate - start) / (end - start)) * 100;
+                             if (starPct >= 0 && starPct <= 100) {
+                                 let sCol = QB_STYLES[phase] ? QB_STYLES[phase].border : "#94a3b8"; let sShadow = "0 1px 3px rgba(0,0,0,0.3)";
+                                 if (phase === 'FIB') sShadow = `0 0 10px ${sCol}`; if (phase === 'NAP') sShadow = `0 0 8px rgba(99, 102, 241, 0.6)`;
+                                 beadHtml += `<div class="gantt-bead has-tooltip" data-tooltip="${phase} 100% Complete (${dateExtract[1]})" style="left:${starPct}%; background:rgba(255,255,255,0.85); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); border-color:${sCol}; color:${sCol}; box-shadow:${sShadow}; font-size:9px;" onclick="let c=document.getElementById('card-${item.fdh}'); if(c) c.click();">★</div>`;
+                             }
+                         }
+                     }
+                  });
+              }
+
+              html += `
+              <div class="gantt-row" id="gantt-row-${item.fdh}">
+                 <div class="gantt-label ${highestSev}" onclick="let c=document.getElementById('card-${item.fdh}'); if(c) c.click();">
+                     <div class="gantt-label-fdh">${item.fdh}</div><div class="gantt-label-ven">${item.vendor || "UNKNOWN"}</div>
+                 </div>
+                 <div style="position:absolute; left:140px; right:0; top:0; bottom:0;">
+                    <div class="gantt-bar-fill ${ganttClass}" style="left:${leftPct}%; width:${widthPct}%;" onclick="let c=document.getElementById('card-${item.fdh}'); if(c) c.click();" onmouseenter="showHUD(event, '${item.fdh}')" onmousemove="moveHUD(event)" onmouseleave="hideHUD()">
+                        <span class="gantt-bar-text">${item.fdh} • ${pillStage} | ${pillStatus}</span>
+                    </div>
+                    <div style="position:absolute; left:${leftPct}%; width:${widthPct}%; height:100%; pointer-events:none; z-index:8;">${beadHtml}</div>
+                 </div>
+              </div>`;
+          });
+          html += `</div>`; container.innerHTML = html;
+
+          setTimeout(() => {
+              let scrollContainer = getEl('gantt-scroll');
+              if(scrollContainer) {
+                  let centerOffset = (chartWidth * (todayPct / 100)) - (scrollContainer.clientWidth / 2);
+                  scrollContainer.scrollLeft = Math.max(0, centerOffset);
+              }
+          }, 100);
+      }
+
+      function renderList(items) {
+        let list = getEl('inbox-list'); if(!list) return; setTxt('inbox-count', items.length); list.innerHTML = '';
+
+        items.forEach((item) => {
+            let rawFlags = (item.flags || "").split('\n').map(f => f.trim()).filter(f => f !== ""); let highestSev = "info", tagsHtml = '';
+            
+            rawFlags.slice(0, 3).forEach(f => {
+                let cleanText = f.replace(/[🚨🛑🚩⚠️🖍️🚧]/g, '').trim();
+                if (f.includes("ADMIN: CHECK CROSSINGS") || f.includes("ADMIN: REFRESH REF DATA")) { highestSev = f.includes("REFRESH") ? "warn" : "crit"; tagsHtml += `<span class="tag tag-admin">${cleanText}</span>`; }
+                else if (f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) { highestSev = "crit"; tagsHtml += `<span class="tag tag-red">${cleanText}</span>`; }
+                else if (f.includes("🚨") || f.includes("🛑") || f.includes("🚩")) { highestSev = "crit"; tagsHtml += `<span class="tag tag-red">${cleanText}</span>`; }
+                else if (f.includes("⚠️") || f.includes("🖍️") || f.includes("🚧")) { if(highestSev!=="crit") highestSev="warn"; tagsHtml += `<span class="tag tag-yellow">${cleanText}</span>`; }
+                else tagsHtml += `<span class="tag tag-purple">${cleanText}</span>`;
+            });
+            if(rawFlags.length > 3) tagsHtml += `<span class="tag tag-purple" style="background:var(--bg); border-color:var(--border); color:var(--text-muted);">+${rawFlags.length-3}</span>`;
+
+            let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
+            let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+            if(item.flags.includes("MISSING QB STATUS") && !item.flags.includes("NOT IN QB REFERENCE")) combinedPill = "MISSING QB STATUS";
+            
+            let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+
+            let card = document.createElement('div'); card.className = `email-card ${highestSev}`; card.id = `card-${item.fdh}`;
+            
+            card.onclick = () => {
+                openPane(item, card);
+                if (window.innerWidth <= 768) { let ws = getEl('main-workspace'); if(ws) ws.classList.add('view-detail'); }
+            };
+            
+            card.innerHTML = `
+               <div class="em-header" style="margin-bottom: 6px;">
+                  <div style="display: flex; align-items: baseline; gap: 8px; min-width: 0;">
+                      <div class="em-fdh" style="flex-shrink: 0;">${item.fdh}</div><div class="em-vendor" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.vendor}</div>
+                  </div>
+                  <div class="glass-pill ${pillCls}" style="flex-shrink: 0; margin-left: 8px;">${combinedPill}</div>
+               </div><div class="em-tags">${tagsHtml}</div>`;
+            list.appendChild(card);
+        });
+
+        if(items.length > 0 && !currentActiveItem) openPane(items[0], getEl(`card-${items[0].fdh}`));
+      }
+
+      function renderDiagnosticStrip(rowArray) {
+          let strip = getEl('raw-data-strip'); if(!strip) return; if(!rowArray || !globalHeaders) { strip.innerHTML = ''; return; }
+          let html = `<table class="raw-table"><tr>`;
+          globalHeaders.forEach(h => { let safeH = h.replace(/"/g, '&quot;'); html += `<th data-header="${safeH}">${h}</th>`; }); html += `</tr><tr>`;
+          rowArray.forEach((c, i) => { let h = globalHeaders[i]; let safeH = h ? h.replace(/"/g, '&quot;') : ''; let val = c === null || c === undefined ? '' : c; html += `<td data-header="${safeH}">${val}</td>`; });
+          html += `</tr></table>`; strip.innerHTML = html;
+      }
+
+      function generateSmartComment(item, daysLeft, isOverdue) {
+          let note = ""; let story = [];
+          if (item.flags && item.flags.trim() !== "") {
+              if (item.flags.includes("GHOST")) story.push("Verify reported activity against BOM (Ghost production).");
+              if (item.flags.includes("PACE")) story.push("Pace anomaly flagged. Need recovery plan from vendor.");
+              if (item.flags.includes("LIGHTING RISK")) story.push("Pending light to cabinets poses a delivery risk.");
+              if (item.flags.includes("BOM DISCREPANCY")) story.push("Verify production numbers against BOM.");
+              if (item.flags.includes("SCOPE DEVIATION")) story.push("Vendor reported production, but BOM shows 0. Verify if scope was expanded.");
+              if (item.flags.includes("STATUS MISMATCH")) story.push(`Vendor reported activity, but QB stage is incorrect. Update QB to Field CX | In Progress.`);
+              if (item.flags.includes("MISSING QB STATUS")) story.push(`Project is missing Stage or Status. Update QuickBase.`);
+              if (item.flags.includes("ADMIN: REFRESH REF DATA")) story.push(`QB Status updated. Awaiting new Reference Data import.`);
+              if (item.flags.includes("NOT IN QB REFERENCE")) story.push(`Project missing from Reference Data export. Ensure it exists in QuickBase.`);
+          }
+          if (isOverdue) story.push(`Project is OVERDUE by ${Math.abs(daysLeft)} days.`);
+          else if (daysLeft > 0 && daysLeft <= 7) story.push(`Project closing soon (${daysLeft} days left).`);
+
+          if (item.stage.includes("OFS") || item.status.includes("Complete")) { note += `Action: None. Project is ${item.status}.\nStatus: Tracking complete.`; } 
+          else { note += `Action: ${story.length > 0 ? story.join(" ") : "Monitor progress."}\nStatus: ${item.vendorComment ? `Vendor states: "${item.vendorComment}"` : "Awaiting vendor updates."}`; }
+          return note;
+      }
+
+      function buildVelocityBar(name, daily, tot, bom, typeKey, daysLeft) {
+          let dailyVal = daily || 0; let totalVal = tot || 0; let bomVal = bom || 0;
+          if(bomVal === 0 && totalVal === 0 && dailyVal === 0) return '';
+          if(bomVal === 0 && totalVal > 0) bomVal = totalVal; if(bomVal === 0 && dailyVal > 0) bomVal = dailyVal;
+
+          let totalPct = bomVal > 0 ? Math.min(100, (totalVal / bomVal) * 100) : 0; let isDone = totalPct >= 100;
+          let colorDef = QB_STYLES[typeKey] || QB_STYLES["AE"]; let textCol = isDone ? QB_STYLES["DONE"].color : colorDef.color; let bgStyle = isDone ? QB_STYLES["DONE"].bg : colorDef.bg; let beadBorder = isDone ? QB_STYLES["DONE"].border : colorDef.border;
+          let beadShadow = "0 2px 4px rgba(0,0,0,0.2)"; if (typeKey === 'FIB' && !isDone) beadShadow = `0 0 10px ${beadBorder}`; if (typeKey === 'NAP' && !isDone) beadShadow = `0 0 8px rgba(99, 102, 241, 0.6)`;
+
+          let paceDays = Math.max(1, daysLeft); let paceVal = Math.max(0, bomVal - totalVal) / paceDays; let paceColor = "var(--text-muted)"; 
+          if (!isDone && bomVal > 0) { if (typeKey === 'UG') paceColor = paceVal > 450 ? "#ef4444" : textCol; else if (typeKey === 'AE') paceColor = paceVal > 5000 ? "#ef4444" : textCol; else if (typeKey === 'NAP') paceColor = paceVal > 5 ? "#ef4444" : textCol; else if (typeKey === 'FIB') paceColor = "var(--text-main)"; }
+          let paceUnit = typeKey === 'NAP' ? 'NAPs/day' : 'ft/day'; let formattedPace = typeKey === 'NAP' ? Math.ceil(paceVal) : Math.round(paceVal);
+          let dailyBadge = dailyVal > 0 ? `<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:4px; font-size:8px; margin-left:6px; border:1px solid #bbf7d0; display:inline-block; line-height:1;">+${dailyVal} TODAY</span>` : '';
+          let starStr = isDone ? `<span class="has-tooltip" data-tooltip="${name} 100% Complete" style="color:var(--starGold); margin-left:4px; font-size:12px; line-height:1;">★</span>` : '';
+          let barTrackBg = (typeKey === 'FIB' || typeKey === 'NAP') ? 'var(--border)' : 'var(--bg)';
+          let beadHtml = ''; if (!isDone && totalPct > 0) beadHtml = `<div class="qb-vel-bead" style="left: calc(${totalPct}% - 7px); border-color: ${beadBorder}; box-shadow: ${beadShadow};"></div>`;
+
+          let headerMap = { 'UG': 'Total UG Footage Completed', 'AE': 'Total Strand Footage Complete?', 'FIB': 'Total Fiber Footage Complete', 'NAP': 'Total NAPs Completed' };
+          let hName = headerMap[typeKey];
+
+          return `
+          <div class="qb-vel-item hover-trigger" onmouseenter="hl('${hName}')" onmouseleave="hl('')">
+              <div class="qb-vel-labels">
+                  <span style="display:flex; align-items:center; white-space:nowrap;">${name}: <span style="color:${textCol}; margin-left:4px; font-family:monospace;">${totalVal.toLocaleString()} / ${bomVal.toLocaleString()}</span> ${dailyBadge}</span>
+                  <span style="color:${textCol}; font-family:monospace; font-size:10px; font-weight:900; display:flex; align-items:center;">${Math.round(totalPct)}% ${starStr}</span>
+              </div>
+              <div class="qb-vel-bar" style="background:${barTrackBg}; overflow:visible;"><div class="qb-vel-fill" style="width:${totalPct}%; background:${bgStyle};"></div>${beadHtml}</div>
+              <div style="font-size: 9px; color: ${paceColor}; font-weight: 800; margin-top: 2px;">PACE: ${formattedPace} ${paceUnit}</div>
+          </div>`;
+      }
+
+      function openPane(item, cardEl) {
+          safeExecute('openPane', () => {
+              currentActiveItem = item;
+              document.querySelectorAll('.email-card').forEach(c => c.classList.remove('selected'));
+              if(cardEl) cardEl.classList.add('selected');
+
+              setStyle('welcome-screen', 'display', 'none');
+              setStyle('pane-content', 'display', 'flex');
+              
+              renderDiagnosticStrip(item.rawRow);
+
+              setTxt('p-fdh', item.fdh || "N/A"); setTxt('p-meta', item.city || "Unknown City");
+              
+              let pill = getEl('p-status');
+              if (pill) {
+                  let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
+                  let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+                  if(item.flags.includes("MISSING QB STATUS") && !item.flags.includes("NOT IN QB REFERENCE")) combinedPill = "MISSING QB STATUS";
+                  pill.innerText = combinedPill; pill.className = `glass-pill ${getQBStatusClass(item.stage, item.status, isNotInQb)}`;
+              }
+
+              let st = (item.stage || "").toLowerCase(); let stat = (item.status || "").toLowerCase();
+              let isComplete = st.includes('ofs') || stat.includes('complete'); let isOnHold = stat.includes('hold'); let isPermit = st.includes('permit');
+
+              let hasEnd = item.cxEnd && item.cxEnd !== ""; let isOverdue = false;
+              if (hasEnd) { let end = new Date(item.cxEnd); let today = new Date(); today.setHours(0,0,0,0); if (today > end && !isComplete && !isOnHold && !isPermit) isOverdue = true; }
+              
+              setStyle('project-schedule-card', 'boxShadow', getCardGlow(item.stage, item.status, isOverdue));
+
+              let hasStart = item.cxStart && item.cxStart !== "";
+              setHtml('p-cx-start', `CX START: <span style="color:var(--text-main)">${hasStart ? item.cxStart : "TBD"}</span>`);
+              setHtml('p-cx-end', `CX COMPLETE: <span style="color:var(--text-main)">${hasEnd ? item.cxEnd : "TBD"}</span>`);
+              
+              let scheduleFill = getEl('p-time-fill'); let scheduleBead = getEl('p-time-bead');
+              let daysLeft = 0; let pStart = new Date(item.cxStart); let pEnd = new Date(item.cxEnd);
+
+              if(hasStart && hasEnd && scheduleFill && scheduleBead) {
+                 let total = pEnd - pStart, elap = new Date() - pStart; daysLeft = Math.ceil((pEnd - new Date()) / 86400000);
+                 let pct = total > 0 ? Math.max(0, Math.min(100, (elap/total)*100)) : 0;
+                 let scheduleColor = "#facc15"; if(isComplete) scheduleColor = "var(--qb-done)"; else if (isOverdue) scheduleColor = "var(--color-critical)";
+                 scheduleFill.style.width = `${pct}%`; scheduleFill.style.background = scheduleColor;
+                 if(pct > 0 && pct < 100) { scheduleBead.style.display = 'block'; scheduleBead.style.left = `calc(${pct}% - 7px)`; scheduleBead.style.borderColor = scheduleColor; } else { scheduleBead.style.display = 'none'; }
+              } else if (scheduleFill && scheduleBead) { scheduleFill.style.width = "0%"; scheduleBead.style.display = "none"; }
+
+              const makeProjBead = (dateStr, icon, title, bgColor, borderColor, start, end) => {
+                  let d = new Date(dateStr); if(isNaN(d)) return ""; let pct = ((d - start) / (end - start)) * 100;
+                  if(pct >= 0 && pct <= 100) return `<div class="proj-bead has-tooltip" data-tooltip="${title}" style="left:${pct}%; background:${bgColor}; border-color:${borderColor}; color:${borderColor};">${icon}</div>`;
+                  return "";
+              };
+
+              let projBeadHtml = ''; let benchStr = item.bench || "";
+
+              if(!isNaN(pStart) && !isNaN(pEnd) && (pEnd - pStart > 0)) {
+                  let locMatch = benchStr.match(/Loc:\s*([\d/]+)/); if(locMatch && locMatch[1]) projBeadHtml += makeProjBead(locMatch[1], 'L', `Locates Called (${locMatch[1]})`, 'var(--card-bg)', '#3b82f6', pStart, pEnd);
+                  let cabMatch = benchStr.match(/Cab:\s*([\d/]+)/); if(cabMatch && cabMatch[1]) projBeadHtml += makeProjBead(cabMatch[1], 'C', `Cabinets Set (${cabMatch[1]})`, 'var(--card-bg)', '#a855f7', pStart, pEnd);
+                  let litMatch = benchStr.match(/Lit:\s*([\d/]+)/); if(litMatch && litMatch[1]) projBeadHtml += makeProjBead(litMatch[1], '⚡', `Light Present (${litMatch[1]})`, 'var(--card-bg)', '#eab308', pStart, pEnd);
+
+                  let starMatch = benchStr.match(/(UG|AE|FIB|NAP):\s*[\d/]+\s*->\s*([\d/]+)\s*\(100%\)/g);
+                  if(starMatch) {
+                      starMatch.forEach(m => {
+                         let phase = m.split(':')[0]; let dateExtract = m.match(/->\s*([\d/]+)\s*\(/);
+                         if (dateExtract && dateExtract[1]) {
+                             let starDate = new Date(dateExtract[1]);
+                             if(!isNaN(starDate)) {
+                                 let starPct = ((starDate - pStart) / (pEnd - pStart)) * 100;
+                                 if (starPct >= 0 && starPct <= 100) {
+                                     let sCol = QB_STYLES[phase] ? QB_STYLES[phase].border : "#94a3b8"; let sShadow = "0 1px 3px rgba(0,0,0,0.3)";
+                                     if (phase === 'FIB') sShadow = `0 0 10px ${sCol}`; if (phase === 'NAP') sShadow = `0 0 8px rgba(99, 102, 241, 0.6)`;
+                                     projBeadHtml += `<div class="proj-bead has-tooltip" data-tooltip="${phase} 100% Complete (${dateExtract[1]})" style="left:${starPct}%; background:rgba(255,255,255,0.85); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); border-color:${sCol}; color:${sCol}; box-shadow:${sShadow}; font-size:9px;">★</div>`;
+                                 }
+                             }
+                         }
+                      });
+                  }
+              }
+              setHtml('p-time-stars', projBeadHtml);
+
+              let targetColor = "#facc15"; if (isComplete) targetColor = "var(--qb-done)"; else if (isOverdue) targetColor = "var(--color-critical)";
+
+              let targetWrap = getEl('p-target-wrap'); let targetInner = getEl('p-target-inner');
+              let starHtml = isComplete ? `<span style="color:var(--starGold); font-size:14px; margin-left:4px; line-height:1;">★</span>` : "";
+              let targetText = item.targetDate ? item.targetDate : "TBD";
+              
+              setHtml('p-target', targetText + starHtml); setStyle('p-target', 'color', targetColor);
+
+              if(item.isXing && targetWrap && targetInner) { targetWrap.classList.add('xing'); targetInner.style.borderRadius = "9px 9px 0 0"; setStyle('p-xing', 'display', 'flex'); } else if (targetWrap && targetInner) { targetWrap.classList.remove('xing'); targetInner.style.borderRadius = "12px 12px 0 0"; setStyle('p-xing', 'display', 'none'); }
+
+              let rawFlags = (item.flags || "").split('\n').map(f => f.trim()).filter(f => f !== "");
+              let tagsHtml = '', isCritical = false, isWarn = false; let needsAdminCheck = false; let needsQbSync = false;
+              
+              rawFlags.forEach(f => {
+                  let cleanText = f.replace(/[🚨🛑🚩⚠️🖍️🚧]/g, '').trim();
+                  if (f.includes("ADMIN: CHECK CROSSINGS") || f.includes("ADMIN: REFRESH REF DATA")) { isCritical = !f.includes("REFRESH"); if(isCritical) isWarn = false; else if(!isCritical) isWarn = true; if(f.includes("CHECK CROSSINGS")) needsAdminCheck = true; tagsHtml += `<span class="tag tag-admin admin-flag-tag">${cleanText}</span>`; }
+                  else if (f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) { isCritical = true; needsQbSync = true; tagsHtml += `<span class="tag tag-red status-flag-tag" style="border-color:#fca5a5;">${cleanText}</span>`; }
+                  else if (f.includes("🚨") || f.includes("🛑") || f.includes("🚩")) { isCritical = true; tagsHtml += `<span class="tag tag-red" style="border-color:#fca5a5;">${cleanText}</span>`; }
+                  else if (f.includes("⚠️") || f.includes("🖍️") || f.includes("🚧")) { isWarn = true; tagsHtml += `<span class="tag tag-yellow" style="border-color:#fde047;">${cleanText}</span>`; }
+                  else { tagsHtml += `<span class="tag tag-purple" style="border-color:#d8b4fe;">${cleanText}</span>`; }
+              });
+              
+              let vComment = item.vendorComment ? item.vendorComment.trim() : ""; let vBubble = getEl('p-vendor-bubble');
+              if (vBubble) { if (vComment !== "") { vBubble.style.display = 'flex'; setTxt('p-vendor-comment', `"${vComment}"`); } else { vBubble.style.display = 'none'; } }
+
+              let actionBox = getEl('p-action');
+              if (actionBox) {
+                  actionBox.className = 'action-box hover-trigger';
+                  if (isCritical) actionBox.classList.add('crit'); else if (isWarn) actionBox.classList.add('warn');
+                  
+                  let draftMain = item.draft ? `<div style="font-weight:normal; color:var(--text-main); line-height:1.4;">${item.draft.replace(/\n/g, '<br>')}</div>` : "<div style='font-style:italic; font-weight:normal; color:var(--text-muted);'>No specific action flagged.</div>";
+                  let adminBtn = needsAdminCheck ? `<button class="btn hover-trigger" id="btn-admin-check" onclick="markChecked('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#0f172a; color:#ffffff; border-color:#0f172a; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🛡️ VERIFY CROSSINGS</button>` : "";
+                  let qbBtn = needsQbSync ? `<button class="btn hover-trigger" id="btn-qb-update" onclick="markQbUpdated('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#2563eb; color:#ffffff; border-color:#1d4ed8; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🛠️ MARK QB UPDATED</button>` : "";
+                  let btnContainer = (adminBtn !== "" || qbBtn !== "") ? `<div style="display:flex; gap:8px; margin-top:8px; margin-left:auto; width:fit-content;">${adminBtn}${qbBtn}</div>` : "";
+                  actionBox.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px;">${tagsHtml}</div>${draftMain}${btnContainer}`;
+              }
+
+              let barsHtml = ''; let v = item.vel;
+              if (v) { barsHtml += buildVelocityBar('Underground', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft); barsHtml += buildVelocityBar('Aerial', v.ae.daily, v.ae.tot, v.ae.bom, 'AE', daysLeft); barsHtml += buildVelocityBar('Fiber', v.fib.daily, v.fib.tot, v.fib.bom, 'FIB', daysLeft); barsHtml += buildVelocityBar('Splicing', v.nap.daily, v.nap.tot, v.nap.bom, 'NAP', daysLeft); }
+              setHtml('p-prod-bars', barsHtml || "<div style='font-size:11px; color:var(--text-muted); font-style:italic; grid-column:span 2;'>No active production tracking.</div>");
+              
+              let lightHtml = item.isLight ? `<span style="height:6px; width:6px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px #22c55e;"></span> <span style="color:#22c55e;">LIGHT PRESENT</span>` : `<span style="height:6px; width:6px; background:#94a3b8; border-radius:50%;"></span> <span style="color:#94a3b8;">PENDING LIGHT</span>`;
+              setHtml('p-light-pill', lightHtml);
+              
+              let ofsMonthStr = "TBD";
+              if (item.ofsDate && item.ofsDate !== "-" && item.ofsDate !== "Unknown") { try { let d = new Date(item.ofsDate); if (!isNaN(d.getTime())) ofsMonthStr = d.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase(); } catch(e) {} }
+
+              setTxt('p-days-left', daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`);
+              setTxt('p-bsls', `BSLS: ${item.bsls}`);
+              if(ofsMonthStr !== "TBD") { setStyle('p-ofs', 'display', 'block'); setTxt('p-ofs', `OFS: ${ofsMonthStr}`); } else { setStyle('p-ofs', 'display', 'none'); }
+
+              let chkMatch = (item.gaps || "").match(/\[Chk:\s*([^\]]+)\]/); let lastCheckedStr = chkMatch ? chkMatch[1] : "NEVER";
+              let d = new Date(); let dateStr = (d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear().toString().slice(-2);
+              
+              setTxt('p-date', `REPORT DATE: ${item.reportDate || dateStr}`); setTxt('p-last-check', `LAST CHECKED: ${lastCheckedStr}`); 
+              
+              // 🧠 BUG FIX: Define smartNote here so the pane doesn't crash
+              let smartNote = generateSmartComment(item, daysLeft, isOverdue);
+              setVal('p-comment', item.comment || smartNote);
+
+              let ganttArea = getEl('gantt-area-main');
+              if (ganttArea) {
+                  ganttArea.classList.add('has-focus'); document.querySelectorAll('.gantt-row').forEach(r => r.classList.remove('is-active'));
+                  let gRow = getEl(`gantt-row-${item.fdh}`);
+                  if (gRow) {
+                      gRow.classList.add('is-active');
+                      let scrollContainer = getEl('gantt-scroll');
+                      if(scrollContainer) {
+                          let rowTop = gRow.offsetTop; let containerHalfH = scrollContainer.clientHeight / 2; let rowHalfH = gRow.clientHeight / 2; let scrollTopTarget = rowTop - containerHalfH + rowHalfH;
+                          let scrollLeftTarget = scrollContainer.scrollLeft; let todayLine = ganttArea.querySelector('.gantt-today-line');
+                          if (todayLine) { let leftPct = parseFloat(todayLine.style.left); let chartWidth = ganttArea.offsetWidth; let barOffset = chartWidth * (leftPct / 100); scrollLeftTarget = Math.max(0, barOffset - (scrollContainer.clientWidth / 2) + 140); }
+                          scrollContainer.scrollTo({ top: scrollTopTarget, left: scrollLeftTarget, behavior: 'smooth' });
+                      }
+                  }
+                  let exitBtn = getEl('btn-exit-theater'); if(exitBtn) exitBtn.style.display = 'inline-flex';
+              }
+          });
+      }
+
+      function skipReview() {
+          safeExecute('skipReview', () => {
+              currentActiveItem.comment = "Reviewed - No Action Required.";
+              allActionItems = allActionItems.filter(i => i.fdh !== currentActiveItem.fdh); committedItems = committedItems.filter(i => i.fdh !== currentActiveItem.fdh); 
+              committedItems.unshift(currentActiveItem); applyFilters(); renderOutbox(); exitTheaterMode(); currentActiveItem = null; 
+              setStyle('pane-content', 'display', 'none'); setStyle('welcome-screen', 'display', 'block'); setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">Skipped</div>`); setHtml('raw-data-strip', '');
+              if(window.innerWidth <= 768) backToQueue(); 
+          });
+      }
+
+      function commitReview() {
+          safeExecute('commitReview', () => {
+              currentActiveItem.comment = getEl('p-comment').value;
+              allActionItems = allActionItems.filter(i => i.fdh !== currentActiveItem.fdh); committedItems = committedItems.filter(i => i.fdh !== currentActiveItem.fdh); 
+              committedItems.unshift(currentActiveItem); applyFilters(); renderOutbox(); exitTheaterMode(); currentActiveItem = null; 
+              setStyle('pane-content', 'display', 'none'); setStyle('welcome-screen', 'display', 'block'); setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">Moved to Outbox</div>`); setHtml('raw-data-strip', ''); 
+              if(window.innerWidth <= 768) backToQueue();
+          });
+      }
+
+      function renderOutbox() {
+          const list = getEl('outbox-list'); if(!list) return; setTxt('ob-count', committedItems.length); list.innerHTML = '';
+          if(committedItems.length === 0) { list.innerHTML = `<div class="empty-msg">No items reviewed.</div>`; return; }
+          committedItems.forEach(item => {
+              let card = document.createElement('div'); card.className = 'ob-card'; card.onclick = () => { openPane(item, null); };
+              card.innerHTML = `<div style="font-weight:900; font-size:12px; color:var(--text-main);">${item.fdh}</div><div style="font-family:monospace; font-size:10px; color:var(--text-muted); margin-top:4px; max-height:30px; overflow:hidden;">${item.comment}</div>`;
+              list.appendChild(card);
+          });
+      }
+
+      function promptEmailExport() {
+          if(committedItems.length === 0) return alert("No items to export!");
+          let defaultEmail = ""; 
+          let email = prompt("📧 Where should we email the Export CSV?\n\nEnter an email address:", defaultEmail);
+          if (!email || email.trim() === "") return;
+          let btn = getEl('btn-export-all'); if(btn) { btn.innerText = "Sending Email..."; btn.disabled = true; }
+
+          google.script.run.withSuccessHandler((msg) => {
+              alert(msg); committedItems = []; renderOutbox(); if(btn) { btn.innerText = "Export All"; btn.disabled = false; }
+          }).withFailureHandler((err) => {
+              alert("Error sending email: " + err.message); if(btn) { btn.innerText = "Export All"; btn.disabled = false; }
+          }).emailExportCSV(committedItems, email.trim());
+      }
+    </script>
+  </body>
+</html>
