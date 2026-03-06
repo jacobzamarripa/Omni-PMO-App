@@ -746,6 +746,13 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       let dFIB = parseNum(row[HISTORY_HEADERS.indexOf("Daily Fiber Footage")]);
       let dNAP = parseNum(row[HISTORY_HEADERS.indexOf("Daily NAPs/Encl. Completed")]);
       let hasActivity = hasLocates || dUG > 0 || dAE > 0 || dFIB > 0 || dNAP > 0;
+      let activityReasons = [];
+      if (hasLocates) activityReasons.push("Locates called in");
+      if (dUG > 0) activityReasons.push(dUG + " ft UG");
+      if (dAE > 0) activityReasons.push(dAE + " ft Strand");
+      if (dFIB > 0) activityReasons.push(dFIB + " ft Fiber");
+      if (dNAP > 0) activityReasons.push(dNAP + " NAPs");
+      let activitySummary = activityReasons.join(", ");
 
       let adminGapsStr = diag.gaps; 
       if (refData) {
@@ -788,7 +795,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
                   if (diag.flags !== "✅ No Anomalies" && diag.flags !== "") diag.flags += "\n🚩 STATUS MISMATCH";
                   else diag.flags = "🚩 STATUS MISMATCH";
                   diag.flagColors.push("#991b1b"); 
-                  diag.draft = `Vendor reported activity, but QB shows ${refData.stage} | ${refData.status}. Please update QB to Field CX | In Progress.`;
+                  diag.draft = `Activity detected (${activitySummary}), but QB shows ${refData.stage} | ${refData.status}. Please update QB to Field CX | In Progress.`;
               }
           }
       }

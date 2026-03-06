@@ -883,10 +883,10 @@
 
           // 🧠 STRUCTURAL FIX: Decoupled Left Corner & Right Scrolling Area
           let dateHtml = `
-            <div class="tl-header-bar" style="min-width:${chartWidth + 140}px;">
+            <div class="tl-header-bar" style="min-width:${chartWidth + 140}px; width:${chartWidth + 140}px;">
                 <div class="tl-header-corner"></div>
-                <div class="tl-header-dates">
-          `; 
+                <div class="tl-header-dates" style="width:${chartWidth}px; flex-shrink:0;">
+          `;
           let gridLines = `<div class="gantt-grid-container" style="width:${chartWidth}px;">`;
           let spikeCount = 0;
 
@@ -912,7 +912,7 @@
              }
              if (isEOM) {
                  let projBsl = monthBsls[monthKey] || 0; gridLines += `<div class="gantt-eom-line" style="left:${pct}%;"></div>`;
-                 dateHtml += `<div class="gantt-eom-label" style="left:${pct}%; top:32px;">EOM | PROJECTED BSLs: ${projBsl.toLocaleString()}</div>`;
+                 if (pct >= 4) dateHtml += `<div class="gantt-eom-label" style="left:${pct}%; top:32px;">EOM | PROJECTED BSLs: ${projBsl.toLocaleString()}</div>`;
              }
 
              if(curr.getDay() === 1) { 
