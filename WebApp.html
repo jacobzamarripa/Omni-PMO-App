@@ -512,6 +512,14 @@
           let wrapper = getEl('gantt-wrapper'); if(!wrapper) return;
           wrapper.classList.remove('minimized'); wrapper.classList.toggle('fullscreen');
           let isFs = wrapper.classList.contains('fullscreen');
+          if (isFs) {
+              let navH = (document.querySelector('.top-nav') || {offsetHeight: 0}).offsetHeight;
+              wrapper.style.top = navH + 'px';
+              wrapper.style.height = 'calc(100vh - ' + navH + 'px)';
+          } else {
+              wrapper.style.top = '';
+              wrapper.style.height = '';
+          }
           let fsBtn = getEl('btn-fullscreen'); if(fsBtn) fsBtn.innerText = isFs ? 'Exit Fullscreen' : 'Fullscreen';
           let minBtn = getEl('btn-minimize'); if(minBtn) minBtn.style.display = isFs ? 'none' : 'inline-flex';
       }
