@@ -169,13 +169,28 @@ function setupDailyTrigger() { const triggers = ScriptApp.getProjectTriggers(); 
 function runMiddayAutomation() { logMsg("🤖 STARTING MIDDAY AUTOMATION..."); setupSheets(); const keys = getExistingKeys(); const refDict = getReferenceDictionary(); let rowCollector = []; processFolderRecursive(DriveApp.getFolderById(INCOMING_FOLDER_ID), keys, refDict, "", false, rowCollector); let targetDateStr = Utilities.formatDate(new Date(), "GMT-5", "yyyy-MM-dd"); if (rowCollector.length > 0) { let maxTime = 0; rowCollector.forEach(row => { let d = new Date(row[0]); if (d.getTime() > maxTime) { maxTime = d.getTime(); targetDateStr = Utilities.formatDate(d, "GMT-5", "yyyy-MM-dd"); } }); } populateQuickBaseTabCore(targetDateStr); generateDailyReviewCore(targetDateStr, refDict, true); exportDirectorReviewXLSX(true); exportVendorCorrectionsXLSX(true); logMsg(`✅ MIDDAY AUTOMATION COMPLETE for Date: ${targetDateStr}`); }
 function moveIncomingFoldersToArchive() { logMsg("🧹 STARTING MIDNIGHT SWEEP..."); let inc = DriveApp.getFolderById(INCOMING_FOLDER_ID), arch = DriveApp.getFolderById(ARCHIVE_FOLDER_ID); let folders = inc.getFolders(); let count = 0; while (folders.hasNext()) { folders.next().moveTo(arch); count++; } logMsg(`✅ MIDNIGHT SWEEP COMPLETE: Moved ${count} folders.`); }
 function setupSheets() { const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheets = [{n: QB_UPLOAD_SHEET, h: QB_HEADERS}, {n: HISTORY_SHEET, h: HISTORY_HEADERS}, {n: MIRROR_SHEET, h: HISTORY_HEADERS}]; sheets.forEach(s => { let sh = ss.getSheetByName(s.n) || ss.insertSheet(s.n); if (sh.getLastRow() === 0) sh.appendRow(s.h); }); }
+
+// 🧠 UPDATED FORMATTING FUNCTION TO HANDLE NEW XING SHEET AND CD INTELLIGENCE WRAPPING
 function applyFormatting(targetSheet = null) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const styleSheet = ss.getSheetByName(STYLE_MASTER);
   if (!styleSheet) return;
   
-  // 🧠 Added XING_SHEET to the master formatter
-  const sheetsToFormat = targetSheet ? [targetSheet] : [ss.getSheetByName(QB_UPLOAD_SHEET), ss.getSheetByName(HISTORY_SHEET), ss.getSheetByName(MIRROR_SHEET), ss.getSheetByName(XING_SHEET)];
+  // 🧠 Ensure XING_SHEET is included if it exists
+  let sheetsToFormat = [];
+  if (targetSheet) {
+      sheetsToFormat = [targetSheet];
+  } else {
+      sheetsToFormat = [
+          ss.getSheetByName(QB_UPLOAD_SHEET), 
+          ss.getSheetByName(HISTORY_SHEET), 
+          ss.getSheetByName(MIRROR_SHEET)
+      ];
+      // Only push XING_SHEET if it has been defined globally
+      if (typeof XING_SHEET !== 'undefined' && ss.getSheetByName(XING_SHEET)) {
+          sheetsToFormat.push(ss.getSheetByName(XING_SHEET));
+      }
+  }
   
   sheetsToFormat.forEach(sh => {
     if (!sh) return;
@@ -225,15 +240,17 @@ function applyFormatting(targetSheet = null) {
         }
       }
       
-      // 🧠 Force width and wrap for long comment fields and AI Summaries
-      if (header.trim() === "Construction Comments" || header.trim() === "Vendor Comment" || header.includes("Summary") || header.includes("Locations")) {
+      // 🧠 Force width and wrap for long comment fields, AI Summaries, and the new CD Intelligence column
+      if (header.trim() === "Construction Comments" || header.trim() === "Vendor Comment" || header.includes("Summary") || header.includes("Locations") || header.trim() === "CD Intelligence") {
           sh.setColumnWidth(index + 1, 400); 
       }
     });
     
     sh.setFrozenRows(1);
     // Don't freeze 7 columns on the Xing sheet, only the main trackers
-    if (sh.getName() !== XING_SHEET) sh.setFrozenColumns(7);
+    if (typeof XING_SHEET !== 'undefined' && sh.getName() !== XING_SHEET) {
+        sh.setFrozenColumns(7);
+    }
     
     if (trueLastRow > 1) {
       let dataRange = sh.getRange(2, 1, trueLastRow - 1, expectedCols);
@@ -242,7 +259,7 @@ function applyFormatting(targetSheet = null) {
       
       let rules = [];
       
-      if (sh.getName() === QB_UPLOAD_SHEET || sh.getName() === XING_SHEET) {
+      if (sh.getName() === QB_UPLOAD_SHEET || (typeof XING_SHEET !== 'undefined' && sh.getName() === XING_SHEET)) {
         sh.getRange(2, 1, trueLastRow - 1, expectedCols).clearDataValidations();
       } else {
         let fdhColIdx = activeHeaders.indexOf("FDH Engineering ID") + 1;
@@ -277,6 +294,7 @@ function applyFormatting(targetSheet = null) {
     trimAndFilterSheet(sh, trueLastRow, expectedCols);
   });
 }
+
 function getExistingKeys() { const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HISTORY_SHEET); if (!sh) return new Set(); const data = sh.getDataRange().getValues(); const keys = new Set(); const trueLastRow = getTrueLastDataRow(sh); if (trueLastRow < 2) return keys; for (let i = 1; i < trueLastRow; i++) { let cellDate = data[i][0]; let fdhId = String(data[i][2]).toUpperCase().trim(); let dateStr = ""; if (cellDate) { if (cellDate instanceof Date) { dateStr = Utilities.formatDate(cellDate, "GMT-5", "yyyy-MM-dd"); } else { let d = new Date(cellDate); if (!isNaN(d.getTime())) { dateStr = Utilities.formatDate(d, "GMT-5", "yyyy-MM-dd"); } else { dateStr = String(cellDate).trim(); } } } keys.add(dateStr + "_" + fdhId); } return keys; }
 function removeDuplicatesFromArchive() { const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HISTORY_SHEET); const data = sh.getDataRange().getValues(); const trueLastRow = getTrueLastDataRow(sh); if (trueLastRow < 2) return; const keys = new Set(); let rowsToDelete = []; for (let i = 1; i < trueLastRow; i++) { let cellDate = data[i][0]; let fdhId = String(data[i][2]).toUpperCase().trim(); let dateStr = ""; if (cellDate) { if (cellDate instanceof Date) { dateStr = Utilities.formatDate(cellDate, "GMT-5", "yyyy-MM-dd"); } else { let d = new Date(cellDate); if (!isNaN(d.getTime())) dateStr = Utilities.formatDate(d, "GMT-5", "yyyy-MM-dd"); else dateStr = String(cellDate).trim(); } } let key = dateStr + "_" + fdhId; if (keys.has(key)) rowsToDelete.push(i + 1); else keys.add(key); } rowsToDelete.reverse(); let deleted = 0; rowsToDelete.forEach(r => { sh.deleteRow(r); deleted++; }); SpreadsheetApp.getUi().alert(`✅ Cleaned up ${deleted} duplicate rows from the Archive.`); }
 function resetFileTags() { const resetFolder = (folderId) => { let folder = DriveApp.getFolderById(folderId); let files = folder.getFiles(); while (files.hasNext()) files.next().setDescription(""); let subs = folder.getFolders(); while (subs.hasNext()) resetFolder(subs.next().getId()); }; [ARCHIVE_FOLDER_ID, INCOMING_FOLDER_ID].forEach(id => resetFolder(id)); SpreadsheetApp.getUi().alert("Tags cleared for Archive & Incoming."); }
