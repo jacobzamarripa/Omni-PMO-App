@@ -1,19 +1,18 @@
 // ============================================================
 // 05_CDAnalyzer.js — CD Special Crossings Analyzer
-// Reads PDFs from the "To_Analyze" subfolder, sends each to
-// Gemini 1.5 Pro for OSP analysis, writes one row per PDF to
-// "7-CD_Special_Xings", then moves the file to "Analyzed".
+// Reads PDFs from a Drive folder, sends each to Gemini 1.5 Pro
+// for OSP analysis, and writes one row per PDF to the
+// "7-CD_Special_Xings" sheet in Daily_Production_Analyzer.
 // ============================================================
 
 // ── CONFIG ──────────────────────────────────────────────────
 const CD_CONFIG = {
-  GEMINI_API_KEY:    "PASTE_YOUR_AI_STUDIO_KEY_HERE",
-  GEMINI_MODEL:      "gemini-1.5-pro-latest",
-  ROOT_FOLDER_ID:    "1BxKhfNAXo32TPEvrTBsGi69lVo9njDU8",
-  INBOX_FOLDER_NAME: "📥 To_Analyze",
-  DONE_FOLDER_NAME:  "✅ Analyzed",
-  SPREADSHEET_ID:    "1Wd5nk87iLYiYj1EomGOXCeErRUSoNLFta_bKYZnnovk",
-  TARGET_SHEET:      "7-CD_Special_Xings",
+  GEMINI_API_KEY:  "AIzaSyAfk0ulm1Vp2-9_JlWP-LMBNTV6uuP5bwM",
+  GEMINI_MODEL:    "gemini-1.5-pro-latest",
+  SOURCE_FOLDER_ID: "1BxKhfNAXo32TPEvrTBsGi69lVo9njDU8",
+  SPREADSHEET_ID:   "1Wd5nk87iLYiYj1EomGOXCeErRUSoNLFta_bKYZnnovk",
+  TARGET_SHEET:     "7-CD_Special_Xings",
+  // Column order MUST match your sheet headers left-to-right
   COLUMNS: [
     "Project ID / FDH",
     "Total Footage (UG / AE)",
@@ -51,35 +50,33 @@ IMPORTANT: Respond ONLY with a single JSON object — no markdown, no explanatio
 }
 If a category has no findings, use the string "None".`;
 
-
-// ── MAIN FUNCTION ────────────────────────────────────────────
+// ── MAIN FUNCTION ───────────────────────────────────────────
 function runCDAnalysis() {
-  const ui    = SpreadsheetApp.getUi();
-  const ss    = SpreadsheetApp.openById(CD_CONFIG.SPREADSHEET_ID);
+  const ui   = SpreadsheetApp.getUi();
+  const ss   = SpreadsheetApp.openById(CD_CONFIG.SPREADSHEET_ID);
   const sheet = ss.getSheetByName(CD_CONFIG.TARGET_SHEET);
 
   if (!sheet) {
-    ui.alert(`Sheet "${CD_CONFIG.TARGET_SHEET}" not found.`);
+    ui.alert(`Sheet "${CD_CONFIG.TARGET_SHEET}" not found. Check CD_CONFIG.TARGET_SHEET.`);
     return;
   }
 
-  const rootFolder  = DriveApp.getFolderById(CD_CONFIG.ROOT_FOLDER_ID);
-  const inboxFolder = _getOrCreateSubfolder(rootFolder, CD_CONFIG.INBOX_FOLDER_NAME);
-  const doneFolder  = _getOrCreateSubfolder(rootFolder, CD_CONFIG.DONE_FOLDER_NAME);
-
-  const files = _getPDFsFromFolder(inboxFolder);
+  // Collect PDFs from the source folder
+  const folder = DriveApp.getFolderById(CD_CONFIG.SOURCE_FOLDER_ID);
+  const files  = _getPDFsFromFolder(folder);
 
   if (files.length === 0) {
-    ui.alert(`No PDFs found in "${CD_CONFIG.INBOX_FOLDER_NAME}".\n\nDrop your CDs in that folder and try again.`);
+    ui.alert("No PDF files found in the specified folder.");
     return;
   }
 
   const confirm = ui.alert(
-    `Found ${files.length} PDF(s) in "${CD_CONFIG.INBOX_FOLDER_NAME}".\n\nStart analysis? Each file takes ~35 seconds on the free API tier.`,
+    `Found ${files.length} PDF(s). Start analysis? This may take several minutes.`,
     ui.ButtonSet.YES_NO
   );
   if (confirm !== ui.Button.YES) return;
 
+  // Ensure header row exists
   _ensureHeaders(sheet);
 
   let successCount = 0;
@@ -92,15 +89,12 @@ function runCDAnalysis() {
 
     try {
       const pdfBase64 = Utilities.base64Encode(file.getBlob().getBytes());
-      const raw       = _callGemini(pdfBase64);
-      const parsed    = _parseGeminiResponse(raw);
+      const result    = _callGemini(pdfBase64);
+      const parsed    = _parseGeminiResponse(result);
 
       if (parsed) {
         _appendRow(sheet, parsed);
-        doneFolder.addFile(file);
-        inboxFolder.removeFile(file);
         successCount++;
-        Logger.log(`✅ Done: ${file.getName()} → moved to ${CD_CONFIG.DONE_FOLDER_NAME}`);
       } else {
         errors.push(`${file.getName()}: Could not parse Gemini response.`);
         errorCount++;
@@ -111,95 +105,108 @@ function runCDAnalysis() {
       errorCount++;
     }
 
-    // Rate limit buffer — 31s keeps free tier (2 RPM) safe
-    // Lower to 2000 if you upgrade to a paid API tier
+    // Polite delay to avoid rate-limit errors on free tier (2 RPM)
     if (i < files.length - 1) {
-      Utilities.sleep(31000);
+      Utilities.sleep(31000); // 31 seconds between calls on free tier
+      // If you upgrade to a paid API tier, you can lower this to ~2000
     }
   }
 
-  const summary =
-    `Analysis complete.\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}` +
+  const summary = `Analysis complete.\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}` +
     (errors.length ? `\n\nErrors:\n${errors.join("\n")}` : "");
   ui.alert(summary);
 }
 
 
-// ── HELPER: Get or auto-create a named subfolder ─────────────
-function _getOrCreateSubfolder(parentFolder, name) {
-  const iter = parentFolder.getFoldersByName(name);
-  if (iter.hasNext()) return iter.next();
-  return parentFolder.createFolder(name);
-}
-
-
-// ── HELPER: Get PDFs from a folder ──────────────────────────
+// ── HELPER: Get all PDFs from folder (non-recursive) ────────
 function _getPDFsFromFolder(folder) {
-  const pdfs = [];
-  const iter = folder.getFilesByType(MimeType.PDF);
-  while (iter.hasNext()) pdfs.push(iter.next());
+  const pdfs  = [];
+  const iter  = folder.getFilesByType(MimeType.PDF);
+  while (iter.hasNext()) {
+    pdfs.push(iter.next());
+  }
   return pdfs;
 }
 
 
-// ── HELPER: Call Gemini 1.5 Pro with inline PDF ─────────────
+// ── HELPER: Call Gemini 1.5 Pro with PDF inline ──────────────
 function _callGemini(pdfBase64) {
-  const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/${CD_CONFIG.GEMINI_MODEL}:generateContent?key=${CD_CONFIG.GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${CD_CONFIG.GEMINI_MODEL}:generateContent?key=${CD_CONFIG.GEMINI_API_KEY}`;
 
   const payload = {
-    contents: [{
-      parts: [
-        { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
-        { text: CD_PROMPT }
-      ]
-    }],
-    generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
+    contents: [
+      {
+        parts: [
+          {
+            inline_data: {
+              mime_type: "application/pdf",
+              data: pdfBase64
+            }
+          },
+          {
+            text: CD_PROMPT
+          }
+        ]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 2048
+    }
   };
 
-  const response = UrlFetchApp.fetch(url, {
-    method: "post",
+  const options = {
+    method:      "post",
     contentType: "application/json",
-    payload: JSON.stringify(payload),
+    payload:     JSON.stringify(payload),
     muteHttpExceptions: true
-  });
+  };
 
-  const code = response.getResponseCode();
-  const text = response.getContentText();
+  const response = UrlFetchApp.fetch(url, options);
+  const code     = response.getResponseCode();
+  const text     = response.getContentText();
 
   if (code !== 200) {
-    throw new Error(`Gemini API HTTP ${code}: ${text.substring(0, 300)}`);
+    throw new Error(`Gemini API returned HTTP ${code}: ${text.substring(0, 300)}`);
   }
 
+  const json = JSON.parse(text);
+
+  // Extract the text content from the response
   try {
-    return JSON.parse(text).candidates[0].content.parts[0].text;
+    return json.candidates[0].content.parts[0].text;
   } catch (e) {
-    throw new Error(`Unexpected response structure: ${text.substring(0, 300)}`);
+    throw new Error(`Unexpected Gemini response structure: ${text.substring(0, 300)}`);
   }
 }
 
 
-// ── HELPER: Parse JSON from Gemini response ──────────────────
+// ── HELPER: Parse Gemini JSON response ──────────────────────
 function _parseGeminiResponse(rawText) {
+  // Strip any accidental markdown fences
   let clean = rawText.replace(/```json|```/g, "").trim();
+
+  // Sometimes Gemini wraps in extra text — extract first { ... }
   const start = clean.indexOf("{");
   const end   = clean.lastIndexOf("}");
   if (start === -1 || end === -1) {
-    Logger.log("No JSON found in: " + rawText);
+    Logger.log("No JSON object found in response: " + rawText);
     return null;
   }
+  clean = clean.substring(start, end + 1);
+
   try {
-    return JSON.parse(clean.substring(start, end + 1));
+    return JSON.parse(clean);
   } catch (e) {
-    Logger.log("JSON parse error: " + e.message);
+    Logger.log("JSON parse error: " + e.message + "\nRaw: " + clean);
     return null;
   }
 }
 
 
-// ── HELPER: Append parsed row to sheet ──────────────────────
+// ── HELPER: Append a row to the sheet ───────────────────────
 function _appendRow(sheet, data) {
-  sheet.appendRow([
+  const row = [
     data.project_id        || "—",
     data.total_footage     || "—",
     data.long_bores        || "None",
@@ -207,27 +214,29 @@ function _appendRow(sheet, data) {
     data.water_bodies      || "None",
     data.permits_needed    || "None",
     data.ai_summary        || "—"
-  ]);
+  ];
+  sheet.appendRow(row);
 }
 
 
-// ── HELPER: Write header row if empty ───────────────────────
+// ── HELPER: Write headers if row 1 is empty ─────────────────
 function _ensureHeaders(sheet) {
-  if (!sheet.getRange(1, 1).getValue()) {
+  const firstCell = sheet.getRange(1, 1).getValue();
+  if (!firstCell || firstCell.toString().trim() === "") {
     sheet.getRange(1, 1, 1, CD_CONFIG.COLUMNS.length)
-      .setValues([CD_CONFIG.COLUMNS])
-      .setFontWeight("bold")
-      .setBackground("#1e3a5f")
-      .setFontColor("#ffffff");
+         .setValues([CD_CONFIG.COLUMNS])
+         .setFontWeight("bold")
+         .setBackground("#1e3a5f")
+         .setFontColor("#ffffff");
   }
 }
 
 
-// ── UTILITY: Clear data rows, keep header ────────────────────
+// ── UTILITY: Clear sheet (keep header row) ───────────────────
 function clearCDSheet() {
   const ui = SpreadsheetApp.getUi();
   const confirm = ui.alert(
-    "Clear all data rows from 7-CD_Special_Xings? Header row will remain.",
+    "Clear all data rows from 7-CD_Special_Xings? (Header row will remain.)",
     ui.ButtonSet.YES_NO
   );
   if (confirm !== ui.Button.YES) return;
@@ -235,6 +244,8 @@ function clearCDSheet() {
   const ss    = SpreadsheetApp.openById(CD_CONFIG.SPREADSHEET_ID);
   const sheet = ss.getSheetByName(CD_CONFIG.TARGET_SHEET);
   const last  = sheet.getLastRow();
-  if (last > 1) sheet.deleteRows(2, last - 1);
+  if (last > 1) {
+    sheet.deleteRows(2, last - 1);
+  }
   ui.alert("Sheet cleared.");
 }
