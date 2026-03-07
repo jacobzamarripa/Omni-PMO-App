@@ -139,7 +139,7 @@ function getDashboardData() {
              isLight: lightIdx > -1 ? (data[i][lightIdx] === true || String(data[i][lightIdx]).toLowerCase() === 'true') : false,
              ofsDate: parseDate(ofsIdx > -1 ? data[i][ofsIdx] : ""), reportDate: parseDate(dateIdx > -1 ? data[i][dateIdx] : ""), targetDate: parseDate(targetIdx > -1 ? data[i][targetIdx] : ""),
              cxStart: parseDate(cxStartIdx > -1 ? data[i][cxStartIdx] : ""), cxEnd: parseDate(cxEndIdx > -1 ? data[i][cxEndIdx] : ""),
-             isXing: xingIdx > -1 && String(data[i][xingIdx]).includes("X-ING"), gaps: xingIdx > -1 ? String(data[i][xingIdx]) : "", flags: flags, draft: draftIdx > -1 ? data[i][draftIdx] : "", bench: benchIdx > -1 ? data[i][benchIdx] : "",
+             isXing: xingIdx > -1 && String(data[i][xingIdx]).includes("X-ING YES"), gaps: xingIdx > -1 ? String(data[i][xingIdx]) : "", flags: flags, draft: draftIdx > -1 ? data[i][draftIdx] : "", bench: benchIdx > -1 ? data[i][benchIdx] : "",
              
              // 🧠 Pass the Vendor Comment and CD Intelligence column
              vendorComment: vcIdx > -1 ? data[i][vcIdx] : "",
