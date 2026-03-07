@@ -66,7 +66,7 @@
       .workspace { display: flex; flex-grow: 1; overflow: hidden; background: var(--bg); position: relative;}
 
       .inbox-sidebar { width: 380px; min-width: 320px; max-width: 600px; resize: horizontal; overflow: hidden; background: var(--card-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5; flex-shrink: 0; transition: background 0.3s, border-color 0.3s;}
-      .inbox-header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s;}
+      /* .inbox-header overridden below */
       .inbox-title { font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); }
       .inbox-count { background: var(--border); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 900; color: var(--text-main);}
       .inbox-list { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; padding: 0; gap: 0;}
@@ -175,7 +175,24 @@
       .action-box.warn { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
       .action-box.crit { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
 
-      .comment-area { display: flex; flex-direction: column; height: 100%; transition: transform 0.2s;}
+      /* 📐 Blueprint-style CD Intelligence strip */
+      .cd-intel-strip { background: #050f1c; border: 1px solid #1e3a5f; border-left: 3px solid #2563eb; border-radius: 6px; overflow: hidden; flex-shrink: 0; margin-bottom: 8px; }
+      body.dark-mode .cd-intel-strip { background: #040c16; border-color: #1e3a5f; }
+      .cd-intel-header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; min-height: 28px; user-select: none; }
+      .cd-intel-header:hover { background: rgba(37,99,235,0.12); }
+      .cd-badge { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px; color: #60a5fa; background: rgba(37,99,235,0.2); padding: 2px 7px; border-radius: 3px; border: 1px solid rgba(37,99,235,0.4); flex-shrink: 0; }
+      .cd-preview { font-size: 10px; color: #7dd3fc; flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .cd-chevron { font-size: 9px; color: #3b82f6; flex-shrink: 0; transition: transform 0.2s; }
+      .cd-intel-body { padding: 8px 10px 10px; color: #bfdbfe; line-height: 1.55; font-size: 11px; display: none; border-top: 1px solid #1e3a5f; white-space: pre-wrap; }
+      .cd-intel-body.expanded { display: block; }
+      .cd-chevron.expanded { transform: rotate(180deg); }
+
+      /* Filter strip toggle */
+      .filter-strip.hidden { display: none !important; }
+      .btn-filters-active { background: rgba(239,68,68,0.1) !important; border-color: rgba(239,68,68,0.4) !important; color: var(--color-critical) !important; }
+
+      .comment-area { display: flex; flex-direction: column; flex-grow: 1; transition: transform 0.2s;}
+      .inbox-header { padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 6px; transition: background 0.3s, border-color 0.3s;}
       .chat-bubble { flex-grow: 1; padding: 14px; border-radius: 12px 12px 2px 12px; font-family: monospace; font-size: 12px; min-height: 100px; resize: none; transition: all 0.2s;}
       body:not(.dark-mode) .chat-bubble { background: #faf5ff; color: #4c1d95; border: 1px solid #d8b4fe; box-shadow: 3px 3px 0px rgba(0,0,0,0.05);}
       body:not(.dark-mode) .chat-bubble:focus { outline: none; border-color: #a855f7; background: #ffffff; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);}
@@ -385,12 +402,13 @@
       </div>
 
       <div class="nav-actions">
+        <button class="btn-nav" onclick="toggleFilterStrip()" id="btn-filters" style="font-size:11px; padding:4px 10px; gap:4px;">⊟ Filters</button>
         <button class="btn-nav" onclick="triggerRefresh()" id="btn-refresh">⟳ Sync</button>
         <button class="btn-icon has-tooltip" onclick="toggleDarkMode()" id="btn-theme" data-tooltip="Toggle dark mode">🌙</button>
       </div>
     </div>
 
-    <div class="filter-strip" id="filter-strip">
+    <div class="filter-strip hidden" id="filter-strip">
         <input type="text" id="search-input" placeholder="Search FDH..." onkeyup="applyFilters()">
         <select id="filter-severity" onchange="applyFilters()">
            <option value="ALL">All Health</option>
@@ -406,14 +424,13 @@
     <div class="workspace" id="main-workspace">
       <div class="inbox-sidebar">
         <div class="inbox-header">
-          <div style="display:flex; align-items:center; gap:8px;">
-              <div class="inbox-title">Diagnostic Queue</div>
+          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+              <div class="inbox-title">Queue</div>
               <div class="inbox-count" id="inbox-count">0</div>
           </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-              <button class="btn-icon has-tooltip" id="view-toggle-btn" data-tooltip="List View" onclick="toggleListView()">☰</button>
-              <span style="font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Sort:</span>
-              <select id="sort-queue" onchange="applyFilters()" style="font-size:9px; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer;">
+          <div style="display:flex; align-items:center; gap:4px; margin-left:auto; flex-shrink:0;">
+              <button class="btn-icon has-tooltip" id="view-toggle-btn" data-tooltip="List View" onclick="toggleListView()" style="padding:3px 7px;">☰</button>
+              <select id="sort-queue" onchange="applyFilters()" style="font-size:9px; padding:3px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto;">
                  <option value="default">Default</option>
                  <option value="admin">Admin Check</option>
                  <option value="target">Target Date</option>
@@ -504,19 +521,22 @@
                                <div id="p-action" class="action-box hover-trigger" style="flex-grow:1; display:flex; flex-direction:column;" onmouseenter="hl('Health Flags')" onmouseleave="hl('')"></div>
                            </div>
                        </div>
-                       <div id="p-cd-intel" style="display:none; background:rgba(109,33,168,0.07); border:1px solid rgba(109,33,168,0.25); border-radius:8px; padding:10px 14px; margin-bottom:10px;">
-                           <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-                               <span style="font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:0.8px; color:#7c3aed; background:rgba(109,33,168,0.12); padding:2px 8px; border-radius:4px; border:1px solid rgba(109,33,168,0.3);">CD Intelligence</span>
-                               <span style="font-size:9px; color:#a78bfa; font-weight:600;">AI-Analyzed Construction Drawing</span>
+                       <div style="display:flex; flex-direction:column; height:100%;">
+                           <div id="p-cd-intel" class="cd-intel-strip" style="display:none;">
+                               <div class="cd-intel-header" onclick="toggleCdIntel()">
+                                   <span class="cd-badge">📐 CD Intelligence</span>
+                                   <span id="cd-intel-preview" class="cd-preview"></span>
+                                   <span id="cd-intel-chevron" class="cd-chevron">▾</span>
+                               </div>
+                               <div id="p-cd-intel-text" class="cd-intel-body"></div>
                            </div>
-                           <div id="p-cd-intel-text" style="font-size:11px; line-height:1.55; color:var(--text-main); white-space:pre-wrap;"></div>
-                       </div>
-                       <div class="comment-area hover-trigger" onmouseenter="hl('Action Required')" onmouseleave="hl('')">
-                           <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; padding:0 4px;">
-                               <div class="section-label" style="color:var(--color-insight); margin:0;">OMNI Manager Note</div>
-                               <div id="p-review-date" style="font-size:9px; font-weight:bold; color:var(--text-muted);"></div>
+                           <div class="comment-area hover-trigger" onmouseenter="hl('Action Required')" onmouseleave="hl('')">
+                               <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; padding:0 4px;">
+                                   <div class="section-label" style="color:var(--color-insight); margin:0;">OMNI Manager Note</div>
+                                   <div id="p-review-date" style="font-size:9px; font-weight:bold; color:var(--text-muted);"></div>
+                               </div>
+                               <textarea id="p-comment" class="chat-bubble"></textarea>
                            </div>
-                           <textarea id="p-comment" class="chat-bubble"></textarea>
                        </div>
                    </div>
                    <div class="pane-footer">
@@ -656,6 +676,19 @@
           let list = getEl('inbox-list'); let btn = getEl('view-toggle-btn');
           if (list) list.classList.toggle('list-view', isListView);
           if (btn) { btn.setAttribute('data-tooltip', isListView ? 'Card View' : 'List View'); btn.innerHTML = isListView ? '⊞' : '☰'; }
+      }
+      function toggleFilterStrip() {
+          let strip = getEl('filter-strip'); let btn = getEl('btn-filters');
+          if (!strip) return;
+          strip.classList.toggle('hidden');
+          let isHidden = strip.classList.contains('hidden');
+          if (btn) btn.classList.toggle('btn-filters-active', !isHidden);
+      }
+      function toggleCdIntel() {
+          let body = getEl('p-cd-intel-text'); let chevron = getEl('cd-intel-chevron');
+          if (!body) return;
+          body.classList.toggle('expanded');
+          if (chevron) chevron.classList.toggle('expanded', body.classList.contains('expanded'));
       }
       
       let hudLocked = false;
@@ -938,6 +971,13 @@
                 });
             } else { filtered.sort((a, b) => a.rowNum - b.rowNum); }
             
+            // Highlight Filters button when any non-default filter is active
+            let filtersBtn = getEl('btn-filters');
+            if (filtersBtn) {
+                let anyActive = vVen !== 'ALL' || vCit !== 'ALL' || vOfs !== 'ALL' || vSev !== 'ALL' || searchTerm !== '' || activeAdminFilter !== null;
+                filtersBtn.classList.toggle('btn-filters-active', anyActive);
+                filtersBtn.textContent = anyActive ? '⊟ Filters ●' : '⊟ Filters';
+            }
             renderList(filtered); renderGantt(filtered);
         });
       }
@@ -1335,7 +1375,18 @@
               let cdMatch = mainDraft.match(/\n*\[CD Intelligence\]:\s*([\s\S]*)$/);
               if (cdMatch) { cdIntelText = cdMatch[1].trim(); mainDraft = mainDraft.replace(/\n*\[CD Intelligence\]:\s*[\s\S]*$/, '').trim(); }
               let cdPanel = getEl('p-cd-intel');
-              if (cdPanel) { cdPanel.style.display = cdIntelText ? 'block' : 'none'; if (cdIntelText) setTxt('p-cd-intel-text', cdIntelText); }
+              if (cdPanel) {
+                  cdPanel.style.display = cdIntelText ? 'block' : 'none';
+                  if (cdIntelText) {
+                      setTxt('p-cd-intel-text', cdIntelText);
+                      let preview = getEl('cd-intel-preview');
+                      if (preview) preview.textContent = cdIntelText.substring(0, 85) + (cdIntelText.length > 85 ? '…' : '');
+                      // Always start collapsed when switching items
+                      let body = getEl('p-cd-intel-text'); let chevron = getEl('cd-intel-chevron');
+                      if (body) body.classList.remove('expanded');
+                      if (chevron) { chevron.classList.remove('expanded'); chevron.textContent = '▾'; }
+                  }
+              }
 
               let actionBox = getEl('p-action');
               if (actionBox) {
