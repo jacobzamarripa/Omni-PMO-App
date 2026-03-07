@@ -889,9 +889,16 @@
           hudLocked = false; hideHUD();
       }
       
-      function toggleDarkMode() {
-          document.body.classList.toggle('dark-mode'); let btn = getEl('btn-theme'); if(btn) btn.textContent = document.body.classList.contains('dark-mode') ? "Light Mode" : "Dark Mode";
+      function applyTheme(dark) {
+          document.body.classList.toggle('dark-mode', dark);
+          let btn = getEl('btn-theme'); if (btn) btn.textContent = dark ? 'Light Mode' : 'Dark Mode';
       }
+      function toggleDarkMode() { applyTheme(!document.body.classList.contains('dark-mode')); }
+
+      // Follow system light/dark preference; update live when macOS Auto switches at sunset/sunrise
+      let _sysDark = window.matchMedia('(prefers-color-scheme: dark)');
+      applyTheme(_sysDark.matches);
+      _sysDark.addEventListener('change', e => applyTheme(e.matches));
 
       function triggerRefresh() {
           let d = new Date(); d.setDate(d.getDate() - 1); let localDateStr = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0');
