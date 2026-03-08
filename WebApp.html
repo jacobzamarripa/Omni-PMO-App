@@ -62,6 +62,13 @@
       .btn-nav { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; color: var(--text-main); font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; white-space: nowrap;}
       .btn-nav:hover { background: var(--border); }
       .btn-nav:disabled { opacity: 0.5; cursor: not-allowed; }
+      .gemini-badge { font-size: 10px; font-weight: 900; padding: 3px 8px; border-radius: 10px; border: 1px solid; white-space: nowrap; display: none; transition: background 0.3s, color 0.3s, border-color 0.3s; }
+      .gemini-badge.ai-ok   { color: #166534; background: rgba(34,197,94,0.12); border-color: #86efac; }
+      .gemini-badge.ai-warn { color: #92400e; background: rgba(234,179,8,0.15); border-color: #fde68a; }
+      .gemini-badge.ai-crit { color: #991b1b; background: rgba(239,68,68,0.15); border-color: #fca5a5; }
+      body.dark-mode .gemini-badge.ai-ok   { color: #86efac; background: rgba(34,197,94,0.1); border-color: #166534; }
+      body.dark-mode .gemini-badge.ai-warn { color: #fde047; background: rgba(234,179,8,0.1); border-color: #713f12; }
+      body.dark-mode .gemini-badge.ai-crit { color: #fca5a5; background: rgba(239,68,68,0.1); border-color: #991b1b; }
 
       .workspace { display: flex; flex-grow: 1; overflow: hidden; background: var(--bg); position: relative;}
 
@@ -457,6 +464,7 @@
       </div>
 
       <div class="nav-actions">
+        <span class="gemini-badge" id="gemini-badge" title="Gemini API calls used today">AI: <span id="gemini-used">0</span>/<span id="gemini-limit">50</span></span>
         <button class="btn-nav" onclick="triggerRefresh()" id="btn-refresh">⟳ Sync</button>
         <button class="btn-nav" onclick="toggleOutbox()" id="btn-outbox-toggle">Reviews</button>
         <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme">Dark Mode</button>
@@ -1051,7 +1059,20 @@
           if (isOverdue || st === "NOT IN QB REFERENCE" || st === "-") return 'g-color-red'; return 'g-color-yellow';
       }
 
-      window.onload = function() { initSwipeGestures(); google.script.run.withSuccessHandler(initDashboard).getDashboardData(); };
+      function updateGeminiBadge(u) {
+          if (!u) return;
+          let badge = getEl('gemini-badge');
+          let pct   = u.used / u.limit;
+          setTxt('gemini-used', u.used);
+          setTxt('gemini-limit', u.limit);
+          badge.className = 'gemini-badge ' + (pct >= 0.95 ? 'ai-crit' : pct >= 0.8 ? 'ai-warn' : 'ai-ok');
+          badge.style.display = 'inline';
+      }
+      window.onload = function() {
+          initSwipeGestures();
+          google.script.run.withSuccessHandler(initDashboard).getDashboardData();
+          google.script.run.withSuccessHandler(updateGeminiBadge).getGeminiUsage();
+      };
 
       function initDashboard(data) {
         safeExecute('initDashboard', () => {

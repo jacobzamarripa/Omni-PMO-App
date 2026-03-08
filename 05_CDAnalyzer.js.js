@@ -275,6 +275,11 @@ function _incrementCallCount() {
   props.setProperties({ "CD_API_DATE": today, "CD_API_COUNT": String(count + 1) });
 }
 
+// ── UTILITY: Expose usage to WebApp client ───────────────────
+function getGeminiUsage() {
+  return { used: _getCallsToday(), limit: CD_CONFIG.DAILY_API_LIMIT };
+}
+
 // ── UTILITY: Show today's API usage ─────────────────────────
 function checkCDApiUsage() {
   const used = _getCallsToday();
