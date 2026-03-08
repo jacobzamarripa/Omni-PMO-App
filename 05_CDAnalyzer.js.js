@@ -7,8 +7,10 @@
 
 // ── CONFIG ──────────────────────────────────────────────────
 const CD_CONFIG = {
-  GEMINI_API_KEY:  "AIzaSyAfk0ulm1Vp2-9_JlWP-LMBNTV6uuP5bwM",
+  // Key stored in Extensions → Script Properties (never in code)
+  get GEMINI_API_KEY() { return PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY"); },
   GEMINI_MODEL:    "gemini-1.5-pro-latest",
+  DAILY_API_LIMIT: 50,   // Gemini 1.5 Pro free tier: 50 req/day — raise if on paid plan
   SOURCE_FOLDER_ID: "1BxKhfNAXo32TPEvrTBsGi69lVo9njDU8",
   SPREADSHEET_ID:   "1Wd5nk87iLYiYj1EomGOXCeErRUSoNLFta_bKYZnnovk",
   TARGET_SHEET:     "7-CD_Special_Xings",
@@ -53,6 +55,13 @@ If a category has no findings, use the string "None".`;
 // ── MAIN FUNCTION ───────────────────────────────────────────
 function runCDAnalysis() {
   const ui   = SpreadsheetApp.getUi();
+
+  // Validate API key is configured
+  if (!CD_CONFIG.GEMINI_API_KEY) {
+    ui.alert("GEMINI_API_KEY not found.\n\nGo to Extensions → Script Properties, add key: GEMINI_API_KEY with your AI Studio key as the value.");
+    return;
+  }
+
   const ss   = SpreadsheetApp.openById(CD_CONFIG.SPREADSHEET_ID);
   const sheet = ss.getSheetByName(CD_CONFIG.TARGET_SHEET);
 
@@ -70,10 +79,22 @@ function runCDAnalysis() {
     return;
   }
 
-  const confirm = ui.alert(
-    `Found ${files.length} PDF(s). Start analysis? This may take several minutes.`,
-    ui.ButtonSet.YES_NO
-  );
+  // Check daily quota before starting
+  const usedToday = _getCallsToday();
+  const remaining = CD_CONFIG.DAILY_API_LIMIT - usedToday;
+  if (remaining <= 0) {
+    ui.alert(`Daily API limit reached (${CD_CONFIG.DAILY_API_LIMIT} calls). Resets at midnight. Used today: ${usedToday}.`);
+    return;
+  }
+
+  const canProcess = Math.min(files.length, remaining);
+  const skipped    = files.length - canProcess;
+  const confirmMsg = `Found ${files.length} PDF(s).\n` +
+    `API calls today: ${usedToday} / ${CD_CONFIG.DAILY_API_LIMIT} (${remaining} remaining)\n` +
+    (skipped > 0 ? `⚠️ Only ${canProcess} can be processed today (${skipped} will be skipped).\n` : "") +
+    `\nStart analysis? This may take several minutes.`;
+
+  const confirm = ui.alert(confirmMsg, ui.ButtonSet.YES_NO);
   if (confirm !== ui.Button.YES) return;
 
   // Ensure header row exists
@@ -83,12 +104,13 @@ function runCDAnalysis() {
   let errorCount   = 0;
   const errors     = [];
 
-  for (let i = 0; i < files.length; i++) {
+  for (let i = 0; i < canProcess; i++) {
     const file = files[i];
-    Logger.log(`Processing ${i + 1}/${files.length}: ${file.getName()}`);
+    Logger.log(`Processing ${i + 1}/${canProcess}: ${file.getName()}`);
 
     try {
       const pdfBase64 = Utilities.base64Encode(file.getBlob().getBytes());
+      _incrementCallCount();
       const result    = _callGemini(pdfBase64);
       const parsed    = _parseGeminiResponse(result);
 
@@ -106,13 +128,16 @@ function runCDAnalysis() {
     }
 
     // Polite delay to avoid rate-limit errors on free tier (2 RPM)
-    if (i < files.length - 1) {
+    if (i < canProcess - 1) {
       Utilities.sleep(31000); // 31 seconds between calls on free tier
       // If you upgrade to a paid API tier, you can lower this to ~2000
     }
   }
 
-  const summary = `Analysis complete.\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}` +
+  const totalUsed = _getCallsToday();
+  const summary = `Analysis complete.\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}\n` +
+    `📊 API calls today: ${totalUsed} / ${CD_CONFIG.DAILY_API_LIMIT}` +
+    (skipped > 0 ? `\n⚠️ ${skipped} file(s) skipped — daily limit reached.` : "") +
     (errors.length ? `\n\nErrors:\n${errors.join("\n")}` : "");
   ui.alert(summary);
 }
@@ -231,6 +256,32 @@ function _ensureHeaders(sheet) {
   }
 }
 
+
+// ── HELPERS: Daily API call counter (stored in Script Properties) ────
+function _getTodayStr() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+function _getCallsToday() {
+  const props = PropertiesService.getScriptProperties();
+  const storedDate  = props.getProperty("CD_API_DATE");
+  const storedCount = parseInt(props.getProperty("CD_API_COUNT") || "0", 10);
+  return storedDate === _getTodayStr() ? storedCount : 0;
+}
+function _incrementCallCount() {
+  const props   = PropertiesService.getScriptProperties();
+  const today   = _getTodayStr();
+  const stored  = props.getProperty("CD_API_DATE");
+  const count   = stored === today ? parseInt(props.getProperty("CD_API_COUNT") || "0", 10) : 0;
+  props.setProperties({ "CD_API_DATE": today, "CD_API_COUNT": String(count + 1) });
+}
+
+// ── UTILITY: Show today's API usage ─────────────────────────
+function checkCDApiUsage() {
+  const used = _getCallsToday();
+  SpreadsheetApp.getUi().alert(
+    `Gemini API Usage Today\n\nUsed: ${used} / ${CD_CONFIG.DAILY_API_LIMIT}\nRemaining: ${CD_CONFIG.DAILY_API_LIMIT - used}\n\nResets at midnight (${Session.getScriptTimeZone()}).`
+  );
+}
 
 // ── UTILITY: Clear sheet (keep header row) ───────────────────
 function clearCDSheet() {
