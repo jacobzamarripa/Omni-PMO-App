@@ -45,6 +45,69 @@ function discoverQBFields() {
 }
 
 
+// --- 3. WEB APP SYNC (returns JSON result, no UI alerts) ---
+
+function syncFromQBWebApp() {
+  try {
+    const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
+    if (!token) return { success: false, error: "QB_USER_TOKEN not configured in Script Properties." };
+
+    const ss    = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet   = ss.getSheetByName(REF_SHEET);
+    if (!sheet) sheet = ss.insertSheet(REF_SHEET);
+
+    const allRows = [];
+    let fieldMap = null, skip = 0, pageCount = 0, totalRecords = Infinity;
+
+    while (skip < totalRecords && pageCount < QB_MAX_PAGES) {
+      const page = _fetchReportPage(token, skip);
+      if (!fieldMap) fieldMap = _buildFieldMap(page.fields);
+      page.data.forEach(function(record) {
+        const row = page.fields.map(function(f) {
+          const cell = record[String(f.id)];
+          var raw = cell ? _extractValue(cell.value) : "";
+          if (f.label && f.label.toString().trim().toLowerCase() === "cx vendor") raw = _normalizeVendor(raw);
+          return raw;
+        });
+        allRows.push(row);
+      });
+      totalRecords = page.metadata.totalRecords;
+      skip        += page.metadata.numRecords;
+      pageCount++;
+      if (page.metadata.numRecords === 0) break;
+    }
+
+    if (allRows.length === 0) return { success: false, error: "QuickBase returned 0 records. Check the Report ID and token permissions." };
+
+    const headers = (fieldMap && fieldMap._order) ? fieldMap._order.map(function(id) { return fieldMap[id]; }) : [];
+    const outputData = [headers].concat(allRows);
+    const numRows = outputData.length, numCols = headers.length;
+
+    sheet.clear();
+    ensureCapacity(sheet, numRows, numCols);
+    sheet.getRange(1, 1, numRows, numCols).setValues(outputData);
+    sheet.getRange(1, 1, 1, numCols).setBackground("#003366").setFontColor("#ffffff").setFontWeight("bold");
+    sheet.setFrozenRows(1);
+    trimAndFilterSheet(sheet, numRows, numCols);
+
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy HH:mm");
+    PropertiesService.getScriptProperties().setProperties({
+      "refDataImportDate": timestamp,
+      "refDataFileName":   "QuickBase API \u2014 Report " + QB_REPORT_ID,
+      "QB_SYNC_DATE":      timestamp,
+      "QB_SYNC_COUNT":     String(allRows.length)
+    });
+
+    logMsg("QB WebApp Sync: " + allRows.length + " records written to " + REF_SHEET);
+    return { success: true, count: allRows.length, timestamp: timestamp };
+
+  } catch (e) {
+    Logger.log("syncFromQBWebApp ERROR: " + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+
 // --- 4. MAIN SYNC FUNCTION ---
 
 function importFDHProjects() {
@@ -78,7 +141,12 @@ function importFDHProjects() {
       page.data.forEach(function(record) {
         const row = page.fields.map(function(f) {
           const cell = record[String(f.id)];
-          return cell ? _extractValue(cell.value) : "";
+          var raw = cell ? _extractValue(cell.value) : "";
+          // Normalize vendor names so case variants all map to a canonical form
+          if (f.label && f.label.toString().trim().toLowerCase() === "cx vendor") {
+            raw = _normalizeVendor(raw);
+          }
+          return raw;
         });
         allRows.push(row);
       });
@@ -170,8 +238,31 @@ function _buildFieldMap(fields) {
   return map;
 }
 
+// Canonical vendor name map — add aliases here as you discover new variants.
+// Keys must be lowercase. Values are the display name written to the sheet.
+var VENDOR_ALIASES = {
+  "lecom":         "LeCom",
+  "le com":        "LeCom",
+  "drg":           "DRG",
+  "mastec":        "MasTec",
+  "mas tec":       "MasTec",
+  "dycom":         "Dycom",
+  "black box":     "Black Box",
+  "blackbox":      "Black Box"
+};
+
+function _normalizeVendor(name) {
+  if (!name) return "";
+  var key = name.toString().toLowerCase().trim();
+  return VENDOR_ALIASES[key] || name.toString().trim();
+}
+
 function _extractValue(val) {
   if (val === null || val === undefined) return "";
+  // QB multi-select fields return arrays like ["LeCom"] — join to plain text
+  if (Array.isArray(val)) {
+    return val.map(function(item) { return _extractValue(item); }).join(", ");
+  }
   if (typeof val === "object") {
     if (val.name)  return val.name;
     if (val.email) return val.email;

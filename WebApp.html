@@ -112,9 +112,8 @@
       .inbox-list.grid-view .em-header { flex-direction: column; align-items: flex-start; gap: 2px; margin-bottom: 4px; }
       .inbox-list.grid-view .em-fdh { font-size: 12px; }
       .inbox-list.grid-view .em-vendor { font-size: 8px; }
-      .inbox-list.grid-view .glass-pill { display: none; }
-      .inbox-list.grid-view .em-tags { flex-wrap: nowrap; overflow: hidden; margin-top: auto; }
-      .inbox-list.grid-view .em-tags .tag:nth-child(n+2) { display: none; }
+      .inbox-list.grid-view .glass-pill { font-size: 7px; padding: 2px 5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; }
+      .inbox-list.grid-view .em-tags { flex-wrap: wrap; overflow: hidden; max-height: 32px; margin-top: auto; }
 
       .email-card.crit { border-left-color: var(--color-critical); }
       .email-card.warn { border-left-color: var(--color-review); }
@@ -239,7 +238,7 @@
       .outbox-pane { position: fixed; right: 0; top: 52px; height: calc(100% - 52px); width: 280px; z-index: 500; background: var(--card-bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s, border-color 0.3s; box-shadow: -2px 0 16px rgba(0,0,0,0.1); }
       .outbox-pane.open { transform: translateX(0); }
       /* Sibling fixed drawer-tab-handle — always visible, not inside the pane */
-      .drawer-tab-handle { position: fixed; right: 0; top: 45%; z-index: 501; transform: translateY(-50%) rotate(90deg) translateX(50%); transform-origin: right center; background: var(--card-bg); border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; padding: 6px 14px; cursor: pointer; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; user-select: none; transition: color 0.2s, border-color 0.2s, background 0.3s; box-shadow: -2px -2px 8px rgba(0,0,0,0.06); }
+      .drawer-tab-handle { position: fixed; right: 0; top: 60px; z-index: 501; transform: rotate(90deg) translateX(50%); transform-origin: right top; background: var(--card-bg); border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; padding: 6px 14px; cursor: pointer; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; user-select: none; transition: color 0.2s, border-color 0.2s, background 0.3s; box-shadow: -2px -2px 8px rgba(0,0,0,0.06); }
       .drawer-tab-handle:hover { color: var(--text-main); }
       .drawer-tab-handle.active { color: var(--accent); border-color: var(--accent); }
       .ob-header { padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s;}
@@ -249,8 +248,8 @@
       .ob-footer { padding: 12px; border-top: 1px solid var(--border); background: var(--card-bg); transition: background 0.3s, border-color 0.3s;}
 
       /* Mobile hamburger menu panel */
-      .mobile-menu-panel { display: none; position: fixed; top: 46px; right: 0; left: 0; background: var(--card-bg); border-bottom: 1px solid var(--border); z-index: 9999; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,0.15); transition: background 0.3s, border-color 0.3s; }
-      .mobile-menu-panel.open { display: flex; }
+      .mobile-menu-panel { display: flex; flex-direction: column; position: fixed; top: 46px; right: 0; left: 0; background: var(--card-bg); border-bottom: 1px solid var(--border); z-index: 9999; box-shadow: 0 8px 24px rgba(0,0,0,0.15); max-height: 0; overflow: hidden; transition: max-height 0.25s cubic-bezier(0.4,0,0.2,1), background 0.3s, border-color 0.3s; }
+      .mobile-menu-panel.open { max-height: 400px; }
       .mobile-menu-panel button { padding: 14px 20px; font-size: 14px; font-weight: 700; text-align: left; background: none; border: none; border-bottom: 1px solid var(--border); cursor: pointer; color: var(--text-main); transition: background 0.15s; }
       .mobile-menu-panel button:hover { background: var(--bg); }
       .mobile-menu-panel button:last-child { border-bottom: none; }
@@ -346,13 +345,16 @@
       .mobile-back-btn { display: none; }
       .mobile-action-bar {
           display: none; position: fixed; bottom: 0; left: 0; right: 0;
-          padding: 8px 12px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+          padding: 10px 12px; padding-bottom: max(24px, calc(16px + env(safe-area-inset-bottom)));
           background: var(--card-bg); border-top: 2px solid var(--border);
           flex-direction: column; gap: 6px; z-index: 200; box-shadow: 0 -4px 16px rgba(0,0,0,0.1);
           transition: background 0.3s, border-color 0.3s;
       }
-      .mobile-nav-row { display: flex; gap: 6px; width: 100%; }
-      .mobile-action-row { display: flex; gap: 6px; width: 100%; }
+      .mobile-nav-row { display: flex; gap: 8px; width: 100%; }
+      .mobile-action-row { display: flex; gap: 8px; width: 100%; }
+      @media screen and (max-width: 768px) {
+        .mobile-nav-row .btn, .mobile-action-row .btn { padding: 10px 16px; font-size: 12px; min-height: 40px; border-radius: 10px; }
+      }
 
       .swipe-label { position: absolute; top: 24px; padding: 8px 18px; border-radius: 10px; font-size: 18px; font-weight: 900; letter-spacing: 2px; pointer-events: none; opacity: 0; transition: opacity 0.1s; z-index: 10; border: 3px solid; }
       .swipe-label.commit-label { left: 20px; color: var(--text-muted); border-color: var(--text-muted); transform: rotate(-12deg); }
@@ -815,15 +817,15 @@
     </div>
 
     <div class="mobile-action-bar" id="mobile-action-bar" style="display:none;">
+      <div class="mobile-action-row">
+        <button class="btn btn-skip" style="flex:1;" onclick="skipReview()">Skip (Clear)</button>
+        <button class="btn btn-primary" style="flex:1.6;" onclick="commitReview()">✔ Commit</button>
+      </div>
       <div class="mobile-nav-row">
         <button class="btn btn-skip" style="flex:0.5; font-size:13px;" onclick="backToQueue()">◀</button>
         <button class="btn btn-skip" id="btn-mob-prev" style="flex:1;" onclick="goPrevItem()">‹ Prev</button>
         <button class="btn btn-skip" id="btn-mob-next" style="flex:1;" onclick="goNextItem()">Next ›</button>
         <button class="btn btn-skip" style="flex:1; position:relative;" onclick="toggleMobileOutbox()">Reviewed <span id="mobile-ob-count" style="display:none; background:var(--color-insight); color:#fff; border-radius:8px; padding:1px 5px; font-size:9px; margin-left:2px;"></span></button>
-      </div>
-      <div class="mobile-action-row">
-        <button class="btn btn-skip" style="flex:1;" onclick="skipReview()">Skip (Clear)</button>
-        <button class="btn btn-primary" style="flex:1.6;" onclick="commitReview()">✔ Commit</button>
       </div>
     </div>
 
@@ -1001,7 +1003,7 @@
       function applyTheme(dark) {
           document.body.classList.toggle('dark-mode', dark);
           let btn = getEl('btn-theme'); if (btn) btn.innerHTML = dark ? _MOON_SVG : _SUN_SVG;
-          let mobBtn = getEl('mob-theme-btn'); if (mobBtn) mobBtn.textContent = dark ? '🌙 Light Mode' : '☀ Dark Mode';
+          let mobBtn = getEl('mob-theme-btn'); if (mobBtn) mobBtn.textContent = dark ? 'Light Mode' : 'Dark Mode';
       }
       function toggleDarkMode() { applyTheme(!document.body.classList.contains('dark-mode')); }
 
@@ -2010,7 +2012,7 @@
           let labelCommit = getEl('swipe-label-commit'), labelSkip = getEl('swipe-label-skip');
 
           function resetPane(animate) {
-              pane.style.transition = animate ? 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease' : 'none';
+              pane.style.transition = animate ? 'transform 0.3s cubic-bezier(0.4,0,0.2,1)' : 'none';
               pane.style.transform = ''; pane.style.opacity = '';
               if(labelCommit) labelCommit.style.opacity = '0';
               if(labelSkip) labelSkip.style.opacity = '0';
@@ -2032,13 +2034,10 @@
               }
               if (!isHorizontal) return;
               e.preventDefault();
-              let rotate = dx * 0.04;
-              let opacity = Math.max(0.55, 1 - Math.abs(dx) / 380);
-              pane.style.transform = `translateX(${dx}px) rotate(${rotate}deg)`;
-              pane.style.opacity = opacity;
-              let labelOpacity = Math.min(1, (Math.abs(dx) - 20) / 60);
-              if (labelCommit) labelCommit.style.opacity = dx > 20 ? labelOpacity : '0';
-              if (labelSkip)   labelSkip.style.opacity   = dx < -20 ? labelOpacity : '0';
+              pane.style.transform = `translateX(${dx}px)`;
+              let labelOpacity = Math.min(1, (Math.abs(dx) - 30) / 50);
+              if (labelCommit) labelCommit.style.opacity = dx > 30 ? labelOpacity : '0';
+              if (labelSkip)   labelSkip.style.opacity   = dx < -30 ? labelOpacity : '0';
           }, { passive: false });
 
           pane.addEventListener('touchend', e => {
@@ -2046,17 +2045,16 @@
               isDragging = false;
               if (!currentActiveItem || window.innerWidth > 768 || !isHorizontal) { resetPane(true); return; }
               let dx = e.changedTouches[0].clientX - startX;
-              if (Math.abs(dx) < 70) {
+              if (Math.abs(dx) < 60) {
                   resetPane(true);
               } else {
                   let dir = dx > 0 ? 1 : -1;
-                  pane.style.transition = 'transform 0.28s ease-in, opacity 0.28s ease-in';
-                  pane.style.transform = `translateX(${dir * 130}vw) rotate(${dir * 18}deg)`;
-                  pane.style.opacity = '0';
+                  pane.style.transition = 'transform 0.22s ease-in';
+                  pane.style.transform = `translateX(${dir * 105}vw)`;
                   setTimeout(() => {
                       resetPane(false);
                       if (dir > 0) goPrevItem(); else goNextItem();
-                  }, 280);
+                  }, 220);
               }
           }, { passive: true });
       }

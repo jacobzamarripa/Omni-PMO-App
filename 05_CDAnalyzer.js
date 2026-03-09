@@ -1,6 +1,6 @@
 // ============================================================
 // 05_CDAnalyzer.js — CD Special Crossings Analyzer
-// Reads PDFs from a Drive folder, sends each to Gemini 1.5 Pro
+// Reads PDFs from a Drive folder, sends each to Gemini 2.5 Pro
 // for OSP analysis, and writes one row per PDF to the
 // "7-CD_Special_Xings" sheet in Daily_Production_Analyzer.
 // ============================================================
@@ -9,8 +9,9 @@
 const CD_CONFIG = {
   // Key stored in Extensions → Script Properties (never in code)
   get GEMINI_API_KEY() { return PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY"); },
-  GEMINI_MODEL:    "gemini-1.5-pro-latest",
-  DAILY_API_LIMIT: 50,   // Gemini 1.5 Pro free tier: 50 req/day — raise if on paid plan
+  GEMINI_MODEL_PRIMARY:  "gemini-3.1-pro-preview",  // cutting-edge, 1M context window
+  GEMINI_MODEL_FALLBACK: "gemini-2.5-pro",           // fallback if primary is rate-limited or unavailable
+  DAILY_API_LIMIT: 50,   // conservative estimate — alert will tell you your real limit when you hit it
   SOURCE_FOLDER_ID: "1NewUIbcjXzlKhlTTCMmkWes3oiOnej0Y", // To_Analyze subfolder
   SPREADSHEET_ID:   "1Wd5nk87iLYiYj1EomGOXCeErRUSoNLFta_bKYZnnovk",
   TARGET_SHEET:     "7-CD_Special_Xings",
@@ -76,7 +77,7 @@ function runCDAnalysis() {
   const files  = _getPDFsFromFolder(folder);
 
   if (files.length === 0) {
-    ui.alert("No PDF files found in '" + folder.getName() + "' (ID: " + CD_CONFIG.SOURCE_FOLDER_ID + ").\n\nMake sure PDFs are placed directly in the To_Analyze folder, not in a subfolder.");
+    ui.alert("No PDF files found in '" + folder.getName() + "' (ID: " + CD_CONFIG.SOURCE_FOLDER_ID + ").\n\nMake sure the file is a PDF and is placed directly in the To_Analyze folder (not a subfolder). Non-PDF files (DWG, DXF, etc.) are not supported.");
     return;
   }
 
@@ -91,6 +92,7 @@ function runCDAnalysis() {
   const canProcess = Math.min(files.length, remaining);
   const skipped    = files.length - canProcess;
   const confirmMsg = `Found ${files.length} PDF(s).\n` +
+    `Model: ${CD_CONFIG.GEMINI_MODEL_PRIMARY} (fallback: ${CD_CONFIG.GEMINI_MODEL_FALLBACK})\n` +
     `API calls today: ${usedToday} / ${CD_CONFIG.DAILY_API_LIMIT} (${remaining} remaining)\n` +
     (skipped > 0 ? `⚠️ Only ${canProcess} can be processed today (${skipped} will be skipped).\n` : "") +
     `\nStart analysis? This may take several minutes.`;
@@ -104,6 +106,7 @@ function runCDAnalysis() {
   let successCount = 0;
   let errorCount   = 0;
   const errors     = [];
+  let modelUsed    = CD_CONFIG.GEMINI_MODEL_PRIMARY;
 
   for (let i = 0; i < canProcess; i++) {
     const file = files[i];
@@ -113,7 +116,8 @@ function runCDAnalysis() {
       const pdfBase64 = Utilities.base64Encode(file.getBlob().getBytes());
       _incrementCallCount();
       const result    = _callGemini(pdfBase64);
-      const parsed    = _parseGeminiResponse(result);
+      modelUsed = result.modelUsed || modelUsed;
+      const parsed    = _parseGeminiResponse(result.text);
 
       if (parsed) {
         _appendRow(sheet, parsed);
@@ -124,6 +128,18 @@ function runCDAnalysis() {
       }
     } catch (e) {
       Logger.log(`ERROR on ${file.getName()}: ${e.message}`);
+      if (e.message.startsWith('RATE_LIMIT_HIT:')) {
+        const limitedModel = e.message.split(':')[1];
+        const usedSoFar = successCount + errorCount;
+        ui.alert(
+          `Daily limit reached on ${limitedModel} after ${usedSoFar} request(s).\n\n` +
+          `Completed: ${successCount} ✅  Errors: ${errorCount} ❌\n\n` +
+          `Your actual daily limit appears to be around ${usedSoFar} requests. ` +
+          `Update CD_CONFIG.DAILY_API_LIMIT to ${usedSoFar} in the script to reflect this, ` +
+          `or wait until tomorrow to process the remaining files.`
+        );
+        return;
+      }
       errors.push(`${file.getName()}: ${e.message}`);
       errorCount++;
     }
@@ -137,6 +153,7 @@ function runCDAnalysis() {
 
   const totalUsed = _getCallsToday();
   const summary = `Analysis complete.\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}\n` +
+    `📊 Model used: ${modelUsed}\n` +
     `📊 API calls today: ${totalUsed} / ${CD_CONFIG.DAILY_API_LIMIT}` +
     (skipped > 0 ? `\n⚠️ ${skipped} file(s) skipped — daily limit reached.` : "") +
     (errors.length ? `\n\nErrors:\n${errors.join("\n")}` : "");
@@ -155,9 +172,10 @@ function _getPDFsFromFolder(folder) {
 }
 
 
-// ── HELPER: Call Gemini 1.5 Pro with PDF inline ──────────────
-function _callGemini(pdfBase64) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${CD_CONFIG.GEMINI_MODEL}:generateContent?key=${CD_CONFIG.GEMINI_API_KEY}`;
+// ── HELPER: Call Gemini with PDF inline; auto-falls back to secondary model ──
+function _callGemini(pdfBase64, modelOverride) {
+  const model = modelOverride || CD_CONFIG.GEMINI_MODEL_PRIMARY;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${CD_CONFIG.GEMINI_API_KEY}`;
 
   const payload = {
     contents: [
@@ -192,6 +210,17 @@ function _callGemini(pdfBase64) {
   const code     = response.getResponseCode();
   const text     = response.getContentText();
 
+  // Primary model rate-limited or not found — try fallback automatically
+  if ((code === 429 || code === 404) && model === CD_CONFIG.GEMINI_MODEL_PRIMARY) {
+    Logger.log(`CD Analyzer: ${model} returned HTTP ${code} — falling back to ${CD_CONFIG.GEMINI_MODEL_FALLBACK}`);
+    return _callGemini(pdfBase64, CD_CONFIG.GEMINI_MODEL_FALLBACK);
+  }
+
+  // Fallback also rate-limited — surface to caller for user-facing alert
+  if (code === 429) {
+    throw new Error(`RATE_LIMIT_HIT:${model}`);
+  }
+
   if (code !== 200) {
     throw new Error(`Gemini API returned HTTP ${code}: ${text.substring(0, 300)}`);
   }
@@ -200,7 +229,7 @@ function _callGemini(pdfBase64) {
 
   // Extract the text content from the response
   try {
-    return json.candidates[0].content.parts[0].text;
+    return { text: json.candidates[0].content.parts[0].text, modelUsed: model };
   } catch (e) {
     throw new Error(`Unexpected Gemini response structure: ${text.substring(0, 300)}`);
   }
@@ -285,7 +314,7 @@ function getGeminiUsage() {
 function checkCDApiUsage() {
   const used = _getCallsToday();
   SpreadsheetApp.getUi().alert(
-    `Gemini API Usage Today\n\nUsed: ${used} / ${CD_CONFIG.DAILY_API_LIMIT}\nRemaining: ${CD_CONFIG.DAILY_API_LIMIT - used}\n\nResets at midnight (${Session.getScriptTimeZone()}).`
+    `Gemini API Usage Today\n\nModel: ${CD_CONFIG.GEMINI_MODEL_PRIMARY}\nUsed: ${used} / ${CD_CONFIG.DAILY_API_LIMIT}\nRemaining: ${CD_CONFIG.DAILY_API_LIMIT - used}\n\nResets at midnight (${Session.getScriptTimeZone()}).`
   );
 }
 
