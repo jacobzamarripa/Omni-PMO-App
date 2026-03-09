@@ -59,7 +59,7 @@
       
       input[type="text"], select { background: var(--card-bg); padding: 6px 10px; font-size: 12px; font-weight: 700; color: var(--text-main); border: 1px solid var(--border); border-radius: 6px; outline: none; transition: background 0.3s, color 0.3s; width: 130px; max-width:100%; box-sizing: border-box;}
       input[type="text"]:focus { border-color: var(--color-insight); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15); }
-      .btn-nav { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; color: var(--text-main); font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; white-space: nowrap;}
+      .btn-nav { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; color: var(--text-main); font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; white-space: nowrap; height: 32px; box-sizing: border-box; }
       .btn-nav:hover { background: var(--border); }
       .btn-nav:disabled { opacity: 0.5; cursor: not-allowed; }
       .gemini-badge { font-size: 10px; font-weight: 900; padding: 3px 8px; border-radius: 10px; border: 1px solid; white-space: nowrap; display: none; transition: background 0.3s, color 0.3s, border-color 0.3s; }
@@ -231,7 +231,7 @@
       .btn-skip:hover { background: var(--bg); transform: translateY(-1px);}
 
       /* Reviewed drawer — fully hidden when collapsed; tab handle is a sibling fixed element */
-      .outbox-pane { position: fixed; right: 0; top: 52px; height: calc(100% - 52px); width: 280px; z-index: 500; background: var(--card-bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s, border-color 0.3s; box-shadow: -2px 0 16px rgba(0,0,0,0.1); }
+      .outbox-pane { position: fixed; right: 0; top: 52px; height: calc(100% - 52px); width: 320px; z-index: 500; background: var(--card-bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s, border-color 0.3s; box-shadow: -2px 0 16px rgba(0,0,0,0.1); }
       .outbox-pane.open { transform: translateX(0); }
       /* Sibling fixed drawer-tab-handle — always visible, not inside the pane */
       .drawer-tab-handle { position: fixed; right: 0; top: 52px; z-index: 10001; writing-mode: vertical-lr; background: var(--card-bg); border: 1px solid var(--border); border-right: none; border-radius: 6px 0 0 6px; padding: 14px 8px; cursor: pointer; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; user-select: none; transition: color 0.2s, border-color 0.2s, background 0.3s, right 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -2px 0 8px rgba(0,0,0,0.1); }
@@ -242,6 +242,12 @@
       .ob-card { padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--text-main);}
       .ob-card:hover { border-color: var(--text-muted); }
       .ob-footer { padding: 12px; border-top: 1px solid var(--border); background: var(--card-bg); transition: background 0.3s, border-color 0.3s;}
+      .ob-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+      .ob-tab { flex: 1; background: transparent; border: none; border-bottom: 2px solid transparent; padding: 10px 8px; font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: color 0.2s, border-color 0.2s; }
+      .ob-tab:hover { color: var(--text-main); }
+      .ob-tab.ob-tab-active { color: var(--accent); border-bottom-color: var(--accent); }
+      .ob-tab-badge { background: var(--border); color: var(--text-main); padding: 1px 6px; border-radius: 10px; font-size: 10px; }
+      .ob-tab-badge-crit { background: var(--color-critical); color: #fff; }
 
       /* Mobile hamburger menu panel */
       .mobile-menu-panel { display: flex; flex-direction: column; position: fixed; top: 58px; right: 0; left: 0; background: var(--card-bg); border-bottom: 1px solid var(--border); z-index: 9999; box-shadow: 0 8px 24px rgba(0,0,0,0.15); max-height: 0; overflow: hidden; transition: max-height 0.25s cubic-bezier(0.4,0,0.2,1), background 0.3s, border-color 0.3s; }
@@ -425,7 +431,7 @@
 
       /* Desktop: shift workspace right when review drawer is open (pointer:fine excludes iPad) */
       @media screen and (min-width: 769px) and (pointer: fine) {
-          body.drawer-open .workspace { padding-right: 280px; transition: padding-right 0.3s cubic-bezier(0.4,0,0.2,1); }
+          body.drawer-open .workspace { padding-right: 320px; transition: padding-right 0.3s cubic-bezier(0.4,0,0.2,1); }
       }
 
       /* 📱 PORTRAIT MOBILE */
@@ -566,9 +572,8 @@
         <button class="btn-nav" onclick="triggerQBSync()"    id="btn-qb-sync">⟳ Sync QB</button>
         <button class="btn-nav" onclick="triggerRunReview()" id="btn-run-review">▶ Run Review</button>
         <button class="btn-nav" onclick="triggerUIRefresh()" id="btn-refresh">↻ Refresh</button>
-        <button class="btn-nav" onclick="toggleAdminPane()" id="btn-admin-tab" title="Admin Checklist" style="position:relative;">Admin <span id="admin-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:var(--color-critical); color:#fff; font-size:9px; font-weight:900; border-radius:50%; width:16px; height:16px; line-height:16px; text-align:center;">0</span></button>
-        <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme" title="Toggle dark mode" style="padding:6px 10px;"></button>
-        <button class="btn-nav" onclick="toggleHelpPanel()" id="btn-help" style="font-weight:900; padding:6px 10px;">?</button>
+        <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme" title="Toggle dark mode"></button>
+        <button class="btn-nav" onclick="toggleHelpPanel()" id="btn-help">?</button>
         <button class="btn-icon mobile-menu-toggle" id="btn-hamburger" onclick="toggleMobileMenu()" title="Menu" style="font-size:18px;">☰</button>
       </div>
     </div>
@@ -630,7 +635,6 @@
           </div>
         </div>
         <div class="inbox-list" id="inbox-list"></div>
-        <div id="admin-pane" style="display:none; flex-grow:1; overflow-y:auto; flex-direction:column; padding:0;"></div>
       </div>
       <div class="resize-handle" id="sidebar-resize-handle" title="Drag to resize"></div>
 
@@ -737,14 +741,21 @@
       </div>
 
       <div class="outbox-pane" id="outbox-pane">
-         <div class="ob-header">
-            <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted);">Reviewed</div>
-            <div id="ob-count" style="background:var(--border); padding:2px 8px; border-radius:12px; font-size:11px; font-weight:900; color:var(--text-main);">0</div>
+         <div class="ob-tabs">
+            <button id="ob-tab-reviewed" class="ob-tab ob-tab-active" onclick="switchDrawerTab('reviewed')">
+              Reviewed <span id="ob-count" class="ob-tab-badge">0</span>
+            </button>
+            <button id="ob-tab-admin" class="ob-tab" onclick="switchDrawerTab('admin')">
+              Admin <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span>
+            </button>
          </div>
-         <div class="ob-list" id="outbox-list"><div class="empty-msg" style="margin-top:50px;">No items reviewed.</div></div>
-         <div class="ob-footer">
-            <button class="btn btn-primary" style="width:100%; justify-content:center; font-size:12px; padding:10px;" id="btn-export-all" onclick="promptEmailExport()">Export All</button>
+         <div id="ob-panel-reviewed" style="display:flex; flex-direction:column; flex-grow:1; overflow:hidden;">
+            <div class="ob-list" id="outbox-list"><div class="empty-msg" style="margin-top:50px;">No items reviewed.</div></div>
+            <div class="ob-footer">
+               <button class="btn btn-primary" style="width:100%; justify-content:center; font-size:12px; padding:10px;" id="btn-export-all" onclick="promptEmailExport()">Export All</button>
+            </div>
          </div>
+         <div id="ob-panel-admin" style="display:none; flex-grow:1; overflow-y:auto; flex-direction:column;"></div>
       </div>
     </div>
 
@@ -1038,7 +1049,7 @@
           let tab = getEl('outbox-drawer-tab');
           if (tab) {
               tab.classList.toggle('active', open);
-              tab.style.right = open ? '280px' : '0px';
+              tab.style.right = open ? '320px' : '0px';
           }
           if (window.innerWidth >= 769 && navigator.maxTouchPoints <= 1) {
               document.body.classList.toggle('drawer-open', open);
@@ -1095,7 +1106,7 @@
       if (window.innerWidth >= 769 && navigator.maxTouchPoints <= 1) {
           let _pane = getEl('outbox-pane'), _tab = getEl('outbox-drawer-tab');
           if (_pane) _pane.classList.add('open');
-          if (_tab)  { _tab.classList.add('active'); _tab.style.right = '280px'; }
+          if (_tab)  { _tab.classList.add('active'); _tab.style.right = '320px'; }
           document.body.classList.add('drawer-open');
       }
       // Sync drawer top to account for filter strip height on load
@@ -1175,24 +1186,21 @@
           t._timer = setTimeout(function() { t.style.opacity = '0'; }, 3500);
       }
 
-      let _adminPaneOpen = false;
-
-      function toggleAdminPane() {
-          let pane    = getEl('admin-pane');
-          let list    = getEl('inbox-list');
-          let strip   = document.querySelector('.admin-strip');
-          let btn     = getEl('btn-admin-tab');
-          _adminPaneOpen = !_adminPaneOpen;
-          if (_adminPaneOpen) {
-              if (list)  list.style.display  = 'none';
-              if (strip) strip.style.display = 'none';
-              if (pane)  { pane.style.display = 'flex'; renderAdminPane(allActionItems); }
-              if (btn)   btn.style.fontWeight = '900';
+      function switchDrawerTab(tab) {
+          let pReviewed = getEl('ob-panel-reviewed');
+          let pAdmin    = getEl('ob-panel-admin');
+          let tReviewed = getEl('ob-tab-reviewed');
+          let tAdmin    = getEl('ob-tab-admin');
+          if (tab === 'admin') {
+              if (pReviewed) pReviewed.style.display = 'none';
+              if (pAdmin)    { pAdmin.style.display = 'flex'; renderAdminPane(allActionItems); }
+              if (tReviewed) tReviewed.classList.remove('ob-tab-active');
+              if (tAdmin)    tAdmin.classList.add('ob-tab-active');
           } else {
-              if (list)  list.style.display  = 'flex';
-              if (strip) strip.style.display = '';
-              if (pane)  pane.style.display  = 'none';
-              if (btn)   btn.style.fontWeight = '';
+              if (pReviewed) pReviewed.style.display = 'flex';
+              if (pAdmin)    pAdmin.style.display = 'none';
+              if (tReviewed) tReviewed.classList.add('ob-tab-active');
+              if (tAdmin)    tAdmin.classList.remove('ob-tab-active');
           }
       }
 
@@ -1208,7 +1216,7 @@
       }
 
       function renderAdminPane(items) {
-          let pane = getEl('admin-pane');
+          let pane = getEl('ob-panel-admin');
           if (!pane) return;
           if (!items || items.length === 0) { pane.innerHTML = '<div class="empty-msg" style="padding:40px 16px;">No admin tasks.</div>'; return; }
 
@@ -1219,25 +1227,36 @@
 
           let totalAdmin = crossings.length + bomInput.length + bomCheck.length + status.length;
           let badge = getEl('admin-badge');
-          if (badge) { badge.textContent = totalAdmin; badge.style.display = totalAdmin > 0 ? 'block' : 'none'; }
+          if (badge) { badge.textContent = totalAdmin; badge.style.display = totalAdmin > 0 ? 'inline-flex' : 'none'; }
 
           let html = '';
 
-          html += _adminSection('Crossings to Verify', crossings, function(item) {
-              let xVal = item.isXing ? 'YES' : (item.gaps && item.gaps.includes('X-ING') ? 'Flagged' : '—');
-              let cd   = item.cdIntel ? `<div style="font-size:10px; color:var(--color-insight); margin-top:4px; line-height:1.3;">${item.cdIntel.substring(0,120)}${item.cdIntel.length > 120 ? '…' : ''}</div>` : '';
-              return `<div id="admin-card-${item.fdh}" style="padding:10px 14px; border-top:1px solid var(--border); background:var(--card-bg);">
-                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
-                      <div>
-                          <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
-                          <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
-                          <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">QB Crossings: <span style="font-weight:bold; color:var(--text-main);">${xVal}</span></div>
-                          ${cd}
+          if (crossings.length > 0) {
+              let commitBtn = `<button onclick="commitStagedCrossings(this)" style="padding:3px 8px; font-size:9px; font-weight:900; background:#0f172a; color:#fff; border:1px solid #0f172a; border-radius:4px; cursor:pointer; white-space:nowrap;">Commit Staged →</button>`;
+              let cards = crossings.map(function(item) {
+                  let xVal = item.rawSpecialX || (item.isXing ? 'YES' : '—');
+                  let xDet = item.specXDetails ? `<div style="font-size:10px; color:var(--text-muted); margin-top:3px; line-height:1.4;">${item.specXDetails.substring(0,120)}${item.specXDetails.length > 120 ? '…' : ''}</div>` : '';
+                  let cd   = item.cdIntel ? `<div style="font-size:10px; color:var(--color-insight); margin-top:4px; line-height:1.3;">${item.cdIntel.substring(0,120)}${item.cdIntel.length > 120 ? '…' : ''}</div>` : '';
+                  return `<div id="admin-card-${item.fdh}" style="padding:10px 14px; border-top:1px solid var(--border); background:var(--card-bg);">
+                      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+                          <div>
+                              <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                              <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
+                              <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">QB Crossings: <span style="font-weight:bold; color:var(--text-main);">${xVal}</span></div>
+                              ${xDet}${cd}
+                          </div>
+                          <button id="admin-verify-${item.fdh}" class="btn" onclick="verifyXingFromAdmin('${item.fdh}')" style="padding:5px 10px; font-size:10px; font-weight:900; background:#0f172a; color:#fff; border-color:#0f172a; white-space:nowrap; flex-shrink:0;">✓ Verify</button>
                       </div>
-                      <button id="admin-verify-${item.fdh}" class="btn" onclick="verifyXingFromAdmin('${item.fdh}')" style="padding:5px 10px; font-size:10px; font-weight:900; background:#0f172a; color:#fff; border-color:#0f172a; white-space:nowrap; flex-shrink:0;">✓ Verify</button>
+                  </div>`;
+              }).join('');
+              html += `<div style="border-bottom:1px solid var(--border); padding:0;">
+                  <div style="padding:10px 14px 6px; font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; background:var(--bg);">
+                      <span>Crossings to Verify <span style="background:var(--border); color:var(--text-main); padding:1px 7px; border-radius:10px; font-size:10px;">${crossings.length}</span></span>
+                      ${commitBtn}
                   </div>
+                  ${cards}
               </div>`;
-          });
+          }
 
           html += _adminSection('BOMs to Input', bomInput, function(item) {
               return `<div style="padding:10px 14px; border-top:1px solid var(--border); background:var(--card-bg);">
@@ -1321,7 +1340,26 @@
               i.flags.includes('MISSING QB STATUS')
           ).length;
           let badge = getEl('admin-badge');
-          if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'block' : 'none'; }
+          if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline-flex' : 'none'; }
+      }
+
+      function commitStagedCrossings(btn) {
+          if (btn) { btn.innerText = 'Committing...'; btn.disabled = true; }
+          google.script.run
+              .withSuccessHandler(function(r) {
+                  if (r.success) {
+                      showToast('✅ ' + r.count + ' crossings committed to queue');
+                      renderAdminPane(allActionItems);
+                  } else {
+                      alert('Commit failed: ' + r.error);
+                      if (btn) { btn.innerText = 'Commit Staged →'; btn.disabled = false; }
+                  }
+              })
+              .withFailureHandler(function(err) {
+                  alert('Commit failed: ' + err.message);
+                  if (btn) { btn.innerText = 'Commit Staged →'; btn.disabled = false; }
+              })
+              .commitToQueueWebApp();
       }
 
       function markChecked(fdhId) {
@@ -2112,10 +2150,20 @@
                   if (isCritical) actionBox.classList.add('crit'); else if (isWarn) actionBox.classList.add('warn');
 
                   let draftMain = mainDraft ? `<div style="font-weight:normal; color:var(--text-main); line-height:1.4;">${mainDraft.replace(/\n/g, '<br>')}</div>` : "<div style='font-style:italic; font-weight:normal; color:var(--text-muted);'>No specific action flagged.</div>";
+                  let xingCardHtml = "";
+                  if (needsAdminCheck) {
+                      let xVal = item.rawSpecialX || "—";
+                      let xDet = item.specXDetails ? `<div style="font-size:10px; color:var(--text-muted); margin-top:3px; line-height:1.4;">${item.specXDetails}</div>` : "";
+                      xingCardHtml = `<div style="margin-bottom:8px; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px;">
+                          <div style="font-size:9px; font-weight:900; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">QB Crossings Data</div>
+                          <div style="font-size:11px; font-weight:700;">Special Crossings? <span style="color:var(--text-main);">${xVal}</span></div>
+                          ${xDet}
+                      </div>`;
+                  }
                   let adminBtn = needsAdminCheck ? `<button class="btn hover-trigger" id="btn-admin-check" onclick="markChecked('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#0f172a; color:#ffffff; border-color:#0f172a; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🛡️ VERIFY CROSSINGS</button>` : "";
                   let qbBtn = needsQbSync ? `<button class="btn hover-trigger" id="btn-qb-update" onclick="markQbUpdated('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#2563eb; color:#ffffff; border-color:#1d4ed8; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🛠️ MARK QB UPDATED</button>` : "";
                   let btnContainer = (adminBtn !== "" || qbBtn !== "") ? `<div style="display:flex; gap:8px; margin-top:8px; margin-left:auto; width:fit-content;">${adminBtn}${qbBtn}</div>` : "";
-                  actionBox.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px;">${tagsHtml}</div>${draftMain}${btnContainer}`;
+                  actionBox.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px;">${tagsHtml}</div>${xingCardHtml}${draftMain}${btnContainer}`;
               }
 
               let barsHtml = ''; let v = item.vel;

@@ -116,6 +116,12 @@ function getDashboardData() {
   const targetIdx = getIdx("Target Completion Date"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete");
   const xingIdx = getIdx("QB Context & Gaps"), bslsIdx = getIdx("BSLs"), lightIdx = getIdx("Light to Cabinets");
   const cdIntelIdx = getIdx("CD Intelligence");
+  const specXIdx    = getIdx("Special Crossings?");
+  const specXDetIdx = (() => {
+    let i = headers.indexOf("Special Crossing Details");
+    if (i > -1) return i;
+    return headers.indexOf("Sepcial Crossings Details");
+  })();
 
   // 🧠 Grab Vendor Comment
   const vcIdx1 = getIdx("Vendor Comment");
@@ -154,9 +160,11 @@ function getDashboardData() {
              cxStart: parseDate(cxStartIdx > -1 ? data[i][cxStartIdx] : ""), cxEnd: parseDate(cxEndIdx > -1 ? data[i][cxEndIdx] : ""),
              isXing: xingIdx > -1 && String(data[i][xingIdx]).includes("X-ING YES"), gaps: xingIdx > -1 ? String(data[i][xingIdx]) : "", flags: flags, draft: draftIdx > -1 ? data[i][draftIdx] : "", bench: benchIdx > -1 ? data[i][benchIdx] : "",
 
-             // 🧠 Pass the Vendor Comment and CD Intelligence column
+             // 🧠 Pass the Vendor Comment, CD Intelligence, and Special Crossings columns
              vendorComment: vcIdx > -1 ? data[i][vcIdx] : "",
              cdIntel: cdIntelIdx > -1 ? String(data[i][cdIntelIdx] || "").trim() : "",
+             rawSpecialX:  specXIdx    > -1 ? String(data[i][specXIdx]    || "").trim() : "",
+             specXDetails: specXDetIdx > -1 ? String(data[i][specXDetIdx] || "").trim() : "",
 
              vel: {
                  ug: { tot: parseNum(data[i][ugTotIdx]), bom: parseNum(data[i][ugBomIdx]), daily: parseNum(data[i][ugDailyIdx]) },

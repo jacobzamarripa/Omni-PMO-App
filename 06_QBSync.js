@@ -298,6 +298,71 @@ function commitToQueue() {
   ui.alert("\u2705 " + verifiedRows.length + " crossings committed to queue.");
 }
 
+// Web-app-safe version — returns JSON result instead of ui.alert
+function commitToQueueWebApp() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    let adminSheet = ss.getSheetByName("Admin_Logs");
+    if (!adminSheet || adminSheet.getLastRow() < 2) {
+      return { success: true, count: 0 };
+    }
+
+    let adminData = adminSheet.getDataRange().getValues();
+    let verifiedRows = [];
+    for (let i = 1; i < adminData.length; i++) {
+      let verifiedDate  = adminData[i].length > 3 ? adminData[i][3].toString().trim() : "";
+      let committedDate = adminData[i].length > 4 ? adminData[i][4].toString().trim() : "";
+      if (verifiedDate !== "" && committedDate === "") {
+        verifiedRows.push({ adminRowIdx: i + 1, fdhId: adminData[i][0].toString().trim(), verifiedDate: verifiedDate });
+      }
+    }
+
+    if (verifiedRows.length === 0) return { success: true, count: 0 };
+
+    let refSheet = ss.getSheetByName(REF_SHEET);
+    let refLookup = {};
+    if (refSheet && refSheet.getLastRow() > 1) {
+      let refData    = refSheet.getDataRange().getValues();
+      let refHeaders = refData[0].map(h => h.toString().trim());
+      let rfdhIdx    = refHeaders.findIndex(h => h.toUpperCase().includes("FDH"));
+      let rxIdx      = refHeaders.indexOf("Special Crossings?");
+      let rdIdx      = refHeaders.indexOf("Special Crossing Details");
+      if (rfdhIdx > -1) {
+        for (let i = 1; i < refData.length; i++) {
+          let key = refData[i][rfdhIdx].toString().trim().toUpperCase();
+          if (key) refLookup[key] = {
+            specialX:        rxIdx > -1 ? refData[i][rxIdx].toString().trim() : "",
+            specialXDetails: rdIdx > -1 ? refData[i][rdIdx].toString().trim() : ""
+          };
+        }
+      }
+    }
+
+    let commitSheet = ss.getSheetByName("6-Committed_Reviews");
+    if (!commitSheet) commitSheet = ss.insertSheet("6-Committed_Reviews");
+    if (commitSheet.getLastRow() === 0) {
+      commitSheet.appendRow(["FDH Engineering ID", "Special Crossings?", "Special Crossing Details", "Verified Date", "Committed Date", "Committed By"]);
+      commitSheet.getRange("1:1").setBackground("#003366").setFontColor("#ffffff").setFontWeight("bold");
+      commitSheet.setFrozenRows(1);
+    }
+
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy HH:mm");
+    const userEmail = Session.getActiveUser().getEmail();
+
+    verifiedRows.forEach(function(row) {
+      let ref = refLookup[row.fdhId.toUpperCase()] || { specialX: "", specialXDetails: "" };
+      commitSheet.appendRow([row.fdhId, ref.specialX, ref.specialXDetails, row.verifiedDate, timestamp, userEmail]);
+      adminSheet.getRange(row.adminRowIdx, 5).setValue(timestamp);
+    });
+
+    logMsg("Crossings committed via web app: " + verifiedRows.length + " records — " + timestamp);
+    return { success: true, count: verifiedRows.length };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+
 function exportCommittedQueueToCSV() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
