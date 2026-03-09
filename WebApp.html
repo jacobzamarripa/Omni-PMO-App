@@ -98,26 +98,18 @@
       .email-card:hover { background: var(--bg); }
       .email-card.selected { background: rgba(59, 130, 246, 0.08); border-left-color: #3b82f6 !important; }
       
-      /* List View */
-      .inbox-list.list-view .email-card { padding-top: 8px; padding-bottom: 8px; gap: 0; }
-      .inbox-list.list-view .em-tags { display: none !important; }
+      /* Dense view — compact, no tags */
+      .inbox-list.dense-view .email-card { padding: 8px 14px; }
+      .inbox-list.dense-view .em-tags { display: none !important; }
+      .inbox-list.dense-view .em-fdh { font-size: 13px; }
+      .inbox-list.dense-view .em-vendor { font-size: 9px; }
+      .inbox-list.dense-view .glass-pill { font-size: 8px; padding: 2px 6px; }
 
-      /* Grid tile view — compact rounded tiles in a 2-col grid */
-      .inbox-list.grid-view { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; align-content: start; }
-      .inbox-list.grid-view .email-card { border-bottom: none; border: 1px solid var(--border); border-radius: 10px; border-left: 4px solid transparent; padding: 8px 10px; display: flex; flex-direction: column; justify-content: space-between; min-height: unset; aspect-ratio: 1 / 1; box-shadow: 0 1px 3px rgba(0,0,0,0.07); gap: 0; }
-      .inbox-list.grid-view .email-card.crit { border-left-color: var(--color-critical); }
-      .inbox-list.grid-view .email-card.warn { border-left-color: var(--color-review); }
-      .inbox-list.grid-view .email-card.info { border-left-color: var(--color-insight); }
-      .inbox-list.grid-view .email-card:hover { box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
-      .inbox-list.grid-view .em-header { flex-direction: column; align-items: flex-start; gap: 2px; margin-bottom: 4px; }
-      .inbox-list.grid-view .em-fdh { font-size: 12px; }
-      .inbox-list.grid-view .em-vendor { font-size: 8px; }
-      .inbox-list.grid-view .glass-pill { font-size: 7px; padding: 2px 5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; }
-      .inbox-list.grid-view .em-tags { flex-wrap: nowrap; overflow: hidden; margin-top: auto; }
-      .inbox-list.grid-view .em-tags .tag:nth-child(n+2) { display: none; }
-      .em-pill-short { display: none; }
-      .inbox-list.grid-view .em-pill-full { display: none; }
-      .inbox-list.grid-view .em-pill-short { display: inline-flex; }
+      /* Relaxed view — generous spacing, larger text */
+      .inbox-list.relaxed-view .email-card { padding: 18px 18px; gap: 8px; }
+      .inbox-list.relaxed-view .em-fdh { font-size: 16px; }
+      .inbox-list.relaxed-view .em-vendor { font-size: 11px; }
+      .inbox-list.relaxed-view .em-tags { gap: 6px; }
 
       .email-card.crit { border-left-color: var(--color-critical); }
       .email-card.warn { border-left-color: var(--color-review); }
@@ -242,7 +234,7 @@
       .outbox-pane { position: fixed; right: 0; top: 52px; height: calc(100% - 52px); width: 280px; z-index: 500; background: var(--card-bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s, border-color 0.3s; box-shadow: -2px 0 16px rgba(0,0,0,0.1); }
       .outbox-pane.open { transform: translateX(0); }
       /* Sibling fixed drawer-tab-handle — always visible, not inside the pane */
-      .drawer-tab-handle { position: fixed; right: 0; top: 52px; z-index: 10001; writing-mode: vertical-rl; transform: rotate(180deg); background: var(--card-bg); border: 1px solid var(--border); border-right: none; border-radius: 6px 0 0 6px; padding: 14px 8px; cursor: pointer; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; user-select: none; transition: color 0.2s, border-color 0.2s, background 0.3s; box-shadow: -2px 0 8px rgba(0,0,0,0.1); }
+      .drawer-tab-handle { position: fixed; right: 0; top: 52px; z-index: 10001; writing-mode: vertical-rl; transform: rotate(180deg); background: var(--card-bg); border: 1px solid var(--border); border-right: none; border-radius: 6px 0 0 6px; padding: 14px 8px; cursor: pointer; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; user-select: none; transition: color 0.2s, border-color 0.2s, background 0.3s, right 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -2px 0 8px rgba(0,0,0,0.1); }
       .drawer-tab-handle:hover { color: var(--text-main); }
       .drawer-tab-handle.active { color: var(--accent); border-color: var(--accent); }
       .ob-header { padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s;}
@@ -258,7 +250,8 @@
       .mobile-menu-panel button:hover { background: var(--bg); }
       .mobile-menu-panel button:last-child { border-bottom: none; }
 
-      .raw-data-strip { height: 60px; min-height: 60px; background: var(--bg); border-top: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; display: flex; align-items: center; padding: 0 12px; flex-shrink: 0; z-index: 600; transition: background 0.3s, border-color 0.3s;}
+      .gantt-panel { position: relative; z-index: 600; display: flex; flex-direction: column; border-top: 2px solid var(--border); background: var(--card-bg); transition: background 0.3s, border-color 0.3s; }
+      .raw-data-strip { height: 60px; min-height: 60px; background: var(--bg); overflow-x: auto; overflow-y: hidden; display: flex; align-items: center; padding: 0 12px; flex-shrink: 0; transition: background 0.3s;}
 
       /* Resize handles — thin 2px line + grip indicator; transparent hit target */
       .resize-handle { width: 8px; flex-shrink: 0; cursor: col-resize; position: relative; z-index: 10; background: transparent; }
@@ -278,7 +271,7 @@
       .hover-trigger:hover { transform: translateY(-2px); }
 
       /* 🧠 THEATER MODE GANTT STYLING (REBUILT FOR PERFECT LAYERING) */
-      .timeline-wrapper { flex: 0 0 auto; height: 20vh; min-height: 120px; background: var(--card-bg); border-top: 1px solid var(--border); position: relative; z-index: 600; display: flex; flex-direction: column; transition: all 0.3s ease; }
+      .timeline-wrapper { flex: 0 0 auto; height: 20vh; min-height: 120px; background: var(--card-bg); position: relative; display: flex; flex-direction: column; transition: all 0.3s ease; }
 
       /* Gantt resize handle — thin 2px line + horizontal grip dots */
       .gantt-resize-handle { height: 8px; flex-shrink: 0; cursor: row-resize; position: relative; z-index: 601; background: transparent; }
@@ -353,7 +346,7 @@
           background: rgba(255,255,255,0.72);
           backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
           border: 1px solid rgba(255,255,255,0.4); border-radius: 20px;
-          flex-direction: column; gap: 6px; z-index: 200;
+          flex-direction: column; gap: 10px; z-index: 200;
           box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
           transition: background 0.3s, border-color 0.3s;
       }
@@ -365,7 +358,11 @@
       .mobile-nav-row { display: flex; gap: 8px; width: 100%; }
       .mobile-action-row { display: flex; gap: 8px; width: 100%; }
       @media screen and (max-width: 768px) {
-        .mobile-nav-row .btn, .mobile-action-row .btn { padding: 10px 16px; font-size: 12px; min-height: 40px; border-radius: 10px; }
+        .mobile-nav-row .btn, .mobile-action-row .btn { padding: 10px 16px; font-size: 13px; font-weight: 900; min-height: 48px; border-radius: 14px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1); transition: transform 0.15s, box-shadow 0.15s; }
+        .mobile-nav-row .btn:active, .mobile-action-row .btn:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+        .mobile-action-bar .btn-skip { background: var(--card-bg); color: var(--text-main); }
+        body.dark-mode .mobile-action-bar .btn-skip { background: rgba(60,60,70,0.9); }
+        .mobile-action-bar .btn-primary { background: var(--qb-done); color: #fff; border: none; font-size: 14px; }
       }
 
       .swipe-label { position: absolute; top: 24px; padding: 8px 18px; border-radius: 10px; font-size: 18px; font-weight: 900; letter-spacing: 2px; pointer-events: none; opacity: 0; transition: opacity 0.1s; z-index: 10; border: 3px solid; }
@@ -393,6 +390,20 @@
           .qb-grid { gap: 12px; }
           .kpi-nav-container { gap: 4px; }
           .kpi-nav-box { padding: 3px 8px; min-width: 38px; }
+
+          /* Sidebar resize: 3× wider hit target + visible drag pill */
+          .resize-handle { width: 24px; background: rgba(128,128,128,0.05); }
+          .resize-handle::before { top: 50%; bottom: auto; height: 48px; width: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
+          .resize-handle::after { font-size: 20px; opacity: 0.6; color: var(--text-muted); }
+          .resize-handle:hover::before, .resize-handle.dragging::before { opacity: 1; background: var(--accent); height: 64px; }
+          .resize-handle:hover::after, .resize-handle.dragging::after { opacity: 1; color: var(--accent); }
+
+          /* Gantt resize: 3× taller hit target + visible drag pill */
+          .gantt-resize-handle { height: 24px; background: rgba(128,128,128,0.05); }
+          .gantt-resize-handle::before { left: 50%; right: auto; width: 48px; height: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
+          .gantt-resize-handle::after { font-size: 14px; letter-spacing: 8px; opacity: 0.6; color: var(--text-muted); }
+          .gantt-resize-handle:hover::before, .gantt-resize-handle.dragging::before { opacity: 1; background: var(--accent); width: 64px; }
+          .gantt-resize-handle:hover::after, .gantt-resize-handle.dragging::after { opacity: 1; color: var(--accent); }
       }
 
       /* 📱 PORTRAIT MOBILE */
@@ -436,7 +447,7 @@
 
           /* Hide desktop footer — mobile-action-bar takes its place */
           .pane-footer { display: none !important; }
-          .raw-data-strip { display: none; }
+          .gantt-panel { display: none; }
 
           /* Touch-friendly text + disable hover lifts */
           .chat-bubble { min-height: 100px; font-size: 15px; }
@@ -452,18 +463,20 @@
 
           /* Mobile action bar visible */
           .mobile-action-bar { display: flex; }
+
+          /* Hamburger larger hit target */
+          #btn-hamburger { font-size: 22px; padding: 10px 14px; min-width: 44px; min-height: 44px; }
       }
 
       /* PORTRAIT: hide Gantt entirely */
       @media screen and (max-width: 768px) and (orientation: portrait) {
-          .timeline-wrapper { display: none !important; }
+          .gantt-panel { display: none !important; }
       }
 
       /* 📱 LANDSCAPE: fullscreen Gantt (position:fixed so it clears overflow:hidden) */
       @media screen and (max-width: 950px) and (orientation: landscape) {
           .top-nav { display: none !important; }
           .workspace { display: none !important; }
-          .raw-data-strip { display: none !important; }
           .mobile-action-bar { display: none !important; }
 
           .timeline-wrapper {
@@ -863,6 +876,7 @@
       </div>
     </div>
 
+    <div class="gantt-panel" id="gantt-panel">
     <div class="raw-data-strip" id="raw-data-strip"></div>
     <div class="gantt-resize-handle" id="gantt-resize-handle" title="Drag to resize timeline"></div>
     <div class="timeline-wrapper" id="gantt-wrapper">
@@ -877,6 +891,7 @@
        <div class="timeline-container" id="gantt-scroll" onclick="exitTheaterMode(event)">
            <div id="gantt-container"><div class="empty-msg" style="margin-top:20px;">Loading Timeline...</div></div>
        </div>
+    </div>
     </div>
 
     <script>
@@ -947,8 +962,8 @@
           getEl('kpi-admin-status').classList.toggle('active', activeAdminFilter === 'status');
           applyFilters();
       }
-      const _VIEW_MODES = ['card', 'list', 'grid'];
-      let currentViewMode = localStorage.getItem('queueViewMode') || 'card';
+      const _VIEW_MODES = ['regular', 'dense', 'relaxed'];
+      let currentViewMode = localStorage.getItem('queueViewMode') || 'regular';
       function cycleViewMode() {
           let idx = (_VIEW_MODES.indexOf(currentViewMode) + 1) % _VIEW_MODES.length;
           currentViewMode = _VIEW_MODES[idx];
@@ -957,9 +972,9 @@
       }
       function applyViewMode() {
           let list = getEl('inbox-list'); let btn = getEl('view-toggle-btn');
-          if (list) { list.classList.remove('list-view', 'grid-view'); if (currentViewMode === 'list') list.classList.add('list-view'); if (currentViewMode === 'grid') list.classList.add('grid-view'); }
-          const icons = { card: '☰', list: '⊞', grid: '⊟' };
-          const tips  = { card: 'Switch to List', list: 'Switch to Grid', grid: 'Switch to Card' };
+          if (list) { list.classList.remove('dense-view', 'relaxed-view'); if (currentViewMode === 'dense') list.classList.add('dense-view'); if (currentViewMode === 'relaxed') list.classList.add('relaxed-view'); }
+          const icons = { regular: '⊟', dense: '☰', relaxed: '⊞' };
+          const tips  = { regular: 'Switch to Dense', dense: 'Switch to Relaxed', relaxed: 'Switch to Regular' };
           if (btn) { btn.innerHTML = icons[currentViewMode]; btn.setAttribute('data-tooltip', tips[currentViewMode]); }
       }
       function toggleFilterStrip() {
@@ -985,7 +1000,11 @@
       function toggleOutbox() {
           let pane = getEl('outbox-pane'); if (!pane) return;
           let open = pane.classList.toggle('open');
-          let tab = getEl('outbox-drawer-tab'); if (tab) tab.classList.toggle('active', open);
+          let tab = getEl('outbox-drawer-tab');
+          if (tab) {
+              tab.classList.toggle('active', open);
+              tab.style.right = open ? '280px' : '0px';
+          }
       }
       function toggleMobileMenu() {
           let panel = getEl('mobile-menu-panel'); if (!panel) return;
@@ -1647,7 +1666,7 @@
                   <div style="display: flex; align-items: baseline; gap: 8px; min-width: 0;">
                       <div class="em-fdh" style="flex-shrink: 0;">${item.fdh}</div><div class="em-vendor" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.vendor}</div>
                   </div>
-                  <span class="glass-pill em-pill-full ${pillCls}" style="flex-shrink: 0; margin-left: 8px;">${combinedPill}</span><span class="glass-pill em-pill-short ${pillCls}" style="flex-shrink: 0; margin-left: 8px;">${combinedPill.split('|')[0].trim()}</span>
+                  <span class="glass-pill ${pillCls}" style="flex-shrink: 0; margin-left: 8px;">${combinedPill}</span>
                </div><div class="em-tags">${tagsHtml}</div>`;
             list.appendChild(card);
         });
