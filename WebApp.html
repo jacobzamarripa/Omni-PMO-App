@@ -235,12 +235,25 @@
       .outbox-pane.open { transform: translateX(0); }
       /* Drawer tab group — fixed wrapper containing stacked Reviewed + Admin handles */
       .drawer-tab-group { position: fixed; right: 0; top: 52px; z-index: 10001; display: flex; flex-direction: column; transition: right 0.3s cubic-bezier(0.4,0,0.2,1); }
-      .drawer-tab-handle { writing-mode: vertical-lr; background: var(--card-bg); border: 1px solid var(--border); border-right: none; border-radius: 0; padding: 14px 8px; cursor: pointer; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; user-select: none; transition: color 0.2s, border-color 0.2s, background 0.3s; box-shadow: -2px 0 8px rgba(0,0,0,0.1); }
-      .drawer-tab-handle:first-child { border-radius: 6px 0 0 0; }
-      .drawer-tab-handle:last-child  { border-radius: 0 0 0 6px; border-top: none; }
-      .drawer-tab-handle:only-child  { border-radius: 6px 0 0 6px; }
+      .drawer-tab-handle { position: relative; writing-mode: vertical-lr; background: var(--card-bg); border: 1px solid var(--border); border-right: none; border-radius: 0; padding: 18px 8px 10px; cursor: pointer; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); white-space: nowrap; display: flex; align-items: center; justify-content: flex-end; gap: 6px; user-select: none; transition: color 0.2s, border-color 0.2s, background 0.3s; box-shadow: -2px 0 8px rgba(0,0,0,0.1); }
+      /* Closed state: each handle has its own right border and full radius */
+      .drawer-tab-group:not(.open) .drawer-tab-handle { border-right: 1px solid var(--border); }
+      .drawer-tab-group:not(.open) .drawer-tab-handle:first-child { border-radius: 6px 0 0 6px; }
+      .drawer-tab-group:not(.open) .drawer-tab-handle:last-child  { border-radius: 6px 0 0 6px; border-top: none; }
+      /* Open state: handles attach to pane edge — no shadow, no right border, beveled corners */
+      .drawer-tab-group.open .drawer-tab-handle { box-shadow: none; }
+      .drawer-tab-group.open .drawer-tab-handle:first-child { border-radius: 6px 0 0 0; }
+      .drawer-tab-group.open .drawer-tab-handle:last-child  { border-radius: 0 0 0 6px; border-top: none; }
       .drawer-tab-handle:hover  { color: var(--text-main); background: var(--bg); }
       .drawer-tab-handle.active { color: var(--accent); border-color: var(--accent); background: var(--bg); }
+      /* Badges inside vertical handles: float to top, force horizontal text */
+      .drawer-tab-handle .ob-tab-badge,
+      .drawer-tab-handle #ob-tab-count {
+          position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
+          writing-mode: horizontal-tb; min-width: 16px; height: 16px; border-radius: 8px;
+          padding: 0 4px; display: flex; align-items: center; justify-content: center;
+          font-size: 9px; font-weight: 900;
+      }
       .ob-header { padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s;}
       .ob-list { padding: 12px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;}
       .ob-card { padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--text-main);}
@@ -286,7 +299,7 @@
       .gantt-resize-handle.dragging::before { background: var(--accent); width: 56px; }
       .timeline-wrapper.minimized { height: 40px; min-height: 40px; overflow: hidden; }
       .timeline-wrapper.fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; }
-      .gantt-controls { display: flex; justify-content: space-between; padding: 8px 24px; background: var(--bg); border-bottom: 1px solid var(--border); align-items: center; cursor: pointer; transition: background 0.3s, border-color 0.3s;}
+      .gantt-controls { display: flex; justify-content: space-between; padding: 0 24px; height: 40px; background: var(--bg); border-bottom: 1px solid var(--border); align-items: center; cursor: pointer; transition: background 0.3s, border-color 0.3s; }
       
       .timeline-container { flex-grow: 1; overflow: auto; position: relative; padding: 0 24px 20px 24px;}
       .gantt-area { position: relative; padding-bottom: 20px; transition: background 0.3s; display: block; }
@@ -916,7 +929,10 @@
     <div class="gantt-resize-handle" id="gantt-resize-handle" title="Drag to resize timeline"></div>
     <div class="timeline-wrapper" id="gantt-wrapper">
        <div class="gantt-controls" onclick="toggleMinimize()">
-           <div style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--text-muted);">Global Construction Timeline</div>
+           <div style="display:flex; align-items:center; gap:8px;">
+               <span id="gantt-expand-icon" style="font-size:10px; color:var(--text-muted);">▲</span>
+               <div style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--text-muted);">Global Construction Timeline</div>
+           </div>
            <div>
                <button class="btn btn-nav" id="btn-exit-theater" style="display:none; padding: 4px 8px; font-size: 9px; margin-right:6px; background:var(--text-main); color:var(--bg);" onclick="event.stopPropagation(); exitTheaterMode()">Exit Focus</button>
                <button class="btn btn-nav" id="btn-minimize" style="display:inline-flex; padding: 4px 8px; font-size: 9px; margin-right:6px;" onclick="event.stopPropagation(); toggleMinimize()">Minimize</button>
@@ -989,7 +1005,14 @@
           let fsBtn = getEl('btn-fullscreen'); if(fsBtn) fsBtn.innerText = isFs ? 'Exit Fullscreen' : 'Fullscreen';
           let minBtn = getEl('btn-minimize'); if(minBtn) minBtn.style.display = isFs ? 'none' : 'inline-flex';
       }
-      function toggleMinimize() { let wrapper = getEl('gantt-wrapper'); if(wrapper && !wrapper.classList.contains('fullscreen')) wrapper.classList.toggle('minimized'); }
+      function toggleMinimize() {
+          let wrapper = getEl('gantt-wrapper');
+          if (wrapper && !wrapper.classList.contains('fullscreen')) {
+              wrapper.classList.toggle('minimized');
+              let icon = getEl('gantt-expand-icon');
+              if (icon) icon.textContent = wrapper.classList.contains('minimized') ? '▶' : '▲';
+          }
+      }
       function toggleCriticalFilter() { let sevDropdown = getEl('filter-severity'); if (sevDropdown) { sevDropdown.value = (sevDropdown.value === 'crit') ? 'ALL' : 'crit'; applyFilters(); } }
       function toggleAdminFilter(type) {
           activeAdminFilter = (activeAdminFilter === type) ? null : type;
@@ -1047,7 +1070,10 @@
           let pane = getEl('outbox-pane'); if (!pane) return;
           let open = pane.classList.toggle('open');
           let group = getEl('drawer-tab-group');
-          if (group) group.style.right = open ? '320px' : '0px';
+          if (group) {
+              group.classList.toggle('open', open);
+              group.style.right = open ? '319px' : '0px'; // 319px overlaps pane border by 1px — hides seam
+          }
           if (window.innerWidth >= 769 && navigator.maxTouchPoints <= 1) {
               document.body.classList.toggle('drawer-open', open);
           }
@@ -1123,13 +1149,15 @@
       if (window.innerWidth >= 769 && navigator.maxTouchPoints <= 1) {
           let _pane = getEl('outbox-pane'), _group = getEl('drawer-tab-group');
           if (_pane)  _pane.classList.add('open');
-          if (_group) _group.style.right = '320px';
+          if (_group) { _group.style.right = '319px'; _group.classList.add('open'); }
           document.body.classList.add('drawer-open');
       }
       // Auto-minimize Gantt on load (all platforms)
       let _ganttWrapper = getEl('gantt-wrapper');
       if (_ganttWrapper && !_ganttWrapper.classList.contains('fullscreen')) {
           _ganttWrapper.classList.add('minimized');
+          let _icon = getEl('gantt-expand-icon');
+          if (_icon) _icon.textContent = '▶';
       }
       // Sync drawer top to account for filter strip height on load
       _syncDrawerTop();
