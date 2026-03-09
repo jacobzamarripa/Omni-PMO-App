@@ -74,9 +74,9 @@
 
       .inbox-sidebar { width: 380px; min-width: 320px; max-width: 600px; resize: horizontal; overflow: hidden; background: var(--card-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5; flex-shrink: 0; transition: background 0.3s, border-color 0.3s;}
       /* .inbox-header overridden below */
-      .inbox-title { font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); }
-      .inbox-count { background: var(--border); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 900; color: var(--text-main);}
-      .inbox-list { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 0; gap: 0;}
+      .inbox-title { font-size: 14px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); }
+      .inbox-count { background: var(--border); padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 900; color: var(--text-main);}
+      .inbox-list { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; padding: 0 8px; gap: 0;}
 
       .admin-strip { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--card-bg); flex-shrink: 0; transition: background 0.3s, border-color 0.3s; }
       .admin-kpi { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; text-align: center; transition: all 0.15s; }
@@ -94,7 +94,7 @@
       .admin-kpi.active.status { background: #450a0a; border-color: #ef4444; }
       .admin-kpi.active.status .admin-kpi-val, .admin-kpi.active.status .admin-kpi-label { color: #fca5a5; }
 
-      .email-card { padding: 12px 16px; border: none; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s, border-color 0.3s; background: var(--card-bg); border-left: 4px solid transparent; display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 580px; }
+      .email-card { padding: 12px 16px; border: none; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s, border-color 0.3s; background: var(--card-bg); border-left: 4px solid transparent; display: flex; flex-direction: column; gap: 6px; }
       .email-card:hover { background: var(--bg); }
       .email-card.selected { background: rgba(59, 130, 246, 0.08); border-left-color: #3b82f6 !important; }
       
@@ -216,7 +216,7 @@
       .btn-filters-active { background: rgba(239,68,68,0.1) !important; border-color: rgba(239,68,68,0.4) !important; color: var(--color-critical) !important; }
 
       .comment-area { display: flex; flex-direction: column; flex-grow: 1; transition: transform 0.2s;}
-      .inbox-header { padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 6px; transition: background 0.3s, border-color 0.3s;}
+      .inbox-header { padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 6px; transition: background 0.3s, border-color 0.3s;}
       .chat-bubble { flex-grow: 1; padding: 14px; border-radius: 12px 12px 2px 12px; font-family: monospace; font-size: 12px; min-height: 100px; resize: none; transition: all 0.2s;}
       body:not(.dark-mode) .chat-bubble { background: #faf5ff; color: #4c1d95; border: 1px solid #d8b4fe; box-shadow: 3px 3px 0px rgba(0,0,0,0.05);}
       body:not(.dark-mode) .chat-bubble:focus { outline: none; border-color: #a855f7; background: #ffffff; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);}
@@ -389,45 +389,44 @@
           .kpi-nav-container { gap: 4px; }
           .kpi-nav-box { padding: 3px 8px; min-width: 38px; }
 
-          /* Sidebar resize: 3× wider hit target + visible drag pill */
+          /* Sidebar resize: wider hit target + subtle bump */
           .resize-handle { width: 24px; background: rgba(128,128,128,0.05); }
-          .resize-handle::before { top: 50%; bottom: auto; height: 48px; width: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
-          .resize-handle::after { font-size: 20px; opacity: 0.6; color: var(--text-muted); }
-          .resize-handle:hover::before, .resize-handle.dragging::before { opacity: 1; background: var(--accent); height: 64px; }
-          .resize-handle:hover::after, .resize-handle.dragging::after { opacity: 1; color: var(--accent); }
+          .resize-handle::before { top: 50%; bottom: auto; height: 24px; width: 6px; transform: translate(-50%, -50%); border-radius: 4px; background: var(--text-muted); opacity: 0.35; }
+          .resize-handle::after { display: none; }
+          .resize-handle:hover::before, .resize-handle.dragging::before { opacity: 1; background: var(--accent); height: 32px; }
 
-          /* Gantt resize: 3× taller hit target + visible drag pill */
+          /* Gantt resize: taller hit target + subtle bump */
           .gantt-resize-handle { height: 24px; background: rgba(128,128,128,0.05); }
-          .gantt-resize-handle::before { left: 50%; right: auto; width: 48px; height: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
-          .gantt-resize-handle::after { font-size: 14px; letter-spacing: 8px; opacity: 0.6; color: var(--text-muted); }
-          .gantt-resize-handle:hover::before, .gantt-resize-handle.dragging::before { opacity: 1; background: var(--accent); width: 64px; }
-          .gantt-resize-handle:hover::after, .gantt-resize-handle.dragging::after { opacity: 1; color: var(--accent); }
+          .gantt-resize-handle::before { left: 50%; right: auto; width: 24px; height: 6px; transform: translate(-50%, -50%); border-radius: 4px; background: var(--text-muted); opacity: 0.35; }
+          .gantt-resize-handle::after { display: none; }
+          .gantt-resize-handle:hover::before, .gantt-resize-handle.dragging::before { opacity: 1; background: var(--accent); width: 32px; }
       }
 
       /* iPad handles fallback — (hover: none) catches Edge which may not report pointer:coarse */
       @media screen and (hover: none) and (min-width: 769px) and (min-height: 600px) {
           .resize-handle { width: 24px; background: rgba(128,128,128,0.05); }
-          .resize-handle::before { top: 50%; bottom: auto; height: 48px; width: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
-          .resize-handle::after { font-size: 20px; opacity: 0.6; color: var(--text-muted); }
-          .resize-handle:hover::before, .resize-handle.dragging::before { opacity: 1; background: var(--accent); height: 64px; }
-          .resize-handle:hover::after, .resize-handle.dragging::after { opacity: 1; color: var(--accent); }
+          .resize-handle::before { top: 50%; bottom: auto; height: 24px; width: 6px; transform: translate(-50%, -50%); border-radius: 4px; background: var(--text-muted); opacity: 0.35; }
+          .resize-handle::after { display: none; }
+          .resize-handle:hover::before, .resize-handle.dragging::before { opacity: 1; background: var(--accent); height: 32px; }
           .gantt-resize-handle { height: 24px; background: rgba(128,128,128,0.05); }
-          .gantt-resize-handle::before { left: 50%; right: auto; width: 48px; height: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
-          .gantt-resize-handle::after { font-size: 14px; letter-spacing: 8px; opacity: 0.6; color: var(--text-muted); }
-          .gantt-resize-handle:hover::before, .gantt-resize-handle.dragging::before { opacity: 1; background: var(--accent); width: 64px; }
-          .gantt-resize-handle:hover::after, .gantt-resize-handle.dragging::after { opacity: 1; color: var(--accent); }
+          .gantt-resize-handle::before { left: 50%; right: auto; width: 24px; height: 6px; transform: translate(-50%, -50%); border-radius: 4px; background: var(--text-muted); opacity: 0.35; }
+          .gantt-resize-handle::after { display: none; }
+          .gantt-resize-handle:hover::before, .gantt-resize-handle.dragging::before { opacity: 1; background: var(--accent); width: 32px; }
       }
       /* JS-injected touch-tablet class catches Edge and any other browser that reports neither */
       .touch-tablet .resize-handle { width: 24px; background: rgba(128,128,128,0.05); }
-      .touch-tablet .resize-handle::before { top: 50%; bottom: auto; height: 48px; width: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
-      .touch-tablet .resize-handle::after { font-size: 20px; opacity: 0.6; color: var(--text-muted); }
-      .touch-tablet .resize-handle:hover::before, .touch-tablet .resize-handle.dragging::before { opacity: 1; background: var(--accent); height: 64px; }
-      .touch-tablet .resize-handle:hover::after, .touch-tablet .resize-handle.dragging::after { opacity: 1; color: var(--accent); }
+      .touch-tablet .resize-handle::before { top: 50%; bottom: auto; height: 24px; width: 6px; transform: translate(-50%, -50%); border-radius: 4px; background: var(--text-muted); opacity: 0.35; }
+      .touch-tablet .resize-handle::after { display: none; }
+      .touch-tablet .resize-handle:hover::before, .touch-tablet .resize-handle.dragging::before { opacity: 1; background: var(--accent); height: 32px; }
       .touch-tablet .gantt-resize-handle { height: 24px; background: rgba(128,128,128,0.05); }
-      .touch-tablet .gantt-resize-handle::before { left: 50%; right: auto; width: 48px; height: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
-      .touch-tablet .gantt-resize-handle::after { font-size: 14px; letter-spacing: 8px; opacity: 0.6; color: var(--text-muted); }
-      .touch-tablet .gantt-resize-handle:hover::before, .touch-tablet .gantt-resize-handle.dragging::before { opacity: 1; background: var(--accent); width: 64px; }
-      .touch-tablet .gantt-resize-handle:hover::after, .touch-tablet .gantt-resize-handle.dragging::after { opacity: 1; color: var(--accent); }
+      .touch-tablet .gantt-resize-handle::before { left: 50%; right: auto; width: 24px; height: 6px; transform: translate(-50%, -50%); border-radius: 4px; background: var(--text-muted); opacity: 0.35; }
+      .touch-tablet .gantt-resize-handle::after { display: none; }
+      .touch-tablet .gantt-resize-handle:hover::before, .touch-tablet .gantt-resize-handle.dragging::before { opacity: 1; background: var(--accent); width: 32px; }
+
+      /* Desktop: shift workspace right when review drawer is open (pointer:fine excludes iPad) */
+      @media screen and (min-width: 769px) and (pointer: fine) {
+          body.drawer-open .workspace { padding-right: 280px; transition: padding-right 0.3s cubic-bezier(0.4,0,0.2,1); }
+      }
 
       /* 📱 PORTRAIT MOBILE */
       @media screen and (max-width: 768px) {
@@ -604,7 +603,7 @@
           <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
               <div class="inbox-title">Diag. Queue</div>
               <div class="inbox-count" id="inbox-count">0</div>
-              <button class="btn-nav" onclick="toggleFilterStrip()" id="btn-filters" style="font-size:10px; padding:2px 8px;">Filters</button>
+              <button class="btn-nav" onclick="toggleFilterStrip()" id="btn-filters" style="font-size:11px; padding:5px 10px;">Filters</button>
           </div>
           <div style="display:flex; align-items:center; gap:4px; margin-left:auto; flex-shrink:0;">
               <button class="btn-icon has-tooltip" id="view-toggle-btn" data-tooltip="Switch to List" onclick="cycleViewMode()" style="padding:3px 7px;">☰</button>
@@ -1028,6 +1027,9 @@
               tab.classList.toggle('active', open);
               tab.style.right = open ? '280px' : '0px';
           }
+          if (window.innerWidth >= 769 && navigator.maxTouchPoints <= 1) {
+              document.body.classList.toggle('drawer-open', open);
+          }
       }
       function toggleMobileMenu() {
           let panel = getEl('mobile-menu-panel'); if (!panel) return;
@@ -1076,6 +1078,13 @@
       _sysDark.addEventListener('change', e => applyTheme(e.matches));
       applyViewMode(); // restore persisted queue view (card/list/grid)
       if (navigator.maxTouchPoints > 1 && window.innerWidth >= 769) document.body.classList.add('touch-tablet');
+      // Auto-open review drawer on desktop (non-touch wide viewport)
+      if (window.innerWidth >= 769 && navigator.maxTouchPoints <= 1) {
+          let _pane = getEl('outbox-pane'), _tab = getEl('outbox-drawer-tab');
+          if (_pane) _pane.classList.add('open');
+          if (_tab)  { _tab.classList.add('active'); _tab.style.right = '280px'; }
+          document.body.classList.add('drawer-open');
+      }
 
       // ── ⟳ Sync QB — pulls fresh reference data from QuickBase API ──────────
       function triggerQBSync() {
@@ -1095,6 +1104,11 @@
                       globalRefDataDate = r.timestamp;
                       updateRefDataIndicator();
                       showToast('✅ Synced ' + r.count + ' records · ' + r.timestamp);
+                      setTimeout(() => {
+                          if (confirm('✅ Reference data synced & admin logs reset.\n\nRun Review now to refresh admin task flags (Check Crossings, Status Mismatch, etc.)?')) {
+                              triggerRunReview();
+                          }
+                      }, 400);
                   } else { showToast('❌ ' + r.error, 'error'); }
               })
               .withFailureHandler(function(e) {

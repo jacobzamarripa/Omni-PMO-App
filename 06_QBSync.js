@@ -98,6 +98,12 @@ function syncFromQBWebApp() {
       "QB_SYNC_COUNT":     String(allRows.length)
     });
 
+    // Reset admin logs so next engine run re-evaluates all admin tasks from fresh ref data
+    var adminSheet = ss.getSheetByName("Admin_Logs");
+    if (adminSheet && adminSheet.getLastRow() > 1) {
+      adminSheet.getRange(2, 2, adminSheet.getLastRow() - 1, 2).clearContent(); // cols B+C: xingDate + statusDate
+    }
+
     logMsg("QB WebApp Sync: " + allRows.length + " records written to " + REF_SHEET);
     return { success: true, count: allRows.length, timestamp: timestamp };
 
