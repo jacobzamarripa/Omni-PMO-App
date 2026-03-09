@@ -76,7 +76,7 @@
       /* .inbox-header overridden below */
       .inbox-title { font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); }
       .inbox-count { background: var(--border); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 900; color: var(--text-main);}
-      .inbox-list { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; padding: 0; gap: 0;}
+      .inbox-list { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 0; gap: 0;}
 
       .admin-strip { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--card-bg); flex-shrink: 0; transition: background 0.3s, border-color 0.3s; }
       .admin-kpi { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; text-align: center; transition: all 0.15s; }
@@ -94,7 +94,7 @@
       .admin-kpi.active.status { background: #450a0a; border-color: #ef4444; }
       .admin-kpi.active.status .admin-kpi-val, .admin-kpi.active.status .admin-kpi-label { color: #fca5a5; }
 
-      .email-card { padding: 12px 16px; border: none; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s, border-color 0.3s; background: var(--card-bg); border-left: 4px solid transparent; display: flex; flex-direction: column; gap: 6px; }
+      .email-card { padding: 12px 16px; border: none; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s, border-color 0.3s; background: var(--card-bg); border-left: 4px solid transparent; display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 580px; }
       .email-card:hover { background: var(--bg); }
       .email-card.selected { background: rgba(59, 130, 246, 0.08); border-left-color: #3b82f6 !important; }
       
@@ -234,7 +234,7 @@
       .outbox-pane { position: fixed; right: 0; top: 52px; height: calc(100% - 52px); width: 280px; z-index: 500; background: var(--card-bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s, border-color 0.3s; box-shadow: -2px 0 16px rgba(0,0,0,0.1); }
       .outbox-pane.open { transform: translateX(0); }
       /* Sibling fixed drawer-tab-handle — always visible, not inside the pane */
-      .drawer-tab-handle { position: fixed; right: 0; top: 52px; z-index: 10001; writing-mode: vertical-rl; transform: rotate(180deg); background: var(--card-bg); border: 1px solid var(--border); border-right: none; border-radius: 6px 0 0 6px; padding: 14px 8px; cursor: pointer; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; user-select: none; transition: color 0.2s, border-color 0.2s, background 0.3s, right 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -2px 0 8px rgba(0,0,0,0.1); }
+      .drawer-tab-handle { position: fixed; right: 0; top: 52px; z-index: 10001; writing-mode: vertical-lr; background: var(--card-bg); border: 1px solid var(--border); border-right: none; border-radius: 6px 0 0 6px; padding: 14px 8px; cursor: pointer; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; user-select: none; transition: color 0.2s, border-color 0.2s, background 0.3s, right 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -2px 0 8px rgba(0,0,0,0.1); }
       .drawer-tab-handle:hover { color: var(--text-main); }
       .drawer-tab-handle.active { color: var(--accent); border-color: var(--accent); }
       .ob-header { padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s;}
@@ -343,17 +343,15 @@
       .mobile-action-bar {
           display: none; position: fixed; bottom: 10px; left: 8px; right: 8px;
           padding: 10px 12px; padding-bottom: max(20px, calc(12px + env(safe-area-inset-bottom)));
-          background: rgba(255,255,255,0.72);
-          backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
-          border: 1px solid rgba(255,255,255,0.4); border-radius: 20px;
+          background: transparent;
+          backdrop-filter: none; -webkit-backdrop-filter: none;
+          border: none;
           flex-direction: column; gap: 10px; z-index: 200;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
-          transition: background 0.3s, border-color 0.3s;
+          box-shadow: none;
       }
       body.dark-mode .mobile-action-bar {
-          background: rgba(30,30,35,0.78);
-          border-color: rgba(255,255,255,0.1);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.07);
+          background: transparent;
+          box-shadow: none;
       }
       .mobile-nav-row { display: flex; gap: 8px; width: 100%; }
       .mobile-action-row { display: flex; gap: 8px; width: 100%; }
@@ -405,6 +403,31 @@
           .gantt-resize-handle:hover::before, .gantt-resize-handle.dragging::before { opacity: 1; background: var(--accent); width: 64px; }
           .gantt-resize-handle:hover::after, .gantt-resize-handle.dragging::after { opacity: 1; color: var(--accent); }
       }
+
+      /* iPad handles fallback — (hover: none) catches Edge which may not report pointer:coarse */
+      @media screen and (hover: none) and (min-width: 769px) and (min-height: 600px) {
+          .resize-handle { width: 24px; background: rgba(128,128,128,0.05); }
+          .resize-handle::before { top: 50%; bottom: auto; height: 48px; width: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
+          .resize-handle::after { font-size: 20px; opacity: 0.6; color: var(--text-muted); }
+          .resize-handle:hover::before, .resize-handle.dragging::before { opacity: 1; background: var(--accent); height: 64px; }
+          .resize-handle:hover::after, .resize-handle.dragging::after { opacity: 1; color: var(--accent); }
+          .gantt-resize-handle { height: 24px; background: rgba(128,128,128,0.05); }
+          .gantt-resize-handle::before { left: 50%; right: auto; width: 48px; height: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
+          .gantt-resize-handle::after { font-size: 14px; letter-spacing: 8px; opacity: 0.6; color: var(--text-muted); }
+          .gantt-resize-handle:hover::before, .gantt-resize-handle.dragging::before { opacity: 1; background: var(--accent); width: 64px; }
+          .gantt-resize-handle:hover::after, .gantt-resize-handle.dragging::after { opacity: 1; color: var(--accent); }
+      }
+      /* JS-injected touch-tablet class catches Edge and any other browser that reports neither */
+      .touch-tablet .resize-handle { width: 24px; background: rgba(128,128,128,0.05); }
+      .touch-tablet .resize-handle::before { top: 50%; bottom: auto; height: 48px; width: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
+      .touch-tablet .resize-handle::after { font-size: 20px; opacity: 0.6; color: var(--text-muted); }
+      .touch-tablet .resize-handle:hover::before, .touch-tablet .resize-handle.dragging::before { opacity: 1; background: var(--accent); height: 64px; }
+      .touch-tablet .resize-handle:hover::after, .touch-tablet .resize-handle.dragging::after { opacity: 1; color: var(--accent); }
+      .touch-tablet .gantt-resize-handle { height: 24px; background: rgba(128,128,128,0.05); }
+      .touch-tablet .gantt-resize-handle::before { left: 50%; right: auto; width: 48px; height: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--text-muted); opacity: 0.45; }
+      .touch-tablet .gantt-resize-handle::after { font-size: 14px; letter-spacing: 8px; opacity: 0.6; color: var(--text-muted); }
+      .touch-tablet .gantt-resize-handle:hover::before, .touch-tablet .gantt-resize-handle.dragging::before { opacity: 1; background: var(--accent); width: 64px; }
+      .touch-tablet .gantt-resize-handle:hover::after, .touch-tablet .gantt-resize-handle.dragging::after { opacity: 1; color: var(--accent); }
 
       /* 📱 PORTRAIT MOBILE */
       @media screen and (max-width: 768px) {
@@ -1052,6 +1075,7 @@
       applyTheme(_sysDark.matches);
       _sysDark.addEventListener('change', e => applyTheme(e.matches));
       applyViewMode(); // restore persisted queue view (card/list/grid)
+      if (navigator.maxTouchPoints > 1 && window.innerWidth >= 769) document.body.classList.add('touch-tablet');
 
       // ── ⟳ Sync QB — pulls fresh reference data from QuickBase API ──────────
       function triggerQBSync() {
