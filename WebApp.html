@@ -76,7 +76,7 @@
       /* .inbox-header overridden below */
       .inbox-title { font-size: 14px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); }
       .inbox-count { background: var(--border); padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 900; color: var(--text-main);}
-      .inbox-list { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; padding: 0 8px; gap: 0;}
+      .inbox-list { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; padding: 0; gap: 0;}
 
       .admin-strip { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--card-bg); flex-shrink: 0; transition: background 0.3s, border-color 0.3s; }
       .admin-kpi { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; text-align: center; transition: all 0.15s; }
@@ -606,8 +606,8 @@
               <button class="btn-nav" onclick="toggleFilterStrip()" id="btn-filters" style="font-size:11px; padding:5px 10px;">Filters</button>
           </div>
           <div style="display:flex; align-items:center; gap:4px; margin-left:auto; flex-shrink:0;">
-              <button class="btn-icon has-tooltip" id="view-toggle-btn" data-tooltip="Switch to List" onclick="cycleViewMode()" style="padding:3px 7px;">☰</button>
-              <select id="sort-queue" onchange="applyFilters()" style="font-size:9px; padding:3px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto;">
+              <button class="btn-icon has-tooltip" id="view-toggle-btn" data-tooltip="Switch to List" onclick="cycleViewMode()" style="padding:7px 10px; font-size:15px;">☰</button>
+              <select id="sort-queue" onchange="applyFilters()" style="font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto;">
                  <option value="default">Default</option>
                  <option value="admin">Admin Check</option>
                  <option value="target">Target Date</option>
@@ -999,12 +999,23 @@
           const tips  = { regular: 'Switch to Dense', dense: 'Switch to Relaxed', relaxed: 'Switch to Regular' };
           if (btn) { btn.innerHTML = icons[currentViewMode]; btn.setAttribute('data-tooltip', tips[currentViewMode]); }
       }
+      function _syncDrawerTop() {
+          let strip = getEl('filter-strip');
+          let pane  = getEl('outbox-pane');
+          let tab   = getEl('outbox-drawer-tab');
+          let navH  = 52;
+          let stripH = (strip && !strip.classList.contains('hidden')) ? strip.offsetHeight : 0;
+          let top = navH + stripH;
+          if (pane) { pane.style.top = top + 'px'; pane.style.height = 'calc(100% - ' + top + 'px)'; }
+          if (tab)  tab.style.top = top + 'px';
+      }
       function toggleFilterStrip() {
           let strip = getEl('filter-strip'); let btn = getEl('btn-filters');
           if (!strip) return;
           strip.classList.toggle('hidden');
           let isHidden = strip.classList.contains('hidden');
           if (btn) btn.classList.toggle('btn-filters-active', !isHidden);
+          _syncDrawerTop();
       }
       function toggleHelpPanel() {
           let panel = getEl('help-panel'); let overlay = getEl('help-overlay');
@@ -1085,6 +1096,8 @@
           if (_tab)  { _tab.classList.add('active'); _tab.style.right = '280px'; }
           document.body.classList.add('drawer-open');
       }
+      // Sync drawer top to account for filter strip height on load
+      _syncDrawerTop();
 
       // ── ⟳ Sync QB — pulls fresh reference data from QuickBase API ──────────
       function triggerQBSync() {

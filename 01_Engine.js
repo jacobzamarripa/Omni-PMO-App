@@ -639,10 +639,30 @@ function runBennyDiagnostics(row, refDict, vendorDict) {
          }
      };
      
-     checkPhase("UG", vendorBOMUG, refData.ugBOM, dailyUG, totalUG, "UG BOM Quantity", "Total UG Footage Completed");
-     checkPhase("AE", vendorBOMAE, refData.aeBOM, dailyAE, totalAE, "Strand BOM Quantity", "Total Strand Footage Complete?");
-     checkPhase("Fiber", vendorBOMFIB, refData.fibBOM, dailyFIB, totalFIB, "Fiber BOM Quantity", "Total Fiber Footage Complete");
-     checkPhase("NAP", vendorBOMNAP, refData.napBOM, dailyNAP, totalNAP, "NAP/Encl. BOM Qty.", "Total NAPs Completed");
+     // 3-tier BOM check: distinguish missing data entry from actual reroutes
+     const _ugBom  = refData.ugBOM  || 0;
+     const _aeBom  = refData.aeBOM  || 0;
+     const _fibBom = refData.fibBOM || 0;
+     const _napBom = refData.napBOM || 0;
+     const allBomZero  = _ugBom === 0 && _aeBom === 0 && _fibBom === 0 && _napBom === 0;
+     const mainBomZero = _ugBom === 0 && _aeBom === 0;
+
+     if (allBomZero) {
+         flags.push("⚠️ PLEASE INPUT BOM");
+         flagColors.push(TEXT_COLORS.WARN);
+         drafts.push("No BOM quantities found in QB for any phase. Please verify BOM data has been entered for this project.");
+     } else if (mainBomZero) {
+         flags.push("⚠️ CHECK BOM (UG/AE)");
+         flagColors.push(TEXT_COLORS.WARN);
+         drafts.push("UG and AE BOM quantities are both 0 in QB. Verify main phase BOM setup before reviewing vendor activity.");
+         checkPhase("Fiber", vendorBOMFIB, refData.fibBOM, dailyFIB, totalFIB, "Fiber BOM Quantity", "Total Fiber Footage Complete");
+         checkPhase("NAP",   vendorBOMNAP, refData.napBOM, dailyNAP, totalNAP, "NAP/Encl. BOM Qty.", "Total NAPs Completed");
+     } else {
+         checkPhase("UG",    vendorBOMUG,  refData.ugBOM,  dailyUG,  totalUG,  "UG BOM Quantity",     "Total UG Footage Completed");
+         checkPhase("AE",    vendorBOMAE,  refData.aeBOM,  dailyAE,  totalAE,  "Strand BOM Quantity", "Total Strand Footage Complete?");
+         checkPhase("Fiber", vendorBOMFIB, refData.fibBOM, dailyFIB, totalFIB, "Fiber BOM Quantity",  "Total Fiber Footage Complete");
+         checkPhase("NAP",   vendorBOMNAP, refData.napBOM, dailyNAP, totalNAP, "NAP/Encl. BOM Qty.", "Total NAPs Completed");
+     }
   }
   
   if (vTracker && rowState !== "COMPLETE") {
