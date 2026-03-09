@@ -40,6 +40,77 @@ function importReferenceData() {
   SpreadsheetApp.getUi().alert(`✅ Successfully imported Reference Data: \n${newestFile.getName()}\n\nCrossing check history has been reset — projects with blank Special Crossings? will be flagged for review.`);
 }
 
+function populateDailyReviewFromReference() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const refSheet = ss.getSheetByName(REF_SHEET);
+  const drSheet  = ss.getSheetByName(MIRROR_SHEET);
+  if (!refSheet || refSheet.getLastRow() < 2) return { updated: 0, added: 0, removed: 0 };
+  if (!drSheet  || drSheet.getLastRow()  < 1) return { updated: 0, added: 0, removed: 0 };
+
+  const refData    = refSheet.getDataRange().getValues();
+  const refHeaders = refData[0].map(h => h.toString().trim());
+  const refFdhIdx  = refHeaders.findIndex(h => h.toUpperCase().includes("FDH"));
+  if (refFdhIdx < 0) return { updated: 0, added: 0, removed: 0 };
+
+  const drData    = drSheet.getDataRange().getValues();
+  const drHeaders = drData[0].map(h => h.toString().trim());
+  const drFdhIdx  = drHeaders.findIndex(h => h.toUpperCase().includes("FDH ENGINEERING ID") || h.toUpperCase().includes("FDH"));
+
+  const PROTECTED = ["Special Crossings?", "Special Crossing Details", "Committed Date", "Crossings Verified Date", "QB Status"];
+  const protectedIdx = new Set(PROTECTED.map(name => drHeaders.indexOf(name)).filter(i => i > -1));
+
+  let drLookup = {};
+  for (let i = 1; i < drData.length; i++) {
+    let key = drFdhIdx > -1 ? drData[i][drFdhIdx].toString().trim().toUpperCase() : "";
+    if (key) drLookup[key] = i;
+  }
+
+  let refFdhSet = new Set();
+  let updated = 0, added = 0;
+
+  for (let r = 1; r < refData.length; r++) {
+    let fdhKey = refData[r][refFdhIdx].toString().trim().toUpperCase();
+    if (!fdhKey) continue;
+    refFdhSet.add(fdhKey);
+
+    let drRowIdx = drLookup[fdhKey];
+    if (drRowIdx !== undefined) {
+      for (let c = 0; c < refHeaders.length; c++) {
+        let drColIdx = drHeaders.indexOf(refHeaders[c]);
+        if (drColIdx > -1 && !protectedIdx.has(drColIdx)) {
+          drSheet.getRange(drRowIdx + 1, drColIdx + 1).setValue(refData[r][c]);
+        }
+      }
+      updated++;
+    } else {
+      let newRow = new Array(drHeaders.length).fill("");
+      for (let c = 0; c < refHeaders.length; c++) {
+        let drColIdx = drHeaders.indexOf(refHeaders[c]);
+        if (drColIdx > -1) newRow[drColIdx] = refData[r][c];
+      }
+      drSheet.appendRow(newRow);
+      added++;
+    }
+  }
+
+  let removed = 0;
+  let qsColIdx = drHeaders.indexOf("QB Status");
+  if (qsColIdx < 0) {
+    drSheet.getRange(1, drHeaders.length + 1).setValue("QB Status");
+    qsColIdx = drHeaders.length;
+    drHeaders.push("QB Status");
+  }
+  for (let key in drLookup) {
+    if (!refFdhSet.has(key)) {
+      drSheet.getRange(drLookup[key] + 1, qsColIdx + 1).setValue("REMOVED FROM QB");
+      removed++;
+    }
+  }
+
+  logMsg("populateDailyReviewFromReference: " + updated + " updated, " + added + " added, " + removed + " flagged removed");
+  return { updated: updated, added: added, removed: removed };
+}
+
 function getReferenceDictionary() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const refSheet = ss.getSheetByName(REF_SHEET);
@@ -76,7 +147,7 @@ function getReferenceDictionary() {
     let ofsIdx = getIdx("Forecasted OFS");
     let cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete");
     let bomUGIdx = getIdx("UG BOM Qty."), bomAEIdx = getIdx("AE BOM Qty."), bomFIBIdx = getIdx("Fiber BOM Qty."), bomNAPIdx = getIdx("NAPs BOM Qty.");
-    let sowIdx = getIdx("SOW sent"), bomPoIdx = getIdx("BOM & PO sent"), cdIdx = getIdx("CD Distributed"), specXIdx = getIdx("Special Crossings?");
+    let sowIdx = getIdx("SOW sent"), bomPoIdx = getIdx("BOM & PO sent"), cdIdx = getIdx("CD Distributed"), specXIdx = getIdx("Special Crossings?"), specXDetailsIdx = getIdx("Special Crossing Details");
 
     const isChecked = (val) => ["true", "1", "yes", "checked"].includes(val.toString().toLowerCase().trim());
     const safeDate = (val) => {
@@ -107,6 +178,7 @@ function getReferenceDictionary() {
            hasBOM: bomPoIdx > -1 ? isChecked(r[bomPoIdx]) : true,
            hasCD: cdIdx > -1 ? isChecked(r[cdIdx]) : true, 
            rawSpecialX: specXIdx > -1 ? r[specXIdx].toString().trim() : "",
+           specXDetails: specXDetailsIdx > -1 ? r[specXDetailsIdx].toString().trim() : "",
            // Pull both memory dates
            adminDate: adminDict[f] && adminDict[f].xingDate ? safeDate(adminDict[f].xingDate) : "",
            statusSyncDate: adminDict[f] && adminDict[f].statusDate ? safeDate(adminDict[f].statusDate) : ""

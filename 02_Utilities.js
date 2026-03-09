@@ -33,6 +33,10 @@ function onOpen() {
       .addItem('Run CD Analysis',        'runCDAnalysis')
       .addItem('Check Gemini API Usage', 'checkCDApiUsage')
       .addItem('Clear CD Sheet',         'clearCDSheet')
+      .addSeparator()
+      .addItem('Commit Verified Crossings to Queue', 'commitToQueue')
+      .addItem('Export Crossings Queue to CSV',      'exportCommittedQueueToCSV')
+      .addItem('QB Writeback (Coming Soon)',          'writebackQBDirect')
       .addToUi();
   } catch (e) {}
 }
@@ -368,6 +372,51 @@ function markAdminCheckComplete(fdhId) {
               }
           }
       }
+  }
+  return dateStr;
+}
+
+function verifySpecialCrossings(fdhId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let adminSheet = ss.getSheetByName("Admin_Logs");
+  if (!adminSheet) return false;
+
+  if (adminSheet.getLastColumn() < 3) adminSheet.getRange(1, 3).setValue("Status Sync Date");
+  if (adminSheet.getLastColumn() < 4) adminSheet.getRange(1, 4).setValue("Crossings Verified Date");
+  if (adminSheet.getLastColumn() < 5) adminSheet.getRange(1, 5).setValue("Committed Date");
+
+  let data = adminSheet.getDataRange().getValues();
+  let found = false;
+  let dateStr = Utilities.formatDate(new Date(), "GMT-5", "MM/dd/yyyy");
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0].toString().toUpperCase() === fdhId.toUpperCase()) {
+      adminSheet.getRange(i + 1, 2).setValue(dateStr);
+      adminSheet.getRange(i + 1, 4).setValue(dateStr);
+      found = true; break;
+    }
+  }
+  if (!found) adminSheet.appendRow([fdhId.toUpperCase(), dateStr, "", dateStr, ""]);
+
+  let mirror = ss.getSheetByName(MIRROR_SHEET);
+  if (mirror) {
+    let mData = mirror.getDataRange().getValues();
+    let headers = mData[0];
+    let idIdx = headers.indexOf("FDH Engineering ID"), flagIdx = headers.indexOf("Health Flags"), gapIdx = headers.indexOf("QB Context & Gaps");
+    if (idIdx > -1 && flagIdx > -1 && gapIdx > -1) {
+      for (let i = 1; i < mData.length; i++) {
+        if (mData[i][idIdx].toString().toUpperCase() === fdhId.toUpperCase()) {
+          let currentFlags = mData[i][flagIdx].toString();
+          let newFlags = currentFlags.replace("🚩 ADMIN: CHECK CROSSINGS", "").trim().replace(/\n+/g, '\n');
+          if (newFlags === "") newFlags = "✅ No Anomalies";
+          let currentGaps = mData[i][gapIdx].toString();
+          let newGaps = currentGaps.replace("[Chk: NEVER]", `[Chk: ${dateStr}]`);
+          mirror.getRange(i + 1, flagIdx + 1).setValue(newFlags);
+          mirror.getRange(i + 1, gapIdx + 1).setValue(newGaps);
+          break;
+        }
+      }
+    }
   }
   return dateStr;
 }

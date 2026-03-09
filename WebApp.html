@@ -566,6 +566,7 @@
         <button class="btn-nav" onclick="triggerQBSync()"    id="btn-qb-sync">⟳ Sync QB</button>
         <button class="btn-nav" onclick="triggerRunReview()" id="btn-run-review">▶ Run Review</button>
         <button class="btn-nav" onclick="triggerUIRefresh()" id="btn-refresh">↻ Refresh</button>
+        <button class="btn-nav" onclick="toggleAdminPane()" id="btn-admin-tab" title="Admin Checklist" style="position:relative;">Admin <span id="admin-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:var(--color-critical); color:#fff; font-size:9px; font-weight:900; border-radius:50%; width:16px; height:16px; line-height:16px; text-align:center;">0</span></button>
         <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme" title="Toggle dark mode" style="padding:6px 10px;"></button>
         <button class="btn-nav" onclick="toggleHelpPanel()" id="btn-help" style="font-weight:900; padding:6px 10px;">?</button>
         <button class="btn-icon mobile-menu-toggle" id="btn-hamburger" onclick="toggleMobileMenu()" title="Menu" style="font-size:18px;">☰</button>
@@ -629,6 +630,7 @@
           </div>
         </div>
         <div class="inbox-list" id="inbox-list"></div>
+        <div id="admin-pane" style="display:none; flex-grow:1; overflow-y:auto; flex-direction:column; padding:0;"></div>
       </div>
       <div class="resize-handle" id="sidebar-resize-handle" title="Drag to resize"></div>
 
@@ -1173,6 +1175,155 @@
           t._timer = setTimeout(function() { t.style.opacity = '0'; }, 3500);
       }
 
+      let _adminPaneOpen = false;
+
+      function toggleAdminPane() {
+          let pane    = getEl('admin-pane');
+          let list    = getEl('inbox-list');
+          let strip   = document.querySelector('.admin-strip');
+          let btn     = getEl('btn-admin-tab');
+          _adminPaneOpen = !_adminPaneOpen;
+          if (_adminPaneOpen) {
+              if (list)  list.style.display  = 'none';
+              if (strip) strip.style.display = 'none';
+              if (pane)  { pane.style.display = 'flex'; renderAdminPane(allActionItems); }
+              if (btn)   btn.style.fontWeight = '900';
+          } else {
+              if (list)  list.style.display  = 'flex';
+              if (strip) strip.style.display = '';
+              if (pane)  pane.style.display  = 'none';
+              if (btn)   btn.style.fontWeight = '';
+          }
+      }
+
+      function _adminSection(title, items, renderCard) {
+          if (items.length === 0) return '';
+          let cards = items.map(renderCard).join('');
+          return `<div style="border-bottom:1px solid var(--border); padding:0;">
+              <div style="padding:10px 14px 6px; font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; background:var(--bg);">
+                  <span>${title} <span style="background:var(--border); color:var(--text-main); padding:1px 7px; border-radius:10px; font-size:10px;">${items.length}</span></span>
+              </div>
+              ${cards}
+          </div>`;
+      }
+
+      function renderAdminPane(items) {
+          let pane = getEl('admin-pane');
+          if (!pane) return;
+          if (!items || items.length === 0) { pane.innerHTML = '<div class="empty-msg" style="padding:40px 16px;">No admin tasks.</div>'; return; }
+
+          let crossings = items.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS"));
+          let bomInput  = items.filter(i => i.flags.includes("PLEASE INPUT BOM"));
+          let bomCheck  = items.filter(i => i.flags.includes("CHECK BOM (UG/AE)"));
+          let status    = items.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS"));
+
+          let totalAdmin = crossings.length + bomInput.length + bomCheck.length + status.length;
+          let badge = getEl('admin-badge');
+          if (badge) { badge.textContent = totalAdmin; badge.style.display = totalAdmin > 0 ? 'block' : 'none'; }
+
+          let html = '';
+
+          html += _adminSection('Crossings to Verify', crossings, function(item) {
+              let xVal = item.isXing ? 'YES' : (item.gaps && item.gaps.includes('X-ING') ? 'Flagged' : '—');
+              let cd   = item.cdIntel ? `<div style="font-size:10px; color:var(--color-insight); margin-top:4px; line-height:1.3;">${item.cdIntel.substring(0,120)}${item.cdIntel.length > 120 ? '…' : ''}</div>` : '';
+              return `<div id="admin-card-${item.fdh}" style="padding:10px 14px; border-top:1px solid var(--border); background:var(--card-bg);">
+                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+                      <div>
+                          <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                          <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
+                          <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">QB Crossings: <span style="font-weight:bold; color:var(--text-main);">${xVal}</span></div>
+                          ${cd}
+                      </div>
+                      <button id="admin-verify-${item.fdh}" class="btn" onclick="verifyXingFromAdmin('${item.fdh}')" style="padding:5px 10px; font-size:10px; font-weight:900; background:#0f172a; color:#fff; border-color:#0f172a; white-space:nowrap; flex-shrink:0;">✓ Verify</button>
+                  </div>
+              </div>`;
+          });
+
+          html += _adminSection('BOMs to Input', bomInput, function(item) {
+              return `<div style="padding:10px 14px; border-top:1px solid var(--border); background:var(--card-bg);">
+                  <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                  <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor} · ${item.stage}</div>
+                  <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">Enter BOM data in QuickBase, then re-sync reference data.</div>
+              </div>`;
+          });
+
+          html += _adminSection('BOMs to Check — UG/AE', bomCheck, function(item) {
+              return `<div style="padding:10px 14px; border-top:1px solid var(--border); background:var(--card-bg);">
+                  <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                  <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor} · ${item.stage}</div>
+                  <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">UG and AE BOM quantities are 0 in QB. Verify main phase BOM setup.</div>
+              </div>`;
+          });
+
+          html += _adminSection('Status Mismatches', status, function(item) {
+              return `<div style="padding:10px 14px; border-top:1px solid var(--border); background:var(--card-bg);">
+                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+                      <div>
+                          <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                          <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
+                          <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">QB Status: <span style="font-weight:bold; color:var(--text-main);">${item.status}</span></div>
+                      </div>
+                      <button class="btn" onclick="markQbUpdatedFromAdmin('${item.fdh}', this)" style="padding:5px 10px; font-size:10px; font-weight:900; background:#2563eb; color:#fff; border-color:#1d4ed8; white-space:nowrap; flex-shrink:0;">🛠 Updated</button>
+                  </div>
+              </div>`;
+          });
+
+          if (html === '') html = '<div class="empty-msg" style="padding:40px 16px;">No admin tasks.</div>';
+          pane.innerHTML = html;
+      }
+
+      function verifyXingFromAdmin(fdhId) {
+          let btn = getEl('admin-verify-' + fdhId);
+          if (btn) { btn.innerText = 'Saving...'; btn.disabled = true; }
+          google.script.run.withSuccessHandler(function(dateStr) {
+              let card = getEl('admin-card-' + fdhId);
+              if (card) {
+                  let btnEl = card.querySelector('button');
+                  if (btnEl) btnEl.remove();
+                  let staged = document.createElement('div');
+                  staged.style.cssText = 'font-size:10px; font-weight:900; color:#16a34a; padding:4px 8px; border:1px solid #16a34a; border-radius:6px; flex-shrink:0;';
+                  staged.textContent = '✓ Staged';
+                  card.querySelector('div').appendChild(staged);
+              }
+              if (currentActiveItem && currentActiveItem.fdh === fdhId) {
+                  currentActiveItem.flags = currentActiveItem.flags.replace('🚩 ADMIN: CHECK CROSSINGS', '').trim();
+                  setTxt('p-last-check', 'LAST CHECKED: ' + dateStr);
+              }
+              let qCard = getEl('card-' + fdhId);
+              if (qCard) { let t = qCard.querySelectorAll('.tag-admin'); t.forEach(el => { if (el.innerText.includes('ADMIN: CHECK CROSSINGS')) el.remove(); }); }
+          }).withFailureHandler(function(err) {
+              alert('Failed to verify: ' + err.message);
+              let b = getEl('admin-verify-' + fdhId);
+              if (b) { b.innerText = '✓ Verify'; b.disabled = false; }
+          }).verifySpecialCrossings(fdhId);
+      }
+
+      function markQbUpdatedFromAdmin(fdhId, btn) {
+          if (btn) { btn.innerText = 'Saving...'; btn.disabled = true; }
+          google.script.run.withSuccessHandler(function() {
+              if (btn) { btn.innerText = '✓ Done'; btn.style.background = '#16a34a'; btn.style.borderColor = '#15803d'; }
+              if (currentActiveItem && currentActiveItem.fdh === fdhId) {
+                  currentActiveItem.flags = currentActiveItem.flags.replace('🚩 STATUS MISMATCH', '⚠️ ADMIN: REFRESH REF DATA').replace('🚩 MISSING QB STATUS', '⚠️ ADMIN: REFRESH REF DATA');
+              }
+          }).withFailureHandler(function(err) {
+              alert('Failed to save: ' + err.message);
+              if (btn) { btn.innerText = '🛠 Updated'; btn.disabled = false; }
+          }).markStatusSyncComplete(fdhId);
+      }
+
+      function updateAdminBadge() {
+          if (!allActionItems) return;
+          let count = allActionItems.filter(i =>
+              i.flags.includes('ADMIN: CHECK CROSSINGS') ||
+              i.flags.includes('PLEASE INPUT BOM') ||
+              i.flags.includes('CHECK BOM (UG/AE)') ||
+              i.flags.includes('STATUS MISMATCH') ||
+              i.flags.includes('MISSING QB STATUS')
+          ).length;
+          let badge = getEl('admin-badge');
+          if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'block' : 'none'; }
+      }
+
       function markChecked(fdhId) {
           let btn = getEl('btn-admin-check'); if(btn) { btn.innerText = "SAVING..."; btn.disabled = true; }
           google.script.run.withSuccessHandler((dateStr) => {
@@ -1184,7 +1335,7 @@
               setTxt('p-last-check', `LAST CHECKED: ${dateStr}`);
           }).withFailureHandler(err => {
               alert("Failed to save: " + err.message); if(btn) { btn.innerText = "🛡️ VERIFY CROSSINGS"; btn.disabled = false; }
-          }).markAdminCheckComplete(fdhId);
+          }).verifySpecialCrossings(fdhId);
       }
 
       function markQbUpdated(fdhId) {
@@ -1397,6 +1548,7 @@
             allActionItems = data.actionItems; globalHeaders = data.headers;
             globalRefDataDate = data.refDataDate || "";
             updateRefDataIndicator();
+            updateAdminBadge();
             populateDropdown('filter-vendor', [...new Set(allActionItems.map(i => i.vendor).filter(Boolean))]); populateDropdown('filter-city', [...new Set(allActionItems.map(i => i.city).filter(Boolean))]);
             let ofsMonths = allActionItems.map(i => {
                 if(!i.ofsDate || i.ofsDate === "-" || i.ofsDate === "Unknown") return null;
