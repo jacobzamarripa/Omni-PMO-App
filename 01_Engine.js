@@ -162,6 +162,7 @@ function getReferenceDictionary() {
       let refData = refSheet.getRange(2, 1, refSheet.getLastRow() - 1, refSheet.getLastColumn()).getValues();
       refData.forEach(r => {
          let f = r[fdhIdx].toString().trim().toUpperCase();
+         let xingVal = specXIdx > -1 ? (r[specXIdx] || "").toString().trim() : "";
          if (f) refDict[f] = { 
            city: cityIdx > -1 ? r[cityIdx].toString() : "-", 
            stage: stageIdx > -1 ? r[stageIdx].toString() : "-", 
@@ -177,10 +178,11 @@ function getReferenceDictionary() {
            hasSOW: sowIdx > -1 ? isChecked(r[sowIdx]) : true, 
            hasBOM: bomPoIdx > -1 ? isChecked(r[bomPoIdx]) : true,
            hasCD: cdIdx > -1 ? isChecked(r[cdIdx]) : true, 
-           rawSpecialX: specXIdx > -1 ? r[specXIdx].toString().trim() : "",
+           rawSpecialX: xingVal,
+           isSpecialX: (xingVal.toLowerCase() === "yes" || xingVal.toLowerCase() === "true"),
            specXDetails: specXDetailsIdx > -1 ? r[specXDetailsIdx].toString().trim() : "",
            // Pull both memory dates
-           adminDate: adminDict[f] && adminDict[f].xingDate ? safeDate(adminDict[f].xingDate) : "",
+           adminDate: adminDict[f] ? safeDate(adminDict[f].xingDate) : "",
            statusSyncDate: adminDict[f] && adminDict[f].statusDate ? safeDate(adminDict[f].statusDate) : ""
          };
       });

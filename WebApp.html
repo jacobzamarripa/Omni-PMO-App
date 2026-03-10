@@ -4,9 +4,9 @@
     <base target="_top">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
     <style>
-      /* 🧠 PREMIUM ENTERPRISE COLOR PALETTE */
+      /* 🧠 RESTORED PREMIUM THEME */
       :root {
-        --bg: #f1f5f9; --card-bg: #ffffff; --border: #e2e8f0; --text-main: #0f172a; --text-muted: #64748b;
+        --bg: #09090b; --card-bg: #18181b; --border: rgba(255,255,255,0.08); --text-main: #fafafa; --text-muted: #a1a1aa;
         --color-critical: #ef4444; --color-review: #f59e0b; --color-insight: #a855f7; 
         --qb-ug: #f97316; --qb-ae: #94a3b8; --qb-fib: #000000; --qb-nap: #4338ca; --qb-done: #22c55e;
         --qb-ae-bg: repeating-linear-gradient(115deg, #cbd5e1, #cbd5e1 3px, #f1f5f9 3px, #f1f5f9 6px);
@@ -155,7 +155,7 @@
       .upper-workspace { flex: 1; min-height: 0; display: flex; overflow: hidden; position: relative; }
       .detail-layout { flex: 1; min-height: 0; min-width: 0; display: none; align-items: stretch; gap: 18px; overflow: hidden; position: relative; }
       .detail-main { flex: 1; min-width: 0; display: flex; overflow: hidden; }
-      .pane-content { flex: 1; overflow-y: auto; padding: 10px 4px 0 4px; width: 100%; max-width: 100%; display: none; flex-direction: column; align-items: center; gap: 16px; position: relative; box-sizing: border-box; transition: padding-right 0.26s cubic-bezier(0.22, 1, 0.36, 1); }
+      .pane-content { flex: 1; overflow-y: auto; padding: 20px; width: 100%; max-width: 100%; display: flex; flex-direction: column; gap: 16px; position: relative; box-sizing: border-box; transition: padding-right 0.26s cubic-bezier(0.22, 1, 0.36, 1); }
       #welcome-screen { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
       .admin-dock { position: absolute; top: 10px; right: 8px; width: min(360px, 34vw); max-width: calc(100% - 16px); display: flex; justify-content: flex-end; pointer-events: none; z-index: 8; }
       .reading-pane.admin-open .admin-dock { pointer-events: auto; }
@@ -295,6 +295,9 @@
       .resize-handle::after { content: '⋮'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--border); font-size: 12px; line-height: 1; transition: color 0.15s; pointer-events: none; }
       .resize-handle:hover::before, .resize-handle.dragging::before { background: var(--accent); }
       .resize-handle:hover::after, .resize-handle.dragging::after { color: var(--accent); }
+      /* 📐 HAIRLINE RESIZE HANDLES */
+      .resize-handle, .gantt-resize-grip { border-top: 1px solid var(--border); box-shadow: 0 -1px 3px rgba(0,0,0,0.2); cursor: ns-resize; background: var(--bg); }
+      #sidebar-resize-handle { cursor: col-resize; border-top: none; box-shadow: none; background: transparent; }
 
       .toast-msg { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); padding:8px 20px; border-radius:20px; font-size:12px; font-weight:700; transition:opacity 0.4s; opacity:0; z-index:99999; pointer-events:none; white-space:nowrap; }
       .toast-ok    { background:#166534; color:#fff; }
@@ -1290,7 +1293,9 @@
           setStyle('pane-content', 'display', 'none'); setStyle('detail-layout', 'display', 'none'); setStyle('welcome-screen', 'display', 'block'); setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">Running Engine Diagnostics...</div>`);
           google.script.run.withSuccessHandler((data) => {
               if(btn) { btn.innerText = "▶ Run Review"; btn.disabled = false; }
-              setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">Select a Project</div>`); initDashboard(data);
+              setStyle('welcome-screen', 'display', 'none');
+              setStyle('detail-layout', 'display', 'flex');
+              initDashboard(data);
           }).withFailureHandler((err) => {
               if(btn) { btn.innerText = "▶ Run Review"; btn.disabled = false; } alert("Engine Error: " + err.message);
           }).webAppTrigger3a(dateInput.trim());
@@ -1361,6 +1366,21 @@
           if (kpiBv) kpiBv.textContent = bomsTotal;
 
           let html = '';
+          if (crossings.length > 0 || status.length > 0) {
+              html += `<div style="padding:10px 14px; border-bottom:1px solid var(--border); background:var(--bg);">
+                  <div style="font-size:10px; font-weight:900; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; letter-spacing:0.04em;">Pinned Admin Tasks</div>
+                  <div style="display:grid; grid-template-columns:1fr; gap:8px;">
+                      <div style="padding:10px 12px; border:1px solid #facc15; background:rgba(250,204,21,0.08); border-radius:8px; cursor:pointer;" onclick="toggleAdminFilter('crossings')">
+                          <div style="font-size:11px; font-weight:900; color:var(--text-main);">Check Crossings</div>
+                          <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${crossings.length} item(s) require crossing verification.</div>
+                      </div>
+                      <div style="padding:10px 12px; border:1px solid #ef4444; background:rgba(239,68,68,0.08); border-radius:8px; cursor:pointer;" onclick="toggleAdminFilter('status')">
+                          <div style="font-size:11px; font-weight:900; color:var(--text-main);">QB Status</div>
+                          <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${status.length} item(s) have status mismatches.</div>
+                      </div>
+                  </div>
+              </div>`;
+          }
 
           if ((!activeAdminFilter || activeAdminFilter === 'crossings') && crossings.length > 0) {
               let commitBtn = `<button onclick="commitStagedCrossings(this)" style="padding:3px 8px; font-size:9px; font-weight:900; background:#0f172a; color:#fff; border:1px solid #0f172a; border-radius:4px; cursor:pointer; white-space:nowrap;">Commit Staged →</button>`;
