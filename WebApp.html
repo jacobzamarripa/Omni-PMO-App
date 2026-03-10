@@ -451,7 +451,7 @@
 
       /* Admin menu popover */
       .outbox-pane {
-          display: flex;
+          display: none;
           flex-direction: column;
           position: absolute;
           top: 36px;
@@ -472,7 +472,7 @@
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
       }
-      .outbox-pane.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+      .outbox-pane.open { display: flex; opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
 
       /* 📱 PORTRAIT MOBILE */
@@ -1032,9 +1032,7 @@
       function backToQueue() {
           let ws = getEl('main-workspace'); if(ws) ws.classList.remove('view-detail');
           let mab = getEl('mobile-action-bar'); if(mab) mab.style.display = 'none';
-          let rp = document.querySelector('.reading-pane'); if (rp) rp.classList.remove('admin-open');
-          let op = getEl('outbox-pane'); if (op) op.classList.remove('open');
-          let ov = getEl('outbox-overlay'); if (ov) ov.classList.remove('open');
+          setAdminPanelOpen(false);
       }
 
       function safeExecute(fnName, fn) {
@@ -1078,7 +1076,7 @@
               panel.style.height = `calc(100vh - ${totalTopOffset}px)`;
           } else {
               panel.style.top = '';
-              panel.style.height = '';
+              panel.style.height = ganttManualHeight ? `${ganttManualHeight}px` : '';
           }
           document.body.classList.toggle('gantt-fullscreen', isFs); // This class hides other UI elements
           let fsBtn = getEl('btn-fullscreen'); if(fsBtn) fsBtn.innerText = isFs ? 'Exit Fullscreen' : 'Fullscreen';
@@ -1088,6 +1086,7 @@
           let wrapper = getEl('gantt-panel');
           if (wrapper && !wrapper.classList.contains('fullscreen')) {
               wrapper.classList.toggle('minimized');
+              if (!wrapper.classList.contains('minimized') && ganttManualHeight) wrapper.style.height = `${ganttManualHeight}px`;
               let icon = getEl('gantt-expand-icon');
               if (icon) icon.textContent = wrapper.classList.contains('minimized') ? '▶' : '▲';
           }
@@ -1121,11 +1120,9 @@
 
       let currentPanelTab = 'admin';
       function toggleAdminPanel() {
-          let pane = getEl('outbox-pane'), overlay = getEl('outbox-overlay'), readingPane = document.querySelector('.reading-pane');
+          let pane = getEl('outbox-pane');
           let isOpen = pane && pane.classList.contains('open');
-          if (pane) pane.classList.toggle('open', !isOpen);
-          if (readingPane) readingPane.classList.toggle('admin-open', !isOpen);
-          if (overlay) overlay.classList.toggle('open', !isOpen && window.innerWidth <= 768);
+          setAdminPanelOpen(!isOpen);
       }
       function switchPanelTab(tab) {
           currentPanelTab = tab;
@@ -1164,6 +1161,22 @@
           if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return true;
           return false;
       }
+      function shouldAutoOpenAdminPanel() {
+          return window.innerWidth > 768 && !isIPadLike();
+      }
+      function setAdminPanelOpen(open) {
+          let pane = getEl('outbox-pane'), overlay = getEl('outbox-overlay'), readingPane = document.querySelector('.reading-pane');
+          if (pane) pane.classList.toggle('open', open);
+          if (readingPane) readingPane.classList.toggle('admin-open', open);
+          if (overlay) overlay.classList.toggle('open', open && window.innerWidth <= 768);
+      }
+      function syncAdminPanelForViewport() {
+          setAdminPanelOpen(shouldAutoOpenAdminPanel());
+      }
+      function getDefaultGanttHeight(itemCount) {
+          let contentRows = Math.max(itemCount, 3) * 40;
+          return Math.min(Math.max(contentRows + 170, 260), Math.round(window.innerHeight * 0.72));
+      }
       function toggleMobileMenu() {
           let panel = getEl('mobile-menu-panel'); if (!panel) return;
           panel.classList.toggle('open');
@@ -1175,22 +1188,26 @@
           if (!panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) panel.classList.remove('open');
       });
       document.addEventListener('click', function(e) {
-          let pane = getEl('outbox-pane'); let fab = getEl('admin-fab'); let readingPane = document.querySelector('.reading-pane');
+          let pane = getEl('outbox-pane'); let fab = getEl('admin-fab');
           if (!pane || !fab || !pane.classList.contains('open') || window.innerWidth > 768) return;
           if (!pane.contains(e.target) && !fab.contains(e.target)) {
-              pane.classList.remove('open');
-              if (readingPane) readingPane.classList.remove('admin-open');
+              setAdminPanelOpen(false);
           }
       });
       function initTabletLayout() {
           if (!isIPadLike()) return;
       }
       function openAdminPanelByDefault() {
-          if (window.innerWidth <= 768) return;
-          let pane = getEl('outbox-pane'), readingPane = document.querySelector('.reading-pane');
-          if (pane) pane.classList.add('open');
-          if (readingPane) readingPane.classList.add('admin-open');
+          syncAdminPanelForViewport();
       }
+      window.addEventListener('resize', () => {
+          if (!currentActiveItem || window.innerWidth <= 768) return;
+          if (shouldAutoOpenAdminPanel()) {
+              setAdminPanelOpen(true);
+          } else if (isIPadLike()) {
+              setAdminPanelOpen(false);
+          }
+      });
 
       let hudLocked = false;
       function toggleHudLock(e) {
@@ -1575,7 +1592,7 @@
       function moveSpikeHUD(e) { moveHUD(e); } function hideSpikeHUD() { hideHUD(); }
 
       let allActionItems = []; let committedItems = []; let currentActiveItem = null; let globalHeaders = []; let globalEndCounts = {}; let globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 };
-      let filteredItems = []; let currentQueueIndex = -1;
+      let filteredItems = []; let currentQueueIndex = -1; let ganttManualHeight = null;
       let globalRefDataDate = "";
       // View mode is managed by currentViewMode + applyViewMode()
 
@@ -1688,6 +1705,7 @@
                   if (!dragging) return;
                   if (Math.abs(clientY - startY) > 3) dragged = true;
                   let nextHeight = Math.min(Math.max(startH - (clientY - startY), 220), Math.round(window.innerHeight * 0.72));
+                  ganttManualHeight = nextHeight;
                   panel.style.height = nextHeight + 'px';
               }
               function endDrag() {
@@ -1719,6 +1737,16 @@
                       }
                   }, true);
               }
+              window.addEventListener('resize', () => {
+                  if (panel.classList.contains('fullscreen') || panel.classList.contains('minimized')) return;
+                  if (ganttManualHeight) {
+                      let capped = Math.min(Math.max(ganttManualHeight, 220), Math.round(window.innerHeight * 0.72));
+                      ganttManualHeight = capped;
+                      panel.style.height = `${capped}px`;
+                  } else if (filteredItems.length) {
+                      panel.style.height = `${getDefaultGanttHeight(filteredItems.length)}px`;
+                  }
+              });
           })();
       };
 
@@ -1999,13 +2027,9 @@
           });
           html += `</div>`; container.innerHTML = html;
 
-          // Dynamic height: fit rows + header, cap at 40vh (skip on touch tablets — CSS controls height)
-          let isTouch = window.matchMedia('(pointer: coarse)').matches;
-          let wrapper = document.querySelector('.timeline-wrapper');
-          if (wrapper && !isTouch && !wrapper.classList.contains('fullscreen') && !wrapper.classList.contains('minimized')) {
-              let dynH = Math.max(items.length * 40 + 140, 120);
-              dynH = Math.min(dynH, Math.floor(window.innerHeight * 0.4));
-              wrapper.style.height = dynH + 'px';
+          let panel = getEl('gantt-panel');
+          if (panel && !panel.classList.contains('fullscreen') && !panel.classList.contains('minimized')) {
+              panel.style.height = `${ganttManualHeight || getDefaultGanttHeight(items.length)}px`;
           }
 
           setTimeout(scrollGanttToToday, 150);
@@ -2193,6 +2217,7 @@
               setStyle('welcome-screen', 'display', 'none');
               setStyle('detail-layout', 'display', 'flex');
               setStyle('pane-content', 'display', 'flex');
+              if (window.innerWidth > 768) setAdminPanelOpen(shouldAutoOpenAdminPanel());
               
               renderDiagnosticStrip(item.rawRow);
 
