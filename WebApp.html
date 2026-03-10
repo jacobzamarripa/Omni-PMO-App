@@ -37,13 +37,14 @@
       }
       .gantt-hud ::-webkit-scrollbar { width: 6px; } .gantt-hud ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 6px; }
 
-      .top-nav { background: transparent; height: auto; box-sizing: border-box; padding: 10px 18px 6px; display: flex; align-items: center; z-index: 10000; position: relative; flex-shrink: 0; transition: background 0.3s, border-color 0.3s; gap: 12px; }
+      .top-nav { background: transparent; height: auto; box-sizing: border-box; padding: 10px 18px 6px; display: flex; align-items: center; z-index: 10000; position: relative; flex-shrink: 0; transition: background 0.3s, border-color 0.3s; gap: 12px; border-bottom: none; }
       .nav-brand { font-size: 16px; font-weight: 900; letter-spacing: -0.5px; display: flex; align-items: center; flex-shrink: 0; padding: 10px 14px; border-radius: 18px; background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08); }
       .nav-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
       .btn-icon { background: color-mix(in srgb, var(--card-bg) 84%, transparent); border: 1px solid var(--border); border-radius: 14px; padding: 5px 11px; cursor: pointer; color: var(--text-main); font-size: 15px; line-height: 1; display: flex; align-items: center; transition: all 0.2s; height: 34px; box-sizing: border-box; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06); }
       .btn-icon:hover { background: var(--card-bg); transform: translateY(-1px); }
-      .filter-strip { background: transparent; padding: 0 18px 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; transition: background 0.3s, border-color 0.3s; position: relative; z-index: 10001; }
+      .filter-strip { background: transparent; padding: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; transition: background 0.3s, border-color 0.3s; position: absolute; top: 10px; left: 8px; right: 80px; z-index: 7; }
       .filter-strip::-webkit-scrollbar { height: 0; }
+      .filter-tools { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
 
       .kpi-nav-container { display: flex; align-items: center; gap: 6px; flex-shrink: 1; margin-left: 4px; overflow: hidden; background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); border-radius: 18px; padding: 6px 8px; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08); }
       .kpi-nav-header { font-size: 10px; font-weight: 900; color: var(--color-critical); text-transform: uppercase; display: flex; align-items: center; gap: 6px; margin-right: 8px;}
@@ -154,11 +155,9 @@
       .upper-workspace { flex: 1; min-height: 0; display: flex; overflow: hidden; position: relative; }
       .detail-layout { flex: 1; min-height: 0; min-width: 0; display: none; align-items: stretch; gap: 18px; overflow: hidden; position: relative; }
       .detail-main { flex: 1; min-width: 0; display: flex; overflow: hidden; }
-      .pane-content { flex: 1; overflow-y: auto; padding: 16px 84px 0 4px; width: 100%; max-width: 100%; display: none; flex-direction: column; align-items: center; gap: 16px; position: relative; box-sizing: border-box; transition: padding-right 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
-      .reading-pane.admin-open .pane-content { padding-right: 4px; }
+      .pane-content { flex: 1; overflow-y: auto; padding: 58px 4px 0 4px; width: 100%; max-width: 100%; display: none; flex-direction: column; align-items: center; gap: 16px; position: relative; box-sizing: border-box; }
       #welcome-screen { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
-      .admin-dock { flex: 0 0 0; min-width: 0; max-width: min(390px, 36vw); display: flex; transition: flex-basis 0.28s cubic-bezier(0.22, 1, 0.36, 1), min-width 0.28s cubic-bezier(0.22, 1, 0.36, 1); overflow: visible; }
-      .reading-pane.admin-open .admin-dock { flex-basis: min(390px, 36vw); min-width: min(390px, 36vw); overflow: hidden; }
+      .admin-dock { position: absolute; top: 10px; right: 8px; width: min(390px, 36vw); max-width: calc(100% - 16px); display: flex; justify-content: flex-end; pointer-events: none; z-index: 8; }
       .qb-grid { display: grid; grid-template-columns: 4fr 6fr; gap: 20px; }
 
       .qb-module { background: var(--card-bg); border-radius: 12px; border: 1.5px solid var(--border); padding: 14px 18px; display: flex; flex-direction: column; position: relative; transition: outline 0.2s, background 0.3s, border-color 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);}
@@ -227,15 +226,14 @@
 
       /* Filter strip toggle */
       .filter-strip.hidden { display: none !important; }
-      .btn-filters-active { background: rgba(239,68,68,0.1) !important; border-color: rgba(239,68,68,0.4) !important; color: var(--color-critical) !important; }
 
       .comment-area { display: flex; flex-direction: column; flex-grow: 1; transition: transform 0.2s; min-width: 0; }
       .comment-area-footer { margin-top: 12px; padding: 12px 14px 0; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
       .review-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 9px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; min-width: 220px; flex: 1 1 260px; }
       .review-meta-sep { color: var(--border); }
       .review-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 0 0 auto; }
-      .inbox-header { padding: 12px 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); background: transparent; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 6px; transition: background 0.3s, border-color 0.3s;}
-      #btn-filters, #view-toggle-btn, #sort-queue {
+      .inbox-header { padding: 14px 14px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); background: transparent; display: flex; justify-content: flex-start; align-items: center; flex-wrap: nowrap; gap: 8px; transition: background 0.3s, border-color 0.3s;}
+      #view-toggle-btn, #sort-queue {
           background: color-mix(in srgb, var(--card-bg) 86%, transparent) !important;
           border: 1px solid var(--border) !important;
           border-radius: 14px !important;
@@ -260,23 +258,21 @@
       .ob-tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; padding: 0 6px; line-height: 1; }
       .ob-tab-badge-crit { background: var(--color-critical); color: #fff; }
       /* Panel tab bar */
-      .panel-tab-bar { display: flex; align-items: center; padding: 0 8px; background: var(--bg); border-bottom: 2px solid var(--border); gap: 4px; height: 44px; flex-shrink: 0; }
+      .panel-tab-bar { display: flex; align-items: center; padding: 0 10px; background: color-mix(in srgb, var(--card-bg) 94%, transparent); border-bottom: 1px solid var(--border); gap: 6px; height: 54px; flex-shrink: 0; }
+      .panel-title { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); margin-right: 8px; flex-shrink: 0; }
       .panel-tab { flex: 1; height: 32px; border-radius: 6px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; border: none; background: transparent; color: var(--text-muted); transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
       .panel-tab.active { background: var(--card-bg); color: var(--text-main); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
       .panel-tab-close { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; cursor: pointer; color: var(--text-muted); font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
       .panel-tab-close:hover { background: var(--border); color: var(--text-main); }
 
       /* Admin/review FAB menu */
-      .admin-fab-anchor { position: absolute; top: 10px; right: 8px; z-index: 8; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; width: 88px; height: auto; transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1), top 0.2s ease, right 0.2s ease; }
-      .admin-fab { position: relative; z-index: 2; width: 56px; min-width: 56px; height: 56px; padding: 0; border-radius: 20px; background: linear-gradient(135deg, #111827 0%, #1f2937 100%); color: #f8fafc; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; box-shadow: 0 18px 40px rgba(15, 23, 42, 0.24); display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; transition: transform 0.18s ease, box-shadow 0.18s ease, border-radius 0.22s ease, width 0.28s cubic-bezier(0.22, 1, 0.36, 1), padding 0.28s cubic-bezier(0.22, 1, 0.36, 1); margin-left: auto; }
+      .admin-fab-anchor { position: absolute; top: 10px; right: 8px; z-index: 8; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; width: auto; height: auto; pointer-events: auto; }
+      .admin-fab { position: relative; z-index: 2; min-width: 54px; height: 54px; padding: 0 18px 0 16px; border-radius: 18px; background: color-mix(in srgb, var(--card-bg) 88%, #0f172a 12%); color: var(--text-main); border: 1px solid color-mix(in srgb, var(--border) 76%, #0f172a 24%); cursor: pointer; box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18); display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease; margin-left: auto; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
       .admin-fab:hover { transform: translateY(-2px); box-shadow: 0 22px 44px rgba(15, 23, 42, 0.28); }
       .admin-fab:active { transform: scale(0.97); }
-      .admin-fab-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 12px; background: rgba(255,255,255,0.1); font-size: 15px; line-height: 1; }
-      .admin-fab-label { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0; transition: max-width 0.22s ease, opacity 0.18s ease; }
-      .reading-pane.admin-open .admin-fab-anchor { position: relative; top: 0; right: 0; width: 100%; height: 100%; align-items: stretch; }
-      .reading-pane.admin-open .admin-fab { width: 100%; padding: 0 18px; border-radius: 22px; }
-      .reading-pane.admin-open .admin-fab-label { max-width: 120px; opacity: 1; }
-      .admin-fab-badge { position: absolute; top: -5px; right: -5px; min-width: 20px; height: 20px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 900; padding: 0 6px; display: none; align-items: center; justify-content: center; line-height: 1; box-sizing: border-box; }
+      .admin-fab-icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 11px; background: color-mix(in srgb, var(--bg) 70%, transparent); font-size: 14px; line-height: 1; }
+      .admin-fab-label { display: none; }
+      .admin-fab-badge { position: absolute; top: -6px; left: -8px; min-width: 22px; height: 22px; border-radius: 11px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 900; padding: 0 6px; display: none; align-items: center; justify-content: center; line-height: 1; box-sizing: border-box; box-shadow: 0 8px 18px rgba(239, 68, 68, 0.28); }
       /* Hide FAB during Gantt fullscreen */
       body.gantt-fullscreen .admin-fab-anchor { display: none !important; }
 
@@ -312,8 +308,8 @@
 
       .gantt-panel.minimized { height: 40px !important; min-height: 40px; overflow: hidden; }
       .gantt-panel.fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; }
-      .gantt-controls { display: flex; justify-content: space-between; padding: 0 16px; height: 40px; background: transparent; border-bottom: 1px solid rgba(255,255,255,0.06); align-items: center; cursor: pointer; transition: background 0.3s, border-color 0.3s; }
-      .gantt-mini-btn { display: inline-flex; align-items: center; justify-content: center; padding: 3px 8px !important; min-height: 24px; font-size: 8px !important; border-radius: 8px; margin-right: 4px !important; letter-spacing: 0.05em; }
+      .gantt-controls { display: flex; justify-content: space-between; padding: 8px 14px 6px; min-height: 44px; background: transparent; border-bottom: none; align-items: center; cursor: pointer; transition: background 0.3s, border-color 0.3s; }
+      .gantt-mini-btn { display: inline-flex; align-items: center; justify-content: center; padding: 0 10px !important; min-height: 30px; font-size: 9px !important; border-radius: 12px; margin-right: 6px !important; letter-spacing: 0.05em; background: color-mix(in srgb, var(--card-bg) 84%, transparent) !important; border: 1px solid var(--border) !important; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06); }
       
       .timeline-container { flex-grow: 1; overflow: auto; position: relative; padding: 0 24px 20px 24px;}
       .gantt-area { position: relative; padding-bottom: 20px; transition: background 0.3s; display: block; }
@@ -449,23 +445,26 @@
       .outbox-pane {
           display: flex;
           flex-direction: column;
-          position: relative;
-          width: 100%;
-          max-height: 100%;
-          background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+          position: absolute;
+          top: 66px;
+          right: 0;
+          width: min(390px, calc(100vw - 28px));
+          max-height: min(74vh, 760px);
+          background: color-mix(in srgb, var(--card-bg) 94%, transparent);
           border: 1px solid var(--border);
           border-radius: 22px;
           box-shadow: 0 28px 60px rgba(15,23,42,0.24);
           overflow: hidden auto;
           opacity: 0;
-          transform: translateY(-14px) scale(0.92);
+          transform: translateY(-10px) scale(0.96);
           transform-origin: top right;
           pointer-events: none;
-          max-height: 0;
-          transition: opacity 0.22s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s, border-color 0.3s;
+          transition: opacity 0.22s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s, border-color 0.3s;
           z-index: 1;
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
       }
-      .outbox-pane.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; max-height: 100%; }
+      .outbox-pane.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
 
       /* 📱 PORTRAIT MOBILE */
@@ -477,7 +476,7 @@
 
           #btn-qb-sync, #btn-run-review, #btn-refresh, #btn-theme, #btn-help { display: none; }
           .mobile-menu-toggle { display: flex !important; }
-          .filter-strip { padding: 5px 14px; }
+          .filter-strip { position: static; padding: 0; right: auto; left: auto; }
           .filter-strip input[type="text"] { min-width: 120px; width: 120px; }
           select { min-width: 100px; width: 100px; }
 
@@ -514,7 +513,7 @@
           .admin-fab-anchor { align-items: flex-end; }
           .admin-fab { min-width: 48px; height: 48px; padding: 0 14px; border-radius: 16px; width: auto; }
           .admin-fab-label { display: none; }
-          .outbox-pane { width: min(360px, calc(100vw - 24px)); margin-top: 10px; margin-left: auto; }
+          .outbox-pane { width: min(360px, calc(100vw - 24px)); margin-top: 0; margin-left: auto; top: 58px; }
 
           /* Hide desktop footer — mobile-action-bar takes its place */
           .gantt-panel { display: none; }
@@ -613,7 +612,6 @@
           <div class="kpi-nav-box crit-box has-tooltip" data-tooltip="Toggle Critical Filter" onclick="toggleCriticalFilter()">
               <div class="kpi-val" id="kpi-active-crit">0</div><div class="kpi-label">Critical</div>
           </div>
-          <span id="nav-ref-age" style="font-size:9px; font-weight:900; padding:3px 8px; border-radius:10px; border:1px solid; display:none; white-space:nowrap; margin-left:6px;"></span>
       </div>
 
       <div class="nav-actions">
@@ -636,39 +634,12 @@
       <button onclick="toggleHelpPanel(); toggleMobileMenu()">? Help</button>
     </div>
 
-    <div class="filter-strip hidden" id="filter-strip">
-        <input type="text" id="search-input" placeholder="Search FDH...">
-        <select id="filter-severity" onchange="applyFilters()">
-           <option value="ALL">All Health</option>
-           <option value="crit">Critical</option>
-           <option value="warn">Warnings</option>
-           <option value="info">Clear</option>
-        </select>
-        <select id="filter-vendor" onchange="applyFilters()"><option value="ALL">All Vendors</option></select>
-        <select id="filter-city" onchange="applyFilters()"><option value="ALL">All Cities</option></select>
-        <select id="filter-ofs" onchange="applyFilters()"><option value="ALL">All OFS Dates</option></select>
-        <button class="btn-nav" id="btn-clear-filters" onclick="clearAllFilters()" style="display:none; font-size:11px; padding:5px 10px; color:var(--text-muted);">✕ Clear</button>
-    </div>
-
     <div class="workspace" id="main-workspace">
       <div class="inbox-sidebar">
         <div class="inbox-header">
           <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
               <div class="inbox-title inbox-title-stack"><span>Diagnostics</span><span>Queue</span></div>
               <div class="inbox-count" id="inbox-count">0</div>
-              <button class="btn-nav" onclick="toggleFilterStrip()" id="btn-filters" style="font-size:11px; padding:5px 10px;">Filters</button>
-          </div>
-          <div style="display:flex; align-items:center; gap:4px; margin-left:auto; flex-shrink:0;">
-              <button class="btn-icon has-tooltip" id="view-toggle-btn" data-tooltip="Switch to List" onclick="cycleViewMode()" style="font-size:15px;">☰</button>
-              <select id="sort-queue" onchange="applyFilters()" style="font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto; height:32px;">
-                 <option value="default">Default</option>
-                 <option value="admin">Admin Check</option>
-                 <option value="target">Target Date</option>
-                 <option value="start">CX Start</option>
-                 <option value="end">CX Complete</option>
-                 <option value="ofs">OFS Date</option>
-                 <option value="report">Report Date</option>
-              </select>
           </div>
         </div>
         <div class="inbox-list" id="inbox-list"></div>
@@ -681,6 +652,31 @@
           <div class="detail-layout" id="detail-layout">
             <div class="detail-main">
               <div class="pane-content" id="pane-content">
+                 <div class="filter-strip" id="filter-strip">
+                     <input type="text" id="search-input" placeholder="Search FDH...">
+                     <select id="filter-severity" onchange="applyFilters()">
+                        <option value="ALL">All Health</option>
+                        <option value="crit">Critical</option>
+                        <option value="warn">Warnings</option>
+                        <option value="info">Clear</option>
+                     </select>
+                     <select id="filter-vendor" onchange="applyFilters()"><option value="ALL">All Vendors</option></select>
+                     <select id="filter-city" onchange="applyFilters()"><option value="ALL">All Cities</option></select>
+                     <select id="filter-ofs" onchange="applyFilters()"><option value="ALL">All OFS Dates</option></select>
+                     <div class="filter-tools">
+                         <button class="btn-icon has-tooltip" id="view-toggle-btn" data-tooltip="Switch to List" onclick="cycleViewMode()" style="font-size:15px;">☰</button>
+                         <select id="sort-queue" onchange="applyFilters()" style="font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto; height:32px;">
+                            <option value="default">Default</option>
+                            <option value="admin">Admin Check</option>
+                            <option value="target">Target Date</option>
+                            <option value="start">CX Start</option>
+                            <option value="end">CX Complete</option>
+                            <option value="ofs">OFS Date</option>
+                            <option value="report">Report Date</option>
+                         </select>
+                         <button class="btn-nav" id="btn-clear-filters" onclick="clearAllFilters()" style="display:none; font-size:11px; padding:5px 10px; color:var(--text-muted);">✕ Clear</button>
+                     </div>
+                 </div>
                  <div class="swipe-label commit-label" id="swipe-label-commit">‹ PREV</div>
                  <div class="swipe-label skip-label" id="swipe-label-skip">NEXT ›</div>
                  <div class="mobile-back-btn" onclick="backToQueue()">◀ Back to Queue</div>
@@ -784,11 +780,11 @@
               <div class="admin-fab-anchor">
                 <button class="admin-fab" id="admin-fab" onclick="toggleAdminPanel()" title="Admin / Reviewed" aria-label="Open admin panel">
                     <span class="admin-fab-icon">☰</span>
-                    <span class="admin-fab-label">Review Hub</span>
                     <span class="admin-fab-badge" id="admin-fab-badge"></span>
                 </button>
                 <div class="outbox-pane" id="outbox-pane">
                    <div class="panel-tab-bar">
+                      <div class="panel-title">Review Hub</div>
                       <button class="panel-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">
                          Admin
                          <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span>
@@ -1018,7 +1014,7 @@
       const setVal = (id, val) => { let el = document.getElementById(id); if(el) el.value = val; };
       const getEl = (id) => document.getElementById(id);
 
-      function toggleMobileMenu() { let bar = getEl('filter-strip'); if(bar) bar.classList.toggle('show-mobile'); }
+      function toggleMobileMenu() {}
       function backToQueue() {
           let ws = getEl('main-workspace'); if(ws) ws.classList.remove('view-detail');
           let mab = getEl('mobile-action-bar'); if(mab) mab.style.display = 'none';
@@ -1063,8 +1059,7 @@
           let isFs = panel.classList.contains('fullscreen');
           if (isFs) {
               let navH = (document.querySelector('.top-nav') || {offsetHeight: 0}).offsetHeight;
-              let filterH = (getEl('filter-strip') || {offsetHeight: 0}).offsetHeight;
-              let totalTopOffset = navH + filterH;
+              let totalTopOffset = navH;
               panel.style.top = totalTopOffset + 'px';
               panel.style.height = `calc(100vh - ${totalTopOffset}px)`;
           } else {
@@ -1133,13 +1128,6 @@
               if (adminTab) adminTab.classList.remove('active');
               if (reviewedTab) reviewedTab.classList.add('active');
           }
-      }
-      function toggleFilterStrip() {
-          let strip = getEl('filter-strip'); let btn = getEl('btn-filters');
-          if (!strip) return;
-          strip.classList.toggle('hidden');
-          let isHidden = strip.classList.contains('hidden');
-          if (btn) btn.classList.toggle('btn-filters-active', !isHidden);
       }
       function toggleHelpPanel() {
           let panel = getEl('help-panel'); let overlay = getEl('help-overlay');
@@ -1685,9 +1673,8 @@
       }
 
       function updateRefDataIndicator() {
-          let badge = getEl('nav-ref-age'); let paneSpan = getEl('p-ref-data');
+          let paneSpan = getEl('p-ref-data');
           if (!globalRefDataDate) {
-              if (badge) badge.style.display = 'none';
               if (paneSpan) { paneSpan.textContent = 'REF DATA: —'; paneSpan.style.color = 'var(--text-muted)'; }
               return;
           }
@@ -1718,13 +1705,8 @@
           }
 
           let displayDate = globalRefDataDate;
-          if (badge) {
-              badge.style.display = 'inline-block'; badge.style.color = color;
-              badge.style.background = bgColor; badge.style.borderColor = borderColor;
-              badge.textContent = `REF DATA: ${displayDate} (${label})`;
-          }
           if (paneSpan) {
-              paneSpan.textContent = `REF DATA: ${displayDate}`;
+              paneSpan.textContent = `REF DATA: ${displayDate} (${label})`;
               paneSpan.style.color = color;
           }
       }
@@ -1781,13 +1763,7 @@
                 });
             } else { filtered.sort((a, b) => a.rowNum - b.rowNum); }
             
-            // Highlight Filters button when any non-default filter is active
             let anyActive = vVen !== 'ALL' || vCit !== 'ALL' || vOfs !== 'ALL' || vSev !== 'ALL' || searchTerm !== '' || activeAdminFilter !== null;
-            let filtersBtn = getEl('btn-filters');
-            if (filtersBtn) {
-                filtersBtn.classList.toggle('btn-filters-active', anyActive);
-                filtersBtn.textContent = anyActive ? 'Filters ●' : 'Filters';
-            }
             let clearBtn = getEl('btn-clear-filters');
             if (clearBtn) clearBtn.style.display = anyActive ? 'inline-flex' : 'none';
             filteredItems = filtered;
