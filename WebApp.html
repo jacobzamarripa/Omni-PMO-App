@@ -70,11 +70,13 @@
       body.dark-mode .gemini-badge.ai-warn { color: #fde047; background: rgba(234,179,8,0.1); border-color: #713f12; }
       body.dark-mode .gemini-badge.ai-crit { color: #fca5a5; background: rgba(239,68,68,0.1); border-color: #991b1b; }
 
-      .workspace { display: flex; flex-grow: 1; overflow: hidden; background: var(--bg); position: relative;}
+      .workspace { display: flex; flex-grow: 1; overflow: hidden; background: var(--bg); position: relative; gap: 12px; padding: 14px 14px 10px; box-sizing: border-box; }
 
-      .inbox-sidebar { width: 380px; min-width: 320px; max-width: 600px; resize: horizontal; overflow: hidden; background: var(--card-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5; flex-shrink: 0; transition: background 0.3s, border-color 0.3s;}
+      .inbox-sidebar { width: 380px; min-width: 320px; max-width: 600px; resize: horizontal; overflow: hidden; background: color-mix(in srgb, var(--card-bg) 92%, transparent); border: 1px solid var(--border); border-radius: 24px; display: flex; flex-direction: column; z-index: 5; flex-shrink: 0; transition: background 0.3s, border-color 0.3s, box-shadow 0.3s; box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);}
       /* .inbox-header overridden below */
       .inbox-title { font-size: 14px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); }
+      .inbox-title-stack { display: flex; flex-direction: column; gap: 1px; line-height: 0.92; letter-spacing: 0.04em; font-size: 10px; }
+      .inbox-title-stack span:last-child { color: var(--text-main); }
       .inbox-count { background: var(--border); padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 900; color: var(--text-main);}
       .inbox-list { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; padding: 0; gap: 0;}
 
@@ -99,7 +101,7 @@
       .admin-kpi.active.boms { background: #022c22; border-color: #34d399; }
       .admin-kpi.active.boms .admin-kpi-val, .admin-kpi.active.boms .admin-kpi-label { color: #6ee7b7; }
 
-      .email-card { padding: 12px 16px; border: none; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s, border-color 0.3s; background: var(--card-bg); border-left: 4px solid transparent; display: flex; flex-direction: column; gap: 6px; }
+      .email-card { padding: 12px 16px; border: none; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s, border-color 0.3s; background: color-mix(in srgb, var(--card-bg) 92%, transparent); border-left: 4px solid transparent; display: flex; flex-direction: column; gap: 6px; }
       .email-card:hover { background: var(--bg); }
       .email-card.selected { background: rgba(59, 130, 246, 0.08); border-left-color: #3b82f6 !important; }
       
@@ -148,9 +150,14 @@
       body.dark-mode .tag-purple { background: #27272a; color: #a1a1aa; border: none; }
       body.dark-mode .tag-admin { background: rgba(250, 204, 21, 0.1); color: #fde047; border-color: #facc15; }
 
-      .reading-pane { flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
-      .pane-content { flex: 1; overflow-y: auto; padding: 88px 24px 24px; width: 100%; max-width: 100%; display: none; flex-direction: column; align-items: center; gap: 16px; position: relative; box-sizing: border-box; }
-      #welcome-screen { flex: 1; display: flex; align-items: center; justify-content: center; padding: 88px 24px 24px; box-sizing: border-box; }
+      .reading-pane { flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; min-width: 0; }
+      .upper-workspace { flex: 1; min-height: 0; display: flex; overflow: hidden; position: relative; }
+      .detail-layout { flex: 1; min-height: 0; min-width: 0; display: none; align-items: stretch; gap: 18px; overflow: hidden; }
+      .detail-main { flex: 1; min-width: 0; display: flex; overflow: hidden; }
+      .pane-content { flex: 1; overflow-y: auto; padding: 16px 4px 0 4px; width: 100%; max-width: 100%; display: none; flex-direction: column; align-items: center; gap: 16px; position: relative; box-sizing: border-box; }
+      #welcome-screen { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
+      .admin-dock { flex: 0 0 94px; min-width: 94px; max-width: min(390px, 36vw); display: flex; transition: flex-basis 0.28s cubic-bezier(0.22, 1, 0.36, 1), min-width 0.28s cubic-bezier(0.22, 1, 0.36, 1); overflow: hidden; }
+      .reading-pane.admin-open .admin-dock { flex-basis: min(390px, 36vw); min-width: min(390px, 36vw); }
       .qb-grid { display: grid; grid-template-columns: 4fr 6fr; gap: 20px; }
 
       .qb-module { background: var(--card-bg); border-radius: 12px; border: 1.5px solid var(--border); padding: 14px 18px; display: flex; flex-direction: column; position: relative; transition: outline 0.2s, background 0.3s, border-color 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);}
@@ -226,7 +233,7 @@
       .review-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 9px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; min-width: 220px; flex: 1 1 260px; }
       .review-meta-sep { color: var(--border); }
       .review-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 0 0 auto; }
-      .inbox-header { padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 6px; transition: background 0.3s, border-color 0.3s;}
+      .inbox-header { padding: 14px 14px 12px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 88%, transparent); display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 6px; transition: background 0.3s, border-color 0.3s;}
       .chat-bubble { flex-grow: 1; padding: 14px; border-radius: 12px 12px 2px 12px; font-family: monospace; font-size: 12px; min-height: 100px; resize: none; transition: all 0.2s;}
       body:not(.dark-mode) .chat-bubble { background: #faf5ff; color: #4c1d95; border: 1px solid #d8b4fe; box-shadow: 3px 3px 0px rgba(0,0,0,0.05);}
       body:not(.dark-mode) .chat-bubble:focus { outline: none; border-color: #a855f7; background: #ffffff; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);}
@@ -251,11 +258,14 @@
       .panel-tab-close:hover { background: var(--border); color: var(--text-main); }
 
       /* Admin/review FAB menu */
-      .admin-fab-anchor { position: absolute; top: 18px; right: 24px; z-index: 125; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-      .admin-fab { position: relative; z-index: 126; min-width: 56px; height: 56px; padding: 0 18px; border-radius: 18px; background: linear-gradient(135deg, #111827 0%, #1f2937 100%); color: #f8fafc; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; box-shadow: 0 18px 40px rgba(15, 23, 42, 0.24); display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; transition: transform 0.15s, box-shadow 0.15s; }
+      .admin-fab-anchor { position: relative; z-index: 8; display: flex; flex-direction: column; align-items: stretch; gap: 12px; width: 100%; height: 100%; }
+      .admin-fab { position: relative; z-index: 2; width: 100%; min-width: 56px; height: 56px; padding: 0 18px; border-radius: 18px; background: linear-gradient(135deg, #111827 0%, #1f2937 100%); color: #f8fafc; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; box-shadow: 0 18px 40px rgba(15, 23, 42, 0.24); display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; transition: transform 0.18s ease, box-shadow 0.18s ease, border-radius 0.22s ease; }
       .admin-fab:hover { transform: translateY(-2px); box-shadow: 0 22px 44px rgba(15, 23, 42, 0.28); }
       .admin-fab:active { transform: scale(0.97); }
       .admin-fab-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 12px; background: rgba(255,255,255,0.1); font-size: 15px; line-height: 1; }
+      .admin-fab-label { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0; transition: max-width 0.22s ease, opacity 0.18s ease; }
+      .reading-pane.admin-open .admin-fab { border-radius: 22px; }
+      .reading-pane.admin-open .admin-fab-label { max-width: 120px; opacity: 1; }
       .admin-fab-badge { position: absolute; top: -5px; right: -5px; min-width: 20px; height: 20px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 900; padding: 0 6px; display: none; align-items: center; justify-content: center; line-height: 1; box-sizing: border-box; }
       /* Hide FAB during Gantt fullscreen */
       body.gantt-fullscreen .admin-fab-anchor { display: none !important; }
@@ -292,7 +302,8 @@
 
       .gantt-panel.minimized { height: 40px !important; min-height: 40px; overflow: hidden; }
       .gantt-panel.fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; }
-      .gantt-controls { display: flex; justify-content: space-between; padding: 0 24px; height: 40px; background: var(--bg); border-bottom: 1px solid var(--border); align-items: center; cursor: pointer; transition: background 0.3s, border-color 0.3s; }
+      .gantt-controls { display: flex; justify-content: space-between; padding: 0 20px; height: 40px; background: var(--bg); border-bottom: 1px solid var(--border); align-items: center; cursor: pointer; transition: background 0.3s, border-color 0.3s; }
+      .gantt-mini-btn { display: inline-flex; align-items: center; justify-content: center; padding: 3px 8px !important; min-height: 24px; font-size: 8px !important; border-radius: 8px; margin-right: 4px !important; letter-spacing: 0.05em; }
       
       .timeline-container { flex-grow: 1; overflow: auto; position: relative; padding: 0 24px 20px 24px;}
       .gantt-area { position: relative; padding-bottom: 20px; transition: background 0.3s; display: block; }
@@ -425,29 +436,26 @@
       .touch-tablet .resize-handle:hover::before, .touch-tablet .resize-handle.dragging::before { opacity: 1; background: var(--accent); height: 32px; }
 
       /* Admin menu popover */
-      .outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.18); z-index: 119; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
-      .outbox-overlay.open { display: block; }
       .outbox-pane {
           display: flex;
           flex-direction: column;
-          position: absolute;
-          top: 70px;
-          right: 0;
-          width: min(380px, calc(100vw - 48px));
-          max-height: min(720px, calc(100vh - 180px));
+          position: relative;
+          width: 100%;
+          max-height: 100%;
           background: color-mix(in srgb, var(--card-bg) 88%, transparent);
           border: 1px solid var(--border);
-          border-radius: 20px;
+          border-radius: 22px;
           box-shadow: 0 28px 60px rgba(15,23,42,0.24);
-          overflow: hidden;
+          overflow: hidden auto;
           opacity: 0;
-          transform: translateY(-8px) scale(0.98);
+          transform: translateY(-14px) scale(0.92);
           transform-origin: top right;
           pointer-events: none;
-          transition: opacity 0.2s ease, transform 0.2s ease, background 0.3s, border-color 0.3s;
-          z-index: 121;
+          max-height: 0;
+          transition: opacity 0.22s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s, border-color 0.3s;
+          z-index: 1;
       }
-      .outbox-pane.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+      .outbox-pane.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; max-height: 100%; }
 
 
       /* 📱 PORTRAIT MOBILE */
@@ -464,10 +472,10 @@
           select { min-width: 100px; width: 100px; }
 
           /* WORKSPACE: sliding panels */
-          .workspace { position: relative; overflow: hidden; flex-direction: row; }
+          .workspace { position: relative; overflow: hidden; flex-direction: row; padding: 0; gap: 0; }
           .inbox-sidebar {
               position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-              width: 100%; max-width: 100%; border-right: none; flex-shrink: 0;
+              width: 100%; max-width: 100%; border-right: none; flex-shrink: 0; border-radius: 0;
               transform: translateX(0); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           }
           .reading-pane {
@@ -488,10 +496,15 @@
           .qb-grid > * { grid-column: span 1 !important; }
           .review-grid { grid-template-columns: 1fr; gap: 12px; }
 
-          .admin-fab-anchor { top: 12px; right: 12px; }
-          .admin-fab { min-width: 48px; height: 48px; padding: 0 14px; border-radius: 16px; }
+          .upper-workspace { padding-top: 0; }
+          .detail-layout { position: relative; }
+          .detail-main { width: 100%; }
+          .admin-dock { position: absolute; top: 0; right: 0; bottom: 0; min-width: 0; max-width: none; width: 100%; pointer-events: none; }
+          .reading-pane.admin-open .admin-dock { pointer-events: auto; }
+          .admin-fab-anchor { align-items: flex-end; }
+          .admin-fab { min-width: 48px; height: 48px; padding: 0 14px; border-radius: 16px; width: auto; }
           .admin-fab-label { display: none; }
-          .outbox-pane { top: 58px; width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 96px); }
+          .outbox-pane { width: min(360px, calc(100vw - 24px)); margin-top: 10px; margin-left: auto; }
 
           /* Hide desktop footer — mobile-action-bar takes its place */
           .gantt-panel { display: none; }
@@ -513,6 +526,11 @@
 
           /* Hamburger larger hit target */
           #btn-hamburger { font-size: 22px; padding: 10px 14px; min-width: 44px; min-height: 44px; }
+      }
+
+      .outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.18); z-index: 119; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+      @media screen and (max-width: 768px) {
+          .outbox-overlay.open { display: block; }
       }
 
       body.gantt-fullscreen .outbox-pane { display: none !important; }
@@ -626,7 +644,7 @@
       <div class="inbox-sidebar">
         <div class="inbox-header">
           <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-              <div class="inbox-title">Diag. Queue</div>
+              <div class="inbox-title inbox-title-stack"><span>Diagnostics</span><span>Queue</span></div>
               <div class="inbox-count" id="inbox-count">0</div>
               <button class="btn-nav" onclick="toggleFilterStrip()" id="btn-filters" style="font-size:11px; padding:5px 10px;">Filters</button>
           </div>
@@ -648,64 +666,15 @@
       <div class="resize-handle" id="sidebar-resize-handle" title="Drag to resize"></div>
 
       <div class="reading-pane">
-        <div class="admin-fab-anchor">
-          <button class="admin-fab" id="admin-fab" onclick="toggleAdminPanel()" title="Admin / Reviewed" aria-label="Open admin panel">
-              <span class="admin-fab-icon">☰</span>
-              <span class="admin-fab-label">Review Hub</span>
-              <span class="admin-fab-badge" id="admin-fab-badge"></span>
-          </button>
-          <div class="outbox-pane" id="outbox-pane">
-             <div class="panel-tab-bar">
-                <button class="panel-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">
-                   Admin
-                   <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span>
-                </button>
-                <button class="panel-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">
-                   Reviewed
-                   <span id="ob-count" style="background:var(--border); padding:1px 7px; border-radius:10px; font-size:10px; font-weight:900; color:var(--text-main);">0</span>
-                </button>
-                <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel">✕</button>
-             </div>
-
-             <div id="ob-panel-admin" style="display:flex; flex-grow:1; flex-direction:column; overflow:hidden;">
-                <div class="admin-strip" style="flex-shrink:0;">
-                   <div class="admin-kpi crossings" id="kpi-admin-crossings" onclick="toggleAdminFilter('crossings')" title="Filter: Crossings to verify">
-                      <div class="admin-kpi-val" id="kpi-crossings-val">0</div>
-                      <div class="admin-kpi-label">Check Crossings</div>
-                   </div>
-                   <div class="admin-kpi status" id="kpi-admin-status" onclick="toggleAdminFilter('status')" title="Filter: QB status issues">
-                      <div class="admin-kpi-val" id="kpi-status-val">0</div>
-                      <div class="admin-kpi-label">QB Status</div>
-                   </div>
-                   <div class="admin-kpi boms" id="kpi-admin-boms" onclick="toggleAdminFilter('boms')" title="Filter: BOM reviews needed">
-                      <div class="admin-kpi-val" id="kpi-boms-val">0</div>
-                      <div class="admin-kpi-label">Check BOMs</div>
-                   </div>
-                </div>
-                <div id="admin-pane-content" style="flex-grow:1; overflow-y:auto;"></div>
-             </div>
-
-             <div id="ob-panel-reviewed" style="display:none; flex-direction:column; flex-grow:1; overflow:hidden;">
-                <div class="ob-header" style="flex-shrink:0;">
-                   <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
-                      Reviewed
-                      <span id="ob-tab-count" style="display:none;"></span>
-                   </div>
-                   <button class="btn" style="font-size:10px; padding:3px 8px;" onclick="promptEmailExport()">↑ Export</button>
-                </div>
-                <div class="ob-list" id="outbox-list" style="flex-grow:1; overflow-y:auto;">
-                   <div class="empty-msg" style="margin-top:20px; font-size:11px;">No items reviewed.</div>
-                </div>
-             </div>
-          </div>
-        </div>
-        <div id="welcome-screen" class="empty-msg"><div style="font-size:32px; margin-bottom:12px;">Select a Project</div></div>
-        
-        <div class="pane-content" id="pane-content">
-           <div class="swipe-label commit-label" id="swipe-label-commit">‹ PREV</div>
-           <div class="swipe-label skip-label" id="swipe-label-skip">NEXT ›</div>
-           <div class="mobile-back-btn" onclick="backToQueue()">◀ Back to Queue</div>
-           <div class="qb-grid">
+        <div class="upper-workspace">
+          <div id="welcome-screen" class="empty-msg"><div style="font-size:32px; margin-bottom:12px;">Select a Project</div></div>
+          <div class="detail-layout" id="detail-layout">
+            <div class="detail-main">
+              <div class="pane-content" id="pane-content">
+                 <div class="swipe-label commit-label" id="swipe-label-commit">‹ PREV</div>
+                 <div class="swipe-label skip-label" id="swipe-label-skip">NEXT ›</div>
+                 <div class="mobile-back-btn" onclick="backToQueue()">◀ Back to Queue</div>
+                 <div class="qb-grid">
                <div class="qb-module hover-trigger" id="project-schedule-card" style="padding:12px 14px;" onmouseenter="hl('Forecasted OFS')" onmouseleave="hl('')">
                    <div class="qb-module-header" style="background:transparent; border-bottom:none; margin-bottom:0;">Project Schedule</div>
                    <div class="qb-proj-title">
@@ -798,10 +767,65 @@
                        <div id="p-cd-intel-text" class="cd-intel-text"></div>
                    </div>
                </div>
-           </div>
+                 </div>
+              </div>
+            </div>
+            <div class="admin-dock" id="admin-dock">
+              <div class="admin-fab-anchor">
+                <button class="admin-fab" id="admin-fab" onclick="toggleAdminPanel()" title="Admin / Reviewed" aria-label="Open admin panel">
+                    <span class="admin-fab-icon">☰</span>
+                    <span class="admin-fab-label">Review Hub</span>
+                    <span class="admin-fab-badge" id="admin-fab-badge"></span>
+                </button>
+                <div class="outbox-pane" id="outbox-pane">
+                   <div class="panel-tab-bar">
+                      <button class="panel-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">
+                         Admin
+                         <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span>
+                      </button>
+                      <button class="panel-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">
+                         Reviewed
+                         <span id="ob-count" style="background:var(--border); padding:1px 7px; border-radius:10px; font-size:10px; font-weight:900; color:var(--text-main);">0</span>
+                      </button>
+                      <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel">✕</button>
+                   </div>
+
+                   <div id="ob-panel-admin" style="display:flex; flex-grow:1; flex-direction:column; overflow:hidden;">
+                      <div class="admin-strip" style="flex-shrink:0;">
+                         <div class="admin-kpi crossings" id="kpi-admin-crossings" onclick="toggleAdminFilter('crossings')" title="Filter: Crossings to verify">
+                            <div class="admin-kpi-val" id="kpi-crossings-val">0</div>
+                            <div class="admin-kpi-label">Check Crossings</div>
+                         </div>
+                         <div class="admin-kpi status" id="kpi-admin-status" onclick="toggleAdminFilter('status')" title="Filter: QB status issues">
+                            <div class="admin-kpi-val" id="kpi-status-val">0</div>
+                            <div class="admin-kpi-label">QB Status</div>
+                         </div>
+                         <div class="admin-kpi boms" id="kpi-admin-boms" onclick="toggleAdminFilter('boms')" title="Filter: BOM reviews needed">
+                            <div class="admin-kpi-val" id="kpi-boms-val">0</div>
+                            <div class="admin-kpi-label">Check BOMs</div>
+                         </div>
+                      </div>
+                      <div id="admin-pane-content" style="flex-grow:1; overflow-y:auto;"></div>
+                   </div>
+
+                   <div id="ob-panel-reviewed" style="display:none; flex-direction:column; flex-grow:1; overflow:hidden;">
+                      <div class="ob-header" style="flex-shrink:0;">
+                         <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
+                            Reviewed
+                            <span id="ob-tab-count" style="display:none;"></span>
+                         </div>
+                         <button class="btn" style="font-size:10px; padding:3px 8px;" onclick="promptEmailExport()">↑ Export</button>
+                      </div>
+                      <div class="ob-list" id="outbox-list" style="flex-grow:1; overflow-y:auto;">
+                         <div class="empty-msg" style="margin-top:20px; font-size:11px;">No items reviewed.</div>
+                      </div>
+                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <!-- Overlay backdrop (mobile/tablet only) -->
       <div class="outbox-overlay" id="outbox-overlay" onclick="toggleAdminPanel()"></div>
     </div>
 
@@ -965,8 +989,8 @@
             </div>
             <div>
                 <button class="btn btn-nav" id="btn-exit-theater" style="display:none; padding: 4px 8px; font-size: 9px; margin-right:6px; background:var(--text-main); color:var(--bg);" onclick="event.stopPropagation(); exitTheaterMode()">Exit Focus</button>
-                <button class="btn btn-nav" id="btn-minimize" style="display:inline-flex; padding: 4px 8px; font-size: 9px; margin-right:6px;" onclick="event.stopPropagation(); toggleMinimize()">Minimize</button>
-                <button class="btn btn-nav" id="btn-fullscreen" style="display:inline-flex; padding: 4px 8px; font-size: 9px;" onclick="event.stopPropagation(); toggleFullscreen()">Fullscreen</button>
+                <button class="btn btn-nav gantt-mini-btn" id="btn-minimize" onclick="event.stopPropagation(); toggleMinimize()">Minimize</button>
+                <button class="btn btn-nav gantt-mini-btn" id="btn-fullscreen" style="margin-right:0 !important;" onclick="event.stopPropagation(); toggleFullscreen()">Fullscreen</button>
             </div>
         </div>
         <div class="raw-data-strip" id="raw-data-strip"></div>
@@ -988,6 +1012,9 @@
       function backToQueue() {
           let ws = getEl('main-workspace'); if(ws) ws.classList.remove('view-detail');
           let mab = getEl('mobile-action-bar'); if(mab) mab.style.display = 'none';
+          let rp = document.querySelector('.reading-pane'); if (rp) rp.classList.remove('admin-open');
+          let op = getEl('outbox-pane'); if (op) op.classList.remove('open');
+          let ov = getEl('outbox-overlay'); if (ov) ov.classList.remove('open');
       }
 
       function safeExecute(fnName, fn) {
@@ -1075,10 +1102,11 @@
 
       let currentPanelTab = 'admin';
       function toggleAdminPanel() {
-          let pane = getEl('outbox-pane'), overlay = getEl('outbox-overlay');
+          let pane = getEl('outbox-pane'), overlay = getEl('outbox-overlay'), readingPane = document.querySelector('.reading-pane');
           let isOpen = pane && pane.classList.contains('open');
           if (pane) pane.classList.toggle('open', !isOpen);
-          if (overlay) overlay.classList.toggle('open', !isOpen);
+          if (readingPane) readingPane.classList.toggle('admin-open', !isOpen);
+          if (overlay) overlay.classList.toggle('open', !isOpen && window.innerWidth <= 768);
       }
       function switchPanelTab(tab) {
           currentPanelTab = tab;
@@ -1125,6 +1153,14 @@
           let panel = getEl('mobile-menu-panel'); if (!panel || !panel.classList.contains('open')) return;
           let btn = getEl('btn-hamburger');
           if (!panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) panel.classList.remove('open');
+      });
+      document.addEventListener('click', function(e) {
+          let pane = getEl('outbox-pane'); let fab = getEl('admin-fab'); let readingPane = document.querySelector('.reading-pane');
+          if (!pane || !fab || !pane.classList.contains('open') || window.innerWidth <= 768) return;
+          if (!pane.contains(e.target) && !fab.contains(e.target)) {
+              pane.classList.remove('open');
+              if (readingPane) readingPane.classList.remove('admin-open');
+          }
       });
       function initTabletLayout() {
           if (!isIPadLike()) return;
@@ -1208,7 +1244,7 @@
           let dateInput = prompt("Run System Diagnostics (Fn 3a)\n\nEnter the date to review (YYYY-MM-DD):", localDateStr); if (!dateInput) return;
           let btn = getEl('btn-run-review'); if(btn) { btn.innerText = "Running..."; btn.disabled = true; }
           setHtml('gantt-container', `<div class="empty-msg" style="margin-top:20px;">Running Engine...</div>`); setHtml('inbox-list', `<div class="empty-msg">Fetching new data...</div>`);
-          setStyle('pane-content', 'display', 'none'); setStyle('welcome-screen', 'display', 'block'); setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">Running Engine Diagnostics...</div>`);
+          setStyle('pane-content', 'display', 'none'); setStyle('detail-layout', 'display', 'none'); setStyle('welcome-screen', 'display', 'block'); setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">Running Engine Diagnostics...</div>`);
           google.script.run.withSuccessHandler((data) => {
               if(btn) { btn.innerText = "▶ Run Review"; btn.disabled = false; }
               setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">Select a Project</div>`); initDashboard(data);
@@ -1615,7 +1651,13 @@
 
       function initDashboard(data) {
         safeExecute('initDashboard', () => {
-            if (!data || !data.actionItems || data.actionItems.length === 0) { setHtml('gantt-container', `<div class="empty-msg" style="margin-top:40px;">All clear.</div>`); setHtml('inbox-list', `<div class="empty-msg">All clear.</div>`); setStyle('welcome-screen', 'display', 'block'); return; }
+            if (!data || !data.actionItems || data.actionItems.length === 0) {
+                setHtml('gantt-container', `<div class="empty-msg" style="margin-top:40px;">All clear.</div>`);
+                setHtml('inbox-list', `<div class="empty-msg">All clear.</div>`);
+                setStyle('welcome-screen', 'display', 'block');
+                setStyle('detail-layout', 'display', 'none');
+                return;
+            }
             allActionItems = data.actionItems; globalHeaders = data.headers;
             globalRefDataDate = data.refDataDate || "";
             updateRefDataIndicator();
@@ -2075,7 +2117,9 @@
               if(cardEl) cardEl.classList.add('selected');
               updateMobileNavButtons();
 
-              setStyle('welcome-screen', 'display', 'none'); setStyle('pane-content', 'display', 'flex');
+              setStyle('welcome-screen', 'display', 'none');
+              setStyle('detail-layout', 'display', 'flex');
+              setStyle('pane-content', 'display', 'flex');
               
               renderDiagnosticStrip(item.rawRow);
 
@@ -2275,7 +2319,12 @@
           setHtml('raw-data-strip', ''); exitTheaterMode();
           applyFilters(); renderOutbox(); updateMobileObCount();
           if (allActionItems.length === 0) {
-              setStyle('pane-content', 'display', 'none'); setStyle('welcome-screen', 'display', 'block');
+              setStyle('pane-content', 'display', 'none');
+              setStyle('detail-layout', 'display', 'none');
+              setStyle('welcome-screen', 'display', 'block');
+              let rp = document.querySelector('.reading-pane'); if (rp) rp.classList.remove('admin-open');
+              let op = getEl('outbox-pane'); if (op) op.classList.remove('open');
+              let ov = getEl('outbox-overlay'); if (ov) ov.classList.remove('open');
               setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">All Clear ✓</div>`);
               if (window.innerWidth <= 768) backToQueue();
           }
