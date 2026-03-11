@@ -1,0 +1,6 @@
+.claude/**
+docs/**
+.git/**
+.DS_Store
+.gitignore
+.clasp.json
