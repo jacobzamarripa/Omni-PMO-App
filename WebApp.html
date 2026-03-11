@@ -51,9 +51,6 @@
 
       .top-nav { background: transparent; height: auto; box-sizing: border-box; padding: 10px 18px 6px; display: flex; align-items: center; z-index: 10000; position: relative; flex-shrink: 0; transition: background 0.3s, border-color 0.3s; gap: 12px; border-bottom: none; }
       .nav-brand { font-size: 16px; font-weight: 900; letter-spacing: -0.5px; display: flex; align-items: center; flex-shrink: 0; padding: 10px 14px; border-radius: 18px; background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08); }
-      .nav-search-wrap { flex: 1; max-width: 280px; margin: 0 12px; position: relative; }
-      .nav-search-input { width: 100% !important; border-radius: 12px !important; padding-left: 32px !important; box-shadow: none !important; background: rgba(0,0,0,0.03) !important; }
-      .nav-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: 0.4; font-size: 14px; pointer-events: none; }
       .nav-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
       .btn-icon { background: color-mix(in srgb, var(--card-bg) 84%, transparent); border: 1px solid var(--border); border-radius: 14px; padding: 5px 11px; cursor: pointer; color: var(--text-main); font-size: 15px; line-height: 1; display: flex; align-items: center; transition: all 0.2s; height: 34px; box-sizing: border-box; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06); }
       .btn-icon:hover { background: var(--card-bg); transform: translateY(-1px); }
@@ -677,17 +674,18 @@
       @media screen and (max-width: 768px) {
           /* NAV: brand + hamburger only; hide desktop action buttons */
           .top-nav { padding: 0 16px; height: 58px; gap: 4px !important; }
-          .nav-brand { display: none !important; }
-          .nav-search-wrap { max-width: none; margin: 0 8px 0 0; min-width: 0; }
-          #search-input { height: 38px !important; font-size: 14px !important; }
+          .nav-brand { display: flex !important; }
           .kpi-nav-container { display: none; }
 
           #btn-qb-sync, #btn-run-review, #btn-refresh, #btn-theme, #btn-help { display: none; }
           .mobile-menu-toggle { display: flex !important; }
-          .filter-strip { position: sticky !important; top: 6px !important; background: var(--card-bg) !important; padding: 6px 10px !important; border-bottom: 1px solid var(--border) !important; height: 48px !important; align-items: center !important; flex-wrap: nowrap !important; justify-content: flex-start !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; border-radius: 0 !important; overflow-x: auto !important; overflow-y: hidden !important; }
+          #search-input { font-size: 16px !important; height: 44px !important; width: 100% !important; flex-shrink: 0 !important; background: rgba(0,0,0,0.05) !important; border-radius: 10px !important; margin-bottom: 4px !important; }
+          .filter-strip { position: sticky !important; top: 6px !important; background: var(--card-bg) !important; flex-direction: column !important; height: auto !important; max-height: 0; overflow: hidden; transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; padding: 0 12px !important; border-bottom: none !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; border-radius: 0 !important; align-items: stretch !important; justify-content: flex-start !important; }
+          .filter-strip.hidden { display: flex !important; }
+          .filter-strip:not(.hidden) { max-height: 200px; padding: 12px !important; border-bottom: 1px solid var(--border) !important; }
           select { min-width: 100px; width: 100px; }
-          .filter-strip > * { flex: 0 0 auto; }
-          .filter-tools { flex-wrap: nowrap; }
+          .filter-strip > * { flex: 0 0 auto; width: 100%; }
+          .filter-tools { flex-wrap: nowrap; width: 100%; margin-left: 0; padding-left: 0 !important; border-left: none !important; justify-content: flex-end; }
 
           /* WORKSPACE: sliding panels */
           .workspace { position: relative; overflow: hidden; flex-direction: row; padding: 0; gap: 0; }
@@ -864,10 +862,6 @@
     
     <div class="top-nav">
       <div class="nav-brand">Dailies Command Center</div>
-      <div class="nav-search-wrap">
-        <input type="text" id="search-input" class="nav-search-input" placeholder="Search FDH...">
-        <span class="nav-search-icon">🔍</span>
-      </div>
 
       <div class="kpi-nav-container">
           <div class="kpi-nav-header"><span class="kpi-dot"></span> Active Today</div>
@@ -928,6 +922,7 @@
             <div class="detail-main">
               <div class="pane-content" id="pane-content">
                  <div class="filter-strip hidden" id="filter-strip">
+                     <input type="text" id="search-input" placeholder="Search projects..." autocomplete="off">
                      <select id="filter-severity" onchange="applyFilters()">
                         <option value="ALL">All Health</option>
                         <option value="crit">Critical</option>
@@ -1603,9 +1598,9 @@
       if (navigator.maxTouchPoints > 1 && window.innerWidth >= 769) document.body.classList.add('touch-tablet');
       // Debounced search filter (300ms delay prevents re-render on every keystroke)
       let _filterDebounce;
-      let _globalSearch = getEl('search-input');
-      if (_globalSearch) {
-          _globalSearch.addEventListener('input', () => {
+      let _filterInput = getEl('search-input');
+      if (_filterInput) {
+          _filterInput.addEventListener('input', () => {
               clearTimeout(_filterDebounce);
               _filterDebounce = setTimeout(applyFilters, 300);
           });
