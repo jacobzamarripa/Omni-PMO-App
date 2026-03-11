@@ -688,7 +688,7 @@
           .filter-tools { flex-wrap: nowrap; width: 100%; margin-left: 0; padding-left: 0 !important; border-left: none !important; justify-content: flex-end; }
 
           /* WORKSPACE: sliding panels */
-          .workspace { position: relative; overflow: hidden; flex-direction: row; padding: 0; gap: 0; }
+          .workspace { width: 100vw !important; overflow: hidden !important; position: relative; flex-direction: row; padding: 0; gap: 0; }
           .inbox-sidebar {
               position: absolute !important;
               top: 0; left: 0; right: 0; bottom: 0;
@@ -696,6 +696,8 @@
               height: 100% !important;
               width: 100% !important;
               max-width: 100% !important;
+              background: var(--bg) !important;
+              border: none !important;
               border-right: none;
               flex-shrink: 0;
               border-radius: 0;
@@ -733,7 +735,7 @@
           .admin-fab { min-width: 30px; height: 30px; width: auto; }
           .admin-fab-label { display: none; }
           /* 2. Reduce Card Padding for Carousel Feel */
-          .pane-content { padding: 10px 8px 120px !important; gap: 12px !important; }
+          .pane-content { padding: 10px 12px 140px !important; gap: 12px !important; width: 100vw !important; max-width: 100vw !important; box-sizing: border-box !important; overflow-x: hidden !important; }
           .qb-module { padding: 12px 10px !important; border-radius: 12px !important; }
 
           /* 3. Transform Outbox Pane into Bottom Sheet */
@@ -772,7 +774,8 @@
           .admin-kpi-val { font-size: 16px; }
 
           /* 1. Restore Mail App Inbox Look */
-          .email-card { margin: 0; padding: 14px 16px; border: none; border-bottom: 1px solid var(--border); border-radius: 0; border-left: 4px solid transparent; }
+          .email-card { margin: 0 !important; border-radius: 0 !important; border: none !important; border-bottom: 1px solid var(--border) !important; background: var(--card-bg) !important; padding: 16px 20px !important; }
+          .email-card.selected { background: rgba(59, 130, 246, 0.05) !important; }
           body.dark-mode .email-card { border-bottom: 1px solid #3f3f46; }
 
           /* Mobile action bar visible */
@@ -793,6 +796,8 @@
 
           /* High-Contrast Active Filter */
           #btn-filters.btn-filters-active { background: var(--color-critical) !important; color: #ffffff !important; border-color: var(--color-critical) !important; }
+          .swipe-peek-pane { display: flex !important; z-index: 210 !important; box-shadow: 0 0 40px rgba(0,0,0,0.2); }
+          #mobile-ob-count { display: inline-flex !important; align-items: center; justify-content: center; background: var(--color-critical) !important; color: #fff !important; min-width: 16px; height: 16px; font-size: 9px; border-radius: 50%; margin-left: 4px; vertical-align: middle; }
       }
 
       .outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 119; backdrop-filter: none; -webkit-backdrop-filter: none; }
@@ -807,24 +812,19 @@
           .gantt-panel { display: none !important; }
       }
 
-      /* 📱 LANDSCAPE: fullscreen Gantt (position:fixed so it clears overflow:hidden) */
+      /* 📱 LANDSCAPE: fullscreen Gantt timeline hub */
       @media screen and (max-width: 950px) and (orientation: landscape) {
-          .top-nav { display: none !important; }
-          .workspace { display: none !important; }
-          .mobile-action-bar { display: none !important; }
-
-          .timeline-wrapper {
-              position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
-              z-index: 99999; display: flex !important;
-              flex-direction: column; background: var(--bg); border-top: none;
+          .top-nav, .workspace, .mobile-action-bar { display: none !important; }
+          .gantt-panel {
+              display: flex !important;
+              position: fixed !important;
+              inset: 0 !important;
+              width: 100vw !important;
+              height: 100vh !important;
+              z-index: 99999 !important;
+              background: var(--bg) !important;
           }
-          .gantt-controls button { display: none !important; }
-          .gantt-controls::after {
-              content: "Rotate device to view project details ↻";
-              font-size: 11px; font-weight: bold; color: var(--color-insight);
-              background: rgba(168, 85, 247, 0.15); padding: 4px 12px; border-radius: 12px;
-          }
-          .timeline-container { -webkit-overflow-scrolling: touch; padding-bottom: 40px; }
+          .timeline-wrapper { display: flex !important; height: 100% !important; }
       }
 
       /* 📖 HELP PANEL */
@@ -1242,7 +1242,10 @@
         <button class="btn btn-skip" style="flex:0.5; font-size:13px;" onclick="backToQueue()">◀</button>
         <button class="btn btn-skip" id="btn-mob-prev" style="flex:1;" onclick="goPrevItem()">‹ Prev</button>
         <button class="btn btn-skip" id="btn-mob-next" style="flex:1;" onclick="goNextItem()">Next ›</button>
-        <button class="btn btn-skip" style="flex:1; position:relative;" onclick="toggleAdminPanel()"><span style="font-size: 16px; margin-right: 4px;">☰</span> <span id="mobile-ob-count" style="display:none; background:var(--color-insight); color:#fff; border-radius:8px; padding:1px 5px; font-size:9px; margin-left:2px;"></span></button>
+        <button class="btn btn-skip" style="flex:1; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="toggleAdminPanel()">
+          <span style="font-size: 18px;">☰</span>
+          <span id="mobile-ob-count" style="display:none;">0</span>
+        </button>
       </div>
     </div>
 
@@ -2989,7 +2992,7 @@
       function renderOutbox() {
           const list = getEl('outbox-list'); if(!list) return; setTxt('ob-count', committedItems.length);
           let tabBadge = getEl('ob-tab-count'); if(tabBadge) { tabBadge.innerText = committedItems.length; tabBadge.style.display = committedItems.length > 0 ? 'inline' : 'none'; }
-          let mobBadge = getEl('mobile-ob-count'); if(mobBadge) { mobBadge.innerText = committedItems.length; mobBadge.style.display = committedItems.length > 0 ? 'inline' : 'none'; }
+          let mobBadge = getEl('mobile-ob-count'); if(mobBadge) { mobBadge.innerText = committedItems.length; mobBadge.style.display = committedItems.length > 0 ? 'inline-flex' : 'none'; }
           list.innerHTML = '';
           if(committedItems.length === 0) { list.innerHTML = `<div class="empty-msg">No items reviewed.</div>`; return; }
           committedItems.forEach(item => {
@@ -3001,7 +3004,7 @@
 
       function updateMobileObCount() {
           let n = committedItems.length;
-          let badge = getEl('mobile-ob-count'); if(badge) { badge.innerText = n; badge.style.display = n > 0 ? 'inline' : 'none'; }
+          let badge = getEl('mobile-ob-count'); if(badge) { badge.innerText = n; badge.style.display = n > 0 ? 'inline-flex' : 'none'; }
       }
 
       function updateMobileNavButtons() {
@@ -3067,7 +3070,7 @@
                   isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.5;
               }
               if (!isHorizontal) return;
-              e.preventDefault();
+              if (e.cancelable) e.preventDefault();
               pane.style.transform = `translateX(${dx}px)`;
               let labelOpacity = Math.min(1, (Math.abs(dx) - 30) / 50);
               if (labelCommit) labelCommit.style.opacity = dx > 30 ? labelOpacity : '0';
