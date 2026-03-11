@@ -776,9 +776,22 @@
 
           /* Hamburger larger hit target */
           #btn-hamburger { font-size: 22px; padding: 10px 14px; min-width: 44px; min-height: 44px; }
+
+          .admin-fab-anchor { display: none !important; }
+          .review-actions { display: none !important; }
+
+          /* Floating Glassmorphic Action Bar */
+          .mobile-action-bar { pointer-events: none; padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important; background: transparent !important; border: none !important; box-shadow: none !important; }
+          .mobile-action-bar .btn { pointer-events: auto; }
+          .mobile-action-bar .btn-skip { background: rgba(255, 255, 255, 0.85) !important; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(0,0,0,0.1) !important; color: var(--text-main) !important; }
+          body.dark-mode .mobile-action-bar .btn-skip { background: rgba(30, 30, 36, 0.85) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: #fafafa !important; }
+          .mobile-action-bar .btn-primary { background: rgba(34, 197, 94, 0.9) !important; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #fff !important; border: 1px solid rgba(22, 163, 74, 0.5) !important; }
+
+          /* High-Contrast Active Filter */
+          #btn-filters.btn-filters-active { background: var(--color-critical) !important; color: #ffffff !important; border-color: var(--color-critical) !important; }
       }
 
-      .outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.18); z-index: 119; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+      .outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 119; backdrop-filter: none; -webkit-backdrop-filter: none; }
       @media screen and (max-width: 768px) {
           .outbox-overlay.open { display: block; }
       }
@@ -1225,7 +1238,7 @@
         <button class="btn btn-skip" style="flex:0.5; font-size:13px;" onclick="backToQueue()">◀</button>
         <button class="btn btn-skip" id="btn-mob-prev" style="flex:1;" onclick="goPrevItem()">‹ Prev</button>
         <button class="btn btn-skip" id="btn-mob-next" style="flex:1;" onclick="goNextItem()">Next ›</button>
-        <button class="btn btn-skip" style="flex:1; position:relative;" onclick="toggleAdminPanel()">Hub <span id="mobile-ob-count" style="display:none; background:var(--color-insight); color:#fff; border-radius:8px; padding:1px 5px; font-size:9px; margin-left:2px;"></span></button>
+        <button class="btn btn-skip" style="flex:1; position:relative;" onclick="toggleAdminPanel()"><span style="font-size: 16px; margin-right: 4px;">☰</span> <span id="mobile-ob-count" style="display:none; background:var(--color-insight); color:#fff; border-radius:8px; padding:1px 5px; font-size:9px; margin-left:2px;"></span></button>
       </div>
     </div>
 
