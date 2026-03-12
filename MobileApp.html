@@ -1246,6 +1246,7 @@
     }
     .dock-back-btn {
       width: 0;
+      height: 44px;
       opacity: 0;
       overflow: hidden;
       padding: 0;
@@ -1372,6 +1373,12 @@
     }
     .admin-kpi.boms.active .admin-kpi-val,
     .admin-kpi.boms.active .admin-kpi-label { color: #6ee7b7; }
+    .admin-kpi.crossings { border-color: #facc15; }
+    .admin-kpi.crossings .admin-kpi-val { color: #854d0e; }
+    .admin-kpi.status { border-color: #fca5a5; }
+    .admin-kpi.status .admin-kpi-val { color: #b91c1c; }
+    .admin-kpi.boms { border-color: #6ee7b7; }
+    .admin-kpi.boms .admin-kpi-val { color: #065f46; }
     .admin-kpi-val {
       font-size: 18px;
       font-weight: 900;
@@ -1883,12 +1890,7 @@
 
     <!-- 6. COMMAND CENTER DOCK -->
     <div id="dock">
-      <button class="dock-btn" id="dock-home-btn" onclick="toggleAdminSheet()" aria-label="Navigation">
-        <svg id="dock-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>
-        </svg>
-        <div class="nav-hub-badge" id="nav-hub-badge" style="display:none;">0</div>
-      </button>
+      <button class="dock-action-btn" id="dock-secondary-btn" onclick="handleSecondaryAction()">Search</button>
       <div class="dock-center-group">
         <button class="dock-back-btn" id="dock-back-btn" onclick="showHubHome()">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -1900,14 +1902,13 @@
           <span id="dock-primary-sub">0 projects</span>
         </button>
       </div>
-      <button class="dock-action-btn" id="dock-secondary-btn" onclick="handleSecondaryAction()">Search</button>
-      <div id="dock-session-count" style="display:none;">0</div>
-      <button class="dock-btn" id="dock-search-btn" onclick="openSearch()" aria-label="Search" style="display:none;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="7"/>
-          <path d="M21 21l-4.35-4.35"/>
+      <button class="dock-btn" id="dock-home-btn" onclick="toggleAdminSheet()" aria-label="Menu">
+        <svg id="dock-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>
         </svg>
+        <div class="nav-hub-badge" id="nav-hub-badge" style="display:none;">0</div>
       </button>
+      <div id="dock-session-count" style="display:none;">0</div>
     </div>
 
     <!-- TOAST -->
@@ -1932,10 +1933,7 @@
       </div>
       <div id="ob-panel-admin" class="review-hub-panel active">
         <div class="admin-strip" id="admin-strip"></div>
-        <div class="hub-section-title">QB Exceptions</div>
-        <div id="admin-sheet-list"></div>
-        <div class="hub-section-title">Crossings</div>
-        <div id="crossing-sheet-list"></div>
+        <div id="admin-pane-content" style="flex-grow:1; display:flex; flex-direction:column; gap:6px;"></div>
       </div>
       <div id="ob-panel-reviewed" class="review-hub-panel">
         <div id="reviewed-sheet-list" class="reviewed-sheet-list"></div>
@@ -2876,16 +2874,7 @@ function switchMobileTab(tab) {
 
 function renderAdminSheet() {
   renderReviewHubAdmin();
-  renderAdminSheetList('admin-sheet-list', getFilteredAdminItems(), 'All clear — no admin exceptions for this filter');
-  renderAdminSheetList('crossing-sheet-list', getCrossingItems(), 'All clear — no crossings to verify');
-  var adminBadge = document.getElementById('badge-admin');
-  var hubBadge = document.getElementById('nav-hub-badge');
-  var adminTotal = getAdminItems().length + getCrossingItems().length + getBomItems().length;
-  if (adminBadge) adminBadge.textContent = adminTotal;
-  if (hubBadge) {
-    hubBadge.textContent = adminTotal;
-    hubBadge.style.display = adminTotal ? 'flex' : 'none';
-  }
+  renderAdminPaneContent();
   renderReviewedSheet();
   switchMobileTab(state.activeTab || 'admin');
 }
@@ -3508,19 +3497,29 @@ function getFilteredAdminItems() {
 }
 
 function renderReviewHubAdmin() {
-  var counts = calculateAdminCounts();
+  var items = state.all;
+  var xingCount   = items.filter(function(i) { return String(i.flags||'').includes('ADMIN: CHECK CROSSINGS'); }).length;
+  var bomCount    = items.filter(function(i) { return String(i.flags||'').includes('PLEASE INPUT BOM') || String(i.flags||'').includes('CHECK BOM'); }).length;
+  var statusCount = items.filter(function(i) { return String(i.flags||'').includes('STATUS MISMATCH') || String(i.flags||'').includes('MISSING QB STATUS'); }).length;
+  var total = xingCount + bomCount + statusCount;
+
   var strip = document.getElementById('admin-strip');
   if (!strip) return;
   strip.innerHTML =
     '<div class="admin-kpi crossings ' + ((state.adminFilter === 'xing') ? 'active' : '') + '" onclick="filterMobileQueue(\'xing\')">' +
-      '<div class="admin-kpi-val">' + counts.xing + '</div><div class="admin-kpi-label">Check Crossings</div>' +
+      '<div class="admin-kpi-val">' + xingCount + '</div><div class="admin-kpi-label">Check Crossings</div>' +
     '</div>' +
     '<div class="admin-kpi status ' + ((state.adminFilter === 'status') ? 'active' : '') + '" onclick="filterMobileQueue(\'status\')">' +
-      '<div class="admin-kpi-val">' + counts.status + '</div><div class="admin-kpi-label">QB Status</div>' +
+      '<div class="admin-kpi-val">' + statusCount + '</div><div class="admin-kpi-label">QB Status</div>' +
     '</div>' +
     '<div class="admin-kpi boms ' + ((state.adminFilter === 'boms') ? 'active' : '') + '" onclick="filterMobileQueue(\'boms\')">' +
-      '<div class="admin-kpi-val">' + counts.boms + '</div><div class="admin-kpi-label">Check BOMs</div>' +
+      '<div class="admin-kpi-val">' + bomCount + '</div><div class="admin-kpi-label">Check BOMs</div>' +
     '</div>';
+
+  var adminBadge = document.getElementById('badge-admin');
+  var hubBadge = document.getElementById('nav-hub-badge');
+  if (adminBadge) adminBadge.textContent = total;
+  if (hubBadge) { hubBadge.textContent = total; hubBadge.style.display = total ? 'flex' : 'none'; }
 }
 
 function filterMobileQueue(type) {
@@ -3530,6 +3529,80 @@ function filterMobileQueue(type) {
 
 function getHubItemsByTab(tab) {
   return getDiagQueueItems();
+}
+
+function renderAdminPaneContent() {
+  var pane = document.getElementById('admin-pane-content');
+  if (!pane) return;
+  var items = state.all;
+  var crossings = items.filter(function(i) { return String(i.flags||'').includes('ADMIN: CHECK CROSSINGS'); });
+  var bomInput  = items.filter(function(i) { return String(i.flags||'').includes('PLEASE INPUT BOM'); });
+  var bomCheck  = items.filter(function(i) { return String(i.flags||'').includes('CHECK BOM'); });
+  var status    = items.filter(function(i) { return String(i.flags||'').includes('STATUS MISMATCH') || String(i.flags||'').includes('MISSING QB STATUS'); });
+  var mode = state.adminFilter || 'all';
+
+  function makeSwipeCard(item, customRightHtml) {
+    var isNotInQb = String(item.flags||'').includes('NOT IN QB REFERENCE') || String(item.flags||'').includes('MISSING QB STATUS');
+    var pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+    var combinedPill = isNotInQb ? 'NOT IN QB REFERENCE' : ((item.stage || '-') + ' | ' + (item.status || '-'));
+    var right = customRightHtml || `<span class="glass-pill ${pillCls}">${esc(combinedPill)}</span>`;
+    return `<div class="swipe-wrapper" data-fdh="${esc(item.fdh)}" data-list-type="queue" style="border-radius:12px; margin-bottom:8px;">
+      <div class="swipe-actions swipe-action-left">✔ Commit</div>
+      <div class="swipe-actions swipe-action-right">✕ Skip</div>
+      <div class="swipe-item email-card ${getSeverity(item.flags)}" style="border-bottom:none; border-radius:12px; padding:12px 14px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+          <div>
+            <div class="em-fdh" style="font-size:14px;">${esc(item.fdh||'—')}</div>
+            <div class="em-vendor" style="margin-top:2px;">${esc((item.city||'') + (item.vendor ? ' · ' + item.vendor : ''))}</div>
+          </div>
+          <div style="flex-shrink:0;">${right}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function sectionTitle(label, count) {
+    return `<div class="hub-section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+      <span>${label} <span style="background:var(--border); padding:2px 6px; border-radius:10px; color:var(--text-main); font-size:9px;">${count}</span></span>
+    </div>`;
+  }
+
+  var html = '';
+  if ((mode === 'all' || mode === 'xing') && crossings.length) {
+    html += sectionTitle('Crossings to Verify', crossings.length);
+    html += crossings.map(function(item) {
+      var xVal = item.rawSpecialX || (item.isXing ? 'YES' : '—');
+      return makeSwipeCard(item, `<div style="font-size:10px; font-weight:800; color:var(--text-muted); text-align:right;">QB Crossings:<br/><span style="font-weight:900; color:var(--text-main); font-size:11px;">${esc(String(xVal))}</span></div>`);
+    }).join('');
+  }
+  if ((mode === 'all' || mode === 'status') && status.length) {
+    html += sectionTitle('Status Mismatches', status.length);
+    html += status.map(function(item) {
+      return makeSwipeCard(item, `<div style="font-size:10px; font-weight:800; color:var(--text-muted); text-align:right;">QB Status:<br/><span style="font-weight:900; color:var(--text-main); font-size:11px;">${esc(item.status||'—')}</span></div>`);
+    }).join('');
+  }
+  if ((mode === 'all' || mode === 'boms') && bomInput.length) {
+    html += sectionTitle('BOMs to Input', bomInput.length);
+    html += bomInput.map(function(item) { return makeSwipeCard(item); }).join('');
+  }
+  if ((mode === 'all' || mode === 'boms') && bomCheck.length) {
+    html += sectionTitle('BOMs to Check (UG/AE)', bomCheck.length);
+    html += bomCheck.map(function(item) { return makeSwipeCard(item); }).join('');
+  }
+
+  if (!html) {
+    pane.innerHTML = '<div class="hub-empty" style="margin-top:20px;">All clear — no admin exceptions for this filter</div>';
+    return;
+  }
+  pane.innerHTML = html;
+  pane.querySelectorAll('.swipe-item').forEach(function(el) {
+    var fdh = el.parentElement.dataset.fdh;
+    el.onclick = function() {
+      if (window._preventSwipeClick) return;
+      jumpTo(fdh);
+      closeAdminSheet();
+    };
+  });
 }
 
 function renderList(items) {
