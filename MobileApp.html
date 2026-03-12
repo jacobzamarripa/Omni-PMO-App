@@ -493,78 +493,41 @@
       flex: 1;
       padding-bottom: 12px;
     }
-    .hub-card {
-      background: var(--card-bg);
-      border: var(--hairline);
-      border-radius: 22px;
-      padding: 16px 18px;
-      margin-bottom: 10px;
-      box-shadow: var(--shadow-hub);
+    .email-card {
+      padding: 14px 16px 12px;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      border-left: 4px solid transparent;
+      background: color-mix(in srgb, var(--card-bg) 92%, transparent);
       cursor: pointer;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      grid-template-areas:
-        "top top"
-        "meta pill"
-        "dates dates"
-        "flags flags";
-      gap: 10px 12px;
-      transition: background 0.15s ease;
+      transition: background 0.1s, border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
       touch-action: manipulation;
     }
-    .hub-card:active { background: var(--card-bg-2); }
-    .hub-card-top {
-      grid-area: top;
+    .email-card:active { background: var(--card-bg-2); }
+    .email-card.crit { border-left-color: var(--color-critical); }
+    .email-card.warn { border-left-color: var(--color-review); }
+    .email-card.info { border-left-color: var(--color-insight); }
+    .em-header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
       gap: 10px;
     }
-    .hub-card-fdh  { font-size: 15px; font-weight: 800; letter-spacing: -0.5px; }
-    .hub-card-meta {
-      grid-area: meta;
+    .em-fdh {
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: -0.4px;
+      color: var(--text-main);
+      line-height: 1.1;
+    }
+    .em-vendor {
       font-size: 11px;
       font-weight: 600;
       color: var(--text-secondary);
     }
-    .hub-card-pill {
-      grid-area: pill;
-      justify-self: end;
-      align-self: start;
-    }
-    .hub-card-dates {
-      grid-area: dates;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .hub-date-pill {
-      font-size: 10px;
-      font-weight: 800;
-      color: var(--text-muted);
-      background: rgba(148, 163, 184, 0.1);
-      border: var(--hairline);
-      border-radius: 999px;
-      padding: 6px 10px;
-    }
-    .hub-card-flags {
-      grid-area: flags;
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .hub-flag-pill {
-      font-size: 10px;
-      font-weight: 700;
-      border-radius: 999px;
-      padding: 6px 10px;
-      border: var(--hairline);
-      color: var(--text-secondary);
-      background: rgba(148, 163, 184, 0.08);
-    }
-    .hub-flag-pill.critical { color: #b91c1c; background: rgba(239,68,68,0.09); }
-    .hub-flag-pill.review { color: #b45309; background: rgba(245,158,11,0.1); }
-    .hub-flag-pill.insight { color: #7e22ce; background: rgba(168,85,247,0.1); }
     .hub-empty {
       font-size: 12px;
       color: var(--text-tertiary);
@@ -1413,8 +1376,8 @@ function cardHTML(item) {
   var dots = flags.length ? flags.map(function(f){ return '<div class="flag-dot '+f.sev+'"></div>'; }).join('') : '<div class="detail-section-body">No critical flags</div>';
   var diagnostics = flags.length ? '<div class="detail-flag-list">' + flags.map(function(f){ return '<div class="detail-flag-item '+f.sev+'">'+esc(f.text)+'</div>'; }).join('') + '</div>' : '<div class="detail-section-body">No system diagnostics flagged.</div>';
   var schedule = [
-    { label:'Start', value:item.cxStart || 'TBD' },
-    { label:'Target', value:item.cxEnd || 'TBD' },
+    { label:'CX Start', value:item.cxStart || 'TBD' },
+    { label:'Target', value:item.targetDate || item.cxEnd || 'TBD' },
     { label:'OFS', value:item.ofsDate || 'TBD' }
   ].map(function(part) {
     return '<div class="schedule-chip"><div class="schedule-chip-label">'+part.label+'</div><div class="schedule-chip-value">'+esc(part.value)+'</div></div>';
@@ -1432,15 +1395,15 @@ function cardHTML(item) {
     '<div class="glass-pill status-pill '+pc+'">'+esc(pl)+'</div></div>'+
     '<div class="card-sub">'+esc((item.city||'')+(item.vendor?' · '+item.vendor:''))+'</div>'+
     '<div class="detail-section"><div class="card-section-title">Schedule</div><div class="card-schedule-grid">'+schedule+'</div></div>'+
-    '<div class="velocity-section"><div class="card-section-title">Field Velocity</div>'+bars+'</div>'+
+    '<div class="velocity-section"><div class="card-section-title">Production Velocity</div>'+bars+'</div>'+
     '<div class="review-scroll-container">'+
       '<div class="detail-section"><div class="card-section-title">System Diagnostics</div><div class="flag-strip">'+dots+'</div>'+diagnostics+'</div>'+
-      (item.cdIntel ? '<div class="detail-section"><div class="card-section-title">CD Intelligence</div><div class="detail-section-body">'+esc(item.cdIntel)+'</div></div>' : '')+
       '<div class="detail-section">'+
         '<div class="card-section-title">OMNI Manager Note</div>'+
         '<textarea id="'+noteId+'" class="detail-textarea" placeholder="Type decision...">'+esc(draftVal)+'</textarea>'+
         '<div style="display:flex; justify-content:flex-end; margin-top:10px;"><button class="btn-ai" onclick="askGeminiForDraftMobile(this)">Draft w/ Gemini</button></div>'+
       '</div>'+
+      (item.cdIntel ? '<div class="detail-section"><div class="card-section-title">CD Intelligence</div><div class="detail-section-body">'+esc(item.cdIntel)+'</div></div>' : '')+
       '<div class="detail-section"><div class="card-section-title">Vendor Update</div><div class="detail-section-body">'+esc(item.vendorComment || 'No comment provided.')+'</div></div>'+
       '<div class="detail-section"><div class="card-section-title">Historical Milestones</div><div class="detail-section-body" style="font-family:monospace; font-size:11px;">'+esc(item.bench || 'No history logged.')+'</div></div>'+
     '</div>';
@@ -1948,26 +1911,22 @@ function getHubItemsByTab(tab) {
   return getDiagQueueItems();
 }
 
-function renderHubCard(item) {
-  var pc = pillClass(item.status, item.stage);
-  var pl = pillLabel(item.status, item.stage);
-  var flags = parseFlags(item.flags).slice(0, 3);
-  var dateBits = [
-    item.cxStart ? 'Start ' + item.cxStart : '',
-    item.cxEnd ? 'Target ' + item.cxEnd : '',
-    item.ofsDate ? 'OFS ' + item.ofsDate : ''
-  ].filter(Boolean).map(function(text) {
-    return '<div class="hub-date-pill">' + esc(text) + '</div>';
-  }).join('');
-  var flagBits = flags.length ? flags.map(function(flag) {
-    return '<div class="hub-flag-pill ' + flag.sev + '">' + esc(flag.text) + '</div>';
-  }).join('') : '<div class="hub-flag-pill">No diagnostics</div>';
-  return '<div class="hub-card" onclick="jumpTo(\'' + esc(item.fdh) + '\')">' +
-    '<div class="hub-card-top"><div class="hub-card-fdh">' + esc(item.fdh) + '</div><div class="hub-card-pill glass-pill status-pill ' + pc + '">' + esc(pl) + '</div></div>' +
-    '<div class="hub-card-meta">' + esc((item.city || '') + (item.vendor ? ' · ' + item.vendor : '')) + '</div>' +
-    '<div class="hub-card-dates">' + dateBits + '</div>' +
-    '<div class="hub-card-flags">' + flagBits + '</div>' +
-    '</div>';
+function renderList(items) {
+  var list = document.getElementById('unified-list');
+  if (!list) return;
+  list.innerHTML = '';
+  items.forEach(function(item) {
+    var card = document.createElement('div');
+    card.className = 'email-card ' + getSeverity(item.flags);
+    card.innerHTML =
+      '<div class="em-header">' +
+        '<div class="em-fdh">' + esc(item.fdh || '—') + '</div>' +
+        '<span class="glass-pill ' + pillClass(item.status, item.stage) + '">' + esc(pillLabel(item.status, item.stage)) + '</span>' +
+      '</div>' +
+      '<div class="em-vendor">' + esc((item.city || '') + (item.vendor ? ' · ' + item.vendor : '')) + '</div>';
+    card.onclick = function() { openCarouselAt(item); };
+    list.appendChild(card);
+  });
 }
 
 function updateHubCounts() {
@@ -1992,6 +1951,22 @@ function switchMobileTab(tab) {
     if (el) el.classList.toggle('active', key === tab);
   });
   renderHub();
+}
+
+function openCarouselAt(item) {
+  var subset = getHubItemsByTab(state.hubTab).slice();
+  state.deck = subset;
+  state.idx = 0;
+  if (item && item.fdh) {
+    for (var i = 0; i < subset.length; i++) {
+      if (subset[i].fdh === item.fdh) {
+        state.idx = i;
+        break;
+      }
+    }
+  }
+  syncCountLabel();
+  showReviewQueue(item && item.fdh ? item.fdh : undefined);
 }
 
 function applyFilters() {
@@ -2043,17 +2018,23 @@ function renderHub() {
       : state.hubTab === 'xing'
         ? 'All clear — no crossings to verify'
         : 'No projects in the diagnostic queue';
-    el.innerHTML = '<div class="hub-card hub-empty">' + emptyCopy + '</div>';
+    el.innerHTML = '<div class="hub-empty">' + emptyCopy + '</div>';
     return;
   }
-  el.innerHTML = hits.map(renderHubCard).join('');
+  renderList(hits);
 }
 
 function jumpTo(fdh) {
-  state.deck = state.all.slice();
-  state.idx = 0;
-  syncCountLabel();
-  showReviewQueue(fdh);
+  var item = state.all.find(function(entry) { return entry.fdh === fdh; });
+  if (!item) return;
+  if (getAdminItems().some(function(entry) { return entry.fdh === fdh; })) state.hubTab = 'admin';
+  else if (getCrossingItems().some(function(entry) { return entry.fdh === fdh; })) state.hubTab = 'xing';
+  else state.hubTab = 'diag';
+  ['diag', 'admin', 'xing'].forEach(function(key) {
+    var el = document.getElementById('tab-' + key);
+    if (el) el.classList.toggle('active', key === state.hubTab);
+  });
+  openCarouselAt(item);
 }
 
 /* ═══════════════════════════════════════════════════
