@@ -563,7 +563,7 @@
       height: 100%;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      padding: calc(var(--safe-top) + 12px) 14px 100px;
+      padding: calc(var(--safe-top) + 12px) 14px calc(var(--dock-height) + var(--safe-bottom) + 30px);
       z-index: 20;
       opacity: 1;
       pointer-events: auto;
@@ -1158,6 +1158,16 @@
       border-radius: 999px;
       transition: box-shadow 0.25s ease, transform 0.25s ease, opacity 0.25s ease;
       opacity: 0.88;
+    }
+    .gantt-today-line {
+      position: absolute;
+      top: 30px;
+      bottom: 0;
+      width: 2px;
+      background: rgba(239,68,68,0.8);
+      z-index: 10;
+      border-left: 1px dashed #ef4444;
+      pointer-events: none;
     }
     .gantt-row-dates {
       display: flex;
@@ -1764,7 +1774,7 @@
     <div id="deck-scene">
       <div id="scene-header">
         <div style="display:flex; flex-direction:column; gap:2px;">
-          <div style="font-size:10px; font-weight:900; letter-spacing:1px; color:var(--accent-hub); text-transform:uppercase;">Daily Command Center</div>
+          <div style="font-size:10px; font-weight:900; letter-spacing:1px; color:var(--accent-hub); text-transform:uppercase;">Dailies Command Center</div>
           <div class="scene-title">Diagnostics Queue</div>
         </div>
         <button class="search-cancel-btn" onclick="showHubHome()" style="font-size:12px; font-weight:800;">✕ Back</button>
@@ -2781,15 +2791,25 @@ function renderGantt(items) {
     return { item: item, start: start, end: end };
   }).filter(Boolean);
   if (!datedItems.length) {
-    el.innerHTML = '<div class="hub-empty">No usable schedule dates available (Check date formats).</div>';
+    el.innerHTML = '<div class="hub-empty">No usable schedule dates (Checking Reference Data)...</div>';
     return;
   }
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
   var minDate = new Date(Math.min.apply(null, datedItems.map(function(entry) { return entry.start.getTime(); })));
   var maxDate = new Date(Math.max.apply(null, datedItems.map(function(entry) { return entry.end.getTime(); })));
+  var defaultPast = new Date(today);
+  defaultPast.setDate(today.getDate() - 14);
+  var defaultFuture = new Date(today);
+  defaultFuture.setDate(today.getDate() + 28);
+  if (minDate > defaultPast) minDate = defaultPast;
+  if (maxDate < defaultFuture) maxDate = defaultFuture;
   minDate.setDate(minDate.getDate() - 7);
   maxDate.setDate(maxDate.getDate() + 14);
-  var totalDays = Math.max(1, Math.ceil((maxDate - minDate) / 86400000));
+  var totalTime = Math.max(86400000, maxDate - minDate);
+  var totalDays = Math.max(1, Math.ceil(totalTime / 86400000));
   var chartWidth = Math.max(760, totalDays * 22);
+  var todayPct = ((today - minDate) / totalTime) * 100;
   var markers = [];
   for (var day = 0; day <= totalDays; day += 7) {
     var mark = new Date(minDate.getTime() + (day * 86400000));
@@ -2816,9 +2836,17 @@ function renderGantt(items) {
       '<div class="gantt-timeline-header"><div class="gantt-date-markers" style="width:' + chartWidth + 'px;">' + markers.join('') + '</div></div>' +
       '<div class="gantt-timeline-grid" style="width:' + chartWidth + 'px; --gantt-days:' + totalDays + ';">' +
         '<div class="gantt-grid-lines"></div>' +
+        '<div class="gantt-today-line" style="left:' + todayPct + '%;"></div>' +
         rows +
       '</div>' +
     '</div>';
+  setTimeout(function() {
+    var scrollContainer = document.getElementById('gantt-content');
+    var todayMarker = el.querySelector('.gantt-today-line');
+    if (!scrollContainer || !todayMarker) return;
+    var offset = todayMarker.offsetLeft - (scrollContainer.clientWidth / 2);
+    scrollContainer.scrollLeft = Math.max(0, offset);
+  }, 200);
 }
 
 function handleLandscapeChange() {
