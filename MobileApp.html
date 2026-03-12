@@ -1015,12 +1015,78 @@
       margin-bottom: 14px;
       flex-shrink: 0;
     }
+    #gantt-ui-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      pointer-events: none;
+      z-index: 2200;
+    }
+    .gantt-pill {
+      padding: 8px 16px;
+      border-radius: 20px;
+      background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: var(--hairline);
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    }
     #gantt-content {
-      overflow-y: auto;
+      overflow: auto;
       flex: 1;
+      position: relative;
+      -webkit-overflow-scrolling: touch;
+    }
+    .gantt-area {
+      position: relative;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
+      min-height: 100%;
+    }
+    .gantt-timeline-header {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: linear-gradient(to bottom, rgba(241,245,249,0.98), rgba(241,245,249,0.92));
+      padding-bottom: 10px;
+      backdrop-filter: blur(8px);
+    }
+    .gantt-timeline-grid {
+      position: relative;
+      min-width: 720px;
+      border-radius: 20px;
+      padding-top: 30px;
+    }
+    .gantt-grid-lines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: repeating-linear-gradient(
+        to right,
+        rgba(148, 163, 184, 0.16) 0,
+        rgba(148, 163, 184, 0.16) 1px,
+        transparent 1px,
+        transparent calc(100% / var(--gantt-days))
+      );
+      border-radius: 20px;
+    }
+    .gantt-date-markers {
+      position: relative;
+      height: 26px;
+      min-width: 720px;
+    }
+    .gantt-date-pill {
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      font-size: 10px;
+      font-weight: 900;
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.9);
+      border: var(--hairline);
+      border-radius: 999px;
+      padding: 2px 8px;
     }
     .gantt-row {
       background: var(--card-bg);
@@ -1028,6 +1094,8 @@
       border-radius: 18px;
       padding: 12px 14px;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+      transition: opacity 0.2s ease, filter 0.2s ease;
+      cursor: pointer;
     }
     .gantt-row-top {
       display: flex;
@@ -1049,16 +1117,21 @@
     }
     .gantt-bar-track {
       position: relative;
-      height: 10px;
+      height: 12px;
       border-radius: 999px;
       border: var(--hairline);
       background: rgba(226, 232, 240, 0.8);
-      overflow: hidden;
+      overflow: visible;
       margin-bottom: 8px;
     }
     .gantt-bar-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
       height: 100%;
       border-radius: 999px;
+      transition: box-shadow 0.25s ease, transform 0.25s ease, opacity 0.25s ease;
+      opacity: 0.88;
     }
     .gantt-row-dates {
       display: flex;
@@ -1067,6 +1140,15 @@
       font-size: 10px;
       font-weight: 700;
       color: var(--text-secondary);
+    }
+    .gantt-area.has-focus .gantt-row:not(.is-active) {
+      opacity: 0.35;
+      filter: grayscale(40%);
+    }
+    .gantt-row.is-active .gantt-bar-fill {
+      box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--text-main), 0 10px 20px rgba(0,0,0,0.3) !important;
+      transform: scaleY(1.15);
+      opacity: 1 !important;
     }
 
     /* ─── DOCK ──────────────────────────────────────────────────────── */
@@ -1694,6 +1776,14 @@
     </div>
     <div id="gantt-content"></div>
   </div>
+  <div id="gantt-ui-overlay">
+    <div class="gantt-pill" style="position:fixed; bottom:20px; left:20px; z-index:10000; pointer-events:auto;">
+      <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted);">Global Construction Timeline</div>
+    </div>
+    <div class="gantt-pill" style="position:fixed; bottom:20px; right:20px; z-index:10000; background:rgba(168,85,247,0.15); border-color:var(--color-insight); pointer-events:auto;">
+      <div style="font-size:10px; font-weight:800; color:var(--color-insight); text-transform:uppercase;">↻ Rotate to see card</div>
+    </div>
+  </div>
 
 <script>
 /* ═══════════════════════════════════════════════════
@@ -1804,6 +1894,7 @@ var state = {
   activeTab:  'admin',
   adminSheetOpen: false,
   landscapeGanttOpen: false,
+  ganttSelectedFdh: '',
   reviewOpen: false,
   detailOpen: false,
   searchOpen: false,
@@ -2501,6 +2592,41 @@ function toggleAdminSheet() {
   else openReviewHub(state.reviewOpen ? 'reviewed' : 'admin');
 }
 
+function selectDeckForFdh(fdh) {
+  var adminSubset = getAdminItems();
+  var crossingSubset = getCrossingItems();
+  if (adminSubset.some(function(entry) { return entry.fdh === fdh; })) {
+    state.deck = adminSubset.slice();
+  } else if (crossingSubset.some(function(entry) { return entry.fdh === fdh; })) {
+    state.deck = crossingSubset.slice();
+  } else {
+    state.deck = getDiagQueueItems().slice();
+  }
+  var idx = state.deck.findIndex(function(entry) { return entry.fdh === fdh; });
+  if (idx < 0) {
+    var item = state.all.find(function(entry) { return entry.fdh === fdh; });
+    if (item) {
+      state.deck = state.all.slice();
+      idx = state.deck.findIndex(function(entry) { return entry.fdh === fdh; });
+    }
+  }
+  state.idx = Math.max(0, idx);
+  syncCountLabel();
+  renderDeck();
+}
+
+function onGanttRowClick(fdh) {
+  var ganttArea = document.getElementById('gantt-area-main');
+  var targetRow = document.getElementById('gantt-row-' + fdh);
+  if (!ganttArea || !targetRow) return;
+  ganttArea.classList.add('has-focus');
+  document.querySelectorAll('.gantt-row').forEach(function(row) { row.classList.remove('is-active'); });
+  targetRow.classList.add('is-active');
+  state.ganttSelectedFdh = fdh;
+  selectDeckForFdh(fdh);
+  haptic('light');
+}
+
 function renderGantt(items) {
   var el = document.getElementById('gantt-content');
   if (!el) return;
@@ -2508,28 +2634,73 @@ function renderGantt(items) {
     el.innerHTML = '<div class="hub-empty">No schedule data available.</div>';
     return;
   }
-  el.innerHTML = items.map(function(item) {
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var datedItems = items.filter(function(item) {
+    var start = item.cxStart ? new Date(item.cxStart) : null;
+    var end = (item.targetDate || item.cxEnd) ? new Date(item.targetDate || item.cxEnd) : null;
+    return start && end && !isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start;
+  });
+  if (!datedItems.length) {
+    el.innerHTML = '<div class="hub-empty">No usable schedule dates available.</div>';
+    return;
+  }
+  var minDate = new Date(Math.min.apply(null, datedItems.map(function(item) { return new Date(item.cxStart).getTime(); })));
+  var maxDate = new Date(Math.max.apply(null, datedItems.map(function(item) { return new Date(item.targetDate || item.cxEnd).getTime(); })));
+  minDate.setDate(minDate.getDate() - 7);
+  maxDate.setDate(maxDate.getDate() + 14);
+  var totalDays = Math.max(1, Math.ceil((maxDate - minDate) / 86400000));
+  var chartWidth = Math.max(760, totalDays * 22);
+  var markers = [];
+  for (var day = 0; day <= totalDays; day += 7) {
+    var mark = new Date(minDate.getTime() + (day * 86400000));
+    var left = (day / totalDays) * chartWidth;
+    markers.push('<div class="gantt-date-pill" style="left:' + left + 'px;">' + (mark.getMonth() + 1) + '/' + mark.getDate() + '</div>');
+  }
+  var rows = datedItems.map(function(item) {
+    var start = new Date(item.cxStart);
+    var end = new Date(item.targetDate || item.cxEnd);
+    var startPct = ((start - minDate) / (maxDate - minDate)) * 100;
+    var widthPct = Math.max(2, ((end - start) / (maxDate - minDate)) * 100);
     var color = statusColor(item);
-    var pct = calcSchedulePct(item);
-    return '<div class="gantt-row">' +
+    var activeClass = state.ganttSelectedFdh === item.fdh ? ' is-active' : '';
+    var rowId = String(item.fdh || '').replace(/[^A-Za-z0-9_-]/g, '_');
+    return '<div class="gantt-row' + activeClass + '" id="gantt-row-' + rowId + '" onclick="onGanttRowClick(\'' + esc(item.fdh) + '\')">' +
       '<div class="gantt-row-top"><div><div class="gantt-row-id">' + esc(item.fdh || '—') + '</div><div class="gantt-row-meta">' + esc((item.city || '') + (item.vendor ? ' · ' + item.vendor : '')) + '</div></div><div class="glass-pill ' + getQBStatusClass(item.stage, item.status, false) + '">' + esc((item.stage || '-') + ' | ' + (item.status || '-')) + '</div></div>' +
-      '<div class="gantt-bar-track"><div class="gantt-bar-fill" style="width:' + pct + '%; background:' + color + ';"></div></div>' +
+      '<div class="gantt-bar-track"><div class="gantt-bar-fill" style="left:' + startPct + '%; width:' + widthPct + '%; background:' + color + ';"></div></div>' +
       '<div class="gantt-row-dates"><span>Start: ' + formatDate(item.cxStart) + '</span><span>Target: ' + formatDate(item.targetDate || item.cxEnd) + '</span></div>' +
-      '</div>';
+    '</div>';
   }).join('');
+  el.innerHTML =
+    '<div class="gantt-area' + (state.ganttSelectedFdh ? ' has-focus' : '') + '" id="gantt-area-main">' +
+      '<div class="gantt-timeline-header"><div class="gantt-date-markers" style="width:' + chartWidth + 'px;">' + markers.join('') + '</div></div>' +
+      '<div class="gantt-timeline-grid" style="width:' + chartWidth + 'px; --gantt-days:' + totalDays + ';">' +
+        '<div class="gantt-grid-lines"></div>' +
+        rows +
+      '</div>' +
+    '</div>';
 }
 
 function handleLandscapeChange(forceClose) {
   var gantt = document.getElementById('gantt-panel');
   var main = document.getElementById('main-workspace');
+  var overlay = document.getElementById('gantt-ui-overlay');
   if (!gantt || !main) return;
   var isLandscape = window.innerWidth > window.innerHeight;
+  var wasShowing = state.landscapeGanttOpen;
   var shouldShow = !forceClose && isLandscape && window.innerWidth < 1000;
   state.landscapeGanttOpen = shouldShow;
   gantt.classList.toggle('fullscreen', shouldShow);
   gantt.style.display = shouldShow ? 'flex' : 'none';
+  if (overlay) overlay.style.display = shouldShow ? 'block' : 'none';
   main.style.display = shouldShow ? 'none' : 'flex';
-  if (shouldShow) renderGantt(state.all);
+  if (shouldShow) {
+    renderGantt(state.all);
+  } else if (wasShowing && state.ganttSelectedFdh && !forceClose) {
+    showReviewQueue(state.ganttSelectedFdh);
+  } else if (forceClose) {
+    state.ganttSelectedFdh = '';
+  }
 }
 
 /* ═══════════════════════════════════════════════════
