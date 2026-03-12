@@ -3206,10 +3206,11 @@
                           if (d.getUTCMonth() === today.getMonth() && d.getUTCFullYear() === today.getFullYear()) isOFSMonth = true;
                       }
                   }
-                  let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239,246,255,0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--bg); border-color:var(--border);';
+                  let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239, 246, 255, 0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--bg); border-color:var(--border);';
+
                   if (v) {
                       bodyHtml = `
-                          <div class="grid-vel-wrapper">
+                          <div class="velocity-grid" style="align-content: flex-start; gap: 8px; margin-bottom: 8px; flex-grow: 0;">
                               ${buildVelocityBar('UG', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft)}
                               ${buildVelocityBar('Aerial', v.ae.daily, v.ae.tot, v.ae.bom, 'AE', daysLeft)}
                               ${buildVelocityBar('Fiber', v.fib.daily, v.fib.tot, v.fib.bom, 'FIB', daysLeft)}
@@ -3223,9 +3224,7 @@
                               </div>
                           </div>
                       `;
-                  } else {
-                      bodyHtml = `<div style="font-style:italic; color:var(--text-muted);">No velocity data</div>`;
-                  }
+                  } else { bodyHtml = `<div style="font-style:italic; color:var(--text-muted);">No velocity data</div>`; }
               } else if (currentGridPivot === 'notes') {
                   let vComment = item.vendorComment ? item.vendorComment : 'No update provided.';
                   let smartNote = item.geminiInsight ? item.geminiInsight : generateSmartComment(item, daysLeft, isOverdue);
@@ -3249,7 +3248,7 @@
                   if (item.flags.includes("CHECK BOM")) dFlags.push("CHECK BOM");
                   if (item.flags.includes("MISSING QB STATUS") || item.flags.includes("STATUS MISMATCH")) dFlags.push("QB STATUS");
                   if (dFlags.length > 0) {
-                      topBadgeHtml = `<div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px; margin-top:6px;">` + dFlags.map(f => `<span style="background:rgba(254,226,226,0.5); color:#991b1b; border:1px solid #fca5a5; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:900; line-height:1;">🚩 ${f}</span>`).join('') + `</div>`;
+                      topBadgeHtml = `<div style="display:flex; flex-direction:row; flex-wrap:wrap; justify-content:flex-end; gap:4px; margin-top:6px;">` + dFlags.map(f => `<span style="background:rgba(254,226,226,0.5); color:#991b1b; border:1px solid #fca5a5; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:900; line-height:1;">🚩 ${f}</span>`).join('') + `</div>`;
                       glowCls = 'glow-danger';
                   }
                   bodyHtml = `
