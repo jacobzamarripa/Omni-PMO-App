@@ -63,6 +63,7 @@
           width: max-content !important;
           max-width: 95% !important;
           margin: 0 !important;
+          z-index: 500 !important;
           padding: 8px 12px !important;
           border-radius: 34px !important;
           background: color-mix(in srgb, var(--card-bg) 75%, transparent) !important;
@@ -73,8 +74,8 @@
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
+          flex-wrap: nowrap !important;
           gap: 8px !important;
-          z-index: 10000 !important;
           flex-shrink: 0 !important;
           overflow-x: auto !important;
           scrollbar-width: none;
@@ -288,7 +289,7 @@
       .reading-pane { flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; min-width: 0; min-height: 0 !important; margin-left: 0; }
       .upper-workspace { flex: 1; min-height: 0; display: flex; overflow: hidden; position: relative; }
       .detail-layout { flex: 1; min-height: 0; min-width: 0; display: flex; align-items: stretch; gap: 18px; overflow: hidden; position: relative; }
-      .detail-main { flex: 1; min-width: 0 !important; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+      .detail-main { flex: 1; min-width: 0 !important; display: flex; flex-direction: column; overflow: hidden; position: relative !important; }
       .pane-content {
           flex: 1;
           overflow-y: auto;
@@ -799,9 +800,13 @@
       .help-wf-step { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 4px; }
       .help-wf-num { width: 20px; height: 20px; border-radius: 50%; background: var(--text-main); color: var(--card-bg); font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
 
+      #grid-content, #welcome-screen {
+          padding-top: 80px !important;
+      }
       body.gantt-fullscreen .filter-strip {
           position: fixed !important;
-          top: 80px !important;
+          top: 24px !important;
+          z-index: 10005 !important;
       }
       body.gantt-fullscreen .gantt-controls { top: 80px !important; }
       body.gantt-fullscreen .raw-data-strip { margin-top: 120px !important; }
