@@ -586,12 +586,14 @@
     #unified-list-container {
       background: var(--card-bg);
       border: var(--hairline);
-      border-radius: 24px;
+      border-bottom: none;
+      border-radius: 24px 24px 0 0;
       box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      min-height: fit-content;
+      flex: 1;
+      min-height: 0;
     }
     .hub-title {
       font-size: 18px;
@@ -649,8 +651,9 @@
     }
     .inbox-list {
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       flex: 1;
-      padding-bottom: 0;
+      padding-bottom: calc(var(--safe-bottom) + 100px);
     }
     .email-card {
       padding: 14px 16px;
@@ -758,6 +761,7 @@
       flex: 1;
       -webkit-overflow-scrolling: touch;
       padding-right: 2px;
+      padding-bottom: calc(var(--safe-bottom) + 100px);
     }
     .review-hub-header {
       display: flex;
@@ -1637,6 +1641,7 @@
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-y;
+      padding-bottom: calc(var(--safe-bottom) + 100px);
     }
     .search-result-item {
       background: var(--card-bg);
@@ -1724,14 +1729,24 @@
           <span style="height:6px; width:6px; background:#ef4444; border-radius:50%; box-shadow:0 0 6px #ef4444;"></span> Active Today
         </div>
       </div>
-      <div id="unified-list-container" style="background:var(--card-bg); border:1px solid var(--border); border-radius:24px; box-shadow:0 12px 34px rgba(15,23,42,0.08); display:flex; flex-direction:column; overflow:hidden;">
-        <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; background:var(--bg);">
-          <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px;">Diagnostics Queue</div>
-          <div id="scene-count-label" style="background:var(--card-bg); padding:2px 8px; border-radius:999px; font-size:11px; font-weight:900; border:1px solid var(--border);">0</div>
+      <div id="unified-list-container" style="background:var(--card-bg); border:1px solid var(--border); border-bottom:none; border-radius:24px 24px 0 0; box-shadow:0 12px 34px rgba(15,23,42,0.08); display:flex; flex-direction:column; overflow:hidden; flex:1; min-height:0;">
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--bg);">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px;">Diagnostics Queue</div>
+            <div id="scene-count-label" style="background:var(--card-bg); padding:2px 8px; border-radius:999px; font-size:11px; font-weight:900; border:1px solid var(--border);">0</div>
+          </div>
+          <select id="sort-queue" onchange="applyFilters()" style="font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--card-bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto;">
+            <option value="default">Default</option>
+            <option value="admin">Admin Check</option>
+            <option value="target">Target Date</option>
+            <option value="start">CX Start</option>
+            <option value="end">CX Complete</option>
+            <option value="ofs">OFS Date</option>
+            <option value="report">Report Date</option>
+          </select>
         </div>
-        <div id="unified-list" class="inbox-list" style="overflow:visible; flex:none;"></div>
+        <div id="unified-list" class="inbox-list"></div>
       </div>
-      <div style="height: 160px; flex-shrink: 0; width: 100%;"></div>
     </div>
 
     <!-- 4. DETAIL SHEET -->
@@ -2481,13 +2496,20 @@ function setDockMode() {
     homeBtn.classList.remove('dock-back-active');
     primaryMain.textContent = 'Commit';
     primarySub.textContent = (state.deck[state.idx] && state.deck[state.idx].fdh) ? state.deck[state.idx].fdh : 'Review';
-    secondary.textContent = 'Skip';
+    secondary.innerHTML = 'Skip';
+    secondary.style.color = 'var(--text-main)';
     homeIcon.innerHTML = '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>';
   } else {
     homeBtn.classList.remove('dock-back-active');
     primaryMain.textContent = 'Review Queue';
-    primarySub.textContent = getDiagQueueItems().length + ' project' + (getDiagQueueItems().length !== 1 ? 's' : '');
-    secondary.textContent = 'Search';
+    primarySub.textContent = state.deck.length + ' project' + (state.deck.length !== 1 ? 's' : '');
+    if (state.searchOpen) {
+      secondary.innerHTML = '✕ Close';
+      secondary.style.color = '#ef4444';
+    } else {
+      secondary.innerHTML = 'Search';
+      secondary.style.color = 'var(--text-main)';
+    }
     homeIcon.innerHTML = '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>';
   }
 }
@@ -2509,6 +2531,7 @@ function handlePrimaryAction() {
 
 function handleSecondaryAction() {
   if (state.reviewOpen) skipCurrentCard();
+  else if (state.searchOpen) closeSearch();
   else openSearch();
 }
 
@@ -2551,6 +2574,7 @@ function openSearch() {
   state.searchOpen = true;
   document.getElementById('search-overlay').classList.add('open');
   applyFilters();
+  setDockMode();
   setTimeout(function(){ var i=document.getElementById('search-input'); if(i) i.focus(); },360);
 }
 
@@ -2559,6 +2583,7 @@ function closeSearch() {
   document.getElementById('search-overlay').classList.remove('open');
   var i=document.getElementById('search-input');
   if(i) i.blur();
+  setDockMode();
 }
 
 function renderAdminSheetList(containerId, items, emptyText) {
@@ -3363,6 +3388,7 @@ function applyFilters() {
   var vCit = (document.getElementById('filter-city') || {}).value || 'ALL';
   var vOfs = (document.getElementById('filter-ofs') || {}).value || 'ALL';
   var vSev = (document.getElementById('filter-severity') || {}).value || 'ALL';
+  var sortVal = (document.getElementById('sort-queue') || {}).value || 'default';
   var searchTerm = ((document.getElementById('search-input') || {}).value || '').trim().toLowerCase();
 
   state.deck = state.all.filter(function(item) {
@@ -3381,11 +3407,42 @@ function applyFilters() {
     return matchSev && matchVen && matchCit && matchOfs && matchSearch;
   });
 
+  if (sortVal !== 'default') {
+    state.deck.sort(function(a, b) {
+      if (sortVal === 'admin') {
+        var aFlags = String(a.flags || '');
+        var bFlags = String(b.flags || '');
+        var aAdmin = (aFlags.includes('ADMIN') || aFlags.includes('STATUS MISMATCH') || aFlags.includes('MISSING QB STATUS')) ? 0 : 1;
+        var bAdmin = (bFlags.includes('ADMIN') || bFlags.includes('STATUS MISMATCH') || bFlags.includes('MISSING QB STATUS')) ? 0 : 1;
+        if (aAdmin !== bAdmin) return aAdmin - bAdmin;
+        return (a.rowNum || 0) - (b.rowNum || 0);
+      }
+
+      var valA = null;
+      var valB = null;
+      if (sortVal === 'target') { valA = safeParse(a.targetDate); valB = safeParse(b.targetDate); }
+      else if (sortVal === 'start') { valA = safeParse(a.cxStart); valB = safeParse(b.cxStart); }
+      else if (sortVal === 'end') { valA = safeParse(a.cxEnd); valB = safeParse(b.cxEnd); }
+      else if (sortVal === 'ofs') { valA = safeParse(a.ofsDate); valB = safeParse(b.ofsDate); }
+      else if (sortVal === 'report') { valA = safeParse(a.reportDate); valB = safeParse(b.reportDate); }
+
+      var isInvA = !valA || isNaN(valA.getTime ? valA.getTime() : valA);
+      var isInvB = !valB || isNaN(valB.getTime ? valB.getTime() : valB);
+      if (isInvA && isInvB) return (a.rowNum || 0) - (b.rowNum || 0);
+      if (isInvA) return 1;
+      if (isInvB) return -1;
+      return valA - valB;
+    });
+  } else {
+    state.deck.sort(function(a, b) { return (a.rowNum || 0) - (b.rowNum || 0); });
+  }
+
   state.idx = 0;
   syncCountLabel();
   renderDeck();
   updatePill();
   renderSearchResults();
+  renderList(state.deck);
 }
 
 function pickResult(fdh) {
@@ -3484,6 +3541,8 @@ function init() {
     var el = document.getElementById(id);
     if (el) el.addEventListener('change', applyFilters);
   });
+  var sortQueue = document.getElementById('sort-queue');
+  if (sortQueue) sortQueue.addEventListener('change', applyFilters);
 
   // Detail sheet swipe-to-close from handle
   var handleRow=document.getElementById('detail-handle-row');
