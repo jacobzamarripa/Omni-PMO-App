@@ -2177,6 +2177,16 @@
           badge.style.display = 'inline';
       }
       window.onload = function() {
+          const currentUrl = new URL(window.location.href);
+          const currentView = (currentUrl.searchParams.get('view') || '').toLowerCase();
+          const isPhoneWidth = window.innerWidth <= 430;
+          const isPhoneUA = /iPhone|Android.+Mobile|Mobile/i.test(navigator.userAgent || '');
+          if (isPhoneWidth && isPhoneUA && currentView !== 'mobile' && currentView !== 'codex') {
+              currentUrl.searchParams.set('view', 'mobile');
+              window.location.replace(currentUrl.toString());
+              return;
+          }
+
           initSwipeGestures();
           /* Keyboard avoidance: float dock above iOS software keyboard */
           if (window.visualViewport) {
