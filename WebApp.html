@@ -2644,7 +2644,7 @@
               if (!isGridMode) {
                   setStyle('pane-content', 'display', 'flex');
               }
-              if (window.innerWidth > 768) setAdminPanelOpen(shouldAutoOpenAdminPanel());
+              if (window.innerWidth > 768 && !isGridMode) setAdminPanelOpen(shouldAutoOpenAdminPanel());
               
               renderDiagnosticStrip(item.rawRow);
 
@@ -2918,7 +2918,11 @@
                   let exitBtn = getEl('btn-exit-theater'); if(exitBtn) exitBtn.style.display = 'inline-flex';
               }
 
-              requestAnimationFrame(() => requestAnimationFrame(() => applySmartGanttDocking({ resetManualHeight: true })));
+              requestAnimationFrame(() => {
+                  if (!isGridMode) {
+                      requestAnimationFrame(() => applySmartGanttDocking({ resetManualHeight: true }));
+                  }
+              });
           });
       }
 
