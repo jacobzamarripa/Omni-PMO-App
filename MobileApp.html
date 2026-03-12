@@ -1199,9 +1199,12 @@
       color: var(--text-main);
       font-family: inherit;
       cursor: pointer;
-      transition: transform 0.25s var(--spring);
+      transition: transform 0.25s var(--spring), background 0.3s, border-color 0.3s;
     }
     #dock-primary-pill.bump { transform: scale(1.12); }
+    #dock-primary-pill.commit-mode { background: #22c55e; border-color: #16a34a; }
+    #dock-primary-pill.commit-mode #dock-primary-main { color: #ffffff; }
+    #dock-primary-pill.commit-mode #dock-primary-sub  { color: #dcfce7; }
     #dock-primary-main {
       font-size: 12px;
       font-weight: 900;
@@ -1248,8 +1251,8 @@
       padding: 0;
       border: none;
       margin-right: 0;
-      background: rgba(255,255,255,0.88);
-      border-radius: 22px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 50%;
       color: var(--text-main);
       cursor: pointer;
       display: flex;
@@ -1263,16 +1266,14 @@
       flex-shrink: 0;
     }
     .dock-back-btn.show {
-      width: 86px;
+      width: 44px;
       opacity: 1;
-      margin-right: 8px;
+      margin-right: 14px;
       border: 1px solid var(--border);
     }
     .dock-back-btn:active {
       transform: scale(0.92);
     }
-    .dock-back-text { font-size: 12px; font-weight: 900; margin-left: 6px; }
-
     /* ─── LIST SWIPE GESTURE WRAPPERS ─── */
     .swipe-wrapper {
       position: relative;
@@ -1890,10 +1891,9 @@
       </button>
       <div class="dock-center-group">
         <button class="dock-back-btn" id="dock-back-btn" onclick="showHubHome()">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>
           </svg>
-          <span class="dock-back-text">Back</span>
         </button>
         <button id="dock-primary-pill" onclick="handlePrimaryAction()">
           <span id="dock-primary-main">Review Queue</span>
@@ -2686,6 +2686,7 @@ function showReviewQueue(startFdh) {
 }
 
 function setDockMode() {
+  var primaryPill = document.getElementById('dock-primary-pill');
   var primaryMain = document.getElementById('dock-primary-main');
   var primarySub = document.getElementById('dock-primary-sub');
   var secondary = document.getElementById('dock-secondary-btn');
@@ -2701,12 +2702,14 @@ function setDockMode() {
 
   if (state.reviewOpen) {
     if (backBtn) backBtn.classList.add('show');
+    if (primaryPill) primaryPill.classList.add('commit-mode');
     primaryMain.textContent = 'Commit';
     primarySub.textContent = (state.deck[state.idx] && state.deck[state.idx].fdh) ? state.deck[state.idx].fdh : 'Review';
     secondary.innerHTML = 'Skip';
     secondary.style.color = 'var(--text-main)';
   } else {
     if (backBtn) backBtn.classList.remove('show');
+    if (primaryPill) primaryPill.classList.remove('commit-mode');
     primaryMain.textContent = 'Review Queue';
     primarySub.textContent = state.deck.length + ' project' + (state.deck.length !== 1 ? 's' : '');
     if (state.searchOpen) {
@@ -2795,22 +2798,31 @@ function renderAdminSheetList(containerId, items, emptyText) {
   }
   el.innerHTML = '';
   items.forEach(function(item) {
-    var card = document.createElement('div');
-    card.className = 'email-card ' + getSeverity(item.flags);
-    card.innerHTML =
-      '<div class="em-header">' +
-      '<div class="em-fdh">' + esc(item.fdh || '—') + '</div>' +
-      '<span class="glass-pill ' + pillClass(item.status, item.stage) + '">' + esc(pillLabel(item.status, item.stage)) + '</span>' +
-      '</div>' +
-      '<div class="em-vendor">' + esc((item.city || '') + (item.vendor ? ' · ' + item.vendor : '')) + '</div>';
-    card.onclick = function() {
-      state.deck = items.slice();
-      state.idx = items.findIndex(function(entry) { return entry.fdh === item.fdh; });
-      if (state.idx < 0) state.idx = 0;
-      syncCountLabel();
-      showReviewQueue(item.fdh);
-    };
-    el.appendChild(card);
+    var wrapper = document.createElement('div');
+    wrapper.className = 'swipe-wrapper';
+    wrapper.dataset.fdh = item.fdh;
+    wrapper.dataset.listType = 'queue';
+    wrapper.innerHTML =
+      '<div class="swipe-actions swipe-action-left">✔ Commit</div>' +
+      '<div class="swipe-actions swipe-action-right">✕ Skip</div>' +
+      '<div class="swipe-item email-card ' + getSeverity(item.flags) + '">' +
+        '<div class="em-header">' +
+          '<div class="em-fdh">' + esc(item.fdh || '—') + '</div>' +
+          '<span class="glass-pill ' + pillClass(item.status, item.stage) + '">' + esc(pillLabel(item.status, item.stage)) + '</span>' +
+        '</div>' +
+        '<div class="em-vendor">' + esc((item.city || '') + (item.vendor ? ' · ' + item.vendor : '')) + '</div>' +
+      '</div>';
+    (function(i, its) {
+      wrapper.querySelector('.swipe-item').onclick = function() {
+        if (window._preventSwipeClick) return;
+        state.deck = its.slice();
+        state.idx = its.findIndex(function(entry) { return entry.fdh === i.fdh; });
+        if (state.idx < 0) state.idx = 0;
+        syncCountLabel();
+        showReviewQueue(i.fdh);
+      };
+    })(item, items);
+    el.appendChild(wrapper);
   });
 }
 
