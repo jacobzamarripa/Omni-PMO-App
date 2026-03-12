@@ -796,6 +796,7 @@
                          <button class="panel-tab-close" onclick="toggleFilterStrip()" title="Close Filters" style="width:26px; height:26px; min-width:26px;">✕</button>
                      </div>
                  </div>
+                 <div id="grid-content" style="display:none; width:100%; overflow-y:visible; padding-top:10px; align-content:flex-start; gap:16px; box-sizing:border-box;"></div>
                  <div class="qb-grid">
                <div class="qb-top-row">
                <div class="qb-module hover-trigger" id="project-schedule-card" style="padding:12px 14px;" onmouseenter="hl('Budget OFS')" onmouseleave="hl('')">
@@ -951,7 +952,6 @@
                    </div>
 
             </div>
-            <div id="grid-content" style="display:none; flex:1; overflow-y:auto; padding:20px; align-content:flex-start; gap:16px; box-sizing:border-box;"></div>
             <div class="admin-dock" id="admin-dock">
               <div class="admin-fab-anchor">
                 <button class="admin-fab" id="admin-fab" onclick="toggleAdminPanel()" title="Admin / Reviewed" aria-label="Open admin panel">
@@ -2902,19 +2902,23 @@
           isGridMode = !isGridMode;
           const btn = getEl('btn-grid-toggle');
           const pivot = getEl('grid-pivot-select');
-          const pane = getEl('pane-content');
           const grid = getEl('grid-content');
           const welcome = getEl('welcome-screen');
+          const detailLayout = getEl('detail-layout');
+          const paneContent = getEl('pane-content');
+          const qbGrid = document.querySelector('.qb-grid');
 
-          if (!btn || !pivot || !pane || !grid) return;
+          if (!btn || !pivot || !grid) return;
 
           if (isGridMode) {
               btn.style.background = 'rgba(59, 130, 246, 0.15)';
               btn.style.color = '#1d4ed8';
               btn.style.borderColor = '#3b82f6';
               pivot.style.display = 'inline-block';
-              pane.style.display = 'none';
               if (welcome) welcome.style.display = 'none';
+              if (detailLayout) detailLayout.style.display = 'flex';
+              if (paneContent) paneContent.style.display = 'flex';
+              if (qbGrid) qbGrid.style.display = 'none';
               grid.classList.add('active');
               renderGrid();
           } else {
@@ -2924,9 +2928,10 @@
               pivot.style.display = 'none';
               grid.classList.remove('active');
               if (currentActiveItem) {
-                  pane.style.display = 'flex';
+                  if (qbGrid) qbGrid.style.display = 'flex';
               } else {
-                  pane.style.display = 'none';
+                  if (paneContent) paneContent.style.display = 'none';
+                  if (detailLayout) detailLayout.style.display = 'none';
                   if (welcome) welcome.style.display = 'flex';
               }
           }
@@ -3017,7 +3022,7 @@
       }
 
       function openPaneFromGrid(fdh) {
-          toggleGridMode();
+          if (isGridMode) toggleGridMode();
           let item = filteredItems.find(i => i.fdh === fdh);
           if (item) {
               let cardEl = getEl(`card-${item.fdh}`);
