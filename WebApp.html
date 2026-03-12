@@ -54,9 +54,86 @@
       .nav-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
       .btn-icon { background: color-mix(in srgb, var(--card-bg) 84%, transparent); border: 1px solid var(--border); border-radius: 14px; padding: 5px 11px; cursor: pointer; color: var(--text-main); font-size: 15px; line-height: 1; display: flex; align-items: center; transition: all 0.2s; height: 34px; box-sizing: border-box; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06); }
       .btn-icon:hover { background: var(--card-bg); transform: translateY(-1px); }
-      .filter-strip { position: sticky !important; top: 10px !important; z-index: 150 !important; background: color-mix(in srgb, var(--card-bg) 85%, transparent) !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important; padding: 10px 16px !important; border-radius: 20px !important; border: 1px solid var(--border) !important; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1) !important; display: flex !important; align-items: center !important; justify-content: center !important; flex-wrap: wrap !important; gap: 10px !important; width: fit-content !important; max-width: 100% !important; margin: 0 auto !important; transition: opacity 0.2s, transform 0.2s; flex-shrink: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      .filter-strip::-webkit-scrollbar { height: 0; }
-      .filter-tools { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+      /* 2. Glassmorphism Floating Dock (Mobile-Style) */
+      .filter-strip {
+          position: relative !important;
+          align-self: center !important;
+          width: fit-content !important;
+          max-width: 95% !important;
+          margin: 16px auto 12px auto !important;
+          padding: 8px 12px !important;
+          border-radius: 34px !important;
+          background: color-mix(in srgb, var(--card-bg) 75%, transparent) !important;
+          backdrop-filter: blur(24px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+          border: 1px solid var(--border) !important;
+          box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12) !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          flex-wrap: wrap !important;
+          gap: 8px !important;
+          z-index: 100 !important;
+          flex-shrink: 0 !important;
+          transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease !important;
+      }
+      .filter-strip:hover {
+          transform: translateY(-2px) !important;
+          box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18) !important;
+      }
+      .filter-strip input[type="text"],
+      .filter-strip select {
+          border-radius: 20px !important;
+          background: rgba(255, 255, 255, 0.6) !important;
+          border: 1px solid var(--border) !important;
+          padding: 8px 16px !important;
+          height: 38px !important;
+          font-size: 11px !important;
+          font-weight: 800 !important;
+          color: var(--text-main) !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.04) !important;
+          transition: all 0.15s ease !important;
+          cursor: pointer;
+      }
+      body.dark-mode .filter-strip input[type="text"],
+      body.dark-mode .filter-strip select {
+          background: rgba(0, 0, 0, 0.4) !important;
+      }
+      .filter-strip input[type="text"]:hover,
+      .filter-strip select:hover {
+          transform: translateY(-1px);
+          background: var(--card-bg) !important;
+          box-shadow: 0 6px 12px rgba(0,0,0,0.08) !important;
+          border-color: var(--text-muted) !important;
+      }
+      .filter-strip input[type="text"]:focus,
+      .filter-strip select:focus {
+          transform: translateY(-2px);
+          border-color: #3b82f6 !important;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+          background: var(--card-bg) !important;
+      }
+      .filter-strip .filter-tools {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border-left: 1px solid rgba(148, 163, 184, 0.3) !important;
+          padding-left: 10px !important;
+          margin-left: 2px !important;
+      }
+      .filter-strip .btn {
+          border-radius: 20px !important;
+          height: 38px !important;
+          padding: 0 16px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.04) !important;
+          transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s ease !important;
+      }
+      .filter-strip .btn:active {
+          transform: scale(0.94) !important;
+          box-shadow: none !important;
+      }
 
       .kpi-nav-container { display: flex; align-items: center; gap: 8px; flex-shrink: 1; margin-left: 4px; overflow: visible; flex-wrap: wrap; }
       .kpi-nav-header { font-size: 10px; font-weight: 900; color: var(--color-critical); text-transform: uppercase; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 16px; background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08); }
@@ -266,22 +343,6 @@
       }
       #detail-layout { display: flex !important; }
       .detail-main { display: flex; flex-direction: column; }
-      .filter-strip {
-          position: relative !important;
-          top: 0 !important;
-          width: 100% !important;
-          max-width: none !important;
-          border-radius: 0 !important;
-          border-left: none !important;
-          border-right: none !important;
-          border-top: none !important;
-          margin: 0 !important;
-          justify-content: flex-start !important;
-          padding: 14px 20px !important;
-          background: var(--card-bg) !important;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.04) !important;
-          z-index: 100 !important;
-      }
       .filter-strip.hidden { display: flex !important; }
       body.grid-mode-active .inbox-sidebar { display: none !important; }
       body.grid-mode-active .pane-content { max-width: none !important; padding: 20px 30px !important; }
@@ -806,16 +867,16 @@
                      <select id="filter-vendor" onchange="applyFilters()"><option value="ALL">All Vendors</option></select>
                      <select id="filter-city" onchange="applyFilters()"><option value="ALL">All Cities</option></select>
                      <select id="filter-ofs" onchange="applyFilters()"><option value="ALL">All OFS Dates</option></select>
-                     <div class="filter-tools" style="display:flex; align-items:center; gap:8px; border-left:1px solid var(--border); padding-left:10px; margin-left:4px;">
+                     <div class="filter-tools">
                          <span id="nav-ref-age" style="font-size:9px; font-weight:900; padding:6px 10px; border-radius:12px; border:1px solid; display:none; white-space:nowrap;"></span>
-                         <button class="btn hover-trigger" id="btn-grid-toggle" onclick="toggleGridMode()" style="padding:6px 12px; font-size:10px; border-color:var(--border); background:var(--card-bg); color:var(--text-main); font-weight:900;">⊞ GRID MODE</button>
-                         <select id="grid-pivot-select" onchange="updateGridPivot()" style="display:none; font-size:10px; padding:6px 10px; height:auto; border-radius:8px;">
+                         <button class="btn hover-trigger" id="btn-grid-toggle" onclick="toggleGridMode()" style="font-size:10px; border-color:var(--border); background:var(--card-bg); color:var(--text-main); font-weight:900;">⊞ GRID MODE</button>
+                         <select id="grid-pivot-select" onchange="updateGridPivot()" style="display:none; font-size:10px;">
                             <option value="velocity">Field Velocity</option>
                             <option value="schedule">Project Schedule</option>
                             <option value="notes">Manager Notes</option>
                             <option value="deliverables">Deliverables</option>
                          </select>
-                         <button class="btn" id="btn-clear-filters" onclick="clearAllFilters()" style="display:none; padding:6px 12px; font-size:10px; border-color:var(--border); background:var(--card-bg); color:var(--text-main);">Clear</button>
+                         <button class="btn" id="btn-clear-filters" onclick="clearAllFilters()" style="display:none; font-size:10px; border-color:var(--border); background:var(--card-bg); color:var(--text-main);">Clear</button>
                      </div>
                  </div>
                  <div id="welcome-screen" class="empty-msg"><div style="font-size:32px; margin-bottom:12px;">Select a Project</div></div>
