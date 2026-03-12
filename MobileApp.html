@@ -2091,6 +2091,7 @@ var state = {
   deck:       [],
   idx:        0,
   committed:  [],
+  stagedCrossings: [],
   count:      0,
   activeTab:  'admin',
   adminFilter: 'all',
@@ -3605,60 +3606,86 @@ function getHubItemsByTab(tab) {
 function renderAdminPaneContent() {
   var pane = document.getElementById('admin-pane-content');
   if (!pane) return;
+  if (!state.stagedCrossings) state.stagedCrossings = [];
+
   var items = state.all;
   var crossings = items.filter(function(i) { return String(i.flags||'').includes('ADMIN: CHECK CROSSINGS'); });
   var bomInput  = items.filter(function(i) { return String(i.flags||'').includes('PLEASE INPUT BOM'); });
   var bomCheck  = items.filter(function(i) { return String(i.flags||'').includes('CHECK BOM'); });
   var status    = items.filter(function(i) { return String(i.flags||'').includes('STATUS MISMATCH') || String(i.flags||'').includes('MISSING QB STATUS'); });
+  var bomsTotal = bomInput.concat(bomCheck);
   var mode = state.adminFilter || 'all';
 
-  function makeSwipeCard(item, customRightHtml) {
-    var isNotInQb = String(item.flags||'').includes('NOT IN QB REFERENCE') || String(item.flags||'').includes('MISSING QB STATUS');
-    var pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
-    var combinedPill = isNotInQb ? 'NOT IN QB REFERENCE' : ((item.stage || '-') + ' | ' + (item.status || '-'));
-    var right = customRightHtml || `<span class="glass-pill ${pillCls}">${esc(combinedPill)}</span>`;
-    return `<div class="swipe-wrapper" data-fdh="${esc(item.fdh)}" data-list-type="queue" style="border-radius:12px; margin-bottom:8px;">
-      <div class="swipe-actions swipe-action-left">✔ Commit</div>
-      <div class="swipe-actions swipe-action-right">✕ Skip</div>
-      <div class="swipe-item email-card ${getSeverity(item.flags)}" style="border-bottom:none; border-radius:12px; padding:12px 14px;">
-        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
-          <div>
-            <div class="em-fdh" style="font-size:14px;">${esc(item.fdh||'—')}</div>
-            <div class="em-vendor" style="margin-top:2px;">${esc((item.city||'') + (item.vendor ? ' · ' + item.vendor : ''))}</div>
+  function makeSwipeCard(item, customDetails, listType, leftSwipe, rightSwipe) {
+    var fdh = esc(item.fdh || '—');
+    var vendor = esc((item.city||'') + (item.vendor ? ' · ' + item.vendor : ''));
+    var isStaged = state.stagedCrossings.indexOf(item.fdh) > -1;
+    var stagedPill = isStaged ? '<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:6px; font-size:9px; font-weight:900; border:1px solid #bbf7d0; margin-left:8px;">✓ STAGED</span>' : '';
+    return `<div class="swipe-wrapper" data-fdh="${esc(item.fdh)}" data-list-type="${listType}" style="border-radius:12px; margin-bottom:8px;">
+      ${leftSwipe || ''}
+      ${rightSwipe || ''}
+      <div class="swipe-item admin-list-card" id="admin-card-${esc(item.fdh)}" style="border-bottom:none; border-radius:12px; padding:12px 14px; background:var(--card-bg);">
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <div style="display:flex; align-items:center;">
+            <div style="font-size:14px; font-weight:900; color:var(--text-main);">${fdh}</div>
+            ${stagedPill}
           </div>
-          <div style="flex-shrink:0;">${right}</div>
+          <div style="font-size:10px; color:var(--text-muted);">${vendor}</div>
+          <div style="margin-top:2px;">${customDetails}</div>
         </div>
       </div>
     </div>`;
   }
 
-  function sectionTitle(label, count) {
-    return `<div class="hub-section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-      <span>${label} <span style="background:var(--border); padding:2px 6px; border-radius:10px; color:var(--text-main); font-size:9px;">${count}</span></span>
-    </div>`;
-  }
-
   var html = '';
-  if ((mode === 'all' || mode === 'xing') && crossings.length) {
-    html += sectionTitle('Crossings to Verify', crossings.length);
+
+  if ((mode === 'all' || mode === 'xing') && crossings.length > 0) {
+    var commitBtn = '';
+    if (state.stagedCrossings.length > 0) {
+      commitBtn = `<button onclick="commitStagedMobile(this)" style="padding:4px 10px; font-size:10px; font-weight:900; background:#0f172a; color:#fff; border:1px solid #0f172a; border-radius:6px; cursor:pointer; white-space:nowrap; box-shadow:0 4px 6px rgba(0,0,0,0.1);">Commit Staged →</button>`;
+    }
+    html += `<div class="hub-section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; margin-bottom:12px;">
+      <span>Crossings to Verify <span style="background:var(--border); padding:2px 6px; border-radius:10px; color:var(--text-main); font-size:9px;">${crossings.length}</span></span>
+      ${commitBtn}
+    </div>`;
     html += crossings.map(function(item) {
       var xVal = item.rawSpecialX || (item.isXing ? 'YES' : '—');
-      return makeSwipeCard(item, `<div style="font-size:10px; font-weight:800; color:var(--text-muted); text-align:right;">QB Crossings:<br/><span style="font-weight:900; color:var(--text-main); font-size:11px;">${esc(String(xVal))}</span></div>`);
+      var detailsHtml = `<div style="font-size:10px; color:var(--text-muted);">QB Crossings: <span style="font-weight:900; color:var(--text-main); font-size:11px;">${esc(String(xVal))}</span></div>`;
+      return makeSwipeCard(item, detailsHtml, 'admin-xing',
+        '<div class="swipe-actions swipe-action-left" style="background:#16a34a;">✓ Verify</div>',
+        '<div class="swipe-actions swipe-action-uncommit" style="background:#f59e0b;">⟲ Unverify</div>');
     }).join('');
   }
-  if ((mode === 'all' || mode === 'status') && status.length) {
-    html += sectionTitle('Status Mismatches', status.length);
+
+  if ((mode === 'all' || mode === 'status') && status.length > 0) {
+    html += `<div class="hub-section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; margin-bottom:12px;">
+      <span>Status Mismatches <span style="background:var(--border); padding:2px 6px; border-radius:10px; color:var(--text-main); font-size:9px;">${status.length}</span></span>
+    </div>`;
     html += status.map(function(item) {
-      return makeSwipeCard(item, `<div style="font-size:10px; font-weight:800; color:var(--text-muted); text-align:right;">QB Status:<br/><span style="font-weight:900; color:var(--text-main); font-size:11px;">${esc(item.status||'—')}</span></div>`);
+      var detailsHtml = `<div style="font-size:10px; color:var(--text-muted);">QB Status: <span style="font-weight:900; color:var(--text-main); font-size:11px;">${esc(item.status||'—')}</span></div>`;
+      return makeSwipeCard(item, detailsHtml, 'admin-status',
+        '<div class="swipe-actions swipe-action-left" style="background:#2563eb;">🛠 Updated</div>',
+        '');
     }).join('');
   }
-  if ((mode === 'all' || mode === 'boms') && bomInput.length) {
-    html += sectionTitle('BOMs to Input', bomInput.length);
-    html += bomInput.map(function(item) { return makeSwipeCard(item); }).join('');
-  }
-  if ((mode === 'all' || mode === 'boms') && bomCheck.length) {
-    html += sectionTitle('BOMs to Check (UG/AE)', bomCheck.length);
-    html += bomCheck.map(function(item) { return makeSwipeCard(item); }).join('');
+
+  if ((mode === 'all' || mode === 'boms') && bomsTotal.length > 0) {
+    if (bomInput.length > 0) {
+      html += `<div class="hub-section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; margin-bottom:12px;">
+        <span>BOMs to Input <span style="background:var(--border); padding:2px 6px; border-radius:10px; color:var(--text-main); font-size:9px;">${bomInput.length}</span></span>
+      </div>`;
+      html += bomInput.map(function(item) {
+        return makeSwipeCard(item, `<div style="font-size:10px; color:var(--text-muted); font-style:italic;">Enter BOM data in QuickBase.</div>`, 'admin-bom', '', '');
+      }).join('');
+    }
+    if (bomCheck.length > 0) {
+      html += `<div class="hub-section-title" style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; margin-bottom:12px;">
+        <span>BOMs to Check (UG/AE) <span style="background:var(--border); padding:2px 6px; border-radius:10px; color:var(--text-main); font-size:9px;">${bomCheck.length}</span></span>
+      </div>`;
+      html += bomCheck.map(function(item) {
+        return makeSwipeCard(item, `<div style="font-size:10px; color:var(--text-muted); font-style:italic;">UG/AE BOMs are 0 in QB.</div>`, 'admin-bom', '', '');
+      }).join('');
+    }
   }
 
   if (!html) {
@@ -4042,9 +4069,105 @@ document.addEventListener('touchend', function(e) {
       } else {
         el.style.transform = 'translateX(0)';
       }
+    } else if (listType === 'admin-xing') {
+      if (dx > threshold) {
+        el.style.transform = 'translateX(100%)';
+        setTimeout(function() { verifyCrossingLocal(fdh); }, 250);
+      } else if (dx < -threshold) {
+        el.style.transform = 'translateX(-100%)';
+        setTimeout(function() { unverifyCrossingLocal(fdh); }, 250);
+      } else {
+        el.style.transform = 'translateX(0)';
+      }
+    } else if (listType === 'admin-status') {
+      if (dx > threshold) {
+        el.style.transform = 'translateX(100%)';
+        setTimeout(function() { markQbUpdatedMobile(fdh); }, 250);
+      } else {
+        el.style.transform = 'translateX(0)';
+      }
     }
   }
 }, {passive: true});
+
+// ─── ADMIN SWIPE & BATCH COMMIT LOGIC ───────────────────────────────────────
+
+function verifyCrossingLocal(fdh) {
+  if (state.stagedCrossings.indexOf(fdh) === -1) {
+    state.stagedCrossings.push(fdh);
+  }
+  haptic('medium');
+  renderAdminPaneContent();
+}
+
+function unverifyCrossingLocal(fdh) {
+  var idx = state.stagedCrossings.indexOf(fdh);
+  if (idx > -1) {
+    state.stagedCrossings.splice(idx, 1);
+  }
+  haptic('light');
+  renderAdminPaneContent();
+}
+
+function markQbUpdatedMobile(fdh) {
+  haptic('medium');
+  toast('Updating QB Status...');
+  google.script.run
+    .withSuccessHandler(function() {
+      toast('✅ Marked Updated');
+      google.script.run.withSuccessHandler(function(d) {
+        state.all = d.actionItems;
+        renderAdminSheet();
+      }).getDashboardData();
+    })
+    .withFailureHandler(function(err) {
+      alert('Failed: ' + err.message);
+      renderAdminPaneContent();
+    })
+    .markStatusSyncComplete(fdh);
+}
+
+function commitStagedMobile(btn) {
+  if (!state.stagedCrossings || state.stagedCrossings.length === 0) return;
+  btn.innerText = 'Committing...';
+  btn.disabled = true;
+  var staged = state.stagedCrossings.slice();
+  var completed = 0;
+  function verifyNext() {
+    if (completed >= staged.length) {
+      google.script.run
+        .withSuccessHandler(function(r) {
+          state.stagedCrossings = [];
+          if (r.success) toast('✅ ' + r.count + ' crossings committed');
+          else alert('Commit failed: ' + r.error);
+          google.script.run.withSuccessHandler(function(d) {
+            state.all = d.actionItems;
+            renderAdminSheet();
+          }).getDashboardData();
+        })
+        .withFailureHandler(function(err) {
+          alert('Final commit failed: ' + err.message);
+          btn.innerText = 'Commit Staged →';
+          btn.disabled = false;
+        })
+        .commitToQueueWebApp();
+      return;
+    }
+    var fdh = staged[completed];
+    google.script.run
+      .withSuccessHandler(function() {
+        completed++;
+        verifyNext();
+      })
+      .withFailureHandler(function(err) {
+        alert('Failed to verify ' + fdh + ': ' + err.message);
+        completed++;
+        verifyNext();
+      })
+      .verifySpecialCrossings(fdh);
+  }
+  verifyNext();
+}
 
 function commitFromList(fdh) {
   var item = state.all.find(function(i) { return i.fdh === fdh; });
