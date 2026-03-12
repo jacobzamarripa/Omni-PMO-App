@@ -333,6 +333,19 @@
           transform: translateY(-2px);
           box-shadow: 0 8px 16px -2px rgba(0,0,0,0.08);
       }
+      .grid-card.glow-danger {
+          box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+          border-color: rgba(239, 68, 68, 0.4);
+      }
+      .grid-card.is-selected {
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.8), 0 8px 20px rgba(59, 130, 246, 0.25) !important;
+          border-color: #3b82f6 !important;
+          transform: translateY(-2px);
+      }
+      .grid-vel-wrapper { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-bottom: 8px; }
+      .grid-vel-wrapper .qb-vel-item { margin-bottom: 0 !important; }
+      .grid-vel-wrapper .qb-vel-labels { margin-bottom: 2px !important; }
+      .grid-vel-wrapper .qb-vel-bar { height: 8px !important; margin-bottom: 2px !important; }
       .grid-card-header {
           display: flex;
           justify-content: space-between;
@@ -2637,6 +2650,9 @@
               currentQueueIndex = filteredItems.indexOf(item);
               document.querySelectorAll('.email-card').forEach(c => c.classList.remove('selected'));
               if(cardEl) cardEl.classList.add('selected');
+              document.querySelectorAll('.grid-card').forEach(c => c.classList.remove('is-selected'));
+              let gCard = getEl(`grid-card-${item.fdh}`);
+              if (gCard) gCard.classList.add('is-selected');
 
               setStyle('welcome-screen', 'display', 'none');
               setStyle('detail-layout', 'display', 'flex');
@@ -3130,6 +3146,8 @@
               let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
               let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
               let bodyHtml = '';
+              let topBadgeHtml = '';
+              let glowCls = '';
 
               // Shared date math used across pivots
               let pStart = safeDate(item.cxStart);
@@ -3155,8 +3173,10 @@
                   let xingCls = item.isXing ? 'xing' : '';
                   let xingBadge = item.isXing ? `<div style="position:absolute; bottom:4px; right:4px; display:flex; align-items:center; gap:4px; background:#171717; color:#facc15; padding:1px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #facc15;">X-ING</div>` : '';
                   let targetRadius = item.isXing ? "9px 9px 0 0" : "12px 12px 0 0";
-                  let needsAdminCheck = item.flags.includes("ADMIN: CHECK CROSSINGS");
-                  let adminBadge = needsAdminCheck ? `<div style="margin-top:8px;"><span style="background:rgba(254,226,226,0.5); color:#991b1b; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #fca5a5;">🚩 ADMIN: CHECK CROSSINGS</span></div>` : '';
+                  if (item.flags.includes("ADMIN: CHECK CROSSINGS")) {
+                      topBadgeHtml = `<div style="margin-top:6px;"><span style="background:rgba(254,226,226,0.5); color:#991b1b; padding:3px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #fca5a5;">🚩 CHECK CROSSINGS</span></div>`;
+                      glowCls = 'glow-danger';
+                  }
                   bodyHtml = `
                       <div class="qb-time-labels" style="margin-top:0;">
                           <span>CX START: <span style="color:var(--text-main);">${start}</span></span>
@@ -3173,7 +3193,6 @@
                               ${xingBadge}
                           </div>
                       </div>
-                      ${adminBadge}
                   `;
               } else if (currentGridPivot === 'velocity') {
                   let v = item.vel;
@@ -3190,7 +3209,7 @@
                   let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239,246,255,0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--bg); border-color:var(--border);';
                   if (v) {
                       bodyHtml = `
-                          <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px; width:100%;">
+                          <div class="grid-vel-wrapper">
                               ${buildVelocityBar('UG', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft)}
                               ${buildVelocityBar('Aerial', v.ae.daily, v.ae.tot, v.ae.bom, 'AE', daysLeft)}
                               ${buildVelocityBar('Fiber', v.fib.daily, v.fib.tot, v.fib.bom, 'FIB', daysLeft)}
@@ -3226,12 +3245,14 @@
                   `;
               } else if (currentGridPivot === 'deliverables') {
                   let dFlags = [];
-                  if (item.flags.includes("PLEASE INPUT BOM")) dFlags.push("PLEASE INPUT BOM");
-                  if (item.flags.includes("CHECK BOM")) dFlags.push("CHECK BOM (UG/AE)");
-                  if (item.flags.includes("MISSING QB STATUS") || item.flags.includes("STATUS MISMATCH")) dFlags.push("CHECK QB STATUS");
-                  let flagHtml = dFlags.length > 0 ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:12px;">` + dFlags.map(f => `<span style="background:rgba(254,226,226,0.5); color:#991b1b; border:1px solid #fca5a5; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:900;">${f}</span>`).join('') + `</div>` : '';
+                  if (item.flags.includes("PLEASE INPUT BOM")) dFlags.push("INPUT BOM");
+                  if (item.flags.includes("CHECK BOM")) dFlags.push("CHECK BOM");
+                  if (item.flags.includes("MISSING QB STATUS") || item.flags.includes("STATUS MISMATCH")) dFlags.push("QB STATUS");
+                  if (dFlags.length > 0) {
+                      topBadgeHtml = `<div style="display:flex; flex-direction:column; gap:4px; margin-top:6px; align-items:flex-end;">` + dFlags.map(f => `<span style="background:rgba(254,226,226,0.5); color:#991b1b; border:1px solid #fca5a5; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:900; line-height:1;">🚩 ${f}</span>`).join('') + `</div>`;
+                      glowCls = 'glow-danger';
+                  }
                   bodyHtml = `
-                      ${flagHtml}
                       <div style="display:grid; grid-template-columns:1fr; gap:12px; align-content:flex-start; height:100%;">
                           <div style="background:var(--bg); padding:10px; border-radius:8px; border:1px solid var(--border);">
                               <div style="font-size:9px; font-weight:900; color:#166534; margin-bottom:8px; text-transform:uppercase;">Deliverables</div>
@@ -3256,13 +3277,16 @@
               }
 
               return `
-                  <div class="grid-card" onclick="openPaneFromGrid('${item.fdh}')">
+                  <div id="grid-card-${item.fdh}" class="grid-card ${glowCls}" onclick="openPaneFromGrid('${item.fdh}')">
                       <div class="grid-card-header">
                           <div>
                               <div style="font-size:14px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
                               <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${item.vendor}</div>
                           </div>
-                          <span class="glass-pill ${pillCls}">${combinedPill}</span>
+                          <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                              <span class="glass-pill ${pillCls}">${combinedPill}</span>
+                              ${topBadgeHtml}
+                          </div>
                       </div>
                       <div class="grid-card-body">
                           ${bodyHtml}
