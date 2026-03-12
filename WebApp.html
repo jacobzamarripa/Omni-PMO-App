@@ -564,34 +564,7 @@
       .g-color-blue { background-color: #3b82f6; } .g-color-purple { background-color: #a855f7; } .g-color-green { background-color: #22c55e; } .g-color-gray { background-color: #94a3b8; } .g-color-red { background-color: #ef4444; } .g-color-yellow { background-color: #facc15; }
       .empty-msg { display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-muted); font-weight: 800; font-size: 14px; width: 100%; height: 100%; margin: 0 !important; min-height: 150px; }
 
-      /* 📱 MOBILE ACTION BAR (base — hidden on desktop) */
       .mobile-menu-toggle { display: none; }
-      .mobile-back-btn { display: none; }
-      .mobile-action-bar {
-          display: none; position: fixed; bottom: 10px; left: 8px; right: 8px;
-          padding: 10px 12px; padding-bottom: max(20px, calc(12px + env(safe-area-inset-bottom)));
-          background: transparent;
-          backdrop-filter: none; -webkit-backdrop-filter: none;
-          border: none;
-          flex-direction: column; gap: 10px; z-index: 200;
-          box-shadow: none;
-      }
-      body.dark-mode .mobile-action-bar {
-          background: transparent;
-          box-shadow: none;
-      }
-      .mobile-nav-row { display: flex; gap: 8px; width: 100%; }
-      .mobile-action-row { display: flex; gap: 8px; width: 100%; }
-      /* Dock button styles now in the main mobile media block above */
-
-      .swipe-label { position: absolute; top: 24px; padding: 8px 18px; border-radius: 10px; font-size: 18px; font-weight: 900; letter-spacing: 2px; pointer-events: none; opacity: 0; transition: opacity 0.1s; z-index: 10; border: 3px solid; }
-      .swipe-label.commit-label { left: 20px; color: var(--text-muted); border-color: var(--text-muted); transform: rotate(-12deg); }
-      .swipe-label.skip-label { right: 20px; color: var(--text-muted); border-color: var(--text-muted); transform: rotate(12deg); }
-      /* Swipe peek panes — slide in from sides during card swipe */
-      .swipe-peek-pane { display: none; position: fixed; top: 58px; bottom: 0; left: 0; right: 0; padding: 32px 24px; box-sizing: border-box; background: var(--card-bg); pointer-events: none; flex-direction: column; justify-content: center; align-items: center; z-index: 195; }
-      #swipe-peek-prev { transform: translateX(-100vw); }
-      #swipe-peek-next { transform: translateX(100vw); }
-      /* swipe-peek-pane deprecated — hidden in main mobile block */
 
       .mobile-outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 290; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
       .mobile-outbox-overlay.open { display: block; }
@@ -664,303 +637,9 @@
       }
 
 
-      /* ============================================================
-         📱 PORTRAIT MOBILE — iPhone 17 Pro Clean Slate
-         ============================================================ */
-      @media screen and (max-width: 768px) {
-
-          /* --- Design Tokens (mobile overrides) --- */
-          :root {
-              --r-module: 30px;
-              --dock-bg: rgba(255,255,255,0.78);
-              --dock-border: rgba(255,255,255,0.42);
-              --sheet-overlay-bg: rgba(0,0,0,0.15);
-          }
-          body.dark-mode {
-              --dock-bg: rgba(16,16,20,0.84);
-              --dock-border: rgba(255,255,255,0.1);
-          }
-
-          /* --- Navigation Header: heavy blur glass --- */
-          .top-nav {
-              padding: 0 16px;
-              height: 58px;
-              gap: 4px !important;
-              backdrop-filter: blur(20px) !important;
-              -webkit-backdrop-filter: blur(20px) !important;
-              background: color-mix(in srgb, var(--card-bg) 80%, transparent) !important;
-              border-bottom: 1px solid var(--border) !important;
-          }
-          .nav-brand { display: flex !important; }
-          .kpi-nav-container { display: none; }
-          #btn-qb-sync, #btn-run-review, #btn-refresh, #btn-theme, #btn-help { display: none; }
-          .mobile-menu-toggle { display: flex !important; }
-          #btn-hamburger { font-size: 20px; padding: 10px 12px; min-width: 44px; min-height: 44px; }
-          #search-input {
-              font-size: 16px !important; height: 44px !important;
-              width: 100% !important; flex-shrink: 0 !important;
-              background: rgba(0,0,0,0.05) !important;
-              border-radius: 12px !important; margin-bottom: 4px !important;
-          }
-          .filter-strip {
-              position: sticky !important; top: 6px !important;
-              background: color-mix(in srgb, var(--card-bg) 92%, transparent) !important;
-              backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;
-              flex-direction: column !important; height: auto !important;
-              max-height: 0; overflow: hidden;
-              transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1) !important;
-              padding: 0 12px !important; border-bottom: none !important;
-              width: 100% !important; max-width: 100% !important;
-              margin: 0 !important; border-radius: 0 !important;
-              align-items: stretch !important; justify-content: flex-start !important;
-          }
-          .filter-strip.hidden { display: flex !important; }
-          .filter-strip:not(.hidden) { max-height: 200px; padding: 12px !important; border-bottom: 1px solid var(--border) !important; }
-          select { min-width: 100px; width: 100px; }
-          .filter-strip > * { flex: 0 0 auto; width: 100%; }
-          .filter-tools { flex-wrap: nowrap; width: 100%; margin-left: 0; padding-left: 0 !important; border-left: none !important; justify-content: flex-end; }
-
-          /* --- Sliding Panel Architecture (push-navigation, no carousel) --- */
-          .workspace {
-              width: 100vw !important;
-              overflow: hidden !important;
-              position: relative;
-              flex-direction: row;
-              padding: 0;
-              gap: 0;
-          }
-          .inbox-sidebar {
-              position: absolute !important;
-              inset: 0;
-              margin: 0 !important;
-              height: 100% !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              background: var(--bg) !important;
-              border: none !important;
-              border-radius: 0;
-              transform: translateX(0);
-              transition: transform 0.38s cubic-bezier(0.4,0,0.2,1);
-          }
-          .reading-pane {
-              position: absolute;
-              inset: 0;
-              width: 100%;
-              display: flex !important;
-              flex-direction: column;
-              margin-left: 0;
-              overflow-y: auto;
-              padding: 12px;
-              padding-bottom: calc(92px + env(safe-area-inset-bottom));
-              box-sizing: border-box;
-              justify-content: flex-start;
-              transform: translateX(100%);
-              transition: transform 0.38s cubic-bezier(0.4,0,0.2,1);
-              scroll-padding-bottom: 120px;
-          }
-          .workspace.view-detail .inbox-sidebar { transform: translateX(-100%); }
-          .workspace.view-detail .reading-pane  { transform: translateX(0); }
-          .mobile-back-btn { display: none !important; }
-
-          /* --- Layout & Content --- */
-          .qb-grid { display: flex !important; flex-direction: column !important; gap: 16px !important; }
-          .upper-workspace { padding-top: 0; }
-          .detail-layout { position: relative; }
-          .detail-main { width: 100%; }
-          .admin-dock { position: absolute; top: 0; right: 0; bottom: 0; min-width: 0; max-width: none; width: 100%; pointer-events: none; }
-          .admin-fab-anchor { display: none !important; }
-          .review-actions { display: none !important; }
-
-          /* --- qb-module: iPhone 17 Pro 30px radius + blur glass --- */
-          .pane-content {
-              padding: 10px 12px calc(92px + env(safe-area-inset-bottom)) !important;
-              gap: 14px !important;
-              width: 100vw !important;
-              max-width: 100vw !important;
-              box-sizing: border-box !important;
-              overflow-x: hidden !important;
-          }
-          .qb-module {
-              border-radius: var(--r-module) !important;
-              padding: 16px 14px !important;
-              border: 1px solid var(--border) !important;
-              backdrop-filter: blur(14px) !important;
-              -webkit-backdrop-filter: blur(14px) !important;
-              box-shadow: 0 6px 24px rgba(0,0,0,0.06) !important;
-          }
-
-          /* --- Floating Glassmorphic Action Dock (single-row pill) --- */
-          .mobile-action-bar {
-              display: flex !important;
-              flex-direction: row !important;
-              align-items: center !important;
-              position: fixed !important;
-              bottom: max(12px, calc(100dvh - var(--vvh, 100dvh) + 12px + env(safe-area-inset-bottom))) !important;
-              left: 10px !important;
-              right: 10px !important;
-              padding: 7px 8px !important;
-              gap: 5px !important;
-              z-index: 200 !important;
-              background: var(--dock-bg) !important;
-              backdrop-filter: blur(20px) saturate(1.6) !important;
-              -webkit-backdrop-filter: blur(20px) saturate(1.6) !important;
-              border: 1px solid var(--dock-border) !important;
-              border-radius: 26px !important;
-              box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.45) inset !important;
-          }
-          /* Both inner rows become flat flex groups side-by-side */
-          .mobile-nav-row {
-              display: flex !important;
-              flex-direction: row !important;
-              gap: 5px !important;
-              flex: 1 !important;
-              align-items: center !important;
-          }
-          .mobile-action-row {
-              display: flex !important;
-              flex-direction: row !important;
-              gap: 5px !important;
-              flex: 0 0 auto !important;
-              align-items: center !important;
-          }
-          /* Subtle divider between nav and action groups */
-          .mobile-action-row::before {
-              content: '';
-              display: block;
-              width: 1px;
-              height: 26px;
-              background: var(--border);
-              flex-shrink: 0;
-              margin-right: 1px;
-          }
-          /* All dock buttons: base style */
-          .mobile-action-bar .btn {
-              min-height: 52px !important;
-              height: 52px !important;
-              border-radius: 18px !important;
-              font-size: 13px !important;
-              font-weight: 700 !important;
-              padding: 0 10px !important;
-              cursor: pointer;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              gap: 4px !important;
-              transition: opacity 0.15s, transform 0.12s !important;
-              white-space: nowrap;
-              pointer-events: auto !important;
-              flex: 1 !important;
-              background: transparent !important;
-              border: none !important;
-              color: var(--text-main) !important;
-              box-shadow: none !important;
-          }
-          .mobile-action-bar .btn:active { opacity: 0.65; transform: scale(0.96) !important; }
-          /* Back button: compact icon-only */
-          .mob-btn-back { flex: 0 0 42px !important; font-size: 15px !important; }
-          /* Hub button: compact icon-only */
-          .mob-btn-hub { flex: 0 0 48px !important; font-size: 14px !important; }
-          /* Skip */
-          .mobile-action-bar .btn-skip {
-              background: rgba(0,0,0,0.06) !important;
-              color: var(--text-main) !important;
-              border: none !important;
-          }
-          body.dark-mode .mobile-action-bar .btn-skip {
-              background: rgba(255,255,255,0.08) !important;
-              color: #fafafa !important;
-          }
-          /* Commit: prominent green */
-          .mobile-action-bar .btn-primary {
-              flex: 1.5 !important;
-              background: rgba(34,197,94,0.9) !important;
-              color: #fff !important;
-              border: none !important;
-              box-shadow: 0 2px 14px rgba(34,197,94,0.35) !important;
-              font-weight: 800 !important;
-          }
-
-          /* PM Note: above dock layer, keyboard-accessible */
-          #p-comment { position: relative; z-index: 1; }
-
-          /* --- Admin Hub: Spring Sheet (no full-screen dim/blur) --- */
-          .outbox-pane {
-              display: flex !important;
-              position: fixed !important;
-              top: auto !important;
-              bottom: 0 !important;
-              left: 0 !important;
-              right: 0 !important;
-              width: 100vw !important;
-              height: 78vh !important;
-              max-height: 78vh !important;
-              margin: 0 !important;
-              border-radius: 32px 32px 0 0 !important;
-              border: none !important;
-              border-top: 1px solid var(--border) !important;
-              transform: translateY(100%);
-              opacity: 1 !important;
-              transition: transform 0.42s cubic-bezier(0.34,1.56,0.64,1) !important;
-              z-index: 9999 !important;
-              box-shadow: 0 -10px 40px rgba(0,0,0,0.1) !important;
-              background: color-mix(in srgb, var(--card-bg) 88%, transparent) !important;
-              backdrop-filter: blur(20px) !important;
-              -webkit-backdrop-filter: blur(20px) !important;
-          }
-          .outbox-pane.open { transform: translateY(0) !important; }
-          /* Spring overlay: subtle 0.15 opacity ONLY — no full dim, no blur */
-          .outbox-overlay.open {
-              display: block;
-              background: var(--sheet-overlay-bg) !important;
-              backdrop-filter: none !important;
-              -webkit-backdrop-filter: none !important;
-          }
-
-          /* --- Deprecated / Hidden Elements --- */
-          #swipe-peek-prev, #swipe-peek-next { display: none !important; }
-          #swipe-label-commit, #swipe-label-skip { display: none !important; }
-          .swipe-peek-pane { display: none !important; }
-          .gantt-panel { display: none !important; }
-
-          /* --- Touch polish --- */
-          .chat-bubble { min-height: 100px; font-size: 15px; }
-          .hover-trigger:hover { transform: none !important; }
-          .admin-strip { padding: 6px 10px; gap: 6px; }
-          .admin-kpi-val { font-size: 16px; }
-          .email-card { margin: 0 !important; border-radius: 0 !important; border: none !important; border-bottom: 1px solid rgba(0,0,0,0.04) !important; background: var(--card-bg) !important; padding: 18px 20px !important; }
-          .email-card.selected { background: rgba(59,130,246,0.05) !important; }
-          .em-fdh { font-size: 14px !important; font-weight: 800 !important; }
-          body.dark-mode .email-card { border-bottom: 1px solid #3f3f46; }
-          #btn-filters.btn-filters-active { background: var(--color-critical) !important; color: #fff !important; border-color: var(--color-critical) !important; }
-          #mobile-ob-count { display: inline-flex !important; align-items: center; justify-content: center; background: var(--color-critical) !important; color: #fff !important; min-width: 16px; height: 16px; font-size: 9px; border-radius: 50%; }
-      }
-
       .outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 119; backdrop-filter: none; -webkit-backdrop-filter: none; }
-      @media screen and (max-width: 768px) {
-          .outbox-overlay.open { display: block; }
-      }
 
       body.gantt-fullscreen .outbox-pane { display: none !important; }
-
-      /* PORTRAIT: hide Gantt entirely */
-      @media screen and (max-width: 768px) and (orientation: portrait) {
-          .gantt-panel { display: none !important; }
-      }
-
-      /* 📱 LANDSCAPE: fullscreen Gantt timeline hub */
-      @media screen and (max-width: 950px) and (orientation: landscape) {
-          .top-nav, .workspace, .mobile-action-bar { display: none !important; }
-          .gantt-panel {
-              display: flex !important;
-              position: fixed !important;
-              inset: 0 !important;
-              width: 100vw !important;
-              height: 100vh !important;
-              z-index: 99999 !important;
-              background: var(--bg) !important;
-          }
-          .timeline-wrapper { display: flex !important; height: 100% !important; }
-      }
 
       /* 📖 HELP PANEL */
       .help-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 99997; display: none; }
@@ -1073,9 +752,6 @@
                          <button class="panel-tab-close" onclick="toggleFilterStrip()" title="Close Filters" style="width:26px; height:26px; min-width:26px;">✕</button>
                      </div>
                  </div>
-                 <div class="swipe-label commit-label" id="swipe-label-commit">‹ PREV</div>
-                 <div class="swipe-label skip-label" id="swipe-label-skip">NEXT ›</div>
-                 <div class="mobile-back-btn" onclick="backToQueue()">◀ Back to Queue</div>
                  <div class="qb-grid">
                <div class="qb-top-row">
                <div class="qb-module hover-trigger" id="project-schedule-card" style="padding:12px 14px;" onmouseenter="hl('Budget OFS')" onmouseleave="hl('')">
@@ -1368,26 +1044,6 @@
       </div>
     </div>
 
-    <div class="mobile-action-bar" id="mobile-action-bar" style="display:none;">
-      <div class="mobile-nav-row">
-        <button class="btn btn-skip mob-btn-back" aria-label="Back to queue" onclick="backToQueue()">◀</button>
-        <button class="btn btn-skip" id="btn-mob-prev" onclick="goPrevItem()">‹ Prev</button>
-        <button class="btn btn-skip" id="btn-mob-next" onclick="goNextItem()">Next ›</button>
-        <button class="btn btn-skip mob-btn-hub" aria-label="Open hub" onclick="toggleAdminPanel()">
-          <span style="font-size:18px;">☰</span>
-          <span id="mobile-ob-count" style="display:none;">0</span>
-        </button>
-      </div>
-      <div class="mobile-action-row">
-        <button class="btn btn-skip" onclick="skipReview()">Skip</button>
-        <button class="btn btn-primary" onclick="commitReview()">✔ Commit</button>
-      </div>
-    </div>
-
-    <!-- Swipe peek panes — body-level fixed elements, populated by initSwipeGestures() -->
-    <div id="swipe-peek-prev" class="swipe-peek-pane" aria-hidden="true"></div>
-    <div id="swipe-peek-next" class="swipe-peek-pane" aria-hidden="true"></div>
-
     <div class="gantt-panel" id="gantt-panel">
         <div class="gantt-resize-grip" id="gantt-resize-grip" title="Drag to resize timeline"></div>
         <div class="gantt-controls" id="gantt-controls">
@@ -1425,11 +1081,6 @@
       }
 
       function toggleMobileMenu() {}
-      function backToQueue() {
-          let ws = getEl('main-workspace'); if(ws) ws.classList.remove('view-detail');
-          let mab = getEl('mobile-action-bar'); if(mab) mab.style.display = 'none';
-          setAdminPanelOpen(false);
-      }
 
       function safeExecute(fnName, fn) {
           try { fn(); } catch (err) {
@@ -2178,16 +1829,15 @@
       }
       window.onload = function() {
           const currentUrl = new URL(window.location.href);
-          const currentView = (currentUrl.searchParams.get('view') || '').toLowerCase();
           const isPhoneWidth = window.innerWidth <= 430;
           const isPhoneUA = /iPhone|Android.+Mobile|Mobile/i.test(navigator.userAgent || '');
-          if (isPhoneWidth && isPhoneUA && currentView !== 'mobile' && currentView !== 'codex') {
+          const isMobileView = (currentUrl.searchParams.get('view') || '').toLowerCase() === 'mobile';
+          if ((isPhoneWidth || isPhoneUA) && !isMobileView) {
               currentUrl.searchParams.set('view', 'mobile');
               window.location.replace(currentUrl.toString());
               return;
           }
 
-          initSwipeGestures();
           /* Keyboard avoidance: float dock above iOS software keyboard */
           if (window.visualViewport) {
               const setVvh = () => document.documentElement.style.setProperty('--vvh', window.visualViewport.height + 'px');
@@ -2643,13 +2293,7 @@
 
             let card = document.createElement('div'); card.className = `email-card ${highestSev}`; card.id = `card-${item.fdh}`;
             
-            card.onclick = () => {
-                openPane(item, card);
-                if (window.innerWidth <= 768) {
-                    let ws = getEl('main-workspace'); if(ws) ws.classList.add('view-detail');
-                    let mab = getEl('mobile-action-bar'); if(mab) mab.style.display = 'flex';
-                }
-            };
+            card.onclick = () => { openPane(item, card); };
             
             card.innerHTML = `
                <div class="em-header">
@@ -2819,7 +2463,6 @@
               currentQueueIndex = filteredItems.indexOf(item);
               document.querySelectorAll('.email-card').forEach(c => c.classList.remove('selected'));
               if(cardEl) cardEl.classList.add('selected');
-              updateMobileNavButtons();
 
               setStyle('welcome-screen', 'display', 'none');
               setStyle('detail-layout', 'display', 'flex');
@@ -3115,9 +2758,7 @@
               let op = getEl('outbox-pane'); if (op) op.classList.remove('open');
               let ov = getEl('outbox-overlay'); if (ov) ov.classList.remove('open');
               setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">All Clear ✓</div>`);
-              if (window.innerWidth <= 768) backToQueue();
           }
-          // On mobile with items remaining: renderList opened next item, view-detail stays active
       }
 
       function skipReview() {
@@ -3143,7 +2784,6 @@
       function renderOutbox() {
           const list = getEl('outbox-list'); if(!list) return; setTxt('ob-count', committedItems.length);
           let tabBadge = getEl('ob-tab-count'); if(tabBadge) { tabBadge.innerText = committedItems.length; tabBadge.style.display = committedItems.length > 0 ? 'inline' : 'none'; }
-          let mobBadge = getEl('mobile-ob-count'); if(mobBadge) { mobBadge.innerText = committedItems.length; mobBadge.style.display = committedItems.length > 0 ? 'inline-flex' : 'none'; }
           list.innerHTML = '';
           if(committedItems.length === 0) { list.innerHTML = `<div class="empty-msg">No items reviewed.</div>`; return; }
           committedItems.forEach(item => {
@@ -3151,106 +2791,6 @@
               card.innerHTML = `<div style="font-weight:900; font-size:12px; color:var(--text-main);">${item.fdh}</div><div style="font-family:monospace; font-size:10px; color:var(--text-muted); margin-top:4px; max-height:30px; overflow:hidden;">${item.comment}</div>`;
               list.appendChild(card);
           });
-      }
-
-      function updateMobileObCount() {
-          let n = committedItems.length;
-          let badge = getEl('mobile-ob-count'); if(badge) { badge.innerText = n; badge.style.display = n > 0 ? 'inline-flex' : 'none'; }
-      }
-
-      function updateMobileNavButtons() {
-          let prevBtn = getEl('btn-mob-prev'); let nextBtn = getEl('btn-mob-next');
-          if (prevBtn) prevBtn.disabled = currentQueueIndex <= 0;
-          if (nextBtn) nextBtn.disabled = currentQueueIndex >= filteredItems.length - 1;
-      }
-      function goPrevItem() {
-          if (currentQueueIndex <= 0) return;
-          currentQueueIndex--;
-          let item = filteredItems[currentQueueIndex];
-          openPane(item, getEl(`card-${item.fdh}`));
-      }
-      function goNextItem() {
-          if (currentQueueIndex >= filteredItems.length - 1) return;
-          currentQueueIndex++;
-          let item = filteredItems[currentQueueIndex];
-          openPane(item, getEl(`card-${item.fdh}`));
-      }
-
-      function initSwipeGestures() {
-          let pane = getEl('pane-content'); if(!pane) return;
-          let startX = 0, startY = 0, isDragging = false, isHorizontal = null;
-          let labelCommit = getEl('swipe-label-commit'), labelSkip = getEl('swipe-label-skip');
-          let peekPrev = getEl('swipe-peek-prev'), peekNext = getEl('swipe-peek-next');
-
-          function resetPane(animate) {
-              pane.style.transition = animate ? 'transform 0.3s cubic-bezier(0.4,0,0.2,1)' : 'none';
-              pane.style.transform = ''; pane.style.opacity = '';
-              if(labelCommit) labelCommit.style.opacity = '0';
-              if(labelSkip) labelSkip.style.opacity = '0';
-          }
-
-          function resetPeeks(animate) {
-              let tr = animate ? 'transform 0.3s cubic-bezier(0.4,0,0.2,1)' : 'none';
-              if(peekPrev) { peekPrev.style.transition = tr; peekPrev.style.transform = 'translateX(-100vw)'; }
-              if(peekNext) { peekNext.style.transition = tr; peekNext.style.transform = 'translateX(100vw)'; }
-          }
-
-          pane.addEventListener('touchstart', e => {
-              if (!currentActiveItem || window.innerWidth > 768) return;
-              startX = e.touches[0].clientX; startY = e.touches[0].clientY;
-              isDragging = true; isHorizontal = null;
-              pane.style.transition = 'none';
-              // Populate adjacent peek panes
-              let prevItem = filteredItems[currentQueueIndex - 1];
-              let nextItem = filteredItems[currentQueueIndex + 1];
-              if(peekPrev) {
-                  peekPrev.style.transition = 'none';
-                  peekPrev.innerHTML = prevItem ? `<div style="font-size:11px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">‹ PREV</div><div style="font-size:24px;font-weight:900;color:var(--text-main)">${prevItem.fdh||prevItem.id||''}</div>` : '';
-              }
-              if(peekNext) {
-                  peekNext.style.transition = 'none';
-                  peekNext.innerHTML = nextItem ? `<div style="font-size:11px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">NEXT ›</div><div style="font-size:24px;font-weight:900;color:var(--text-main)">${nextItem.fdh||nextItem.id||''}</div>` : '';
-              }
-          }, { passive: true });
-
-          pane.addEventListener('touchmove', e => {
-              if (!isDragging || !currentActiveItem || window.innerWidth > 768) return;
-              let dx = e.touches[0].clientX - startX;
-              let dy = e.touches[0].clientY - startY;
-              if (isHorizontal === null && (Math.abs(dx) > 12 || Math.abs(dy) > 12)) {
-                  isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.5;
-              }
-              if (!isHorizontal) return;
-              if (e.cancelable) e.preventDefault();
-              pane.style.transform = `translateX(${dx}px)`;
-              let labelOpacity = Math.min(1, (Math.abs(dx) - 30) / 50);
-              if (labelCommit) labelCommit.style.opacity = dx > 30 ? labelOpacity : '0';
-              if (labelSkip)   labelSkip.style.opacity   = dx < -30 ? labelOpacity : '0';
-              // Slide peek panes in from the opposite side
-              if(peekPrev) peekPrev.style.transform = `translateX(${dx - window.innerWidth}px)`;
-              if(peekNext) peekNext.style.transform = `translateX(${dx + window.innerWidth}px)`;
-          }, { passive: false });
-
-          pane.addEventListener('touchend', e => {
-              if (!isDragging) return;
-              isDragging = false;
-              if (!currentActiveItem || window.innerWidth > 768 || !isHorizontal) { resetPane(true); resetPeeks(true); return; }
-              let dx = e.changedTouches[0].clientX - startX;
-              if (Math.abs(dx) < 60) {
-                  resetPane(true); resetPeeks(true);
-              } else {
-                  let dir = dx > 0 ? 1 : -1;
-                  pane.style.transition = 'transform 0.22s ease-in';
-                  pane.style.transform = `translateX(${dir * 105}vw)`;
-                  // Snap the incoming peek to final position
-                  if(peekPrev) { peekPrev.style.transition = 'transform 0.22s ease-in'; peekPrev.style.transform = dir > 0 ? 'translateX(0)' : `translateX(-${window.innerWidth}px)`; }
-                  if(peekNext) { peekNext.style.transition = 'transform 0.22s ease-in'; peekNext.style.transform = dir < 0 ? 'translateX(0)' : `translateX(${window.innerWidth}px)`; }
-                  setTimeout(() => {
-                      resetPane(false); resetPeeks(false);
-                      if (dir > 0) goPrevItem(); else goNextItem();
-                  }, 220);
-              }
-          }, { passive: true });
       }
 
       function promptEmailExport() {
