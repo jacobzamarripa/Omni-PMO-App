@@ -803,13 +803,36 @@
       #grid-content, #welcome-screen {
           padding-top: 80px !important;
       }
+
+      /* CSS-only fullscreen dock reposition and clipping fix */
+      .detail-main {
+          min-width: 0 !important;
+          position: relative !important;
+      }
+      .pane-content {
+          align-items: flex-start !important;
+          padding-top: 80px !important;
+      }
+      .qb-grid {
+          width: 100% !important;
+          max-width: 1000px !important;
+          margin: 0 auto !important;
+      }
+      #grid-content, #welcome-screen {
+          padding-top: 80px !important;
+      }
       body.gantt-fullscreen .filter-strip {
           position: fixed !important;
-          top: 24px !important;
+          top: auto !important;
+          bottom: 30px !important;
           z-index: 10005 !important;
       }
       body.gantt-fullscreen .gantt-controls { top: 80px !important; }
       body.gantt-fullscreen .raw-data-strip { margin-top: 120px !important; }
+      body.gantt-fullscreen #btn-grid-toggle,
+      body.gantt-fullscreen #grid-pivot-select {
+          display: none !important;
+      }
     </style>
   </head>
   <body>
