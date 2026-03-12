@@ -688,6 +688,30 @@
       font-weight: 600;
       color: var(--text-secondary);
     }
+    .em-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 2px;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 18px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .tag-red { background: rgba(254, 226, 226, 0.5); color: #991b1b; border-color: #fca5a5; }
+    .tag-yellow { background: rgba(254, 252, 232, 0.5); color: #854d0e; border-color: #fde047; }
+    .tag-muted { background: #27272a; color: #a1a1aa; border-color: #3f3f46; }
     .hub-empty {
       font-size: 12px;
       color: var(--text-tertiary);
@@ -1156,10 +1180,10 @@
     /* ─── DOCK ──────────────────────────────────────────────────────── */
     #dock {
       position: fixed;
-      bottom: calc(var(--safe-bottom) + 12px);
+      bottom: calc(var(--safe-bottom) + 16px);
       left: 50%;
       transform: translateX(-50%);
-      width: min(340px, calc(100vw - 40px));
+      width: min(360px, calc(100vw - 32px));
       height: 68px;
       background: rgba(255, 255, 255, 0.72) !important;
       backdrop-filter: blur(24px) saturate(180%);
@@ -1247,19 +1271,20 @@
     .nav-hub-badge {
       position: absolute;
       top: -6px;
-      left: -6px;
+      left: -4px;
       right: auto;
       background: #ef4444;
       color: white;
       font-size: 10px;
       font-weight: 900;
+      padding: 2px 6px;
       min-width: 20px;
-      height: 20px;
-      border-radius: 50%;
+      height: 18px;
+      border-radius: 10px;
       display: none;
       align-items: center;
       justify-content: center;
-      border: 2px solid var(--card-bg);
+      border: 2px solid white;
       line-height: 1;
       box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
       z-index: 10001;
@@ -1291,9 +1316,27 @@
       box-shadow: 0 0 0 2px rgba(59,130,246,0.18), 0 10px 24px rgba(15, 23, 42, 0.08);
       transform: translateY(-1px);
     }
-    .admin-kpi.crossings.active { box-shadow: 0 0 0 2px rgba(245,158,11,0.22), 0 10px 24px rgba(15, 23, 42, 0.08); }
-    .admin-kpi.status.active { box-shadow: 0 0 0 2px rgba(239,68,68,0.22), 0 10px 24px rgba(15, 23, 42, 0.08); }
-    .admin-kpi.boms.active { box-shadow: 0 0 0 2px rgba(99,102,241,0.22), 0 10px 24px rgba(15, 23, 42, 0.08); }
+    .admin-kpi.crossings.active {
+      background: #422006;
+      border-color: #facc15;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+    .admin-kpi.crossings.active .admin-kpi-val,
+    .admin-kpi.crossings.active .admin-kpi-label { color: #fde047; }
+    .admin-kpi.status.active {
+      background: #450a0a;
+      border-color: #ef4444;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+    .admin-kpi.status.active .admin-kpi-val,
+    .admin-kpi.status.active .admin-kpi-label { color: #fca5a5; }
+    .admin-kpi.boms.active {
+      background: #022c22;
+      border-color: #34d399;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+    .admin-kpi.boms.active .admin-kpi-val,
+    .admin-kpi.boms.active .admin-kpi-label { color: #6ee7b7; }
     .admin-kpi-val {
       font-size: 18px;
       font-weight: 900;
@@ -2716,19 +2759,33 @@ function renderGantt(items) {
     el.innerHTML = '<div class="hub-empty">No schedule data available.</div>';
     return;
   }
-  var today = new Date();
-  today.setHours(0,0,0,0);
-  var datedItems = items.filter(function(item) {
-    var start = item.cxStart ? new Date(item.cxStart) : null;
-    var end = (item.targetDate || item.cxEnd) ? new Date(item.targetDate || item.cxEnd) : null;
-    return start && end && !isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start;
-  });
+  function safeParseDate(value) {
+    if (!value || value === '-' || value === 'Unknown') return null;
+    if (Object.prototype.toString.call(value) === '[object Date]') {
+      return isNaN(value.getTime()) ? null : new Date(value.getTime());
+    }
+    var str = String(value).trim();
+    if (!str) return null;
+    var parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) return parsed;
+    var parts = str.match(/(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{2,4})/);
+    if (!parts) return null;
+    var year = parts[3].length === 2 ? Number('20' + parts[3]) : Number(parts[3]);
+    parsed = new Date(year, Number(parts[1]) - 1, Number(parts[2]));
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+  var datedItems = items.map(function(item) {
+    var start = safeParseDate(item.cxStart);
+    var end = safeParseDate(item.targetDate || item.cxEnd);
+    if (!start || !end || end < start) return null;
+    return { item: item, start: start, end: end };
+  }).filter(Boolean);
   if (!datedItems.length) {
-    el.innerHTML = '<div class="hub-empty">No usable schedule dates available.</div>';
+    el.innerHTML = '<div class="hub-empty">No usable schedule dates available (Check date formats).</div>';
     return;
   }
-  var minDate = new Date(Math.min.apply(null, datedItems.map(function(item) { return new Date(item.cxStart).getTime(); })));
-  var maxDate = new Date(Math.max.apply(null, datedItems.map(function(item) { return new Date(item.targetDate || item.cxEnd).getTime(); })));
+  var minDate = new Date(Math.min.apply(null, datedItems.map(function(entry) { return entry.start.getTime(); })));
+  var maxDate = new Date(Math.max.apply(null, datedItems.map(function(entry) { return entry.end.getTime(); })));
   minDate.setDate(minDate.getDate() - 7);
   maxDate.setDate(maxDate.getDate() + 14);
   var totalDays = Math.max(1, Math.ceil((maxDate - minDate) / 86400000));
@@ -2739,9 +2796,10 @@ function renderGantt(items) {
     var left = (day / totalDays) * chartWidth;
     markers.push('<div class="gantt-date-pill" style="left:' + left + 'px;">' + (mark.getMonth() + 1) + '/' + mark.getDate() + '</div>');
   }
-  var rows = datedItems.map(function(item) {
-    var start = new Date(item.cxStart);
-    var end = new Date(item.targetDate || item.cxEnd);
+  var rows = datedItems.map(function(entry) {
+    var item = entry.item;
+    var start = entry.start;
+    var end = entry.end;
     var startPct = ((start - minDate) / (maxDate - minDate)) * 100;
     var widthPct = Math.max(2, ((end - start) / (maxDate - minDate)) * 100);
     var color = statusColor(item);
@@ -2750,7 +2808,7 @@ function renderGantt(items) {
     return '<div class="gantt-row' + activeClass + '" id="gantt-row-' + rowId + '" onclick="onGanttRowClick(\'' + esc(item.fdh) + '\')">' +
       '<div class="gantt-row-top"><div><div class="gantt-row-id">' + esc(item.fdh || '—') + '</div><div class="gantt-row-meta">' + esc((item.city || '') + (item.vendor ? ' · ' + item.vendor : '')) + '</div></div><div class="glass-pill ' + getQBStatusClass(item.stage, item.status, false) + '">' + esc((item.stage || '-') + ' | ' + (item.status || '-')) + '</div></div>' +
       '<div class="gantt-bar-track"><div class="gantt-bar-fill" style="left:' + startPct + '%; width:' + widthPct + '%; background:' + color + ';"></div></div>' +
-      '<div class="gantt-row-dates"><span>Start: ' + formatDate(item.cxStart) + '</span><span>Target: ' + formatDate(item.targetDate || item.cxEnd) + '</span></div>' +
+      '<div class="gantt-row-dates"><span>Start: ' + formatDate(start) + '</span><span>Target: ' + formatDate(end) + '</span></div>' +
     '</div>';
   }).join('');
   el.innerHTML =
@@ -3066,13 +3124,30 @@ function renderList(items) {
   list.innerHTML = '';
   items.forEach(function(item) {
     var card = document.createElement('div');
-    card.className = 'email-card ' + getSeverity(item.flags);
+    var rawFlags = String(item.flags || '').split('\n').filter(Boolean);
+    var highestSev = getSeverity(item.flags);
+    var tagsHtml = '';
+    rawFlags.slice(0, 3).forEach(function(f) {
+      var cleanText = f.replace(/[🚨🛑🚩⚠️🖍️🚧🪄🟣]/g, '').trim();
+      var tagClass = 'tag-muted';
+      if (f.includes('STATUS MISMATCH') || f.includes('MISSING QB STATUS') || f.includes('🚨') || f.includes('🛑') || f.includes('🚩')) {
+        tagClass = 'tag-red';
+      } else if (f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧')) {
+        tagClass = 'tag-yellow';
+      }
+      tagsHtml += '<span class="tag ' + tagClass + '">' + esc(cleanText) + '</span>';
+    });
+    if (rawFlags.length > 3) tagsHtml += '<span class="tag tag-muted">+' + (rawFlags.length - 3) + '</span>';
+    card.className = 'email-card ' + highestSev;
     card.innerHTML =
       '<div class="em-header">' +
-        '<div class="em-fdh">' + esc(item.fdh || '—') + '</div>' +
+        '<div style="display:flex; align-items:baseline; gap:8px; min-width:0;">' +
+          '<div class="em-fdh" style="flex-shrink:0;">' + esc(item.fdh || '—') + '</div>' +
+          '<div class="em-vendor" style="font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + esc(item.vendor || '—') + '</div>' +
+        '</div>' +
         '<span class="glass-pill ' + pillClass(item.status, item.stage) + '">' + esc(pillLabel(item.status, item.stage)) + '</span>' +
       '</div>' +
-      '<div class="em-vendor">' + esc((item.city || '') + (item.vendor ? ' · ' + item.vendor : '')) + '</div>';
+      '<div class="em-tags">' + tagsHtml + '</div>';
     card.onclick = function() { openCarouselAt(item); };
     list.appendChild(card);
   });
