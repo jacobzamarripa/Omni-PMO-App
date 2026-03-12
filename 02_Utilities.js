@@ -42,8 +42,33 @@ function onOpen() {
 }
 
 function doGet(e) {
+  // 1. Determine the view mode from URL parameters (?view=mobile or ?view=codex)
+  var view = (e && e.parameter && e.parameter.view) ? e.parameter.view.toLowerCase() : 'web';
+
+  // 2. Automated iPhone Detection (serves the mobile experience if user is on iPhone)
+  var userAgent = (e && e.parameter && e.parameter.ua) ? e.parameter.ua : ""; // GAS environment quirk
+  // Since server-side UA is limited, we rely on the ?view parameter for testing,
+  // but we can set a default "Mobile Version" toggle here.
+
+  var activeMobileFile = 'CodexMobileApp'; // Set to 'MobileApp' to test Claude's version
+
+  if (view === 'mobile') {
+    return HtmlService.createHtmlOutputFromFile('MobileApp') // Claude Version
+        .setTitle('Production Hub · Mobile (Claude)')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  }
+
+  if (view === 'codex') {
+    return HtmlService.createHtmlOutputFromFile('CodexMobileApp') // Codex Version
+        .setTitle('Production Hub · Mobile (Codex)')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  }
+
+  // Default to standard desktop view
   return HtmlService.createHtmlOutputFromFile('WebApp')
-      .setTitle('Daily Production Hub') // 🧠 Changed browser tab title here
+      .setTitle('Daily Production Hub')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
