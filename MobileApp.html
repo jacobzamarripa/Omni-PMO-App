@@ -1263,13 +1263,44 @@
       flex-shrink: 0;
     }
     .dock-back-btn.show {
-      width: 44px;
+      width: 86px;
       opacity: 1;
       margin-right: 8px;
       border: 1px solid var(--border);
     }
     .dock-back-btn:active {
       transform: scale(0.92);
+    }
+    .dock-back-text { font-size: 12px; font-weight: 900; margin-left: 6px; }
+
+    /* ─── LIST SWIPE GESTURE WRAPPERS ─── */
+    .swipe-wrapper {
+      position: relative;
+      overflow: hidden;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .swipe-actions {
+      position: absolute;
+      top: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      color: white;
+      font-weight: 900;
+      font-size: 13px;
+      padding: 0 24px;
+      z-index: 1;
+    }
+    .swipe-action-left  { left: 0; width: 50%; justify-content: flex-start; background: #22c55e; }
+    .swipe-action-right { right: 0; width: 50%; justify-content: flex-end; background: #ef4444; }
+    .swipe-action-uncommit { right: 0; width: 100%; justify-content: flex-end; background: #f59e0b; }
+    .swipe-item {
+      position: relative;
+      z-index: 2;
+      background: var(--card-bg);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      width: 100%;
+      border-bottom: none !important;
     }
     .nav-hub-badge {
       position: absolute;
@@ -1859,9 +1890,10 @@
       </button>
       <div class="dock-center-group">
         <button class="dock-back-btn" id="dock-back-btn" onclick="showHubHome()">
-          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>
           </svg>
+          <span class="dock-back-text">Back</span>
         </button>
         <button id="dock-primary-pill" onclick="handlePrimaryAction()">
           <span id="dock-primary-main">Review Queue</span>
@@ -2793,16 +2825,28 @@ function renderReviewedSheet() {
   }
   box.innerHTML = '';
   state.committed.slice().reverse().forEach(function(item) {
-    var card = document.createElement('div');
-    card.className = 'reviewed-card';
-    card.innerHTML =
-      '<div class="reviewed-card-top">' +
-      '<div class="reviewed-card-fdh">' + esc(item.fdh || '—') + '</div>' +
-      '<span class="glass-pill ' + pillClass(item.status, item.stage) + '">' + esc(pillLabel(item.status, item.stage)) + '</span>' +
-      '</div>' +
-      '<div class="reviewed-card-comment">' + esc(item.comment || 'No comment logged.') + '</div>';
-    card.onclick = function() { jumpTo(item.fdh); closeReviewHub(); };
-    box.appendChild(card);
+    var wrapper = document.createElement('div');
+    wrapper.className = 'swipe-wrapper';
+    wrapper.style.borderRadius = '18px';
+    wrapper.style.marginBottom = '10px';
+    wrapper.dataset.fdh = item.fdh;
+    wrapper.dataset.listType = 'reviewed';
+    wrapper.innerHTML =
+      '<div class="swipe-actions swipe-action-uncommit">⟲ Uncommit</div>' +
+      '<div class="swipe-item reviewed-card" style="border-radius:18px; margin-bottom:0;">' +
+        '<div class="reviewed-card-top">' +
+          '<div class="reviewed-card-fdh">' + esc(item.fdh || '—') + '</div>' +
+          '<span class="glass-pill ' + pillClass(item.status, item.stage) + '">' + esc(pillLabel(item.status, item.stage)) + '</span>' +
+        '</div>' +
+        '<div class="reviewed-card-comment">' + esc(item.comment || 'No comment logged.') + '</div>' +
+      '</div>';
+    (function(i) {
+      wrapper.querySelector('.swipe-item').onclick = function() {
+        if (window._preventSwipeClick) return;
+        jumpTo(i.fdh); closeReviewHub();
+      };
+    })(item);
+    box.appendChild(wrapper);
   });
 }
 
@@ -3513,19 +3557,30 @@ function renderList(items) {
     if (String(item.flags || '').includes('MISSING QB STATUS') && !String(item.flags || '').includes('NOT IN QB REFERENCE')) combinedPill = 'MISSING QB STATUS';
     var pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
 
-    var card = document.createElement('div');
-    card.className = 'email-card ' + highestSev;
-    card.innerHTML =
-      '<div class="em-header">' +
-        '<div style="display:flex; align-items:baseline; gap:8px;">' +
-          '<div class="em-fdh">' + esc(item.fdh || '—') + '</div>' +
-          '<div class="em-vendor">' + esc(item.vendor || '—') + '</div>' +
+    var wrapper = document.createElement('div');
+    wrapper.className = 'swipe-wrapper';
+    wrapper.dataset.fdh = item.fdh;
+    wrapper.dataset.listType = 'queue';
+    wrapper.innerHTML =
+      '<div class="swipe-actions swipe-action-left">✔ Commit</div>' +
+      '<div class="swipe-actions swipe-action-right">✕ Skip</div>' +
+      '<div class="swipe-item email-card ' + highestSev + '">' +
+        '<div class="em-header">' +
+          '<div style="display:flex; align-items:baseline; gap:8px;">' +
+            '<div class="em-fdh">' + esc(item.fdh || '—') + '</div>' +
+            '<div class="em-vendor">' + esc(item.vendor || '—') + '</div>' +
+          '</div>' +
+          '<span class="glass-pill ' + pillCls + '">' + esc(combinedPill) + '</span>' +
         '</div>' +
-        '<span class="glass-pill ' + pillCls + '">' + esc(combinedPill) + '</span>' +
-      '</div>' +
-      '<div class="em-tags">' + tagsHtml + '</div>';
-    card.onclick = function() { openCarouselAt(item); };
-    list.appendChild(card);
+        '<div class="em-tags">' + tagsHtml + '</div>' +
+      '</div>';
+    (function(i) {
+      wrapper.querySelector('.swipe-item').onclick = function() {
+        if (window._preventSwipeClick) return;
+        openCarouselAt(i);
+      };
+    })(item);
+    list.appendChild(wrapper);
   });
 }
 
@@ -3560,6 +3615,7 @@ function applyFilters() {
   var searchTerm = ((document.getElementById('search-input') || {}).value || '').trim().toLowerCase();
 
   state.deck = state.all.filter(function(item) {
+    if (item._committed || item._skipped) return false;
     var matchSev = vSev === 'ALL' || getSeverity(item.flags) === vSev;
     var matchVen = vVen === 'ALL' || item.vendor === vVen;
     var matchCit = vCit === 'ALL' || item.city === vCit;
@@ -3759,6 +3815,117 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+/* ─── SWIPE-TO-ACTION GESTURE ENGINE ─── */
+var listSwipeState = { el: null, sx: 0, sy: 0, dx: 0, active: false, isHoriz: null };
+window._preventSwipeClick = false;
+
+document.addEventListener('touchstart', function(e) {
+  var swipeItem = e.target.closest('.swipe-item');
+  if (!swipeItem) return;
+  var t = e.touches[0];
+  listSwipeState = { el: swipeItem, sx: t.clientX, sy: t.clientY, dx: 0, active: true, isHoriz: null };
+  swipeItem.style.transition = 'none';
+}, {passive: true});
+
+document.addEventListener('touchmove', function(e) {
+  if (!listSwipeState.active || !listSwipeState.el) return;
+  var t = e.touches[0];
+  var dx = t.clientX - listSwipeState.sx;
+  var dy = t.clientY - listSwipeState.sy;
+
+  if (listSwipeState.isHoriz === null) {
+    if (Math.abs(dx) > 5 && Math.abs(dx) > Math.abs(dy)) { listSwipeState.isHoriz = true; }
+    else if (Math.abs(dy) > 5) { listSwipeState.isHoriz = false; listSwipeState.active = false; }
+  }
+
+  if (listSwipeState.isHoriz) {
+    e.preventDefault();
+    var listType = listSwipeState.el.parentElement.dataset.listType;
+    if (listType === 'reviewed' && dx > 0) dx = 0;
+    if (dx > 100) dx = 100 + (dx - 100) * 0.2;
+    if (dx < -100) dx = -100 + (dx + 100) * 0.2;
+    listSwipeState.dx = dx;
+    listSwipeState.el.style.transform = 'translateX(' + dx + 'px)';
+  }
+}, {passive: false});
+
+document.addEventListener('touchend', function(e) {
+  if (!listSwipeState.active || !listSwipeState.el) return;
+  listSwipeState.active = false;
+
+  if (listSwipeState.isHoriz) {
+    var el = listSwipeState.el;
+    var wrapper = el.parentElement;
+    var dx = listSwipeState.dx;
+    var fdh = wrapper.dataset.fdh;
+    var listType = wrapper.dataset.listType;
+    var threshold = 70;
+
+    el.style.transition = 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)';
+
+    if (Math.abs(dx) > 10) {
+      window._preventSwipeClick = true;
+      setTimeout(function() { window._preventSwipeClick = false; }, 300);
+    }
+
+    if (listType === 'queue') {
+      if (dx > threshold) {
+        el.style.transform = 'translateX(100%)';
+        setTimeout(function() { commitFromList(fdh); }, 250);
+      } else if (dx < -threshold) {
+        el.style.transform = 'translateX(-100%)';
+        setTimeout(function() { skipFromList(fdh); }, 250);
+      } else {
+        el.style.transform = 'translateX(0)';
+      }
+    } else if (listType === 'reviewed') {
+      if (dx < -threshold) {
+        el.style.transform = 'translateX(-100%)';
+        setTimeout(function() { uncommitFromList(fdh); }, 250);
+      } else {
+        el.style.transform = 'translateX(0)';
+      }
+    }
+  }
+}, {passive: true});
+
+function commitFromList(fdh) {
+  var item = state.all.find(function(i) { return i.fdh === fdh; });
+  if (item && !item._committed && !item._skipped) {
+    item.comment = item.comment || item.draft || 'Committed from Queue.';
+    logCommit(item);
+    item._committed = true;
+  }
+  applyFilters();
+  renderAdminSheet();
+  haptic('medium');
+  toast('Committed · ' + fdh);
+}
+
+function skipFromList(fdh) {
+  var item = state.all.find(function(i) { return i.fdh === fdh; });
+  if (item && !item._committed && !item._skipped) { item._skipped = true; }
+  applyFilters();
+  renderAdminSheet();
+  haptic('light');
+  toast('Skipped · ' + fdh);
+}
+
+function uncommitFromList(fdh) {
+  var item = state.all.find(function(i) { return i.fdh === fdh; });
+  if (item) {
+    item._committed = false;
+    item._skipped = false;
+    state.committed = state.committed.filter(function(i) { return i.fdh !== fdh; });
+    state.count = state.committed.length;
+    updatePill();
+  }
+  applyFilters();
+  renderAdminSheet();
+  haptic('light');
+  toast('Uncommitted · ' + fdh);
+}
 </script>
 </body>
 </html>
