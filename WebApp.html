@@ -922,6 +922,7 @@
             <div class="filter-tools">
                 <span id="nav-ref-age" style="font-size:9px; font-weight:900; padding:6px 10px; border-radius:12px; border:1px solid; display:none; white-space:nowrap;"></span>
                 <button class="btn hover-trigger" id="btn-grid-toggle" onclick="toggleGridMode()" style="font-size:10px; border-color:var(--border); background:var(--card-bg); color:var(--text-main); font-weight:900;">⊞ Grid View</button>
+                <button class="btn hover-trigger" id="btn-pm-deck" onclick="toggleDeckMode()" style="font-size:10px; border-color:var(--color-insight); background:rgba(168,85,247,0.1); color:var(--color-insight); font-weight:900;">🎴 PM Deck</button>
                 <select id="grid-pivot-select" onchange="updateGridPivot()" style="display:none; font-size:10px;">
                    <option value="velocity">Field Velocity</option>
                    <option value="schedule">Project Schedule</option>
@@ -2961,6 +2962,8 @@
       function skipReview() {
           safeExecute('skipReview', () => {
               let item = currentActiveItem; item.comment = "Reviewed - No Action Required.";
+              clearDeckSessionForFdh(item && item.fdh);
+              removeDeckItemFromSource(item && item.fdh);
               currentActiveItem = null; // null first so renderList auto-advances
               allActionItems = allActionItems.filter(i => i.fdh !== item.fdh);
               committedItems = committedItems.filter(i => i.fdh !== item.fdh);
@@ -2971,6 +2974,8 @@
       function commitReview() {
           safeExecute('commitReview', () => {
               let item = currentActiveItem; item.comment = getEl('p-comment').value;
+              clearDeckSessionForFdh(item && item.fdh);
+              removeDeckItemFromSource(item && item.fdh);
               currentActiveItem = null; // null first so renderList auto-advances
               allActionItems = allActionItems.filter(i => i.fdh !== item.fdh);
               committedItems = committedItems.filter(i => i.fdh !== item.fdh);
@@ -3302,6 +3307,398 @@
               openPane(item, cardEl);
           }
       }
+
+      const PM_DECK_STORAGE_KEY = 'pmDeckSessionAnswersV1';
+      const PM_DECK_FIELDS = {
+          permitting: [
+              { id: 'q_permit_sent', label: 'Sent for permitting', placeholder: 'Enter Yes/No or date...' },
+              { id: 'q_permit_appr', label: 'Permit approved (date)', placeholder: 'Enter approval date...' },
+              { id: 'q_cross_sub', label: 'DOT / crossing paperwork ready & submitted', placeholder: 'Enter status...' },
+              { id: 'q_cross_dist', label: 'Special crossing approval distributed', placeholder: 'Enter status...' }
+          ],
+          network: [
+              { id: 'q_active_set', label: 'Active set', placeholder: 'Verification needed...' },
+              { id: 'q_active_pwr', label: 'Active has power', placeholder: 'Verification needed...' },
+              { id: 'q_transport', label: 'Transport readily available', placeholder: 'Verification needed...' },
+              { id: 'q_leg', label: 'FDH leg', placeholder: 'Enter leg ID...' }
+          ],
+          architecture: [
+              { id: 'q_how_fed', label: 'How is this FDH being fed', placeholder: 'Enter feed source...' },
+              { id: 'q_what_feeds', label: 'What does this FDH feed', placeholder: 'Enter downstream...' },
+              { id: 'q_island', label: 'If FDH is an island, what is missing', placeholder: 'N/A or list missing...' },
+              { id: 'q_ofs_change', label: 'Did the OFS date change? If so, why', placeholder: 'Explain schedule shift...' }
+          ]
+      };
+      let deckIndex = 0;
+      let deckSource = [];
+
+      function escapeHtml(str) {
+          return String(str == null ? '' : str)
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;');
+      }
+
+      function getPmDeckSession() {
+          try {
+              let raw = sessionStorage.getItem(PM_DECK_STORAGE_KEY);
+              if (!raw) return {};
+              let parsed = JSON.parse(raw);
+              return parsed && typeof parsed === 'object' ? parsed : {};
+          } catch (err) {
+              console.warn('PM Deck session restore failed:', err);
+              return {};
+          }
+      }
+
+      function setPmDeckSession(sessionData) {
+          try {
+              sessionStorage.setItem(PM_DECK_STORAGE_KEY, JSON.stringify(sessionData || {}));
+          } catch (err) {
+              console.warn('PM Deck session save failed:', err);
+          }
+      }
+
+      function getDeckAnswersForFdh(fdh) {
+          if (!fdh) return {};
+          let sessionData = getPmDeckSession();
+          let answers = sessionData[fdh];
+          return answers && typeof answers === 'object' ? answers : {};
+      }
+
+      function saveDeckAnswersForFdh(fdh, answers) {
+          if (!fdh) return;
+          let sessionData = getPmDeckSession();
+          sessionData[fdh] = answers || {};
+          setPmDeckSession(sessionData);
+      }
+
+      function clearDeckSessionForFdh(fdh) {
+          if (!fdh) return;
+          let sessionData = getPmDeckSession();
+          if (!Object.prototype.hasOwnProperty.call(sessionData, fdh)) return;
+          delete sessionData[fdh];
+          setPmDeckSession(sessionData);
+      }
+
+      function removeDeckItemFromSource(fdh) {
+          if (!fdh || !deckSource || deckSource.length === 0) return;
+          let nextSource = deckSource.filter(i => i && i.fdh !== fdh);
+          if (nextSource.length === deckSource.length) return;
+          deckSource = nextSource;
+          if (deckSource.length === 0) {
+              let overlay = getEl('pm-deck-overlay');
+              if (overlay) overlay.classList.remove('active');
+              deckIndex = 0;
+              return;
+          }
+          if (deckIndex >= deckSource.length) deckIndex = deckSource.length - 1;
+          let overlay = getEl('pm-deck-overlay');
+          if (overlay && overlay.classList.contains('active')) renderDeckCard();
+      }
+
+      function renderDeckQuestionRows(fields, mem) {
+          return fields.map(field => `
+              <div class="pm-q-row">
+                  <div class="pm-q-label">${escapeHtml(field.label)}</div>
+                  <input
+                      type="text"
+                      class="pm-input"
+                      id="${field.id}"
+                      placeholder="${escapeHtml(field.placeholder)}"
+                      autocomplete="off"
+                      value="${escapeHtml(mem[field.id] || '')}"
+                      oninput="persistDeckInput(this)"
+                  >
+              </div>
+          `).join('');
+      }
+
+      function getDeckSourceItems() {
+          return (typeof filteredItems !== 'undefined' && filteredItems.length > 0) ? filteredItems : allActionItems;
+      }
+
+      function toggleDeckMode() {
+          const overlay = getEl('pm-deck-overlay');
+          if (!overlay) return;
+
+          if (overlay.classList.contains('active')) {
+              saveCurrentDeckState();
+              overlay.classList.remove('active');
+              return;
+          }
+
+          deckSource = getDeckSourceItems().slice();
+          if (deckSource.length === 0) {
+              alert('No projects available to review.');
+              return;
+          }
+
+          deckIndex = 0;
+          if (typeof currentActiveItem !== 'undefined' && currentActiveItem) {
+              let idx = deckSource.findIndex(i => i.fdh === currentActiveItem.fdh);
+              if (idx > -1) deckIndex = idx;
+          }
+
+          overlay.classList.add('active');
+          renderDeckCard();
+      }
+
+      function navDeck(dir) {
+          if (!deckSource.length) return;
+          saveCurrentDeckState();
+          deckIndex += dir;
+          if (deckIndex < 0) deckIndex = 0;
+          if (deckIndex >= deckSource.length) deckIndex = deckSource.length - 1;
+          renderDeckCard();
+      }
+
+      function saveCurrentDeckState() {
+          let item = deckSource[deckIndex];
+          if (!item) return;
+          let answers = {};
+          document.querySelectorAll('#deck-card-content .pm-input').forEach(inp => {
+              answers[inp.id] = inp.value;
+          });
+          saveDeckAnswersForFdh(item.fdh, answers);
+          syncDeckNote();
+      }
+
+      function persistDeckInput(inputEl) {
+          let item = deckSource[deckIndex];
+          if (!item || !inputEl || !inputEl.id) return;
+          let answers = getDeckAnswersForFdh(item.fdh);
+          answers[inputEl.id] = inputEl.value;
+          saveDeckAnswersForFdh(item.fdh, answers);
+      }
+
+      function syncDeckNote() {
+          let item = deckSource[deckIndex];
+          let noteEl = getEl('deck-note');
+          if (!item || !noteEl) return;
+          item.comment = noteEl.value;
+          let mainNote = getEl('p-comment');
+          if (mainNote && currentActiveItem && currentActiveItem.fdh === item.fdh) {
+              mainNote.value = item.comment;
+              mainNote.dataset.generated = 'false';
+          }
+      }
+
+      function renderDeckCard() {
+          let item = deckSource[deckIndex];
+          if (!item) return;
+
+          setTxt('deck-counter', `${deckIndex + 1} OF ${deckSource.length}`);
+          let mem = getDeckAnswersForFdh(item.fdh);
+
+          const yesNo = (bool, trueText = 'YES', falseText = 'NO') => {
+              if (bool === true) return `<span class="pm-sys-val yes">${escapeHtml(trueText)}</span>`;
+              if (bool === false) return `<span class="pm-sys-val no">${escapeHtml(falseText)}</span>`;
+              return `<span class="pm-sys-val">UNKNOWN</span>`;
+          };
+          const sysVal = (str) => `<span class="pm-sys-val" style="color:var(--text-main); border-color:var(--text-muted);">${escapeHtml(str || '—')}</span>`;
+
+          let html = `
+              <div class="deck-header">
+                  <div>
+                      <div class="deck-id">${escapeHtml(item.fdh)}</div>
+                      <div class="deck-meta">${escapeHtml(item.city || 'Unknown City')} • ${escapeHtml(item.vendor || 'Unknown Vendor')} • ${escapeHtml(item.stage || 'Unknown Stage')} | ${escapeHtml(item.status || 'Unknown Status')}</div>
+                  </div>
+                  <div style="text-align:right;">
+                      <div style="font-size:10px; color:var(--text-muted); font-weight:800; text-transform:uppercase;">OFS Date</div>
+                      <div style="font-size:16px; font-weight:900; color:var(--color-insight);">${escapeHtml(item.ofsDate || 'TBD')}</div>
+                  </div>
+              </div>
+
+              <div class="deck-scroll">
+                  <div class="pm-grid">
+                      <div class="pm-section">
+                          <div class="pm-sec-title">📦 Deliverables & Docs (System Data)</div>
+                          <div class="pm-q-row"><div class="pm-q-label">Has the CD been distributed?</div>${yesNo(item.hasCDDist)}</div>
+                          <div class="pm-q-row"><div class="pm-q-label">Have splice docs been distributed?</div>${yesNo(item.hasSpliceDist)}</div>
+                          <div class="pm-q-row"><div class="pm-q-label">Have strand maps been distributed?</div>${yesNo(item.hasStrandDist)}</div>
+                          <div class="pm-q-row"><div class="pm-q-label">Was the BOM / PO number sent?</div>${yesNo(item.hasBOMPo)}</div>
+                          <div class="pm-q-row"><div class="pm-q-label">Has the SOW been signed?</div>${yesNo(item.hasSOW)}</div>
+                      </div>
+
+                      <div class="pm-section">
+                          <div class="pm-sec-title">🚧 Permitting & Crossings</div>
+                          <div class="pm-q-row"><div class="pm-q-label">Are there special crossings?</div>${item.isXing ? yesNo(true, 'YES (ACTION REQ)', 'NO') : yesNo(false, 'YES', 'NONE DETECTED')}</div>
+                          ${item.specXDetails ? `<div class="pm-xing-detail">${escapeHtml(item.specXDetails)}</div>` : `<div class="pm-xing-detail muted">No special crossing details in system data.</div>`}
+                          ${renderDeckQuestionRows(PM_DECK_FIELDS.permitting, mem)}
+                      </div>
+
+                      <div class="pm-section" style="border-bottom:none;">
+                          <div class="pm-sec-title">⚡ Network & Actives (Field Verification)</div>
+                          <div class="pm-q-row"><div class="pm-q-label">Target Date in main schedule</div>${sysVal(item.targetDate ? formatDate(item.targetDate) : 'TBD')}</div>
+                          ${renderDeckQuestionRows(PM_DECK_FIELDS.network, mem)}
+                      </div>
+
+                      <div class="pm-section" style="border-bottom:none;">
+                          <div class="pm-sec-title">🗺️ Architecture & Scheduling</div>
+                          <div class="pm-q-row"><div class="pm-q-label">Current stage / status</div>${sysVal(`${item.stage || '—'} | ${item.status || '—'}`)}</div>
+                          ${renderDeckQuestionRows(PM_DECK_FIELDS.architecture, mem)}
+                      </div>
+                  </div>
+              </div>
+
+              <div class="deck-footer">
+                  <div style="display:flex; flex-direction:column; flex-grow:1;">
+                      <div style="font-size:10px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Manager Decision / Note</div>
+                      <textarea id="deck-note" placeholder="Enter final decision for this project..." oninput="syncDeckNote()">${escapeHtml(item.comment || item.draft || '')}</textarea>
+                      <div class="deck-helper">PM Deck answers stay in this browser tab session only. Only this Manager Decision note is saved through normal Commit.</div>
+                  </div>
+                  <button class="btn-export" onclick="exportDeckReport()" id="btn-export-deck">
+                      <span style="font-size:16px; margin-bottom:4px;">📋</span> COPY REPORT
+                  </button>
+              </div>
+          `;
+
+          getEl('deck-card-content').innerHTML = html;
+      }
+
+      function exportDeckReport() {
+          saveCurrentDeckState();
+          let item = deckSource[deckIndex];
+          if (!item) return;
+          let mem = getDeckAnswersForFdh(item.fdh);
+
+          let manualSections = [
+              ['Permitting & Crossings', PM_DECK_FIELDS.permitting],
+              ['Network & Actives', PM_DECK_FIELDS.network],
+              ['Architecture & Scheduling', PM_DECK_FIELDS.architecture]
+          ].map(([title, fields]) => {
+              let lines = fields
+                  .filter(field => (mem[field.id] || '').trim() !== '')
+                  .map(field => `- ${field.label}: ${mem[field.id].trim()}`);
+              if (lines.length === 0) lines.push('- No manual answers captured');
+              return `${title}:\n${lines.join('\n')}`;
+          }).join('\n\n');
+
+          let text = [
+              `PROJECT PM REPORT: ${item.fdh}`,
+              '=========================================',
+              'General Info:',
+              `- Vendor: ${item.vendor || 'Unknown'}`,
+              `- City: ${item.city || 'Unknown'}`,
+              `- Stage / Status: ${item.stage || 'Unknown'} | ${item.status || 'Unknown'}`,
+              `- Target Date: ${item.targetDate ? formatDate(item.targetDate) : 'TBD'}`,
+              `- OFS Date: ${item.ofsDate || 'TBD'}`,
+              '',
+              'System Verified Deliverables:',
+              `- CD Distributed: ${item.hasCDDist ? 'YES' : 'NO'}`,
+              `- Splice Docs Distributed: ${item.hasSpliceDist ? 'YES' : 'NO'}`,
+              `- Strand Maps Distributed: ${item.hasStrandDist ? 'YES' : 'NO'}`,
+              `- BOM & PO Sent: ${item.hasBOMPo ? 'YES' : 'NO'}`,
+              `- SOW Signed: ${item.hasSOW ? 'YES' : 'NO'}`,
+              '',
+              'Crossings:',
+              `- Special Crossings Detected: ${item.isXing ? 'YES' : 'NO'}`,
+              `- Crossing Details: ${item.specXDetails || 'N/A'}`,
+              '',
+              manualSections,
+              '',
+              'Manager Note / Decision:',
+              item.comment || item.draft || 'No notes provided.'
+          ].join('\n');
+
+          navigator.clipboard.writeText(text).then(() => {
+              let btn = getEl('btn-export-deck');
+              if (!btn) return;
+              let origHtml = btn.innerHTML;
+              btn.innerHTML = `<span style="font-size:16px; margin-bottom:4px;">✅</span> COPIED!`;
+              btn.style.background = '#16a34a';
+              btn.style.color = 'white';
+              setTimeout(() => {
+                  btn.innerHTML = origHtml;
+                  btn.style.background = '';
+                  btn.style.color = '';
+              }, 2000);
+          }).catch(err => {
+              alert('Failed to copy to clipboard. ' + err);
+          });
+      }
     </script>
+    <style>
+      #pm-deck-overlay {
+        position: fixed; inset: 0; background: rgba(241, 245, 249, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        z-index: 100000; display: none; flex-direction: column; opacity: 0; transition: opacity 0.3s ease; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      body.dark-mode #pm-deck-overlay { background: rgba(9, 9, 11, 0.95); }
+      #pm-deck-overlay.active { display: flex; opacity: 1; }
+      .deck-nav { padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: var(--card-bg); flex-shrink: 0; gap: 12px; }
+      .deck-brand { font-weight: 900; letter-spacing: 1px; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
+      .deck-counter { font-size: 11px; font-weight: 800; color: var(--text-muted); background: var(--bg); padding: 4px 12px; border-radius: 12px; border: 1px solid var(--border); }
+      .deck-close { padding: 6px 16px; border-radius: 8px; font-size: 11px; font-weight: 900; background: var(--card-bg); color: var(--color-critical); border: 1px solid rgba(239,68,68,0.3); cursor: pointer; transition: all 0.2s; }
+      .deck-close:hover { background: rgba(239,68,68,0.1); }
+      .deck-workspace { flex-grow: 1; display: flex; align-items: stretch; justify-content: center; padding: 20px; gap: 20px; overflow: hidden; }
+      .deck-arrow { width: 50px; border-radius: 16px; border: 1px solid var(--border); background: color-mix(in srgb, var(--card-bg) 80%, transparent); font-size: 24px; color: var(--text-muted); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .deck-arrow:hover { background: var(--card-bg); color: var(--text-main); transform: scale(1.02); box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+      .deck-arrow:active { transform: scale(0.95); }
+      .deck-card { width: 100%; max-width: 1000px; background: var(--card-bg); border-radius: 24px; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+      .deck-header { padding: 24px 30px; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; justify-content: space-between; align-items: flex-end; flex-shrink: 0; gap: 16px; }
+      .deck-id { font-size: 32px; font-weight: 900; letter-spacing: -1px; color: var(--text-main); line-height: 1; }
+      .deck-meta { font-size: 12px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-top: 6px; }
+      .deck-scroll { overflow-y: auto; padding: 0; display: flex; flex-direction: column; flex-grow: 1; }
+      .deck-scroll::-webkit-scrollbar { width: 8px; }
+      .deck-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+      .pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+      .pm-section { border-bottom: 1px solid var(--border); padding: 24px 30px; }
+      .pm-section:nth-child(odd) { border-right: 1px solid var(--border); }
+      .pm-sec-title { font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: var(--color-insight); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+      .pm-q-row { display: flex; flex-direction: column; margin-bottom: 12px; }
+      .pm-q-label { font-size: 11px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+      .pm-sys-val { display: inline-flex; align-items: center; font-size: 11px; font-weight: 900; padding: 6px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); color: var(--text-muted); width: fit-content; }
+      .pm-sys-val.yes { background: rgba(34,197,94,0.1); color: #15803d; border-color: #86efac; }
+      .pm-sys-val.no { background: rgba(239,68,68,0.1); color: #b91c1c; border-color: #fca5a5; }
+      body.dark-mode .pm-sys-val.yes { color: #86efac; border-color: #166534; }
+      body.dark-mode .pm-sys-val.no { color: #fca5a5; border-color: #991b1b; }
+      .pm-input { width: 100%; padding: 8px 12px; font-size: 11px; font-family: inherit; border: 1px dashed #f59e0b; border-radius: 8px; background: rgba(254,252,232,0.5); color: var(--text-main); box-sizing: border-box; transition: all 0.2s; outline: none; }
+      body.dark-mode .pm-input { background: rgba(66,32,6,0.3); border-color: #b45309; }
+      .pm-input:focus { border: 1px solid var(--color-insight); background: var(--card-bg); box-shadow: 0 0 0 3px rgba(168,85,247,0.15); }
+      .pm-input::placeholder { color: #b45309; opacity: 0.6; font-style: italic; }
+      .pm-xing-detail { font-size: 10px; color: #b45309; background: #fffbeb; padding: 6px 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #fde68a; line-height: 1.4; }
+      .pm-xing-detail.muted { color: var(--text-muted); background: var(--bg); border-color: var(--border); }
+      body.dark-mode .pm-xing-detail { background: rgba(66,32,6,0.28); border-color: #92400e; }
+      .deck-footer { padding: 20px 30px; border-top: 1px solid var(--border); background: var(--bg); display: flex; gap: 16px; flex-shrink: 0; align-items: stretch; }
+      .deck-footer textarea { flex-grow: 1; min-height: 60px; padding: 12px; border-radius: 12px; border: 1px solid var(--border); font-family: inherit; font-size: 12px; resize: none; background: var(--card-bg); color: var(--text-main); outline: none; }
+      .deck-footer textarea:focus { border-color: var(--color-insight); box-shadow: 0 0 0 3px rgba(168,85,247,0.15); }
+      .deck-helper { margin-top: 8px; font-size: 10px; line-height: 1.4; color: var(--text-muted); }
+      .btn-export { background: #0f172a; color: #fff; border: none; border-radius: 12px; padding: 0 24px; font-size: 11px; font-weight: 900; text-transform: uppercase; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.2s; white-space: nowrap; }
+      .btn-export:hover { background: #334155; transform: translateY(-1px); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+      .btn-export:active { transform: scale(0.96); }
+      body.dark-mode .btn-export { background: #f8fafc; color: #0f172a; }
+      body.dark-mode .btn-export:hover { background: #cbd5e1; }
+      @media (max-width: 980px) {
+        .deck-workspace { padding: 12px; gap: 12px; }
+        .pm-grid { grid-template-columns: 1fr; }
+        .pm-section:nth-child(odd) { border-right: none; }
+        .deck-header, .deck-footer { padding: 18px 20px; }
+      }
+      @media (max-width: 720px) {
+        .deck-nav { padding: 12px 16px; flex-wrap: wrap; }
+        .deck-arrow { display: none; }
+        .deck-workspace { padding: 10px; }
+        .deck-card { border-radius: 18px; }
+        .deck-footer { flex-direction: column; }
+        .btn-export { min-height: 52px; }
+      }
+    </style>
+    <div id="pm-deck-overlay">
+      <div class="deck-nav">
+        <div class="deck-brand">🎴 PROJECT MANAGER DEEP-DIVE</div>
+        <div id="deck-counter" class="deck-counter">0 / 0</div>
+        <button class="deck-close" onclick="toggleDeckMode()">✕ Close Deck</button>
+      </div>
+      <div class="deck-workspace">
+        <button class="deck-arrow" onclick="navDeck(-1)">‹</button>
+        <div class="deck-card">
+          <div id="deck-card-content" style="display:flex; flex-direction:column; height:100%;"></div>
+        </div>
+        <button class="deck-arrow" onclick="navDeck(1)">›</button>
+      </div>
+    </div>
   </body>
 </html>
