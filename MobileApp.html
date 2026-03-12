@@ -108,6 +108,13 @@
       -webkit-tap-highlight-color: transparent;
       overscroll-behavior: none;
     }
+    #main-workspace {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
 
     /* ─── LOADING SCREEN ────────────────────────────────────────────── */
     #loading-screen {
@@ -223,6 +230,149 @@
     .project-card.active-card { z-index: 12; pointer-events: auto; }
     .project-card.side-card { z-index: 10; pointer-events: none; opacity: 0.92; }
     .project-card.hidden-card { opacity: 0; pointer-events: none; }
+    .card-outer-container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+      overflow: hidden;
+    }
+    .card-header-sticky {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.98), rgba(255,255,255,0.94));
+      padding-bottom: 12px;
+      border-bottom: var(--hairline);
+      margin-bottom: 16px;
+    }
+    .card-scroll-body {
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 2px;
+      margin-right: -4px;
+    }
+    .card-scroll-body::-webkit-scrollbar { width: 0; }
+    .qb-module {
+      border: var(--hairline);
+      border-radius: 20px;
+      background: rgba(248, 250, 252, 0.76);
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .qb-module-header,
+    .section-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .qb-module-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: var(--hairline);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .card-persistent-header {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .qb-proj-title {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .qb-proj-title-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .qb-proj-id {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -1.6px;
+      color: var(--text-main);
+      line-height: 1;
+    }
+    .qb-proj-meta {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+    .edit-engine-link {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      background: rgba(248, 250, 252, 0.98);
+      border: var(--hairline);
+      padding: 6px 8px;
+      border-radius: 10px;
+      text-decoration: none;
+    }
+    .qb-time-labels {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .qb-time-bar {
+      position: relative;
+      height: 12px;
+      border-radius: 999px;
+      border: var(--hairline);
+      background: rgba(226, 232, 240, 0.8);
+      overflow: visible;
+      margin-bottom: 14px;
+    }
+    .qb-time-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s var(--ease-out-expo);
+    }
+    .qb-time-bead {
+      position: absolute;
+      top: 50%;
+      width: 14px;
+      height: 14px;
+      background: rgba(255,255,255,0.92);
+      border-radius: 50%;
+      border: 3px solid;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16);
+    }
+    .qb-target-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      border-top: var(--hairline);
+      padding-top: 12px;
+    }
+    .qb-target-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .qb-target-date {
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -0.4px;
+    }
 
     /* ─── CARD INNER ────────────────────────────────────────────────── */
     .card-top-row {
@@ -334,14 +484,6 @@
       align-self: flex-start;
       margin-bottom: 10px;
     }
-
-    .review-scroll-container {
-      overflow-y: auto;
-      flex: 1;
-      padding-right: 2px;
-      margin-right: -4px;
-    }
-    .review-scroll-container::-webkit-scrollbar { width: 0; }
 
     .card-section-title {
       font-size: 10px;
@@ -471,6 +613,11 @@
       color: var(--text-main);
       box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
     }
+    .panel-tab.is-clear {
+      background: rgba(255,255,255,0.78);
+      color: var(--text-secondary);
+      box-shadow: none;
+    }
     .ob-tab-badge {
       min-width: 18px;
       height: 18px;
@@ -535,6 +682,121 @@
       text-align: center;
       padding: 16px;
       cursor: default;
+    }
+    .hub-section-title {
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 18px 0 10px;
+    }
+
+    #outbox-pane {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 70vh;
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      border-radius: 32px 32px 0 0;
+      background: var(--card-bg);
+      z-index: 2000;
+      box-shadow: 0 -12px 40px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      padding: 10px 18px calc(var(--safe-bottom) + 18px);
+    }
+    #outbox-pane.open { transform: translateY(0); }
+    #outbox-handle-row {
+      padding: 4px 0 12px;
+      display: flex;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    #outbox-handle {
+      width: 44px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.55);
+    }
+    #outbox-scroll {
+      overflow-y: auto;
+      flex: 1;
+      -webkit-overflow-scrolling: touch;
+      padding-right: 2px;
+    }
+
+    #gantt-panel {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 2100;
+      display: none;
+      flex-direction: column;
+      padding: calc(var(--safe-top) + 14px) 16px calc(var(--safe-bottom) + 14px);
+    }
+    #gantt-panel.fullscreen { display: flex; }
+    .gantt-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+    }
+    #gantt-content {
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .gantt-row {
+      background: var(--card-bg);
+      border: var(--hairline);
+      border-radius: 18px;
+      padding: 12px 14px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .gantt-row-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .gantt-row-id {
+      font-size: 14px;
+      font-weight: 900;
+      color: var(--text-main);
+    }
+    .gantt-row-meta {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .gantt-bar-track {
+      position: relative;
+      height: 10px;
+      border-radius: 999px;
+      border: var(--hairline);
+      background: rgba(226, 232, 240, 0.8);
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .gantt-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+    .gantt-row-dates {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-secondary);
     }
 
     /* ─── DOCK ──────────────────────────────────────────────────────── */
@@ -1035,97 +1297,119 @@
     <div class="loading-sub">Loading projects…</div>
   </div>
 
-  <!-- 2. DECK SCENE -->
-  <div id="deck-scene">
-    <div id="scene-header">
-      <div class="scene-title">Review Queue</div>
-      <div class="scene-count" id="deck-count-label">— / —</div>
-    </div>
+  <div id="main-workspace">
+    <!-- 2. DECK SCENE -->
+    <div id="deck-scene">
+      <div id="scene-header">
+        <div class="scene-title">Review Queue</div>
+        <div class="scene-count" id="deck-count-label">— / —</div>
+      </div>
 
-    <div id="card-stack">
-      <div id="empty-state">
-        <div class="empty-icon">✅</div>
-        <div class="empty-title">All caught up</div>
-        <div class="empty-sub">No more projects in queue</div>
+      <div id="card-stack">
+        <div id="empty-state">
+          <div class="empty-icon">✅</div>
+          <div class="empty-title">All caught up</div>
+          <div class="empty-sub">No more projects in queue</div>
+        </div>
       </div>
     </div>
+
+    <!-- 3. HUB CONTENT -->
+    <div id="hub-content">
+      <div class="hub-header">
+        <div class="hub-title">Diagnostics Queue</div>
+        <div id="scene-count-label" class="scene-count">-- projects</div>
+      </div>
+      <div id="unified-list" class="inbox-list"></div>
+    </div>
+
+    <!-- 4. DETAIL SHEET -->
+    <div id="detail-sheet" role="dialog" aria-modal="true">
+      <div id="detail-handle-row">
+        <div id="detail-handle"></div>
+      </div>
+      <div id="detail-scroll">
+        <div id="detail-content"></div>
+      </div>
+    </div>
+
+    <!-- 5. SEARCH OVERLAY -->
+    <div id="search-overlay">
+      <div class="search-row">
+        <input id="search-input" type="search" placeholder="FDH, city, vendor…" autocomplete="off" spellcheck="false">
+        <button class="search-cancel-btn" onclick="closeSearch()">Cancel</button>
+      </div>
+      <div class="search-filters">
+        <select id="filter-severity" class="search-filter">
+          <option value="ALL">All Severity</option>
+          <option value="crit">Critical</option>
+          <option value="warn">Review</option>
+          <option value="info">Info</option>
+        </select>
+        <select id="filter-vendor" class="search-filter">
+          <option value="ALL">All Vendors</option>
+        </select>
+        <select id="filter-city" class="search-filter">
+          <option value="ALL">All Cities</option>
+        </select>
+        <select id="filter-ofs" class="search-filter">
+          <option value="ALL">All OFS Months</option>
+        </select>
+      </div>
+      <div id="search-results-meta" class="search-results-meta">All projects</div>
+      <div id="search-results"></div>
+    </div>
+
+    <!-- 6. COMMAND CENTER DOCK -->
+    <div id="dock">
+      <button class="dock-btn" id="dock-home-btn" onclick="handleDockHome()" aria-label="Navigation">
+        <svg id="dock-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 6h16"/>
+          <path d="M4 12h16"/>
+          <path d="M4 18h16"/>
+        </svg>
+      </button>
+      <button id="dock-primary-pill" onclick="handlePrimaryAction()">
+        <span id="dock-primary-main">Review Queue</span>
+        <span id="dock-primary-sub">0 projects</span>
+      </button>
+      <button class="dock-action-btn" id="dock-secondary-btn" onclick="handleSecondaryAction()">Search</button>
+      <div id="dock-session-count" style="display:none;">0</div>
+      <button class="dock-btn" id="dock-search-btn" onclick="openSearch()" aria-label="Search" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- 3. HUB CONTENT (revealed when deck slides down) -->
-  <div id="hub-content">
-    <div class="hub-header">
-      <div class="hub-title">Command Center</div>
-      <div id="scene-count-label" class="scene-count">-- projects</div>
+  <div id="outbox-pane" aria-label="Admin panel">
+    <div id="outbox-handle-row">
+      <div id="outbox-handle"></div>
     </div>
-    <div class="tab-container">
-      <button class="panel-tab active" onclick="switchMobileTab('diag')" id="tab-diag">Diag Queue <span class="ob-tab-badge" id="badge-diag">0</span></button>
-      <button class="panel-tab" onclick="switchMobileTab('admin')" id="tab-admin">Admin <span class="ob-tab-badge" id="badge-admin">0</span></button>
-      <button class="panel-tab" onclick="switchMobileTab('xing')" id="tab-xing">Crossings <span class="ob-tab-badge" id="badge-xing">0</span></button>
-    </div>
-    <div id="unified-list" class="inbox-list"></div>
-  </div>
-
-  <!-- 4. DETAIL SHEET -->
-  <div id="detail-sheet" role="dialog" aria-modal="true">
-    <div id="detail-handle-row">
-      <div id="detail-handle"></div>
-    </div>
-    <div id="detail-scroll">
-      <div id="detail-content"></div>
+    <div id="outbox-scroll">
+      <div class="hub-header" style="margin-bottom:12px;">
+        <div class="hub-title">Admin Panel</div>
+        <button class="search-cancel-btn" onclick="closeAdminSheet()">Close</button>
+      </div>
+      <div class="hub-section-title">QB Exceptions</div>
+      <div id="admin-sheet-list"></div>
+      <div class="hub-section-title">Crossings</div>
+      <div id="crossing-sheet-list"></div>
     </div>
   </div>
 
-  <!-- 5. SEARCH OVERLAY -->
-  <div id="search-overlay">
-    <div class="search-row">
-      <input id="search-input" type="search" placeholder="FDH, city, vendor…" autocomplete="off" spellcheck="false">
-      <button class="search-cancel-btn" onclick="closeSearch()">Cancel</button>
+  <div id="gantt-panel">
+    <div class="gantt-header">
+      <div class="hub-title">Schedule Gantt</div>
+      <button class="search-cancel-btn" onclick="handleLandscapeChange(true)">Close</button>
     </div>
-    <div class="search-filters">
-      <select id="filter-severity" class="search-filter">
-        <option value="ALL">All Severity</option>
-        <option value="crit">Critical</option>
-        <option value="warn">Review</option>
-        <option value="info">Info</option>
-      </select>
-      <select id="filter-vendor" class="search-filter">
-        <option value="ALL">All Vendors</option>
-      </select>
-      <select id="filter-city" class="search-filter">
-        <option value="ALL">All Cities</option>
-      </select>
-      <select id="filter-ofs" class="search-filter">
-        <option value="ALL">All OFS Months</option>
-      </select>
-    </div>
-    <div id="search-results-meta" class="search-results-meta">All projects</div>
-    <div id="search-results"></div>
+    <div id="gantt-content"></div>
   </div>
-
-  <!-- 6. COMMAND CENTER DOCK -->
-  <div id="dock">
-    <button class="dock-btn" id="dock-home-btn" onclick="handleDockHome()" aria-label="Home">
-      <svg id="dock-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 19V5"/>
-        <path d="M5 12l7-7 7 7"/>
-      </svg>
-    </button>
-    <button id="dock-primary-pill" onclick="handlePrimaryAction()">
-      <span id="dock-primary-main">Review Queue</span>
-      <span id="dock-primary-sub">0 projects</span>
-    </button>
-    <button class="dock-action-btn" id="dock-secondary-btn" onclick="handleSecondaryAction()">Search</button>
-    <div id="dock-session-count" style="display:none;">0</div>
-    <button class="dock-btn" id="dock-search-btn" onclick="openSearch()" aria-label="Search" style="display:none;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="7"/>
-        <path d="M21 21l-4.35-4.35"/>
-      </svg>
-    </button>
-  </div>
-
-  <!-- TOAST -->
-  <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 /* ═══════════════════════════════════════════════════
@@ -1233,7 +1517,8 @@ var state = {
   idx:        0,
   committed:  [],
   count:      0,
-  hubTab:     'diag',
+  adminSheetOpen: false,
+  landscapeGanttOpen: false,
   reviewOpen: false,
   detailOpen: false,
   searchOpen: false,
@@ -1259,7 +1544,7 @@ function loadData() {
 
 function onReady(items) {
   state.all  = items || [];
-  state.deck = items ? items.slice() : [];
+  state.deck = getDiagQueueItems();
   state.idx  = 0;
   state.reviewOpen = false;
   populateSearchFilters();
@@ -1267,6 +1552,8 @@ function onReady(items) {
   hideSplash();
   renderDeck();
   renderHub();
+  renderAdminSheet();
+  handleLandscapeChange(false);
   updatePill();
   showHubHome();
 }
@@ -1355,6 +1642,74 @@ function esc(s) {
 
 function fmt(n) { return n ? Number(n).toLocaleString() : '—'; }
 
+function formatDate(val) {
+  if (!val) return 'TBD';
+  var d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  return d.toLocaleDateString('en-US', { month:'numeric', day:'numeric', year:'2-digit', timeZone:'UTC' });
+}
+
+function getQBStatusClass(stage, status, isMissing) {
+  if (isMissing) return 'pill-default';
+  var st = (stage || '').toLowerCase();
+  var stat = (status || '').toLowerCase();
+  if (st.includes('ofs')) return 'pill-ofs';
+  if (st.includes('permit')) return 'pill-permitting';
+  if (stat.includes('complete')) return 'pill-complete';
+  if (stat.includes('hold') || stat.includes('assign')) return 'pill-hold';
+  if (stat.includes('active') || st.includes('construction')) return 'pill-active';
+  return 'pill-default';
+}
+
+function getEditUrl(rid) {
+  return rid ? "https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={'3'.EX.'" + rid + "'}" : '#';
+}
+
+function statusColor(item) {
+  var st = (item.stage || '').toLowerCase();
+  var stat = (item.status || '').toLowerCase();
+  var isComplete = st.includes('ofs') || stat.includes('complete');
+  var isOnHold = stat.includes('hold');
+  var isPermit = st.includes('permit');
+  var end = item.cxEnd ? new Date(item.cxEnd) : null;
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var isOverdue = end && !isNaN(end.getTime()) && today > end && !isComplete && !isOnHold && !isPermit;
+  if (isComplete) return '#22c55e';
+  if (isPermit) return '#a855f7';
+  if (isOnHold) return '#94a3b8';
+  if (isOverdue) return '#ef4444';
+  return '#f59e0b';
+}
+
+function calcSchedulePct(item) {
+  var start = item.cxStart ? new Date(item.cxStart) : null;
+  var end = (item.cxEnd || item.targetDate) ? new Date(item.cxEnd || item.targetDate) : null;
+  if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return 0;
+  var today = new Date();
+  var pct = ((today - start) / (end - start)) * 100;
+  return Math.max(0, Math.min(100, Math.round(pct)));
+}
+
+function renderVelocityBars(item) {
+  var vel = velPcts(item.vel);
+  var html = '';
+  for (var vi = 0; vi < VEL_TYPES.length; vi++) {
+    var t = VEL_TYPES[vi], p = vel[t];
+    html += '<div class="vel-row"><div class="vel-label">' + VEL_LABELS[t] + '</div>' +
+      '<div class="vel-track"><div class="vel-fill ' + t + '" style="width:' + p + '%"></div></div>' +
+      '<div class="vel-pct">' + p + '%</div></div>';
+  }
+  return html;
+}
+
+function renderDiagnosticChips(item) {
+  var flags = parseFlags(item.flags);
+  return flags.length
+    ? '<div class="detail-flag-list">' + flags.map(function(f){ return '<div class="detail-flag-item ' + f.sev + '">' + esc(f.text) + '</div>'; }).join('') + '</div>'
+    : '<div class="detail-section-body">No system diagnostics flagged.</div>';
+}
+
 function syncCountLabel() {
   var el = document.getElementById('deck-count-label');
   if (el) el.textContent = state.deck.length ? (state.idx + 1) + ' / ' + state.deck.length : '0 / 0';
@@ -1367,45 +1722,49 @@ var VEL_TYPES  = ['ug','ae','fib','nap'];
 var VEL_LABELS = {ug:'UG',ae:'AE',fib:'FIB',nap:'NAP'};
 
 function cardHTML(item) {
-  var flags = parseFlags(item.flags);
-  var vel   = velPcts(item.vel);
-  var pc    = pillClass(item.status, item.stage);
-  var pl    = pillLabel(item.status, item.stage);
+  var pillClassName = getQBStatusClass(item.stage, item.status, false);
   var noteId = commentFieldId(item);
   var draftVal = item.comment || item.geminiInsight || item.draft || '';
-  var dots = flags.length ? flags.map(function(f){ return '<div class="flag-dot '+f.sev+'"></div>'; }).join('') : '<div class="detail-section-body">No critical flags</div>';
-  var diagnostics = flags.length ? '<div class="detail-flag-list">' + flags.map(function(f){ return '<div class="detail-flag-item '+f.sev+'">'+esc(f.text)+'</div>'; }).join('') + '</div>' : '<div class="detail-section-body">No system diagnostics flagged.</div>';
-  var schedule = [
-    { label:'CX Start', value:item.cxStart || 'TBD' },
-    { label:'Target', value:item.targetDate || item.cxEnd || 'TBD' },
-    { label:'OFS', value:item.ofsDate || 'TBD' }
-  ].map(function(part) {
-    return '<div class="schedule-chip"><div class="schedule-chip-label">'+part.label+'</div><div class="schedule-chip-value">'+esc(part.value)+'</div></div>';
-  }).join('');
-
-  var bars = '';
-  for(var vi=0;vi<VEL_TYPES.length;vi++){
-    var t=VEL_TYPES[vi], p=vel[t];
-    bars += '<div class="vel-row"><div class="vel-label">'+VEL_LABELS[t]+'</div>'+
-      '<div class="vel-track" style="height:14px; border-radius:7px;"><div class="vel-fill '+t+'" style="width:'+p+'%"></div></div>'+
-      '<div class="vel-pct">'+p+'%</div></div>';
-  }
-
-  return '<div class="card-top-row"><div class="card-fdh">'+esc(item.fdh||'—')+'</div>'+
-    '<div class="glass-pill status-pill '+pc+'">'+esc(pl)+'</div></div>'+
-    '<div class="card-sub">'+esc((item.city||'')+(item.vendor?' · '+item.vendor:''))+'</div>'+
-    '<div class="detail-section"><div class="card-section-title">Schedule</div><div class="card-schedule-grid">'+schedule+'</div></div>'+
-    '<div class="velocity-section"><div class="card-section-title">Production Velocity</div>'+bars+'</div>'+
-    '<div class="review-scroll-container">'+
-      '<div class="detail-section"><div class="card-section-title">System Diagnostics</div><div class="flag-strip">'+dots+'</div>'+diagnostics+'</div>'+
-      '<div class="detail-section">'+
-        '<div class="card-section-title">OMNI Manager Note</div>'+
-        '<textarea id="'+noteId+'" class="detail-textarea" placeholder="Type decision...">'+esc(draftVal)+'</textarea>'+
-        '<div style="display:flex; justify-content:flex-end; margin-top:10px;"><button class="btn-ai" onclick="askGeminiForDraftMobile(this)">Draft w/ Gemini</button></div>'+
+  var pct = calcSchedulePct(item);
+  var sColor = statusColor(item);
+  return '<div class="card-outer-container">'+
+      '<div class="card-header-sticky">'+
+        '<div class="card-persistent-header">'+
+          '<div class="qb-module-header">PROJECT SCHEDULE</div>'+
+          '<div class="qb-proj-title">'+
+            '<div class="qb-proj-title-left">'+
+              '<div class="qb-proj-id">'+esc(item.fdh||'—')+'</div>'+
+              '<div class="qb-proj-meta">'+esc(item.city || 'Unknown City')+'</div>'+
+            '</div>'+
+            '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">'+
+              '<div class="glass-pill '+pillClassName+'">'+esc((item.stage || '-') + ' | ' + (item.status || '-'))+'</div>'+
+              (item.rid ? '<a href="'+getEditUrl(item.rid)+'" target="_blank" class="edit-engine-link">⚙ EDIT IN ENGINE</a>' : '')+
+            '</div>'+
+          '</div>'+
+        '</div>'+
       '</div>'+
-      (item.cdIntel ? '<div class="detail-section"><div class="card-section-title">CD Intelligence</div><div class="detail-section-body">'+esc(item.cdIntel)+'</div></div>' : '')+
-      '<div class="detail-section"><div class="card-section-title">Vendor Update</div><div class="detail-section-body">'+esc(item.vendorComment || 'No comment provided.')+'</div></div>'+
-      '<div class="detail-section"><div class="card-section-title">Historical Milestones</div><div class="detail-section-body" style="font-family:monospace; font-size:11px;">'+esc(item.bench || 'No history logged.')+'</div></div>'+
+      '<div class="card-scroll-body">'+
+        '<div class="qb-module">'+
+          '<div class="qb-time-labels"><span>CX START: '+formatDate(item.cxStart)+'</span><span>CX COMPLETE: '+formatDate(item.cxEnd)+'</span></div>'+
+          '<div class="qb-time-bar"><div class="qb-time-fill" style="width:'+pct+'%; background:'+sColor+';"></div>' +
+            (pct > 0 && pct < 100 ? '<div class="qb-time-bead" style="left:'+pct+'%; border-color:'+sColor+';"></div>' : '') +
+          '</div>'+
+          '<div class="qb-target-inner"><div class="qb-target-label">TARGET DATE</div><div class="qb-target-date" style="color:'+sColor+'">'+formatDate(item.targetDate || item.cxEnd)+'</div></div>'+
+        '</div>'+
+        '<div class="qb-module">'+
+          '<div class="qb-module-header">FIELD VELOCITY &amp; PRODUCTION</div>'+renderVelocityBars(item)+
+        '</div>'+
+        '<div class="qb-module">'+
+          '<div class="qb-module-header">DIAGNOSTIC &amp; MANAGER REVIEW</div>'+
+          renderDiagnosticChips(item)+
+          '<div class="section-label" style="margin-top:14px;">OMNI MANAGER NOTE</div>'+
+          '<textarea id="'+noteId+'" class="detail-textarea" placeholder="Type decision...">'+esc(draftVal)+'</textarea>'+
+          '<div style="display:flex; justify-content:flex-end; margin-top:10px;"><button class="btn-ai" onclick="askGeminiForDraftMobile(this)">DRAFT W/ GEMINI</button></div>'+
+        '</div>'+
+        (item.cdIntel ? '<div class="qb-module"><div class="qb-module-header">CD Intelligence</div><div class="detail-section-body">'+esc(item.cdIntel)+'</div></div>' : '')+
+        '<div class="qb-module"><div class="qb-module-header">Vendor Update</div><div class="detail-section-body">'+esc(item.vendorComment || 'No comment provided.')+'</div></div>'+
+        '<div class="qb-module"><div class="qb-module-header">Historical Milestones</div><div class="detail-section-body" style="font-family:monospace; font-size:11px;">'+esc(item.bench || 'No history logged.')+'</div></div>'+
+      '</div>'+
     '</div>';
 }
 
@@ -1528,7 +1887,7 @@ function attachGestures(card) {
 
 function onStart(e) {
   if (!state.reviewOpen) return;
-  if (e.target.closest('textarea, button, a, .review-scroll-container')) return;
+  if (e.target.closest('textarea, button, a, .card-scroll-body')) return;
   e.preventDefault();
   if(state.dragging) return;
   var t = e.touches[0];
@@ -1575,6 +1934,7 @@ function showHubHome() {
   state.reviewOpen = false;
   state.drag = null;
   state.dragging = false;
+  closeAdminSheet();
   var scene = document.getElementById('deck-scene');
   var hub = document.getElementById('hub-content');
   if (scene) scene.classList.remove('active');
@@ -1583,6 +1943,7 @@ function showHubHome() {
 }
 
 function showReviewQueue(startFdh) {
+  closeAdminSheet();
   if (startFdh) {
     for (var i = 0; i < state.deck.length; i++) {
       if (state.deck[i].fdh === startFdh) { state.idx = i; break; }
@@ -1617,19 +1978,25 @@ function setDockMode() {
   } else {
     homeBtn.classList.remove('dock-back-active');
     primaryMain.textContent = 'Review Queue';
-    primarySub.textContent = state.deck.length + ' project' + (state.deck.length !== 1 ? 's' : '');
+    primarySub.textContent = getDiagQueueItems().length + ' project' + (getDiagQueueItems().length !== 1 ? 's' : '');
     secondary.textContent = 'Search';
-    homeIcon.innerHTML = '<path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>';
+    homeIcon.innerHTML = '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>';
   }
 }
 
 function handleDockHome() {
   if (state.reviewOpen) showHubHome();
+  else toggleAdminSheet();
 }
 
 function handlePrimaryAction() {
   if (state.reviewOpen) commitCurrentCard();
-  else showReviewQueue();
+  else {
+    state.deck = getDiagQueueItems();
+    state.idx = 0;
+    syncCountLabel();
+    showReviewQueue();
+  }
 }
 
 function handleSecondaryAction() {
@@ -1672,6 +2039,7 @@ function closeDetailSheet() {
 }
 
 function openSearch() {
+  closeAdminSheet();
   state.searchOpen = true;
   document.getElementById('search-overlay').classList.add('open');
   applyFilters();
@@ -1683,6 +2051,88 @@ function closeSearch() {
   document.getElementById('search-overlay').classList.remove('open');
   var i=document.getElementById('search-input');
   if(i) i.blur();
+}
+
+function renderAdminSheetList(containerId, items, emptyText) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = '<div class="hub-empty">' + emptyText + '</div>';
+    return;
+  }
+  el.innerHTML = '';
+  items.forEach(function(item) {
+    var card = document.createElement('div');
+    card.className = 'email-card ' + getSeverity(item.flags);
+    card.innerHTML =
+      '<div class="em-header">' +
+      '<div class="em-fdh">' + esc(item.fdh || '—') + '</div>' +
+      '<span class="glass-pill ' + pillClass(item.status, item.stage) + '">' + esc(pillLabel(item.status, item.stage)) + '</span>' +
+      '</div>' +
+      '<div class="em-vendor">' + esc((item.city || '') + (item.vendor ? ' · ' + item.vendor : '')) + '</div>';
+    card.onclick = function() {
+      state.deck = items.slice();
+      state.idx = items.findIndex(function(entry) { return entry.fdh === item.fdh; });
+      if (state.idx < 0) state.idx = 0;
+      syncCountLabel();
+      showReviewQueue(item.fdh);
+    };
+    el.appendChild(card);
+  });
+}
+
+function renderAdminSheet() {
+  renderAdminSheetList('admin-sheet-list', getAdminItems(), 'All clear — no QB/admin exceptions');
+  renderAdminSheetList('crossing-sheet-list', getCrossingItems(), 'All clear — no crossings to verify');
+}
+
+function openAdminSheet() {
+  state.adminSheetOpen = true;
+  renderAdminSheet();
+  var pane = document.getElementById('outbox-pane');
+  if (pane) pane.classList.add('open');
+}
+
+function closeAdminSheet() {
+  state.adminSheetOpen = false;
+  var pane = document.getElementById('outbox-pane');
+  if (pane) pane.classList.remove('open');
+}
+
+function toggleAdminSheet() {
+  if (state.adminSheetOpen) closeAdminSheet();
+  else openAdminSheet();
+}
+
+function renderGantt(items) {
+  var el = document.getElementById('gantt-content');
+  if (!el) return;
+  if (!items || !items.length) {
+    el.innerHTML = '<div class="hub-empty">No schedule data available.</div>';
+    return;
+  }
+  el.innerHTML = items.map(function(item) {
+    var color = statusColor(item);
+    var pct = calcSchedulePct(item);
+    return '<div class="gantt-row">' +
+      '<div class="gantt-row-top"><div><div class="gantt-row-id">' + esc(item.fdh || '—') + '</div><div class="gantt-row-meta">' + esc((item.city || '') + (item.vendor ? ' · ' + item.vendor : '')) + '</div></div><div class="glass-pill ' + getQBStatusClass(item.stage, item.status, false) + '">' + esc((item.stage || '-') + ' | ' + (item.status || '-')) + '</div></div>' +
+      '<div class="gantt-bar-track"><div class="gantt-bar-fill" style="width:' + pct + '%; background:' + color + ';"></div></div>' +
+      '<div class="gantt-row-dates"><span>Start: ' + formatDate(item.cxStart) + '</span><span>Target: ' + formatDate(item.targetDate || item.cxEnd) + '</span></div>' +
+      '</div>';
+  }).join('');
+}
+
+function handleLandscapeChange(forceClose) {
+  var gantt = document.getElementById('gantt-panel');
+  var main = document.getElementById('main-workspace');
+  if (!gantt || !main) return;
+  var isLandscape = window.innerWidth > window.innerHeight;
+  var shouldShow = !forceClose && isLandscape && window.innerWidth < 1000;
+  state.landscapeGanttOpen = shouldShow;
+  gantt.classList.toggle('fullscreen', shouldShow);
+  gantt.style.display = shouldShow ? 'flex' : 'none';
+  main.style.display = shouldShow ? 'none' : 'flex';
+  if (shouldShow) renderGantt(state.all);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1906,8 +2356,6 @@ function getCrossingItems() {
 }
 
 function getHubItemsByTab(tab) {
-  if (tab === 'admin') return getAdminItems();
-  if (tab === 'xing') return getCrossingItems();
   return getDiagQueueItems();
 }
 
@@ -1931,30 +2379,12 @@ function renderList(items) {
 
 function updateHubCounts() {
   var diagCount = getDiagQueueItems().length;
-  var adminCount = getAdminItems().length;
-  var xingCount = getCrossingItems().length;
   var sceneLabel = document.getElementById('scene-count-label');
-  var activeCount = getHubItemsByTab(state.hubTab).length;
-  var badgeDiag = document.getElementById('badge-diag');
-  var badgeAdmin = document.getElementById('badge-admin');
-  var badgeXing = document.getElementById('badge-xing');
-  if (badgeDiag) badgeDiag.textContent = diagCount;
-  if (badgeAdmin) badgeAdmin.textContent = adminCount;
-  if (badgeXing) badgeXing.textContent = xingCount;
-  if (sceneLabel) sceneLabel.textContent = activeCount + ' project' + (activeCount === 1 ? '' : 's');
-}
-
-function switchMobileTab(tab) {
-  state.hubTab = tab;
-  ['diag', 'admin', 'xing'].forEach(function(key) {
-    var el = document.getElementById('tab-' + key);
-    if (el) el.classList.toggle('active', key === tab);
-  });
-  renderHub();
+  if (sceneLabel) sceneLabel.textContent = diagCount + ' project' + (diagCount === 1 ? '' : 's');
 }
 
 function openCarouselAt(item) {
-  var subset = getHubItemsByTab(state.hubTab).slice();
+  var subset = getDiagQueueItems().slice();
   state.deck = subset;
   state.idx = 0;
   if (item && item.fdh) {
@@ -2011,14 +2441,9 @@ function renderHub() {
   var el = document.getElementById('unified-list');
   if (!el) return;
   updateHubCounts();
-  var hits = getHubItemsByTab(state.hubTab);
+  var hits = getDiagQueueItems();
   if (!hits.length) {
-    var emptyCopy = state.hubTab === 'admin'
-      ? 'All clear — no admin tasks pending'
-      : state.hubTab === 'xing'
-        ? 'All clear — no crossings to verify'
-        : 'No projects in the diagnostic queue';
-    el.innerHTML = '<div class="hub-empty">' + emptyCopy + '</div>';
+    el.innerHTML = '<div class="hub-empty">No projects in the diagnostic queue</div>';
     return;
   }
   renderList(hits);
@@ -2027,14 +2452,18 @@ function renderHub() {
 function jumpTo(fdh) {
   var item = state.all.find(function(entry) { return entry.fdh === fdh; });
   if (!item) return;
-  if (getAdminItems().some(function(entry) { return entry.fdh === fdh; })) state.hubTab = 'admin';
-  else if (getCrossingItems().some(function(entry) { return entry.fdh === fdh; })) state.hubTab = 'xing';
-  else state.hubTab = 'diag';
-  ['diag', 'admin', 'xing'].forEach(function(key) {
-    var el = document.getElementById('tab-' + key);
-    if (el) el.classList.toggle('active', key === state.hubTab);
-  });
-  openCarouselAt(item);
+  var adminSubset = getAdminItems();
+  var crossingSubset = getCrossingItems();
+  if (adminSubset.some(function(entry) { return entry.fdh === fdh; })) {
+    state.deck = adminSubset.slice();
+  } else if (crossingSubset.some(function(entry) { return entry.fdh === fdh; })) {
+    state.deck = crossingSubset.slice();
+  } else {
+    state.deck = getDiagQueueItems().slice();
+  }
+  state.idx = Math.max(0, state.deck.findIndex(function(entry) { return entry.fdh === fdh; }));
+  syncCountLabel();
+  showReviewQueue(fdh);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2050,6 +2479,7 @@ function logCommit(item) {
   renderHub();
   var hasGAS=typeof google!=='undefined'&&google.script&&google.script.run;
   if(hasGAS) google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).commitBatchReviewsToLog([rev]);
+  renderAdminSheet();
 }
 
 function updatePill() {
@@ -2096,6 +2526,13 @@ function init() {
     handleRow.addEventListener('touchend',  function(e){ if(e.changedTouches[0].clientY-_sy>60) closeDetailSheet(); _sy=0; },{passive:true});
   }
 
+  var outboxHandle=document.getElementById('outbox-handle-row');
+  var _outboxSy=0;
+  if(outboxHandle){
+    outboxHandle.addEventListener('touchstart',function(e){ _outboxSy=e.touches[0].clientY; },{passive:true});
+    outboxHandle.addEventListener('touchend',function(e){ if(e.changedTouches[0].clientY-_outboxSy>50) closeAdminSheet(); _outboxSy=0; },{passive:true});
+  }
+
   // Hub: stop propagation so deck gestures don't fire through it
   var hub=document.getElementById('hub-content');
   if(hub){
@@ -2106,7 +2543,7 @@ function init() {
   // Global touchmove guard: allow scrollable areas, block everything else
   document.body.addEventListener('touchmove',function(e){
     var t=e.target;
-    var ok=t.closest('#detail-scroll')||t.closest('#search-overlay')||t.closest('#hub-content')||t.closest('#search-input')||t.closest('.review-scroll-container')||t.closest('textarea');
+    var ok=t.closest('#detail-scroll')||t.closest('#search-overlay')||t.closest('#hub-content')||t.closest('#search-input')||t.closest('.card-scroll-body')||t.closest('#outbox-scroll')||t.closest('#gantt-content')||t.closest('textarea');
     if(!ok) e.preventDefault();
   },{passive:false});
 
@@ -2114,11 +2551,17 @@ function init() {
   document.addEventListener('keydown',function(e){
     if(e.key!=='Escape') return;
     if(state.detailOpen) closeDetailSheet();
+    else if(state.adminSheetOpen) closeAdminSheet();
     else if(state.searchOpen) closeSearch();
     else if(state.reviewOpen) showHubHome();
   });
 
+  window.addEventListener('resize', function(){ handleLandscapeChange(false); });
+  window.addEventListener('orientationchange', function(){ setTimeout(function(){ handleLandscapeChange(false); }, 250); });
+
   loadData();
+  renderAdminSheet();
+  handleLandscapeChange(false);
 }
 
 document.addEventListener('DOMContentLoaded', init);
