@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Production Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    /* ─── CUSTOM PROPERTIES ─────────────────────────────────────────── */
+    :root {
+      --safe-top: env(safe-area-inset-top, 54px);
+      --safe-bottom: env(safe-area-inset-bottom, 34px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --dock-height: 72px;
+      --card-radius: 32px;
+      --card-max-w: 390px;
+
+      --bg: #08080D;
+      --card-bg: #14141C;
+      --card-bg-2: #1A1A24;
+      --card-bg-3: #1E1E2A;
+      --card-bg-detail: #0F0F17;
+      --text-primary: #EEEEF5;
+      --text-secondary: #7777A0;
+      --text-tertiary: #4A4A6A;
+
+      --shadow-card: 0 8px 30px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+      --shadow-dock: 0 -2px 20px rgba(0,0,0,0.6);
+      --shadow-hub: 0 4px 20px rgba(0,0,0,0.3);
+
+      --accent-commit: #22c55e;
+      --accent-skip: #ef4444;
+      --accent-hub: #3b82f6;
+
+      --flag-critical: #ef4444;
+      --flag-review: #f59e0b;
+      --flag-insight: #a855f7;
+
+      --pill-permitting-bg: rgba(168,85,247,0.12);
+      --pill-permitting-txt: #c084fc;
+      --pill-ofs-bg: rgba(59,130,246,0.12);
+      --pill-ofs-txt: #60a5fa;
+      --pill-complete-bg: rgba(34,197,94,0.12);
+      --pill-complete-txt: #4ade80;
+      --pill-hold-bg: rgba(148,163,184,0.08);
+      --pill-hold-txt: #94a3b8;
+      --pill-active-bg: rgba(249,115,22,0.12);
+      --pill-active-txt: #fb923c;
+      --pill-default-bg: rgba(100,100,140,0.12);
+      --pill-default-txt: #8888b0;
+
+      --vel-ug: #f97316;
+      --vel-ae: #94a3b8;
+      --vel-fib: #ef4444;
+      --vel-nap: #818cf8;
+
+      --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-expo: cubic-bezier(0.7, 0, 0.84, 0);
+    }
+
+    /* ─── RESET & BASE ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    /* ─── LOADING SCREEN ────────────────────────────────────────────── */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      gap: 20px;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    #loading-screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .loading-logo {
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .loading-spinner {
+      width: 36px;
+      height: 36px;
+      border: 2.5px solid rgba(255,255,255,0.06);
+      border-top-color: rgba(255,255,255,0.4);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-sub {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+
+    /* ─── DECK SCENE ────────────────────────────────────────────────── */
+    #deck-scene {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: calc(var(--safe-top) + 24px);
+      padding-bottom: calc(var(--dock-height) + var(--safe-bottom) + 20px);
+      padding-left: var(--safe-left);
+      padding-right: var(--safe-right);
+      transition: transform 0.55s var(--ease-out-expo);
+      will-change: transform;
+      z-index: 10;
+    }
+    #deck-scene.hub-open {
+      transform: translateY(58vh);
+    }
+
+    /* ─── SCENE HEADER ──────────────────────────────────────────────── */
+    #scene-header {
+      width: min(var(--card-max-w), calc(100vw - 32px));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      flex-shrink: 0;
+    }
+    .scene-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .scene-count {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-tertiary);
+    }
+
+    /* ─── CARD STACK ────────────────────────────────────────────────── */
+    #card-stack {
+      position: relative;
+      width: min(var(--card-max-w), calc(100vw - 32px));
+      flex: 1;
+      max-height: 520px;
+      min-height: 280px;
+    }
+
+    .project-card {
+      position: absolute;
+      inset: 0;
+      background: var(--card-bg);
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow-card);
+      padding: 28px 26px 26px;
+      display: flex;
+      flex-direction: column;
+      will-change: transform, opacity;
+      cursor: grab;
+      overflow: hidden;
+    }
+    .project-card:active { cursor: grabbing; }
+
+    .project-card[data-stack-pos="1"] {
+      background: var(--card-bg-2);
+      transform: translateY(14px) scale(0.955);
+      z-index: 8;
+      pointer-events: none;
+    }
+    .project-card[data-stack-pos="2"] {
+      background: var(--card-bg-3);
+      transform: translateY(26px) scale(0.91);
+      z-index: 7;
+      pointer-events: none;
+    }
+    .project-card[data-stack-pos="0"] {
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    .project-card.dragging-up {
+      box-shadow:
+        0 0 0 1.5px rgba(34,197,94,0.5),
+        0 16px 60px rgba(34,197,94,0.25),
+        var(--shadow-card);
+    }
+    .project-card.dragging-down {
+      box-shadow:
+        0 0 0 1.5px rgba(239,68,68,0.5),
+        0 16px 60px rgba(239,68,68,0.25),
+        var(--shadow-card);
+    }
+
+    /* ─── CARD INNER ────────────────────────────────────────────────── */
+    .card-top-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .card-fdh {
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: -1.8px;
+      color: var(--text-primary);
+      line-height: 1;
+      flex: 1;
+      min-width: 0;
+    }
+    .status-pill {
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      padding: 5px 11px;
+      border-radius: 20px;
+      flex-shrink: 0;
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+    .pill-permitting { background: var(--pill-permitting-bg); color: var(--pill-permitting-txt); }
+    .pill-ofs        { background: var(--pill-ofs-bg);        color: var(--pill-ofs-txt); }
+    .pill-complete   { background: var(--pill-complete-bg);   color: var(--pill-complete-txt); }
+    .pill-hold       { background: var(--pill-hold-bg);       color: var(--pill-hold-txt); }
+    .pill-active     { background: var(--pill-active-bg);     color: var(--pill-active-txt); }
+    .pill-default    { background: var(--pill-default-bg);    color: var(--pill-default-txt); }
+
+    .card-sub {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+    .flag-strip {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .flag-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .flag-dot.critical { background: var(--flag-critical); box-shadow: 0 0 5px var(--flag-critical); }
+    .flag-dot.review   { background: var(--flag-review); }
+    .flag-dot.insight  { background: var(--flag-insight); }
+    .flag-dot.info     { background: var(--text-tertiary); }
+
+    .xing-badge {
+      font-size: 9px;
+      font-weight: 900;
+      padding: 3px 9px;
+      border-radius: 10px;
+      background: rgba(249,115,22,0.12);
+      color: #fb923c;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      align-self: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .card-spacer { flex: 1; }
+
+    .velocity-section { margin-top: auto; }
+    .vel-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .vel-row:last-child { margin-bottom: 0; }
+    .vel-label {
+      font-size: 8px;
+      font-weight: 900;
+      text-transform: uppercase;
+      width: 24px;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+    .vel-track {
+      flex: 1;
+      height: 4px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .vel-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.5s var(--ease-out-expo);
+      min-width: 2px;
+    }
+    .vel-fill.ug  { background: var(--vel-ug); }
+    .vel-fill.ae  { background: var(--vel-ae); }
+    .vel-fill.fib { background: var(--vel-fib); }
+    .vel-fill.nap { background: var(--vel-nap); }
+    .vel-pct {
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--text-tertiary);
+      width: 28px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .card-bsls {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-tertiary);
+      margin-top: 14px;
+    }
+
+    /* ─── SWIPE HINTS ───────────────────────────────────────────────── */
+    #swipe-commit-hint, #swipe-skip-hint {
+      position: absolute;
+      top: 36px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 10px;
+      border: 1.5px solid;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 20;
+    }
+    #swipe-commit-hint {
+      right: 20px;
+      color: var(--accent-commit);
+      border-color: var(--accent-commit);
+      background: rgba(34,197,94,0.08);
+      transform: rotate(14deg);
+    }
+    #swipe-skip-hint {
+      left: 20px;
+      color: var(--accent-skip);
+      border-color: var(--accent-skip);
+      background: rgba(239,68,68,0.08);
+      transform: rotate(-14deg);
+    }
+
+    /* ─── EMPTY STATE ───────────────────────────────────────────────── */
+    #empty-state {
+      display: none;
+      position: absolute;
+      inset: 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 10px;
+      pointer-events: none;
+    }
+    #empty-state.visible { display: flex; }
+    .empty-icon { font-size: 44px; line-height: 1; }
+    .empty-title { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; }
+    .empty-sub   { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+
+    /* ─── HUB CONTENT ───────────────────────────────────────────────── */
+    #hub-content {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: calc(var(--safe-top) + 12px) 20px 16px;
+      z-index: 5;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease 0.18s;
+    }
+    #hub-content.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .hub-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .hub-title {
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+    }
+    .hub-close-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+      border: none;
+      color: var(--text-secondary);
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .hub-section-label {
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+      margin-top: 18px;
+    }
+    .hub-section-label:first-of-type { margin-top: 0; }
+    .hub-card {
+      background: var(--card-bg);
+      border-radius: 18px;
+      padding: 13px 16px;
+      margin-bottom: 7px;
+      box-shadow: var(--shadow-hub);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: background 0.15s ease;
+      touch-action: manipulation;
+    }
+    .hub-card:active { background: var(--card-bg-2); }
+    .hub-card-fdh  { font-size: 15px; font-weight: 800; letter-spacing: -0.5px; }
+    .hub-card-meta { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+    .hub-card-arrow { font-size: 14px; color: var(--text-tertiary); flex-shrink: 0; }
+    .hub-empty {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      font-weight: 600;
+      text-align: center;
+      padding: 16px;
+      cursor: default;
+    }
+    .hub-stat-card {
+      background: var(--card-bg);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: var(--shadow-hub);
+      text-align: center;
+    }
+    .hub-stat-num {
+      font-size: 40px;
+      font-weight: 900;
+      letter-spacing: -2px;
+      color: var(--accent-commit);
+      line-height: 1;
+    }
+    .hub-stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    /* ─── DOCK ──────────────────────────────────────────────────────── */
+    #dock {
+      position: fixed;
+      bottom: calc(var(--safe-bottom) + 14px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(300px, calc(100vw - 48px));
+      height: var(--dock-height);
+      background: rgba(16, 16, 24, 0.75);
+      backdrop-filter: blur(30px) saturate(180%);
+      -webkit-backdrop-filter: blur(30px) saturate(180%);
+      border-radius: 36px;
+      box-shadow: var(--shadow-dock), 0 0 0 0.5px rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 20px;
+      z-index: 1000;
+    }
+    .dock-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.07);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.12s ease, background 0.12s ease;
+      flex-shrink: 0;
+      touch-action: manipulation;
+    }
+    .dock-btn:active { transform: scale(0.88); }
+    .dock-btn svg { width: 20px; height: 20px; }
+    #dock-hub-btn.hub-active {
+      background: rgba(59,130,246,0.2);
+      color: #60a5fa;
+      box-shadow: 0 0 16px rgba(59,130,246,0.35);
+    }
+    #dock-commit-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      background: rgba(34,197,94,0.1);
+      border-radius: 22px;
+      box-shadow: 0 0 0 1px rgba(34,197,94,0.25);
+      flex-shrink: 0;
+      transition: transform 0.25s var(--spring);
+    }
+    #dock-commit-pill.bump { transform: scale(1.18); }
+    #committed-count {
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1;
+      color: #4ade80;
+      letter-spacing: -1px;
+    }
+    .pill-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(74,222,128,0.7);
+    }
+
+    /* ─── DETAIL SHEET ──────────────────────────────────────────────── */
+    #detail-sheet {
+      position: fixed;
+      inset: 0;
+      background: var(--card-bg-detail);
+      transform: translateY(100%);
+      transition: transform 0.4s var(--ease-out-expo);
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      border-radius: var(--card-radius) var(--card-radius) 0 0;
+      overflow: hidden;
+    }
+    #detail-sheet.open { transform: translateY(0); }
+
+    #detail-handle-row {
+      padding: 12px 20px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    #detail-handle {
+      width: 36px;
+      height: 4px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+    }
+    #detail-scroll {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 20px 22px calc(var(--safe-bottom) + 90px);
+      touch-action: pan-y;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .detail-fdh {
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: -2px;
+      line-height: 1;
+      flex: 1;
+    }
+    .detail-meta {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 18px;
+    }
+    .detail-dates {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+    .date-chip {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-secondary);
+    }
+    .detail-section { margin-bottom: 20px; }
+    .detail-section-title {
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+    }
+    .detail-section-body {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      background: rgba(255,255,255,0.03);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+    .detail-section-body.insight { background: rgba(168,85,247,0.07); color: #c084fc; }
+    .detail-section-body.critical { background: rgba(239,68,68,0.07); color: #fca5a5; }
+
+    .detail-flag-list { display: flex; flex-direction: column; gap: 6px; }
+    .detail-flag-item {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .detail-flag-item.critical { background: rgba(239,68,68,0.07); color: #fca5a5; }
+    .detail-flag-item.review   { background: rgba(245,158,11,0.07); color: #fcd34d; }
+    .detail-flag-item.insight  { background: rgba(168,85,247,0.07); color: #c084fc; }
+
+    .detail-vel-section { margin-bottom: 20px; }
+    .detail-vel-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .detail-vel-label {
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      width: 30px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .detail-vel-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .detail-vel-fill { height: 100%; border-radius: 3px; }
+    .detail-vel-fill.ug  { background: var(--vel-ug); }
+    .detail-vel-fill.ae  { background: var(--vel-ae); }
+    .detail-vel-fill.fib { background: var(--vel-fib); }
+    .detail-vel-fill.nap { background: var(--vel-nap); }
+    .detail-vel-nums {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-tertiary);
+      width: 36px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+    }
+    .detail-commit-btn {
+      flex: 1;
+      padding: 15px;
+      border-radius: 18px;
+      border: none;
+      background: rgba(34,197,94,0.15);
+      color: #4ade80;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.12s ease, background 0.12s ease;
+    }
+    .detail-commit-btn:active { transform: scale(0.97); background: rgba(34,197,94,0.22); }
+    .detail-close-btn {
+      padding: 15px 20px;
+      border-radius: 18px;
+      border: none;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.12s ease;
+    }
+    .detail-close-btn:active { transform: scale(0.97); }
+
+    .detail-textarea {
+      width: 100%;
+      min-height: 100px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 12px 14px;
+      color: var(--text-primary);
+      font-family: monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .detail-textarea:focus { border-color: #c084fc; background: rgba(255,255,255,0.06); }
+
+    .btn-ai {
+      background: linear-gradient(90deg, #4285F4, #8E24AA, #D81B60, #F4B400, #4285F4);
+      background-size: 200% 200%;
+      animation: gemini-shimmer 4s linear infinite;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    @keyframes gemini-shimmer { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+    .detail-link-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.08); color: var(--text-primary);
+      padding: 10px 16px; border-radius: 12px; font-size: 12px; font-weight: 600;
+      text-decoration: none; margin-right: 10px; margin-top: 14px;
+    }
+    .detail-link-btn:active { background: rgba(255,255,255,0.12); }
+
+    /* ─── SEARCH OVERLAY ────────────────────────────────────────────── */
+    #search-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8,8,13,0.96);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      z-index: 600;
+      display: flex;
+      flex-direction: column;
+      padding: calc(var(--safe-top) + 14px) 16px 16px;
+      transform: translateY(-100%);
+      transition: transform 0.35s var(--ease-out-expo);
+    }
+    #search-overlay.open { transform: translateY(0); }
+
+    .search-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-shrink: 0;
+    }
+    #search-input {
+      flex: 1;
+      background: var(--card-bg);
+      border: none;
+      border-radius: 16px;
+      padding: 14px 18px;
+      font-size: 16px;
+      font-family: inherit;
+      font-weight: 600;
+      color: var(--text-primary);
+      outline: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      touch-action: auto;
+    }
+    #search-input::placeholder { color: var(--text-tertiary); }
+    .search-cancel-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 0;
+      flex-shrink: 0;
+      touch-action: manipulation;
+    }
+    #search-results {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+    }
+    .search-result-item {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: background 0.12s ease;
+      touch-action: manipulation;
+    }
+    .search-result-item:active { background: var(--card-bg-2); }
+    .search-result-fdh  { font-size: 16px; font-weight: 800; letter-spacing: -0.5px; }
+    .search-result-meta { font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-top: 2px; }
+    .search-no-results  { text-align: center; color: var(--text-tertiary); font-size: 13px; font-weight: 600; margin-top: 40px; }
+
+    /* ─── TOAST ─────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: calc(var(--dock-height) + var(--safe-bottom) + 20px);
+      left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: rgba(28,28,40,0.95);
+      color: var(--text-primary);
+      padding: 10px 18px;
+      border-radius: 22px;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.08);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.3s var(--spring);
+      z-index: 2000;
+      white-space: nowrap;
+      max-width: calc(100vw - 40px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body id="app">
+
+  <!-- 1. LOADING SCREEN -->
+  <div id="loading-screen">
+    <div class="loading-logo">Production Hub</div>
+    <div class="loading-spinner"></div>
+    <div class="loading-sub">Loading projects…</div>
+  </div>
+
+  <!-- 2. DECK SCENE -->
+  <div id="deck-scene">
+    <div id="scene-header">
+      <div class="scene-title">Review Queue</div>
+      <div class="scene-count" id="scene-count-label">— projects</div>
+    </div>
+
+    <div id="card-stack">
+      <div id="swipe-commit-hint">Commit</div>
+      <div id="swipe-skip-hint">Skip</div>
+      <div id="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">All caught up</div>
+        <div class="empty-sub">No more projects in queue</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. HUB CONTENT (revealed when deck slides down) -->
+  <div id="hub-content">
+    <div class="hub-header">
+      <div class="hub-title">Command Center</div>
+      <button class="hub-close-btn" onclick="toggleHub()">✕</button>
+    </div>
+    <div class="hub-section-label">Session Commits</div>
+    <div id="hub-stat-section"></div>
+    <div class="hub-section-label">Crossings to Verify</div>
+    <div id="hub-crossings-list"></div>
+    <div class="hub-section-label">QB Status Tasks</div>
+    <div id="hub-qb-tasks"></div>
+  </div>
+
+  <!-- 4. DETAIL SHEET -->
+  <div id="detail-sheet" role="dialog" aria-modal="true">
+    <div id="detail-handle-row">
+      <div id="detail-handle"></div>
+    </div>
+    <div id="detail-scroll">
+      <div id="detail-content"></div>
+    </div>
+  </div>
+
+  <!-- 5. SEARCH OVERLAY -->
+  <div id="search-overlay">
+    <div class="search-row">
+      <input id="search-input" type="search" placeholder="FDH, city, vendor…" autocomplete="off" spellcheck="false">
+      <button class="search-cancel-btn" onclick="closeSearch()">Cancel</button>
+    </div>
+    <div id="search-results"></div>
+  </div>
+
+  <!-- 6. COMMAND CENTER DOCK -->
+  <div id="dock">
+    <button class="dock-btn" id="dock-hub-btn" onclick="toggleHub()" aria-label="Admin Hub">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+        <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+        <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+        <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+      </svg>
+    </button>
+    <div id="dock-commit-pill">
+      <span id="committed-count">0</span>
+      <span class="pill-label">done</span>
+    </div>
+    <button class="dock-btn" id="dock-search-btn" onclick="openSearch()" aria-label="Search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="M21 21l-4.35-4.35"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   1. CONFIG
+═══════════════════════════════════════════════════ */
+var CONFIG = {
+  SWIPE_UP:   -88,
+  SWIPE_DOWN:  88,
+  MAX_ROT:     13,
+  OFFSETS:    [0, 14, 26],
+  SCALES:     [1, 0.955, 0.91],
+  FLY_MS:     370,
+  STACK_T:    '0.38s cubic-bezier(0.16,1,0.3,1)',
+};
+
+var FLAG_CRITICAL = ['🚨','🛑','🚩'];
+var FLAG_REVIEW   = ['⚠️','🖍️','🔍','🚧'];
+var FLAG_INSIGHT  = ['💡','🪄','📍'];
+var XING_KW       = ['ADMIN: CHECK CROSSINGS','CHECK CROSSING','SPECIAL XING'];
+var QB_KW         = ['STATUS MISMATCH','MISSING QB STATUS','PLEASE INPUT BOM','CHECK BOM','STAGE MISMATCH'];
+
+/* ═══════════════════════════════════════════════════
+   2. MOCK DATA
+═══════════════════════════════════════════════════ */
+var MOCK = [
+  { fdh:'FDH-2841', vendor:'LeCom', city:'Pflugerville', stage:'Construction', status:'Active',
+    bsls:'218', ofsDate:'01-15-2025', cxStart:'11-04-2024', cxEnd:'04-30-2025',
+    isXing:true, rawSpecialX:'YES', specXDetails:'Highway 183 crossing, TxDOT permit required.',
+    flags:'🚨 ADMIN: CHECK CROSSINGS — HWY-183 detected in CD\n⚠️ CHECK BOM (UG/AE) — BOM not updated in QB\n💡 Gemini flagged long bore >200ft near creek',
+    draft:'Verify HWY-183 permit with Travis County. UG BOM needs QB update — contact LeCom PM.',
+    cdIntel:'CD analysis: 1 highway crossing (HWY-183) + 1 water body bore >200ft. TxDOT permit required.',
+    geminiInsight:'On track for April completion. Highway bore is critical path.',
+    geminiDate:'03-10-2025', vendorComment:'HDD rig mobilizing next week for highway crossing.',
+    vel:{ ug:{tot:14200,bom:22500,daily:320}, ae:{tot:8100,bom:11000,daily:180}, fib:{tot:27000,bom:45000,daily:640}, nap:{tot:88,bom:142,daily:4} } },
+
+  { fdh:'FDH-3102', vendor:'MasTec', city:'Round Rock', stage:'Permitting', status:'Permitting',
+    bsls:'305', ofsDate:'03-01-2025', cxStart:'', cxEnd:'07-15-2025',
+    isXing:false, rawSpecialX:'', specXDetails:'',
+    flags:'🚨 STATUS MISMATCH — QB shows Permitting but no permit application found\n⚠️ MISSING QB STATUS — CX Start date blank\n🖍️ Vendor has not confirmed permit submission',
+    draft:'Confirm with MasTec: has permit been submitted to Round Rock? CX Start must be populated in QB.',
+    cdIntel:'No special crossings detected.', geminiInsight:'', geminiDate:'',
+    vendorComment:'Permit submitted to city, awaiting approval 4-6 weeks.',
+    vel:{ ug:{tot:0,bom:31000,daily:0}, ae:{tot:0,bom:16000,daily:0}, fib:{tot:0,bom:62000,daily:0}, nap:{tot:0,bom:305,daily:0} } },
+
+  { fdh:'FDH-1974', vendor:'Dycom', city:'Cedar Park', stage:'OFS', status:'OFS',
+    bsls:'156', ofsDate:'12-30-2024', cxStart:'08-15-2024', cxEnd:'12-30-2024',
+    isXing:false, rawSpecialX:'', specXDetails:'',
+    flags:'⚠️ CHECK BOM (UG/AE) — AE BOM shows 0 in QB\n💡 Project OFS but splicing not distributed',
+    draft:'AE BOM = 0 in QB — data entry gap. Request Dycom confirm strand BOM. Splice docs not yet distributed.',
+    cdIntel:'Minor water body detected, bore <50ft, no permit required.',
+    geminiInsight:'Project is functionally complete. AE BOM gap appears to be a QB data entry issue.',
+    geminiDate:'03-08-2025', vendorComment:'All construction complete. Splicing done.',
+    vel:{ ug:{tot:12400,bom:12400,daily:0}, ae:{tot:8800,bom:0,daily:0}, fib:{tot:33000,bom:32500,daily:0}, nap:{tot:156,bom:156,daily:0} } },
+
+  { fdh:'FDH-2209', vendor:'Black Box', city:'Georgetown', stage:'Construction', status:'On Hold',
+    bsls:'94', ofsDate:'05-01-2025', cxStart:'01-10-2025', cxEnd:'06-30-2025',
+    isXing:false, rawSpecialX:'', specXDetails:'',
+    flags:'🚩 Project on hold — TxDOT permit denied\n⚠️ PLEASE INPUT BOM — UG and AE BOM fields empty\n🔍 No vendor update in 14 days',
+    draft:'TxDOT denied initial bore permit. Black Box resubmitting with revised crossing plan. Update QB BOM immediately.',
+    cdIntel:'RR crossing detected. TxDOT Class 1 permit required for bore under active rail line.',
+    geminiInsight:'RR crossing permit is non-trivial — budget 6-8 weeks for TxDOT Class 1 process.',
+    geminiDate:'03-05-2025', vendorComment:'On hold pending TxDOT RR crossing permit resubmittal.',
+    vel:{ ug:{tot:2100,bom:0,daily:0}, ae:{tot:1800,bom:0,daily:120}, fib:{tot:5500,bom:18000,daily:0}, nap:{tot:12,bom:94,daily:0} } },
+
+  { fdh:'FDH-3388', vendor:'LeCom', city:'Hutto', stage:'Construction', status:'Active',
+    bsls:'172', ofsDate:'02-28-2025', cxStart:'12-01-2024', cxEnd:'03-31-2025',
+    isXing:false, rawSpecialX:'', specXDetails:'',
+    flags:'⚠️ Falling behind — UG only 38% at 60% of schedule\n🖍️ No fiber footage logged this week\n💡 Vendor requested scope change review',
+    draft:'LeCom pace lagging. UG should be >60% by now. Fiber stalled — confirm crew mobilization.',
+    cdIntel:'No special crossings. Standard UG/AE construction.', geminiInsight:'Completion risk for March 31. Recommend escalating to LeCom PM.',
+    geminiDate:'03-09-2025', vendorComment:'Crew redeployment from other project caused delay.',
+    vel:{ ug:{tot:8200,bom:21500,daily:180}, ae:{tot:7300,bom:11000,daily:200}, fib:{tot:0,bom:41000,daily:0}, nap:{tot:48,bom:172,daily:3} } },
+
+  { fdh:'FDH-2650', vendor:'MasTec', city:'Leander', stage:'Construction', status:'Active',
+    bsls:'261', ofsDate:'04-15-2025', cxStart:'10-28-2024', cxEnd:'05-31-2025',
+    isXing:true, rawSpecialX:'YES', specXDetails:'Bridge crossing over Brushy Creek, TxDOT permit pending.',
+    flags:'🚨 ADMIN: CHECK CROSSINGS — Bridge over Brushy Creek\n⚠️ Permit status unknown\n💡 AI: Bridge bore likely 6-8 week permit window',
+    draft:'Brushy Creek bridge bore requires TxDOT permit. MasTec has not confirmed submission.',
+    cdIntel:'Bridge crossing over Brushy Creek. Bore ~180ft. TxDOT water body/bridge permit required.',
+    geminiInsight:'Bridge crossing is primary schedule risk. May 31 at risk if permit not submitted this week.',
+    geminiDate:'03-10-2025', vendorComment:'Permit reqs submitted to TxDOT 2/20. Awaiting response.',
+    vel:{ ug:{tot:18000,bom:28000,daily:420}, ae:{tot:9400,bom:14500,daily:210}, fib:{tot:32000,bom:58000,daily:750}, nap:{tot:102,bom:261,daily:6} } },
+
+  { fdh:'FDH-1811', vendor:'Dycom', city:'Kyle', stage:'Construction', status:'Active',
+    bsls:'133', ofsDate:'01-31-2025', cxStart:'09-15-2024', cxEnd:'02-28-2025',
+    isXing:false, rawSpecialX:'', specXDetails:'',
+    flags:'🚨 OVERDUE — Target was 02-28-2025, project still active\n⚠️ NAP at 71%, fiber at 82%\n🔍 No vendor comment in 7 days',
+    draft:'Project past target date. Dycom needs updated schedule. Escalate if no response by EOW.',
+    cdIntel:'No special crossings.', geminiInsight:'Remaining work (NAP 29%, Fiber 18%) achievable in 2-3 weeks if crew fully mobilized.',
+    geminiDate:'03-07-2025', vendorComment:'',
+    vel:{ ug:{tot:11800,bom:11800,daily:0}, ae:{tot:8900,bom:9000,daily:0}, fib:{tot:22000,bom:26800,daily:220}, nap:{tot:94,bom:133,daily:2} } },
+
+  { fdh:'FDH-4001', vendor:'LeCom', city:'Buda', stage:'Construction', status:'Active',
+    bsls:'89', ofsDate:'03-31-2025', cxStart:'01-20-2025', cxEnd:'04-30-2025',
+    isXing:false, rawSpecialX:'', specXDetails:'',
+    flags:'💡 Production tracking well — UG 72%, AE 68%\n🖍️ Splice docs not yet distributed to vendor',
+    draft:'Good progress. Ensure splice documents distributed before fiber phase.',
+    cdIntel:'No special crossings.', geminiInsight:'On pace for April 30. Proactively distribute splice docs to avoid downstream delays.',
+    geminiDate:'03-09-2025', vendorComment:'On schedule. Requesting splice docs.',
+    vel:{ ug:{tot:8100,bom:11200,daily:280}, ae:{tot:5400,bom:7900,daily:190}, fib:{tot:4200,bom:22000,daily:180}, nap:{tot:22,bom:89,daily:4} } },
+];
+
+/* ═══════════════════════════════════════════════════
+   3. STATE
+═══════════════════════════════════════════════════ */
+var state = {
+  all:        [],
+  deck:       [],
+  idx:        0,
+  committed:  [],
+  count:      0,
+  hubOpen:    false,
+  detailOpen: false,
+  searchOpen: false,
+  drag:       null,
+  dragging:   false,
+  activeItem: null,
+};
+
+/* ═══════════════════════════════════════════════════
+   4. DATA LAYER
+═══════════════════════════════════════════════════ */
+function loadData() {
+  var hasGAS = typeof google !== 'undefined' && google.script && google.script.run;
+  if (hasGAS) {
+    google.script.run
+      .withSuccessHandler(function(p) { onReady(p && p.actionItems ? p.actionItems : []); })
+      .withFailureHandler(function()  { onReady(MOCK); })
+      .getDashboardData();
+  } else {
+    setTimeout(function() { onReady(MOCK); }, 650);
+  }
+}
+
+function onReady(items) {
+  state.all  = items || [];
+  state.deck = items ? items.slice() : [];
+  state.idx  = 0;
+  syncCountLabel();
+  hideSplash();
+  renderDeck();
+  renderHub();
+  updatePill();
+}
+
+function hideSplash() {
+  var el = document.getElementById('loading-screen');
+  if (el) el.classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════════════
+   5. HELPERS
+═══════════════════════════════════════════════════ */
+function pillClass(status, stage) {
+  var s = (status||'').toUpperCase(), g = (stage||'').toUpperCase();
+  if (s.includes('PERMITTING')||g.includes('PERMITTING')) return 'pill-permitting';
+  if (s.includes('OFS')||s.includes('OPEN FOR SALE')||g.includes('OFS')) return 'pill-ofs';
+  if (s.includes('COMPLETE')) return 'pill-complete';
+  if (s.includes('ON HOLD')||s.includes('HOLD')) return 'pill-hold';
+  if (s.includes('ACTIVE')||g.includes('CONSTRUCTION')) return 'pill-active';
+  return 'pill-default';
+}
+
+function pillLabel(status, stage) {
+  return ((status||'').trim()) || ((stage||'').trim()) || 'Unknown';
+}
+
+function parseFlags(str) {
+  if (!str) return [];
+  return str.split('\n').map(function(l){ return l.trim(); }).filter(Boolean).map(function(l) {
+    var sev = 'info';
+    for(var i=0;i<FLAG_CRITICAL.length;i++) if(l.includes(FLAG_CRITICAL[i])){sev='critical';break;}
+    if(sev==='info') for(var i=0;i<FLAG_REVIEW.length;i++) if(l.includes(FLAG_REVIEW[i])){sev='review';break;}
+    if(sev==='info') for(var i=0;i<FLAG_INSIGHT.length;i++) if(l.includes(FLAG_INSIGHT[i])){sev='insight';break;}
+    return { text:l, sev:sev };
+  });
+}
+
+function velPcts(vel) {
+  if (!vel) return {ug:0,ae:0,fib:0,nap:0};
+  function p(t,b){ return b>0?Math.min(100,Math.round((t/b)*100)):0; }
+  return {
+    ug:  p(vel.ug&&vel.ug.tot,   vel.ug&&vel.ug.bom),
+    ae:  p(vel.ae&&vel.ae.tot,   vel.ae&&vel.ae.bom),
+    fib: p(vel.fib&&vel.fib.tot, vel.fib&&vel.fib.bom),
+    nap: p(vel.nap&&vel.nap.tot, vel.nap&&vel.nap.bom),
+  };
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmt(n) { return n ? Number(n).toLocaleString() : '—'; }
+
+function syncCountLabel() {
+  var rem = Math.max(0, state.deck.length - state.idx);
+  var el = document.getElementById('scene-count-label');
+  if (el) el.textContent = rem + ' project' + (rem!==1?'s':'');
+}
+
+/* ═══════════════════════════════════════════════════
+   6. CARD FACTORY
+═══════════════════════════════════════════════════ */
+var VEL_TYPES  = ['ug','ae','fib','nap'];
+var VEL_LABELS = {ug:'UG',ae:'AE',fib:'FIB',nap:'NAP'};
+
+function cardHTML(item) {
+  var flags = parseFlags(item.flags);
+  var vel   = velPcts(item.vel);
+  var pc    = pillClass(item.status, item.stage);
+  var pl    = pillLabel(item.status, item.stage);
+  var xing  = item.rawSpecialX === 'YES' || item.isXing;
+
+  var dots = '';
+  for(var i=0;i<Math.min(flags.length,8);i++) dots += '<div class="flag-dot '+flags[i].sev+'"></div>';
+
+  var bars = '';
+  for(var vi=0;vi<VEL_TYPES.length;vi++){
+    var t=VEL_TYPES[vi], p=vel[t];
+    bars += '<div class="vel-row"><div class="vel-label">'+VEL_LABELS[t]+'</div>'+
+      '<div class="vel-track"><div class="vel-fill '+t+'" style="width:'+p+'%"></div></div>'+
+      '<div class="vel-pct">'+p+'%</div></div>';
+  }
+
+  return '<div class="card-top-row"><div class="card-fdh">'+esc(item.fdh||'—')+'</div>'+
+    '<div class="status-pill '+pc+'">'+esc(pl)+'</div></div>'+
+    '<div class="card-sub">'+esc((item.city||'')+(item.vendor?' · '+item.vendor:''))+'</div>'+
+    (dots?'<div class="flag-strip">'+dots+'</div>':'')+
+    (xing?'<div class="xing-badge">⚡ Crossing</div>':'')+
+    '<div class="card-spacer"></div>'+
+    '<div class="velocity-section">'+bars+'</div>'+
+    '<div class="card-bsls">'+esc(item.bsls||'—')+' BSLs</div>';
+}
+
+function makeCard(item, pos) {
+  var div = document.createElement('div');
+  div.className = 'project-card';
+  div.dataset.fdh = item.fdh || '';
+  div.dataset.stackPos = String(pos);
+  div.innerHTML = cardHTML(item);
+  return div;
+}
+
+/* ═══════════════════════════════════════════════════
+   7. DECK ENGINE
+═══════════════════════════════════════════════════ */
+function renderDeck() {
+  var stack = document.getElementById('card-stack');
+  var old = stack.querySelectorAll('.project-card');
+  for(var i=0;i<old.length;i++) old[i].remove();
+
+  var empty = document.getElementById('empty-state');
+  var slice = state.deck.slice(state.idx, state.idx+3);
+
+  if(!slice.length){ empty.classList.add('visible'); syncCountLabel(); return; }
+  empty.classList.remove('visible');
+  syncCountLabel();
+
+  for(var ri=slice.length-1;ri>=0;ri--){
+    var card = makeCard(slice[ri], ri);
+    if(ri>0) card.style.transform='translateY('+CONFIG.OFFSETS[ri]+'px) scale('+CONFIG.SCALES[ri]+')';
+    stack.appendChild(card);
+  }
+
+  var top = stack.querySelector('[data-stack-pos="0"]');
+  if(top) attachGestures(top);
+}
+
+function advance() {
+  state.idx++;
+  state.dragging = false;
+  state.drag = null;
+  renderDeck();
+}
+
+/* ═══════════════════════════════════════════════════
+   8. GESTURE ENGINE
+═══════════════════════════════════════════════════ */
+function attachGestures(card) {
+  card.addEventListener('touchstart', onStart, {passive:false});
+  card.addEventListener('touchmove',  onMove,  {passive:false});
+  card.addEventListener('touchend',   onEnd,   {passive:false});
+  card.addEventListener('touchcancel',onCancel,{passive:false});
+  card.addEventListener('click', onTap);
+}
+
+function onStart(e) {
+  e.preventDefault();
+  if(state.dragging) return;
+  var t = e.touches[0];
+  state.drag = { card:this, sx:t.clientX, sy:t.clientY, dx:0, dy:0, t:Date.now(), moved:false };
+  this.style.transition = 'none';
+}
+
+function onMove(e) {
+  e.preventDefault();
+  if(!state.drag||state.drag.card!==this) return;
+  var t  = e.touches[0];
+  var dx = t.clientX - state.drag.sx;
+  var dy = t.clientY - state.drag.sy;
+  state.drag.dx = dx; state.drag.dy = dy;
+  if(Math.abs(dx)>4||Math.abs(dy)>4) state.drag.moved = true;
+
+  var rot = (dx/160)*CONFIG.MAX_ROT;
+  this.style.transform = 'translateY('+dy+'px) translateX('+(dx*0.28)+'px) rotate('+rot+'deg)';
+
+  var up = Math.max(0,-dy/Math.abs(CONFIG.SWIPE_UP));
+  var dn = Math.max(0, dy/CONFIG.SWIPE_DOWN);
+  var ch = document.getElementById('swipe-commit-hint');
+  var sh = document.getElementById('swipe-skip-hint');
+  if(ch) ch.style.opacity = Math.min(1, up*1.6);
+  if(sh) sh.style.opacity = Math.min(1, dn*1.6);
+
+  this.classList.remove('dragging-up','dragging-down');
+  if(dy < -30) this.classList.add('dragging-up');
+  else if(dy > 30) this.classList.add('dragging-down');
+}
+
+function onEnd(e) {
+  e.preventDefault();
+  clearHints();
+  if(!state.drag||state.drag.card!==this) return;
+
+  var ds = state.drag;
+  var dy = ds.dy, ms = Date.now()-ds.t;
+  var vel = ms>0 ? Math.abs(dy)/ms : 0;
+  var tu = vel>0.5 ? CONFIG.SWIPE_UP*0.6   : CONFIG.SWIPE_UP;
+  var td = vel>0.5 ? CONFIG.SWIPE_DOWN*0.6 : CONFIG.SWIPE_DOWN;
+  state.drag = null;
+
+  if(dy < tu)       { state.dragging=true; doCommit(this); }
+  else if(dy > td)  { state.dragging=true; doSkip(this); }
+  else              { snapBack(this); }
+}
+
+function onCancel(e) {
+  clearHints();
+  if(state.drag){ snapBack(state.drag.card); state.drag=null; }
+}
+
+function onTap(e) {
+  if(state.dragging) return;
+  var item = state.deck[state.idx];
+  if(item) openDetail(item);
+}
+
+function clearHints() {
+  var ch=document.getElementById('swipe-commit-hint'), sh=document.getElementById('swipe-skip-hint');
+  if(ch) ch.style.opacity='0';
+  if(sh) sh.style.opacity='0';
+}
+
+/* ═══════════════════════════════════════════════════
+   9. ANIMATION ENGINE
+═══════════════════════════════════════════════════ */
+function doCommit(card) {
+  var item = state.deck[state.idx];
+  logCommit(item);
+  flyCard(card, -130, -20, -10);
+  promoteStack();
+  bumpPill();
+  haptic('medium');
+  toast('Committed · '+(item?item.fdh:''));
+  setTimeout(advance, CONFIG.FLY_MS+40);
+}
+
+function doSkip(card) {
+  flyCard(card, 130, 20, 10);
+  promoteStack();
+  haptic('light');
+  setTimeout(advance, CONFIG.FLY_MS+40);
+}
+
+function flyCard(card, yVh, xPx, deg) {
+  card.classList.remove('dragging-up','dragging-down');
+  card.style.transition='transform '+CONFIG.FLY_MS+'ms cubic-bezier(0.7,0,0.84,0),opacity '+(CONFIG.FLY_MS*0.65)+'ms ease';
+  card.style.transform='translateY('+yVh+'vh) translateX('+xPx+'px) rotate('+deg+'deg)';
+  card.style.opacity='0';
+}
+
+function snapBack(card) {
+  card.classList.remove('dragging-up','dragging-down');
+  card.style.transition='transform 0.42s cubic-bezier(0.175,0.885,0.32,1.275)';
+  card.style.transform='translateY(0) translateX(0) rotate(0deg)';
+}
+
+function promoteStack() {
+  var c1=document.querySelector('.project-card[data-stack-pos="1"]');
+  var c2=document.querySelector('.project-card[data-stack-pos="2"]');
+  if(c1){ c1.style.transition=CONFIG.STACK_T; c1.style.transform='translateY(0) scale(1)'; }
+  if(c2){ c2.style.transition=CONFIG.STACK_T; c2.style.transform='translateY('+CONFIG.OFFSETS[1]+'px) scale('+CONFIG.SCALES[1]+')'; }
+}
+
+function bumpPill() {
+  var p=document.getElementById('dock-commit-pill');
+  if(!p) return;
+  p.classList.add('bump');
+  setTimeout(function(){ p.classList.remove('bump'); },280);
+}
+
+/* ═══════════════════════════════════════════════════
+   10. UI STATE MACHINE
+═══════════════════════════════════════════════════ */
+function toggleHub() {
+  state.hubOpen = !state.hubOpen;
+  var scene  = document.getElementById('deck-scene');
+  var btn    = document.getElementById('dock-hub-btn');
+  var hub    = document.getElementById('hub-content');
+  scene.classList.toggle('hub-open', state.hubOpen);
+  btn.classList.toggle('hub-active',  state.hubOpen);
+  hub.classList.toggle('visible',     state.hubOpen);
+  if(state.hubOpen) renderHub();
+  haptic(state.hubOpen?'medium':'light');
+}
+
+function openDetail(item) {
+  state.activeItem = item;
+  state.detailOpen = true;
+  populateDetail(item);
+  document.getElementById('detail-sheet').classList.add('open');
+  haptic('light');
+}
+
+function closeDetailSheet() {
+  state.detailOpen = false;
+  state.activeItem = null;
+  document.getElementById('detail-sheet').classList.remove('open');
+}
+
+function openSearch() {
+  state.searchOpen = true;
+  document.getElementById('search-overlay').classList.add('open');
+  setTimeout(function(){ var i=document.getElementById('search-input'); if(i) i.focus(); },360);
+}
+
+function closeSearch() {
+  state.searchOpen = false;
+  document.getElementById('search-overlay').classList.remove('open');
+  var i=document.getElementById('search-input');
+  if(i){ i.value=''; i.blur(); }
+  document.getElementById('search-results').innerHTML='';
+}
+
+/* ═══════════════════════════════════════════════════
+   11. DETAIL SHEET
+═══════════════════════════════════════════════════ */
+function populateDetail(item) {
+  var vel   = velPcts(item.vel);
+  var flags = parseFlags(item.flags);
+  var pc    = pillClass(item.status, item.stage);
+  var pl    = pillLabel(item.status, item.stage);
+  var xing  = item.rawSpecialX==='YES'||item.isXing;
+
+  // Velocity section
+  var velH = '<div class="detail-vel-section"><div class="detail-section-title">Production Velocity</div>';
+  for(var vi=0;vi<VEL_TYPES.length;vi++){
+    var t=VEL_TYPES[vi], p=vel[t];
+    var tot = item.vel&&item.vel[t]?item.vel[t].tot:0;
+    var bom = item.vel&&item.vel[t]?item.vel[t].bom:0;
+    velH += '<div class="detail-vel-row">'+
+      '<div class="detail-vel-label">'+VEL_LABELS[t]+'</div>'+
+      '<div class="detail-vel-track"><div class="detail-vel-fill '+t+'" style="width:'+p+'%"></div></div>'+
+      '<div class="detail-vel-nums">'+p+'%</div></div>';
+    if(bom>0) velH += '<div style="font-size:10px;color:var(--text-tertiary);padding:0 0 8px 40px;font-weight:600;">'+fmt(tot)+' / '+fmt(bom)+'</div>';
+  }
+  velH += '</div>';
+
+  // Flags section
+  var flagH = '';
+  if(flags.length){
+    flagH = '<div class="detail-section"><div class="detail-section-title">Flags ('+flags.length+')</div><div class="detail-flag-list">';
+    for(var fi=0;fi<flags.length;fi++) flagH += '<div class="detail-flag-item '+flags[fi].sev+'">'+esc(flags[fi].text)+'</div>';
+    flagH += '</div></div>';
+  }
+
+  var html =
+    '<div class="detail-header"><div class="detail-fdh">'+esc(item.fdh||'—')+'</div><div class="status-pill '+pc+'">'+esc(pl)+'</div></div>'+
+    '<div class="detail-meta">'+esc((item.city||'')+(item.vendor?' · '+item.vendor:'')+(item.bsls?' · '+item.bsls+' BSLs':''))+'</div>'+
+    (xing?'<div style="margin-bottom:14px;"><div class="xing-badge">⚡ Special Crossing</div></div>':'')+
+    '<div class="detail-dates">'+
+      (item.ofsDate?'<div class="date-chip">OFS '+esc(item.ofsDate)+'</div>':'')+
+      (item.cxStart?'<div class="date-chip">Start '+esc(item.cxStart)+'</div>':'')+
+      (item.cxEnd?'<div class="date-chip">Target '+esc(item.cxEnd)+'</div>':'')+
+    '</div>'+
+    velH+flagH+
+    (function() {
+      var draftVal = item.comment || item.geminiInsight || item.draft || '';
+      var qbLinks = '';
+      if (item.rid) {
+        qbLinks = '<div>' +
+          '<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={\'3\'.EX.\''+item.rid+'\'}" target="_blank" class="detail-link-btn">⚙ Edit in Engine</a>' +
+          '<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=dr&rid='+item.rid+'" target="_blank" class="detail-link-btn">View Record</a>' +
+          '</div>';
+      }
+      return '<div class="detail-section">' +
+        '<div style="display:flex; align-items:center; margin-bottom:8px;">' +
+          '<div class="detail-section-title" style="margin-bottom:0;">Manager Note</div>' +
+          '<button class="btn-ai" onclick="askGeminiForDraftMobile(this)">Draft w/ Gemini</button>' +
+        '</div>' +
+        '<textarea id="p-comment" class="detail-textarea">' + esc(draftVal) + '</textarea>' +
+        qbLinks +
+        '</div>';
+    })() +
+    (item.vendorComment?'<div class="detail-section"><div class="detail-section-title">Vendor Update</div><div class="detail-section-body">'+esc(item.vendorComment)+'</div></div>':'')+
+    (item.cdIntel?'<div class="detail-section"><div class="detail-section-title">CD Intelligence</div><div class="detail-section-body">'+esc(item.cdIntel)+'</div></div>':'')+
+    (item.geminiInsight?'<div class="detail-section"><div class="detail-section-title">AI Insight'+(item.geminiDate?' · '+esc(item.geminiDate):'')+'</div><div class="detail-section-body insight">'+esc(item.geminiInsight)+'</div></div>':'')+
+    (item.specXDetails?'<div class="detail-section"><div class="detail-section-title">Crossing Details</div><div class="detail-section-body critical">'+esc(item.specXDetails)+'</div></div>':'')+
+    '<div class="detail-actions"><button class="detail-commit-btn" onclick="commitFromDetail()">Commit Review</button><button class="detail-close-btn" onclick="closeDetailSheet()">Close</button></div>';
+
+  var c=document.getElementById('detail-content');
+  if(c){ c.innerHTML=html; var s=document.getElementById('detail-scroll'); if(s) s.scrollTop=0; }
+}
+
+function commitFromDetail() {
+  var item = state.activeItem;
+  if(!item) return;
+  
+  var ta = document.getElementById('p-comment');
+  if (ta) item.comment = ta.value;
+  
+  logCommit(item);
+  closeDetailSheet();
+  bumpPill();
+  haptic('medium');
+  toast('Committed · '+item.fdh);
+  if(state.deck[state.idx]&&state.deck[state.idx].fdh===item.fdh&&!state.dragging){
+    var top=document.querySelector('.project-card[data-stack-pos="0"]');
+    if(top){ state.dragging=true; flyCard(top,-130,-20,-6); promoteStack(); setTimeout(advance,CONFIG.FLY_MS+40); }
+  }
+}
+
+function askGeminiForDraftMobile(btn) {
+  var item = state.activeItem;
+  if (!item) return;
+  
+  var origText = btn.innerHTML;
+  btn.innerHTML = 'DRAFTING...';
+  btn.style.opacity = '0.7';
+  btn.disabled = true;
+
+  var payload = {
+      fdh: item.fdh, vendor: item.vendor, status: item.stage + ' | ' + item.status,
+      targetDate: item.targetDate, flags: item.flags, vendorComment: item.vendorComment,
+      history: item.bench, productionToday: item.summary
+  };
+
+  if (typeof google !== 'undefined' && google.script) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+          var ta = document.getElementById('p-comment');
+          if (ta) ta.value = res.text;
+          item.comment = res.text;
+          item.geminiInsight = res.text;
+          item.geminiDate = res.date;
+          btn.innerHTML = origText; btn.style.opacity = '1'; btn.disabled = false;
+          haptic('light');
+      })
+      .withFailureHandler(function(err) {
+          alert("AI Error: " + err.message);
+          btn.innerHTML = origText; btn.style.opacity = '1'; btn.disabled = false;
+      })
+      .generateAndSaveFDHNarrative(payload);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   12. SEARCH ENGINE
+═══════════════════════════════════════════════════ */
+var searchTimer = null;
+
+function onSearchInput() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(doSearch, 140);
+}
+
+function doSearch() {
+  var inp = document.getElementById('search-input');
+  var q   = (inp?inp.value:'').trim().toLowerCase();
+  var box = document.getElementById('search-results');
+  if(!box) return;
+  if(!q){ box.innerHTML=''; return; }
+
+  var hits = state.all.filter(function(it){
+    return (it.fdh||'').toLowerCase().includes(q)||
+           (it.city||'').toLowerCase().includes(q)||
+           (it.vendor||'').toLowerCase().includes(q)||
+           (it.stage||'').toLowerCase().includes(q)||
+           (it.status||'').toLowerCase().includes(q);
+  }).slice(0,20);
+
+  if(!hits.length){ box.innerHTML='<div class="search-no-results">No results for "'+esc(q)+'"</div>'; return; }
+
+  var h='';
+  for(var i=0;i<hits.length;i++){
+    var it=hits[i], pc=pillClass(it.status,it.stage), pl=pillLabel(it.status,it.stage);
+    h+='<div class="search-result-item" onclick="pickResult(\''+esc(it.fdh)+'\')">'+
+      '<div><div class="search-result-fdh">'+esc(it.fdh)+'</div>'+
+      '<div class="search-result-meta">'+esc((it.city||'')+(it.vendor?' · '+it.vendor:''))+'</div></div>'+
+      '<div class="status-pill '+pc+'">'+esc(pl)+'</div></div>';
+  }
+  box.innerHTML = h;
+}
+
+function pickResult(fdh) {
+  closeSearch();
+  var idx = -1;
+  for(var i=state.idx;i<state.deck.length;i++) if(state.deck[i].fdh===fdh){idx=i;break;}
+  if(idx>state.idx){
+    var it=state.deck.splice(idx,1)[0]; state.deck.splice(state.idx,0,it); renderDeck();
+  } else if(idx===state.idx){
+    openDetail(state.deck[state.idx]);
+  } else {
+    for(var j=0;j<state.all.length;j++) if(state.all[j].fdh===fdh){ openDetail(state.all[j]); break; }
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   13. HUB PANEL
+═══════════════════════════════════════════════════ */
+function renderHub() { renderHubStat(); renderHubXings(); renderHubQB(); }
+
+function renderHubStat() {
+  var el=document.getElementById('hub-stat-section');
+  if(!el) return;
+  el.innerHTML='<div class="hub-stat-card"><div class="hub-stat-num">'+state.count+'</div>'+
+    '<div class="hub-stat-label">projects committed this session</div></div>';
+}
+
+function renderHubXings() {
+  var el=document.getElementById('hub-crossings-list');
+  if(!el) return;
+  var hits=state.all.filter(function(it){
+    var f=(it.flags||'').toUpperCase();
+    for(var i=0;i<XING_KW.length;i++) if(f.includes(XING_KW[i])) return true;
+    return it.rawSpecialX==='YES'||it.isXing;
+  });
+  if(!hits.length){ el.innerHTML='<div class="hub-card hub-empty">All clear — no crossings to verify</div>'; return; }
+  var h='';
+  for(var i=0;i<hits.length;i++){
+    var it=hits[i];
+    h+='<div class="hub-card" onclick="jumpTo(\''+esc(it.fdh)+'\')">'+
+      '<div><div class="hub-card-fdh">'+esc(it.fdh)+'</div>'+
+      '<div class="hub-card-meta">'+esc((it.city||'')+(it.vendor?' · '+it.vendor:''))+'</div></div>'+
+      '<div class="hub-card-arrow">›</div></div>';
+  }
+  el.innerHTML=h;
+}
+
+function renderHubQB() {
+  var el=document.getElementById('hub-qb-tasks');
+  if(!el) return;
+  var hits=state.all.filter(function(it){
+    var f=(it.flags||'').toUpperCase();
+    for(var i=0;i<QB_KW.length;i++) if(f.includes(QB_KW[i])) return true;
+    return false;
+  });
+  if(!hits.length){ el.innerHTML='<div class="hub-card hub-empty">All clear — no QB tasks pending</div>'; return; }
+  var h='';
+  for(var i=0;i<hits.length;i++){
+    var it=hits[i];
+    h+='<div class="hub-card" onclick="jumpTo(\''+esc(it.fdh)+'\')">'+
+      '<div><div class="hub-card-fdh">'+esc(it.fdh)+'</div>'+
+      '<div class="hub-card-meta">'+esc(it.status||it.stage||'')+'</div></div>'+
+      '<div class="hub-card-arrow">›</div></div>';
+  }
+  el.innerHTML=h;
+}
+
+function jumpTo(fdh) {
+  if(state.hubOpen) toggleHub();
+  setTimeout(function(){ pickResult(fdh); }, 320);
+}
+
+/* ═══════════════════════════════════════════════════
+   14. COMMIT ENGINE
+═══════════════════════════════════════════════════ */
+function logCommit(item) {
+  if(!item) return;
+  var finalComment = item.comment || item.draft || '';
+  var rev={ fdh:item.fdh||'', vendor:item.vendor||'', flags:item.flags||'', comment:finalComment };
+  state.committed.push(rev);
+  state.count++;
+  updatePill();
+  if(state.hubOpen) renderHubStat();
+  var hasGAS=typeof google!=='undefined'&&google.script&&google.script.run;
+  if(hasGAS) google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).commitBatchReviewsToLog([rev]);
+}
+
+function updatePill() {
+  var el=document.getElementById('committed-count');
+  if(el) el.textContent=state.count;
+}
+
+/* ═══════════════════════════════════════════════════
+   15. TOAST & HAPTIC
+═══════════════════════════════════════════════════ */
+var toastTimer = null;
+
+function toast(msg, ms) {
+  ms = ms||2400;
+  var el=document.getElementById('toast');
+  if(!el) return;
+  el.textContent=msg; el.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){ el.classList.remove('visible'); },ms);
+}
+
+function haptic(style) {
+  if(!navigator.vibrate) return;
+  ({light:[8],medium:[18],heavy:[28,8,18]})[style]&&navigator.vibrate(({light:[8],medium:[18],heavy:[28,8,18]})[style]);
+}
+
+/* ═══════════════════════════════════════════════════
+   16. INIT
+═══════════════════════════════════════════════════ */
+function init() {
+  var inp=document.getElementById('search-input');
+  if(inp) inp.addEventListener('input', onSearchInput);
+
+  // Detail sheet swipe-to-close from handle
+  var handleRow=document.getElementById('detail-handle-row');
+  var _sy=0;
+  if(handleRow){
+    handleRow.addEventListener('touchstart',function(e){ _sy=e.touches[0].clientY; },{passive:true});
+    handleRow.addEventListener('touchend',  function(e){ if(e.changedTouches[0].clientY-_sy>60) closeDetailSheet(); _sy=0; },{passive:true});
+  }
+
+  // Hub: stop propagation so deck gestures don't fire through it
+  var hub=document.getElementById('hub-content');
+  if(hub){
+    hub.addEventListener('touchstart',function(e){e.stopPropagation();},{passive:true});
+    hub.addEventListener('touchmove', function(e){e.stopPropagation();},{passive:true});
+  }
+
+  // Global touchmove guard: allow scrollable areas, block everything else
+  document.body.addEventListener('touchmove',function(e){
+    var t=e.target;
+    var ok=t.closest('#detail-scroll')||t.closest('#search-results')||t.closest('#hub-content')||t.closest('#search-input');
+    if(!ok) e.preventDefault();
+  },{passive:false});
+
+  // Keyboard escape
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape') return;
+    if(state.detailOpen) closeDetailSheet();
+    else if(state.searchOpen) closeSearch();
+    else if(state.hubOpen) toggleHub();
+  });
+
+  loadData();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
