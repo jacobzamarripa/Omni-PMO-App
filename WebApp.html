@@ -1050,6 +1050,44 @@
       .gantt-pill { pointer-events: auto; padding: 6px 14px; border-radius: 18px; background: color-mix(in srgb, var(--card-bg) 88%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12); display: flex; align-items: center; gap: 8px; }
       /* Absorb upper-right Gantt buttons into the Island during Fullscreen */
       body.gantt-fullscreen .gantt-controls > .gantt-pill:last-child { display: none !important; }
+      /* Gantt Quick Peek Panel */
+      .gantt-quick-peek {
+          position: absolute;
+          top: 0; right: 0; bottom: 0;
+          width: 380px;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(24px) saturate(180%);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
+          border-left: 1px solid var(--border);
+          box-shadow: -15px 0 50px rgba(0,0,0,0.1);
+          transform: translateX(100%);
+          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          z-index: 10000;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+      }
+      body.dark-mode .gantt-quick-peek {
+          background: rgba(24, 24, 27, 0.95);
+          border-left: 1px solid rgba(255, 255, 255, 0.1);
+          box-shadow: -15px 0 50px rgba(0,0,0,0.5);
+      }
+      .gantt-quick-peek.open { transform: translateX(0); }
+      .qp-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 16px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+      .qp-body { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+      .qp-footer { flex-shrink: 0; padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+      .qp-close-btn { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-muted); flex-shrink: 0; }
+      .qp-close-btn:hover { background: var(--border); color: var(--text-main); }
+      .qp-vendor-bubble { background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 10px; padding: 10px 12px; font-size: 11px; color: var(--text-main); line-height: 1.5; }
+      .qp-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 4px; }
+      .qp-diag-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+      .qp-diag-tag { font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 10px; background: rgba(251, 191, 36, 0.12); color: #d97706; border: 1px solid rgba(251, 191, 36, 0.3); }
+      .qp-diag-tag.crit { background: rgba(239, 68, 68, 0.12); color: #dc2626; border-color: rgba(239, 68, 68, 0.3); }
+      .qp-diag-tag.ok { background: rgba(34, 197, 94, 0.12); color: #16a34a; border-color: rgba(34, 197, 94, 0.3); }
+      .qp-note-area { width: 100%; min-height: 80px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; font-family: inherit; background: var(--card-bg); color: var(--text-main); line-height: 1.5; box-sizing: border-box; }
+      .qp-note-area:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+      .qp-gemini-note { font-size: 11px; color: var(--text-main); background: color-mix(in srgb, #8b5cf6 8%, transparent); border: 1px solid color-mix(in srgb, #8b5cf6 25%, transparent); border-radius: 8px; padding: 8px 10px; line-height: 1.5; white-space: pre-wrap; }
+      .qp-gemini-meta { font-size: 9px; color: var(--text-muted); margin-top: 4px; }
       .gantt-mini-btn { display: inline-flex; align-items: center; justify-content: center; padding: 0 10px !important; min-height: 26px; font-size: 9px !important; border-radius: 12px; margin-right: 6px !important; letter-spacing: 0.05em; background: color-mix(in srgb, var(--card-bg) 84%, transparent) !important; border: 1px solid var(--border) !important; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06); }
       .gantt-resize-grip { position: absolute; top: -4px; left: 0; right: 0; width: 88px; height: 12px; border-radius: 999px; background: transparent; margin: 0 auto; cursor: ns-resize; flex-shrink: 0; z-index: 1001; touch-action: none; }
       .gantt-resize-grip::before { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 46px; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--text-muted) 26%, transparent); }
@@ -1757,6 +1795,7 @@
                <div id="gantt-container"><div class="empty-msg" style="margin-top:20px;">Loading Timeline...</div></div>
            </div>
         </div>
+        <div id="gantt-quick-peek" class="gantt-quick-peek" onclick="event.stopPropagation()"></div>
     </div>
 
     <script>
@@ -1826,6 +1865,161 @@
           if (btnFocus) btnFocus.classList.toggle('collapsed', !hasFocus);
           if (zone)     zone.classList.toggle('collapsed', !(isFs || hasFocus));
       }
+
+      // ── Gantt Quick-Peek Slide-Over ──────────────────────────────────────────
+      function handleGanttClick(fdh) {
+          const isFs = document.body.classList.contains('gantt-fullscreen');
+          if (!isFs) {
+              const c = document.getElementById('card-' + fdh);
+              if (c) c.click();
+              return;
+          }
+          // Fullscreen mode: open Quick Peek panel
+          const item = (typeof filteredData !== 'undefined' ? filteredData : allData || []).find(i => i.fdh === fdh);
+          if (!item) return;
+
+          // Highlight active row
+          document.querySelectorAll('.gantt-row').forEach(r => r.classList.remove('is-active'));
+          const row = document.querySelector(`.gantt-row[data-fdh="${fdh}"]`);
+          if (row) row.classList.add('is-active');
+
+          const ganttArea = getEl('gantt-area-main');
+          if (ganttArea) ganttArea.classList.add('has-focus');
+          syncGanttIslandState();
+
+          // Set as active item so note sync works
+          if (typeof currentActiveItem !== 'undefined') currentActiveItem = item;
+
+          renderQuickPeek(item);
+          requestAnimationFrame(() => {
+              getEl('gantt-quick-peek').classList.add('open');
+          });
+      }
+
+      function renderQuickPeek(item) {
+          const panel = getEl('gantt-quick-peek');
+          if (!panel) return;
+
+          // Vendor update bubble
+          const vComment = item.vendorComment ? item.vendorComment.trim() : 'No vendor update on file.';
+
+          // Diagnostics / flags
+          const flags = (item.flags || '').split('\n').filter(f => f.trim() !== '' && f !== '✅ No Anomalies');
+          let diagHtml = '';
+          if (flags.length > 0) {
+              const tags = flags.slice(0, 5).map(f => {
+                  const clean = f.replace(/[🚨🛑🚩⚠️🖍️🚧]/g, '').trim();
+                  const cls = (f.includes('🚨') || f.includes('🚩')) ? 'crit' : '';
+                  return `<span class="qp-diag-tag ${cls}">${clean}</span>`;
+              }).join('');
+              diagHtml = `<div><div class="qp-label">Diagnostics</div><div class="qp-diag-tags">${tags}</div></div>`;
+          } else {
+              diagHtml = `<div><div class="qp-label">Diagnostics</div><div class="qp-diag-tags"><span class="qp-diag-tag ok">No Anomalies</span></div></div>`;
+          }
+
+          // PM Note — use pmSessionMemory if available
+          const mem = (typeof pmSessionMemory !== 'undefined' && pmSessionMemory[item.fdh]) || {};
+          const noteVal = (item.comment || '').replace(/"/g, '&quot;');
+
+          // Gemini draft section
+          let geminiHtml = '';
+          if (item.geminiInsight) {
+              const dateStr = item.geminiDate ? formatDate(item.geminiDate) : '';
+              geminiHtml = `<div>
+                  <div class="qp-label">AI Draft</div>
+                  <div class="qp-gemini-note">${item.geminiInsight}</div>
+                  ${dateStr ? `<div class="qp-gemini-meta">Drafted ${dateStr}</div>` : ''}
+              </div>`;
+          }
+
+          panel.innerHTML = `
+              <div class="qp-header">
+                  <div>
+                      <div style="font-size:14px; font-weight:900; color:var(--text-main); line-height:1.2;">${item.fdh}</div>
+                      <div style="font-size:10px; color:var(--text-muted); margin-top:3px;">${item.vendor || ''} · ${item.city || ''}</div>
+                      <div style="font-size:10px; color:var(--text-muted); margin-top:1px;">${item.stage || ''} · ${item.status || ''}</div>
+                  </div>
+                  <button class="qp-close-btn" onclick="closeQuickPeek()">✕</button>
+              </div>
+              <div class="qp-body">
+                  <div>
+                      <div class="qp-label">Vendor Update</div>
+                      <div class="qp-vendor-bubble">${vComment}</div>
+                  </div>
+                  ${diagHtml}
+                  <div>
+                      <div class="qp-label">PM Note</div>
+                      <textarea class="qp-note-area" id="qp-note-textarea" oninput="syncQuickPeekNote()" placeholder="Add note...">${noteVal}</textarea>
+                  </div>
+                  ${geminiHtml}
+              </div>
+              <div class="qp-footer">
+                  <button class="btn" style="flex:1; font-size:10px; font-weight:800; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border:none; padding:0 10px; height:34px; border-radius:10px;" onclick="askGeminiForQuickPeek(this)">✨ DRAFT W/ GEMINI</button>
+                  <button class="btn btn-primary" style="flex:1; font-size:10px; font-weight:800; height:34px;" onclick="saveQuickPeek(this)">SAVE TO SHEET</button>
+              </div>`;
+      }
+
+      function closeQuickPeek() {
+          const panel = getEl('gantt-quick-peek');
+          if (panel) panel.classList.remove('open');
+      }
+
+      function syncQuickPeekNote() {
+          const ta = getEl('qp-note-textarea');
+          if (!ta) return;
+          const item = (typeof filteredData !== 'undefined' ? filteredData : allData || []).find(i => i.fdh === (currentActiveItem && currentActiveItem.fdh));
+          if (item) item.comment = ta.value;
+          if (typeof currentActiveItem !== 'undefined' && currentActiveItem) currentActiveItem.comment = ta.value;
+      }
+
+      function askGeminiForQuickPeek(btn) {
+          const item = currentActiveItem;
+          if (!item) return;
+          const origText = btn.innerHTML;
+          btn.innerHTML = 'DRAFTING...';
+          btn.style.opacity = '0.7';
+          btn.disabled = true;
+          const payload = {
+              fdh: item.fdh, vendor: item.vendor, status: `${item.stage} | ${item.status}`,
+              targetDate: item.targetDate, flags: item.flags, vendorComment: item.vendorComment,
+              history: item.bench, productionToday: item.summary
+          };
+          google.script.run
+              .withSuccessHandler(response => {
+                  item.comment = response.text;
+                  item.geminiInsight = response.text;
+                  item.geminiDate = response.date;
+                  if (typeof currentActiveItem !== 'undefined') currentActiveItem.comment = response.text;
+                  btn.innerHTML = origText; btn.style.opacity = '1'; btn.disabled = false;
+                  renderQuickPeek(item);
+                  getEl('gantt-quick-peek').classList.add('open');
+              })
+              .withFailureHandler(err => {
+                  alert('AI Error: ' + (err.message || err));
+                  btn.innerHTML = origText; btn.style.opacity = '1'; btn.disabled = false;
+              })
+              .generateAndSaveFDHNarrative(payload);
+      }
+
+      function saveQuickPeek(btn) {
+          syncQuickPeekNote();
+          const item = currentActiveItem;
+          if (!item) return;
+          showDockLoading(`Saving ${item.fdh}...`);
+          const mem = (typeof pmSessionMemory !== 'undefined' && pmSessionMemory[item.fdh]) || {};
+          const payload = {
+              fdh: item.fdh,
+              vendor: item.vendor,
+              targetDate: item.targetDate || item.cxEnd || 'TBD',
+              note: item.comment || '',
+              answers: mem
+          };
+          google.script.run
+              .withSuccessHandler(() => showDockSuccess('Saved to Sheet'))
+              .withFailureHandler(() => showDockError('Save Failed'))
+              .saveDeckAnswers(payload);
+      }
+      // ── End Gantt Quick-Peek ─────────────────────────────────────────────────
 
       function renderDeliverableChip(label, status) {
           let dot = status ? '#22c55e' : '#ef4444';
@@ -1962,6 +2156,7 @@
               if (!isFs) minBtn.innerText = panel.classList.contains('minimized') ? 'Expand' : 'Minimize';
           }
           syncGanttIslandState();
+          if (!isFs) closeQuickPeek();
       }
       function toggleMinimize() {
           let wrapper = getEl('gantt-panel');
@@ -2119,6 +2314,8 @@
       }
 
       function exitTheaterMode(e) {
+          if (e && e.target.closest('.gantt-quick-peek')) return;
+          closeQuickPeek();
           if (e && e.target.closest('.gantt-row:not(.is-active)') && !e.target.closest('.gantt-spike-label') && !e.target.closest('.gantt-today-label')) return;
           if (e && (e.target.closest('.gantt-spike-label') || e.target.closest('.gantt-today-label'))) return;
 
@@ -3095,7 +3292,7 @@
 
           const makeBead = (dateStr, icon, title, bgColor, borderColor, start, end, itemFdh) => {
               let d = new Date(dateStr); if(isNaN(d)) return ""; let pct = ((d - start) / (end - start)) * 100;
-              if(pct >= 0 && pct <= 100) return `<div class="gantt-bead has-tooltip" data-tooltip="${title}" style="left:${pct}%; background:${bgColor}; border-color:${borderColor}; color:${borderColor};" onclick="let c=document.getElementById('card-${itemFdh}'); if(c) c.click();">${icon}</div>`;
+              if(pct >= 0 && pct <= 100) return `<div class="gantt-bead has-tooltip" data-tooltip="${title}" style="left:${pct}%; background:${bgColor}; border-color:${borderColor}; color:${borderColor};" onclick="handleGanttClick('${itemFdh}')">${icon}</div>`;
               return "";
           };
 
@@ -3126,7 +3323,7 @@
                              if (starPct >= 0 && starPct <= 100) {
                                  let sCol = QB_STYLES[phase] ? QB_STYLES[phase].border : "#94a3b8"; let sShadow = "0 1px 3px rgba(0,0,0,0.3)";
                                  if (phase === 'FIB') sShadow = `0 0 10px ${sCol}`; if (phase === 'NAP') sShadow = `0 0 8px rgba(99, 102, 241, 0.6)`;
-                                 beadHtml += `<div class="gantt-bead has-tooltip" data-tooltip="${phase} 100% Complete (${dateExtract[1]})" style="left:${starPct}%; background:rgba(255,255,255,0.85); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); border-color:${sCol}; color:${sCol}; box-shadow:${sShadow}; font-size:9px;" onclick="let c=document.getElementById('card-${item.fdh}'); if(c) c.click();">★</div>`;
+                                 beadHtml += `<div class="gantt-bead has-tooltip" data-tooltip="${phase} 100% Complete (${dateExtract[1]})" style="left:${starPct}%; background:rgba(255,255,255,0.85); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); border-color:${sCol}; color:${sCol}; box-shadow:${sShadow}; font-size:9px;" onclick="handleGanttClick('${item.fdh}')">★</div>`;
                              }
                          }
                      }
@@ -3136,10 +3333,10 @@
               let barLeft = 140 + leftPx;
               html += `
               <div class="gantt-row" id="gantt-row-${item.fdh}" style="width:${chartWidth + 140}px;">
-                 <div class="gantt-label ${highestSev}" onclick="let c=document.getElementById('card-${item.fdh}'); if(c) c.click();">
+                 <div class="gantt-label ${highestSev}" onclick="handleGanttClick('${item.fdh}')">
                      <div class="gantt-label-fdh">${item.fdh}</div><div class="gantt-label-ven">${item.vendor || "UNKNOWN"}</div>
                  </div>
-                 <div class="gantt-bar-fill ${ganttClass}" style="left:${barLeft}px; width:${widthPx}px; pointer-events:auto;" onclick="let c=document.getElementById('card-${item.fdh}'); if(c) c.click();" onmouseenter="showHUD(event, '${item.fdh}')" onmousemove="moveHUD(event)" onmouseleave="hideHUD()">
+                 <div class="gantt-bar-fill ${ganttClass}" style="left:${barLeft}px; width:${widthPx}px; pointer-events:auto;" onclick="handleGanttClick('${item.fdh}')" onmouseenter="showHUD(event, '${item.fdh}')" onmousemove="moveHUD(event)" onmouseleave="hideHUD()">
                      <span class="gantt-bar-text">${item.fdh} • ${pillStage} | ${pillStatus}</span>
                  </div>
                  <div style="position:absolute; left:${barLeft}px; width:${widthPx}px; top:0; height:100%; pointer-events:none; z-index:8;">${beadHtml}</div>
