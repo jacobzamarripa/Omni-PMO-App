@@ -1465,7 +1465,7 @@
           if (typeof isDeckMode !== 'undefined' && isDeckMode) {
               let stageCard = document.getElementById('deck-stage-card');
               if (stageCard) {
-                  cardsH = stageCard.offsetTop + stageCard.offsetHeight + 40;
+                  cardsH = 20 + stageCard.offsetHeight + 40;
               }
           } else {
               let pane = document.getElementById('pane-content');
@@ -3224,7 +3224,8 @@
 
               requestAnimationFrame(() => {
                   if (!isGridMode) {
-                      requestAnimationFrame(() => applySmartGanttDocking({ resetManualHeight: true }));
+                      let shouldReset = !isDeckMode;
+                      requestAnimationFrame(() => applySmartGanttDocking({ resetManualHeight: shouldReset }));
                   }
               });
           });
