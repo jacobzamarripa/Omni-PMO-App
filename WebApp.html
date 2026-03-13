@@ -3625,13 +3625,11 @@
         }
         currentActiveItem = item;
 
-        let pStart = safeDate(item.cxStart);
         let pEnd = safeDate(item.cxEnd);
         let today = new Date(); today.setHours(0,0,0,0);
-        let daysLeft = 0, pct = 0;
+        let daysLeft = 0;
         if (pEnd) {
           daysLeft = Math.ceil((pEnd - today) / 86400000);
-          if (pStart && pEnd - pStart > 0) pct = Math.max(0, Math.min(100, ((today - pStart) / (pEnd - pStart)) * 100));
         }
 
         let isComplete = (item.stage||'').toLowerCase().includes('ofs') || (item.status||'').toLowerCase().includes('complete');
@@ -3658,33 +3656,6 @@
           : 'color:var(--text-main); background:var(--card-bg); border-color:var(--border);';
         let daysLeftTxt = daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`;
 
-        const makeDeckBead = (dateStr, icon, title, bgColor, borderColor) => {
-          let d = safeDate(dateStr); if (!d) return '';
-          let p = ((d - pStart) / (pEnd - pStart)) * 100;
-          if (p >= 0 && p <= 100) return `<div class="proj-bead has-tooltip" data-tooltip="${title}" style="left:${p}%; background:${bgColor}; border-color:${borderColor}; color:${borderColor};">${icon}</div>`;
-          return '';
-        };
-        let projBeadHtml = '';
-        if (pStart && pEnd && (pEnd - pStart > 0)) {
-          let b = item.bench || '';
-          let locM = b.match(/Loc:\s*([\d/]+)/); if (locM) projBeadHtml += makeDeckBead(locM[1], 'L', `Locates Called (${locM[1]})`, 'var(--card-bg)', '#3b82f6');
-          let cabM = b.match(/Cab:\s*([\d/]+)/); if (cabM) projBeadHtml += makeDeckBead(cabM[1], 'C', `Cabinets Set (${cabM[1]})`, 'var(--card-bg)', '#a855f7');
-          let litM = b.match(/Lit:\s*([\d/]+)/); if (litM) projBeadHtml += makeDeckBead(litM[1], '⚡', `Light Present (${litM[1]})`, 'var(--card-bg)', '#eab308');
-          let starMs = b.match(/(UG|AE|FIB|NAP):\s*[\d/]+\s*->\s*([\d/]+)\s*\(100%\)/g);
-          if (starMs) starMs.forEach(m => {
-            let phase = m.split(':')[0];
-            let dExt = m.match(/->\s*([\d/]+)\s*\(/);
-            if (dExt) {
-              let sd = safeDate(dExt[1]); if (!sd) return;
-              let sp = ((sd - pStart) / (pEnd - pStart)) * 100;
-              if (sp >= 0 && sp <= 100) {
-                let sCol = (typeof QB_STYLES !== 'undefined' && QB_STYLES[phase]) ? QB_STYLES[phase].border : '#94a3b8';
-                projBeadHtml += `<div class="proj-bead has-tooltip" data-tooltip="${phase} 100% (${dExt[1]})" style="left:${sp}%; background:rgba(255,255,255,0.85); border-color:${sCol}; color:${sCol}; font-size:9px;">★</div>`;
-              }
-            }
-          });
-        }
-
         let deckReportDate = item.reportDate || item.date || 'TBD';
         let deckLastCheck = item.lastChecked || 'NEVER';
         let deckRefData = (typeof globalRefDataDate !== 'undefined' && globalRefDataDate) ? globalRefDataDate : '—';
@@ -3698,55 +3669,21 @@
         };
         const mi = (id, ph) => `<input type="text" class="slide-input" id="${id}" placeholder="${ph}" autocomplete="off" value="${mem[id] || ''}" oninput="persistDeckInput(this)">`;
 
-        let barsHtml = '';
-        let v = item.vel;
-        if (v) {
-          barsHtml += buildVelocityBar('Underground', v.ug?.daily, v.ug?.tot, v.ug?.bom, 'UG', daysLeft);
-          barsHtml += buildVelocityBar('Aerial', v.ae?.daily, v.ae?.tot, v.ae?.bom, 'AE', daysLeft);
-          barsHtml += buildVelocityBar('Fiber', v.fib?.daily, v.fib?.tot, v.fib?.bom, 'FIB', daysLeft);
-          barsHtml += buildVelocityBar('Splicing', v.nap?.daily, v.nap?.tot, v.nap?.bom, 'NAP', daysLeft);
-        }
-        let effectiveLight = item.isLight || isComplete;
-        let lightHtml = effectiveLight
-          ? `<span style="height:6px; width:6px; background:#22c55e; border-radius:50%; display:inline-block;"></span> <span style="color:#22c55e;">LIGHT PRESENT</span>`
-          : `<span style="height:6px; width:6px; background:#94a3b8; border-radius:50%; display:inline-block;"></span> <span style="color:#94a3b8;">PENDING LIGHT</span>`;
-
         stageCard.innerHTML = `
           <div style="position:relative; display:flex; flex-direction:column; height:100%;">
             <button class="deck-arrow prev" style="left:16px;" onclick="navDeck(-1)">&#8249;</button>
             <button class="deck-arrow next" style="right:16px;" onclick="navDeck(1)">&#8250;</button>
-            <div class="slide-header" style="display:grid; grid-template-columns:4fr 6fr; gap:30px; padding:16px 30px; background:var(--bg); border-bottom:1px solid var(--border); align-items:stretch;">
-              <div style="display:flex; flex-direction:column; justify-content:space-between; gap:16px;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                  <div>
-                    <div style="font-size:24px; font-weight:900; color:var(--text-main); letter-spacing:-0.5px; line-height:1;">${item.fdh}</div>
-                    <div style="font-size:10px; font-weight:700; color:var(--text-muted); margin-top:4px;">${item.city} &bull; ${item.vendor}</div>
-                  </div>
-                  <div style="font-size:10px; font-weight:900; background:var(--card-bg); border:1px solid var(--border); padding:4px 10px; border-radius:12px; text-transform:uppercase;">${item.stage} | ${item.status}</div>
-                </div>
-                <div style="display:flex; flex-direction:column; gap:8px;">
-                  <div class="slide-time-labels" style="margin:0; display:flex; justify-content:space-between; font-size:10px; font-weight:800; color:var(--text-muted);">
-                    <span>CX START: <span style="color:var(--text-main);">${item.cxStart || 'TBD'}</span></span>
-                    <span>CX COMPLETE: <span style="color:var(--text-main);">${item.cxEnd || 'TBD'}</span></span>
-                  </div>
-                  <div class="${item.isXing ? 'qb-target-wrap xing' : ''}" style="margin:0;">
-                    <div class="slide-time-bar" style="position:relative; height:14px; background:var(--card-bg); border-radius:7px; border:1px solid var(--border); margin-bottom:${item.isXing ? '0' : '4px'};">
-                      <div class="slide-time-fill" style="height:100%; border-radius:7px; width:${pct}%; background:${sColor};"></div>
-                      ${pct > 0 && pct < 100 ? `<div class="slide-time-bead" style="position:absolute; top:50%; transform:translate(-50%,-50%); width:16px; height:16px; border-radius:50%; border:3px solid ${sColor}; background:#fff; left:${pct}%;"></div>` : ''}
-                      ${projBeadHtml}
-                    </div>
-                    ${item.isXing ? `<div class="qb-target-inner" style="padding:6px 4px 4px; border-top:none; display:flex; justify-content:space-between; align-items:center; background:var(--card-bg); border-radius:0 0 9px 9px;"><div class="qb-target-label" style="font-size:8px;">TARGET DATE</div><div class="qb-target-date" style="color:${sColor}; font-size:12px; font-weight:900;">${item.targetDate || 'TBD'}</div><div style="background:#171717; color:#facc15; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:900;">X-ING</div></div>` : ''}
-                  </div>
-                </div>
-              </div>
+            <div class="slide-header" style="display:flex; justify-content:space-between; align-items:center; padding:20px 30px; background:var(--bg); border-bottom:1px solid var(--border);">
               <div style="display:flex; flex-direction:column; gap:8px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:4px;">
-                  <span style="font-size:10px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Field Velocity & Production</span>
-                  <div style="display:flex; align-items:center; gap:4px; font-size:9px; font-weight:800;">${lightHtml}</div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <div style="font-size:28px; font-weight:900; color:var(--text-main); letter-spacing:-1px; line-height:1;">${item.fdh}</div>
+                  <div style="font-size:10px; font-weight:900; background:var(--card-bg); border:1px solid var(--border); padding:4px 10px; border-radius:12px; text-transform:uppercase; color:var(--text-main);">${item.stage} | ${item.status}</div>
+                  ${item.isXing ? `<div style="background:#171717; color:#facc15; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:900; border:1px solid #facc15; box-shadow:0 2px 4px rgba(0,0,0,0.1);">X-ING</div>` : ''}
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 20px;">
-                  ${barsHtml || '<div style="font-size:10px; color:var(--text-muted); font-style:italic; grid-column:span 2;">No active production tracking.</div>'}
-                </div>
+                <div style="font-size:12px; font-weight:700; color:var(--text-muted);">${item.city} &bull; ${item.vendor}</div>
+              </div>
+              <div>
+                ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={'3'.EX.'${item.rid}'}" target="_blank" class="hover-trigger" style="text-decoration:none; font-size:10px; font-weight:900; color:var(--text-muted); background:var(--card-bg); padding:8px 14px; border-radius:12px; border:1px solid var(--border); box-shadow:0 2px 6px rgba(15,23,42,0.06); display:inline-flex; align-items:center; transition:all 0.2s;">⚙ EDIT IN ENGINE</a>` : ''}
               </div>
             </div>
             <div class="slide-body">
