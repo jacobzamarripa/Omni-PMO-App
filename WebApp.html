@@ -407,12 +407,10 @@
       .kpi-nav-box {
           display: flex;
           align-items: center;
-          gap: 6px;
           padding: 5px 12px;
           border-radius: 12px;
           transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
           border: 1px solid transparent;
-          overflow: hidden;
       }
       .kpi-base {
           display: flex;
@@ -421,31 +419,29 @@
           flex-shrink: 0;
       }
       .kpi-expand-wrap {
-          display: grid;
-          grid-template-columns: 0fr;
-          transition: grid-template-columns 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+          max-width: 0;
+          opacity: 0;
+          overflow: hidden;
+          transition: max-width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
       }
       .kpi-nav-box:hover .kpi-expand-wrap {
-          grid-template-columns: 1fr;
+          max-width: 350px;
+          opacity: 1;
       }
       .kpi-expand-inner {
-          overflow: hidden;
-          white-space: nowrap;
           display: flex;
           align-items: center;
           gap: 6px;
           font-size: 9px;
           font-weight: 800;
           letter-spacing: 0.3px;
-          opacity: 0;
-          transition: opacity 0.3s ease;
+          white-space: nowrap;
           border-left: 1px solid color-mix(in srgb, var(--text-muted) 30%, transparent);
           padding-left: 8px;
-          margin-left: 2px;
+          margin-left: 8px;
       }
-      .kpi-nav-box:hover .kpi-expand-inner {
-          opacity: 1;
-      }
+      #nav-projects-pill { cursor: pointer; }
+      #nav-projects-pill.is-locked { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.4); }
       #nav-bsls-pill { cursor: pointer; }
       #nav-bsls-pill.is-locked { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4); }
       #kpi-projects-breakdown span.ok { color: #16a34a; }
@@ -459,29 +455,31 @@
       body.dark-mode #kpi-projects-breakdown span.overdue { color: #f87171; }
       body.dark-mode #kpi-bsls-breakdown span.month-chip { color: #60a5fa; }
       .projects-hud {
-          display: none;
           position: fixed;
-          min-width: 320px;
-          max-width: min(420px, calc(100vw - 24px));
-          background: color-mix(in srgb, var(--card-bg) 92%, transparent);
-          backdrop-filter: blur(16px);
+          z-index: 999999;
+          background: rgba(9, 9, 11, 0.85);
+          backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(16px);
-          border: 1px solid var(--border);
-          border-radius: 18px;
-          box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
-          padding: 16px;
-          z-index: 10020;
+          border: 1px solid #333338;
+          border-radius: 12px;
+          padding: 16px 20px;
+          color: #fafafa;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+          display: none;
+          flex-direction: column;
+          min-width: 320px;
           opacity: 0;
-          transform: translateY(-6px) scale(0.98);
-          transition: opacity 0.2s ease, transform 0.2s ease;
+          transform: translateY(10px);
+          transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+          pointer-events: none;
       }
       .projects-hud.visible {
           opacity: 1;
-          transform: translateY(0) scale(1);
+          transform: translateY(0);
+          pointer-events: auto;
       }
-      body.dark-mode .projects-hud {
-          box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
-      }
+      .projects-hud ::-webkit-scrollbar { width: 4px; }
+      .projects-hud ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
       
       .kpi-nav-box .kpi-val { font-size: 15px; font-weight: 900; line-height: 1; letter-spacing: -0.5px; }
       .kpi-nav-box .kpi-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -1148,7 +1146,8 @@
           .kpi-hud-group { gap: 2px; padding: 3px; }
           .kpi-hud-label { padding: 0 8px 0 6px; }
           .kpi-nav-box { padding: 3px 8px; min-width: 38px; }
-          .kpi-expand-inner { gap: 4px; font-size: 8px; padding-left: 6px; }
+          .kpi-expand-wrap { max-width: 0; }
+          .kpi-expand-inner { gap: 4px; font-size: 8px; padding-left: 6px; margin-left: 6px; }
           .ref-age-badge { padding: 5px 8px; }
       }
 
@@ -1284,7 +1283,11 @@
       <div class="kpi-nav-container">
           <div class="kpi-hud-group">
               <div class="kpi-hud-label">Pipeline</div>
-              <div class="kpi-nav-box metric-amber" style="cursor: default;">
+              <div class="kpi-nav-box metric-amber" id="nav-projects-pill"
+                   onmouseenter="showProjectsHUD()"
+                   onmouseleave="hideProjectsHUD()"
+                   onclick="toggleProjectsHUDLock(event)"
+                   style="cursor: pointer; transition: box-shadow 0.2s;">
                   <div class="kpi-base">
                       <div class="kpi-val" id="kpi-total-proj">0</div>
                       <div class="kpi-label">Projects</div>
@@ -1313,6 +1316,7 @@
               </div>
           </div>
           <div id="bsls-pie-hud" class="projects-hud"></div>
+          <div id="projects-pie-hud" class="projects-hud"></div>
           <span id="nav-ref-age" class="ref-age-badge" style="display:none;"></span>
       </div>
 
@@ -2500,7 +2504,7 @@
       function moveSpikeHUD(e) { moveHUD(e); } function hideSpikeHUD() { hideHUD(); }
 
       let allActionItems = []; let committedItems = []; let currentActiveItem = null; let globalHeaders = []; let globalEndCounts = {}; let globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 };
-      let currentFilterStats = { bslByVendor: {}, bslByMonth: {} };
+      let currentFilterStats = { bslByVendor: {}, bslByMonth: {}, projectsByVendor: {} };
       let filteredItems = []; let currentQueueIndex = -1; let ganttManualHeight = null;
       let globalRefDataDate = "";
       // View mode is managed by currentViewMode + applyViewMode()
@@ -2887,6 +2891,7 @@
             let activeBslsCount = 0; let activeCritCount = 0;
             currentFilterStats.bslByVendor = {};
             currentFilterStats.bslByMonth = {};
+            currentFilterStats.projectsByVendor = {};
             
             filtered.forEach(item => {
                 let start = safeDate(item.cxStart) || safeDate(item.reportDate) || new Date(today);
@@ -2903,6 +2908,7 @@
 
                 let v = item.vendor || "Unknown";
                 currentFilterStats.bslByVendor[v] = (currentFilterStats.bslByVendor[v] || 0) + bslNum;
+                currentFilterStats.projectsByVendor[v] = (currentFilterStats.projectsByVendor[v] || 0) + 1;
 
                 let ofsD = safeDate(item.ofsDate) || safeDate(item.targetDate);
                 let mKey = (ofsD && !isNaN(ofsD.getTime()))
@@ -2939,8 +2945,15 @@
 
             if (bslsHudLocked) {
                 let pill = getEl('nav-bsls-pill');
-                if (!renderBslsPie()) {
+                if (!renderPieHUD('bsls')) {
                     bslsHudLocked = false;
+                    if (pill) pill.classList.remove('is-locked');
+                }
+            }
+            if (projectsHudLocked) {
+                let pill = getEl('nav-projects-pill');
+                if (!renderPieHUD('projects')) {
+                    projectsHudLocked = false;
                     if (pill) pill.classList.remove('is-locked');
                 }
             }
@@ -4044,15 +4057,69 @@
       }
 
       let bslsHudLocked = false;
+      let projectsHudLocked = false;
 
-      function showBslsHUD() {
-          if (bslsHudLocked) return;
-          renderBslsPie();
+      function showBslsHUD() { if (!bslsHudLocked) renderPieHUD('bsls'); }
+      function hideBslsHUD() { if (!bslsHudLocked) hidePieHUD('bsls'); }
+      function toggleBslsHUDLock(e) {
+          if (e) e.stopPropagation();
+          bslsHudLocked = !bslsHudLocked;
+          let pill = getEl('nav-bsls-pill');
+          if (bslsHudLocked) {
+              if (!renderPieHUD('bsls')) {
+                  bslsHudLocked = false;
+                  if (pill) pill.classList.remove('is-locked');
+                  return;
+              }
+              if (pill) pill.classList.add('is-locked');
+          } else {
+              if (pill) pill.classList.remove('is-locked');
+              hidePieHUD('bsls');
+          }
       }
 
-      function hideBslsHUD() {
-          if (bslsHudLocked) return;
-          let hud = getEl('bsls-pie-hud');
+      function showProjectsHUD() { if (!projectsHudLocked) renderPieHUD('projects'); }
+      function hideProjectsHUD() { if (!projectsHudLocked) hidePieHUD('projects'); }
+      function toggleProjectsHUDLock(e) {
+          if (e) e.stopPropagation();
+          projectsHudLocked = !projectsHudLocked;
+          let pill = getEl('nav-projects-pill');
+          if (projectsHudLocked) {
+              if (!renderPieHUD('projects')) {
+                  projectsHudLocked = false;
+                  if (pill) pill.classList.remove('is-locked');
+                  return;
+              }
+              if (pill) pill.classList.add('is-locked');
+          } else {
+              if (pill) pill.classList.remove('is-locked');
+              hidePieHUD('projects');
+          }
+      }
+
+      document.addEventListener('click', function(e) {
+          if (bslsHudLocked) {
+              let hud = getEl('bsls-pie-hud');
+              let pill = getEl('nav-bsls-pill');
+              if (hud && !hud.contains(e.target) && pill && !pill.contains(e.target)) {
+                  bslsHudLocked = false;
+                  if (pill) pill.classList.remove('is-locked');
+                  hidePieHUD('bsls');
+              }
+          }
+          if (projectsHudLocked) {
+              let hud = getEl('projects-pie-hud');
+              let pill = getEl('nav-projects-pill');
+              if (hud && !hud.contains(e.target) && pill && !pill.contains(e.target)) {
+                  projectsHudLocked = false;
+                  if (pill) pill.classList.remove('is-locked');
+                  hidePieHUD('projects');
+              }
+          }
+      });
+
+      function hidePieHUD(type) {
+          let hud = getEl(`${type}-pie-hud`);
           if (hud) {
               hud.classList.remove('visible');
               setTimeout(() => {
@@ -4061,59 +4128,27 @@
           }
       }
 
-      function toggleBslsHUDLock(e) {
-          if (e) e.stopPropagation();
-          let hud = getEl('bsls-pie-hud');
-          let pill = getEl('nav-bsls-pill');
-          if (!hud || !pill) return;
-
-          bslsHudLocked = !bslsHudLocked;
-
-          if (bslsHudLocked) {
-              if (!renderBslsPie()) {
-                  bslsHudLocked = false;
-                  pill.classList.remove('is-locked');
-                  return;
-              }
-              pill.classList.add('is-locked');
-          } else {
-              pill.classList.remove('is-locked');
-              hideBslsHUD();
-          }
-      }
-
-      document.addEventListener('click', function(e) {
-          if (!bslsHudLocked) return;
-          let hud = getEl('bsls-pie-hud');
-          let pill = getEl('nav-bsls-pill');
-          if (hud && !hud.contains(e.target) && pill && !pill.contains(e.target)) {
-              bslsHudLocked = false;
-              pill.classList.remove('is-locked');
-              hideBslsHUD();
-          }
-      });
-
-      function renderBslsPie() {
-          let bslData = currentFilterStats.bslByVendor || {};
-          let totalBsls = Object.values(bslData).reduce((a, b) => a + b, 0);
-          let hud = getEl('bsls-pie-hud');
-          let pill = getEl('nav-bsls-pill');
+      function renderPieHUD(type) {
+          let dataDict = type === 'bsls' ? currentFilterStats.bslByVendor : currentFilterStats.projectsByVendor;
+          let total = Object.values(dataDict || {}).reduce((a, b) => a + b, 0);
+          let hud = getEl(`${type}-pie-hud`);
+          let pill = getEl(`nav-${type}-pill`);
           if (!hud || !pill) return false;
-          if (totalBsls === 0) {
+          if (total === 0) {
               hud.classList.remove('visible');
               hud.style.display = 'none';
               return false;
           }
 
-          let vendorArr = Object.keys(bslData).sort((a, b) => bslData[b] - bslData[a]);
+          let vendorArr = Object.keys(dataDict).sort((a, b) => dataDict[b] - dataDict[a]);
           let colors = ['#3b82f6', '#a855f7', '#f59e0b', '#10b981', '#ec4899', '#06b6d4', '#6366f1'];
           let conicStr = [];
           let legendHtml = '';
           let currentPct = 0;
 
           vendorArr.forEach((v, idx) => {
-              let count = bslData[v];
-              let pct = (count / totalBsls) * 100;
+              let count = dataDict[v];
+              let pct = (count / total) * 100;
               let c = colors[idx % colors.length];
               conicStr.push(`${c} ${currentPct}% ${currentPct + pct}%`);
               currentPct += pct;
@@ -4121,18 +4156,20 @@
               legendHtml += `
               <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:8px;">
                   <div style="display:flex; align-items:center; gap:8px;">
-                      <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${c};"></span>
-                      <span style="color:var(--text-main); font-weight:800;">${v}</span>
+                      <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${c};"></span>
+                      <span style="color:#fafafa; font-weight:800;">${v}</span>
                   </div>
-                  <span style="color:var(--text-muted); font-weight:900; font-family:monospace; font-size:14px;">${count.toLocaleString()}</span>
+                  <span style="color:#a1a1aa; font-weight:900; font-family:monospace; font-size:14px;">${count.toLocaleString()}</span>
               </div>`;
           });
 
-          let pieStyle = `background: conic-gradient(${conicStr.join(', ')}); border-radius: 50%; width: 130px; height: 130px; box-shadow: 0 8px 16px rgba(0,0,0,0.1);`;
+          let pieStyle = `background: conic-gradient(${conicStr.join(', ')}); border-radius: 50%; width: 130px; height: 130px; box-shadow: 0 8px 16px rgba(0,0,0,0.5);`;
+          let title = type === 'bsls' ? 'BSLs by Vendor' : 'Projects by Vendor';
+          let titleColor = type === 'bsls' ? '#93c5fd' : '#fde68a';
 
           hud.innerHTML = `
-              <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px; border-bottom:1px solid var(--border); padding-bottom:8px; margin-bottom:16px;">
-                  BSLs by Vendor
+              <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:${titleColor}; letter-spacing:0.5px; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:16px;">
+                  ${title}
               </div>
               <div style="display:flex; gap:24px; align-items:center;">
                   <div style="${pieStyle} flex-shrink:0;"></div>
