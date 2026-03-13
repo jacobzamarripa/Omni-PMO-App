@@ -381,44 +381,82 @@
 
       .kpi-nav-box {
           display: flex;
-          align-items: baseline;
-          gap: 5px;
+          align-items: center;
+          gap: 6px;
           padding: 5px 12px;
           border-radius: 12px;
-          transition: all 0.2s ease;
+          transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
           border: 1px solid transparent;
+          overflow: hidden;
       }
-
-      #nav-projects-pill {
-          cursor: pointer;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 4px;
-          min-width: 164px;
-      }
-      #nav-projects-pill:hover { box-shadow: 0 4px 12px rgba(245, 158, 11, 0.16); }
-      .kpi-pill-topline {
+      .kpi-base {
           display: flex;
           align-items: baseline;
-          gap: 6px;
+          gap: 5px;
+          flex-shrink: 0;
       }
-      .kpi-pill-subrow {
+      .kpi-expand-wrap {
+          display: grid;
+          grid-template-columns: 0fr;
+          transition: grid-template-columns 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      .kpi-nav-box:hover .kpi-expand-wrap {
+          grid-template-columns: 1fr;
+      }
+      .kpi-expand-inner {
+          overflow: hidden;
+          white-space: nowrap;
           display: flex;
           align-items: center;
           gap: 6px;
           font-size: 9px;
           font-weight: 800;
-          opacity: 0.85;
           letter-spacing: 0.3px;
-          white-space: nowrap;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+          border-left: 1px solid color-mix(in srgb, var(--text-muted) 30%, transparent);
+          padding-left: 8px;
+          margin-left: 2px;
       }
-      .kpi-pill-subrow .sep { color: var(--text-muted); }
-      .kpi-pill-subrow .kpi-sub-active { color: #16a34a; }
-      .kpi-pill-subrow .kpi-sub-pending { color: #d97706; }
-      .kpi-pill-subrow .kpi-sub-overdue { color: #dc2626; }
-      body.dark-mode .kpi-pill-subrow .kpi-sub-active { color: #4ade80; }
-      body.dark-mode .kpi-pill-subrow .kpi-sub-pending { color: #fbbf24; }
-      body.dark-mode .kpi-pill-subrow .kpi-sub-overdue { color: #f87171; }
+      .kpi-nav-box:hover .kpi-expand-inner {
+          opacity: 1;
+      }
+      #nav-bsls-pill { cursor: pointer; }
+      #nav-bsls-pill.is-locked { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4); }
+      #kpi-projects-breakdown span.ok { color: #16a34a; }
+      #kpi-projects-breakdown span.pending { color: #d97706; }
+      #kpi-projects-breakdown span.overdue { color: #dc2626; }
+      #kpi-projects-breakdown span.sep,
+      #kpi-bsls-breakdown span.sep { color: var(--text-muted); }
+      #kpi-bsls-breakdown span.month-chip { color: #2563eb; }
+      body.dark-mode #kpi-projects-breakdown span.ok { color: #4ade80; }
+      body.dark-mode #kpi-projects-breakdown span.pending { color: #fbbf24; }
+      body.dark-mode #kpi-projects-breakdown span.overdue { color: #f87171; }
+      body.dark-mode #kpi-bsls-breakdown span.month-chip { color: #60a5fa; }
+      .projects-hud {
+          display: none;
+          position: fixed;
+          min-width: 320px;
+          max-width: min(420px, calc(100vw - 24px));
+          background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid var(--border);
+          border-radius: 18px;
+          box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+          padding: 16px;
+          z-index: 10020;
+          opacity: 0;
+          transform: translateY(-6px) scale(0.98);
+          transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+      .projects-hud.visible {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+      }
+      body.dark-mode .projects-hud {
+          box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
+      }
       
       .kpi-nav-box .kpi-val { font-size: 15px; font-weight: 900; line-height: 1; letter-spacing: -0.5px; }
       .kpi-nav-box .kpi-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -1085,8 +1123,7 @@
           .kpi-hud-group { gap: 2px; padding: 3px; }
           .kpi-hud-label { padding: 0 8px 0 6px; }
           .kpi-nav-box { padding: 3px 8px; min-width: 38px; }
-          #nav-projects-pill { min-width: 0; }
-          .kpi-pill-subrow { gap: 4px; font-size: 8px; }
+          .kpi-expand-inner { gap: 4px; font-size: 8px; padding-left: 6px; }
           .ref-age-badge { padding: 5px 8px; }
       }
 
@@ -1222,29 +1259,35 @@
       <div class="kpi-nav-container">
           <div class="kpi-hud-group">
               <div class="kpi-hud-label">Pipeline</div>
-              <div class="kpi-nav-box metric-amber" id="nav-projects-pill"
-                   onmouseenter="showProjectsHUD(this)"
-                   onmouseleave="hideHUD()"
-                   onclick="toggleProjectsHUDLock(event, this)">
-                  <div class="kpi-pill-topline">
+              <div class="kpi-nav-box metric-amber" style="cursor: default;">
+                  <div class="kpi-base">
                       <div class="kpi-val" id="kpi-total-proj">0</div>
-                      <div class="kpi-label">Total Queued</div>
+                      <div class="kpi-label">Projects</div>
                   </div>
-                  <div class="kpi-pill-subrow">
-                      <span id="kpi-sub-active" class="kpi-sub-active">0 Active</span><span class="sep">•</span>
-                      <span id="kpi-sub-pending" class="kpi-sub-pending">0 Pending</span><span class="sep">•</span>
-                      <span id="kpi-sub-overdue" class="kpi-sub-overdue">0 Overdue</span>
+                  <div class="kpi-expand-wrap">
+                      <div class="kpi-expand-inner" id="kpi-projects-breakdown"></div>
                   </div>
               </div>
-              <div class="kpi-nav-box metric-blue">
-                  <div class="kpi-val" id="kpi-active-bsls">0</div>
-                  <div class="kpi-label">BSLs</div>
+              <div class="kpi-nav-box metric-blue" id="nav-bsls-pill"
+                   onmouseenter="showBslsHUD()"
+                   onmouseleave="hideBslsHUD()"
+                   onclick="toggleBslsHUDLock(event)">
+                  <div class="kpi-base">
+                      <div class="kpi-val" id="kpi-active-bsls">0</div>
+                      <div class="kpi-label">BSLs</div>
+                  </div>
+                  <div class="kpi-expand-wrap">
+                      <div class="kpi-expand-inner" id="kpi-bsls-breakdown"></div>
+                  </div>
               </div>
               <div class="kpi-nav-box metric-red has-tooltip" data-tooltip="Toggle Critical Filter" onclick="toggleCriticalFilter()">
-                  <div class="kpi-val" id="kpi-active-crit">0</div>
-                  <div class="kpi-label">Critical</div>
+                  <div class="kpi-base">
+                      <div class="kpi-val" id="kpi-active-crit">0</div>
+                      <div class="kpi-label">Critical</div>
+                  </div>
               </div>
           </div>
+          <div id="bsls-pie-hud" class="projects-hud"></div>
           <span id="nav-ref-age" class="ref-age-badge" style="display:none;"></span>
       </div>
 
@@ -2380,122 +2423,6 @@
           hud.style.left = x + 'px'; hud.style.top = y + 'px';
       }
 
-      function positionHUDToAnchor(anchorEl, hud) {
-          if (!anchorEl || !hud) return;
-          let rect = anchorEl.getBoundingClientRect();
-          let x = rect.left + rect.width / 2 - 155;
-          let y = rect.bottom + 12;
-          if (x < 12) x = 12;
-          if (x + 310 > window.innerWidth) x = Math.max(12, window.innerWidth - 322);
-          if (y + hud.offsetHeight > window.innerHeight - 12) {
-              y = Math.max(12, rect.top - hud.offsetHeight - 12);
-          }
-          hud.style.left = x + 'px';
-          hud.style.top = y + 'px';
-      }
-
-      function getProjectsLifecycleSummary(items) {
-          let today = new Date();
-          today.setHours(0, 0, 0, 0);
-          let summary = {
-              total: items.length,
-              active: 0,
-              pending: 0,
-              overdue: 0,
-              complete: 0,
-              hold: 0,
-              bsls: 0,
-              critical: 0
-          };
-          items.forEach(item => {
-              let start = safeDate(item.cxStart) || safeDate(item.reportDate) || new Date(today);
-              let end = safeDate(item.cxEnd) || safeDate(item.targetDate) || new Date(start.getTime() + 86400000 * 30);
-              if (isNaN(start)) start = new Date(today);
-              if (isNaN(end)) end = new Date(start.getTime() + 86400000 * 7);
-              if (end < start) end = new Date(start.getTime() + 86400000);
-
-              let stageStr = (item.stage || "").toLowerCase();
-              let statusStr = (item.status || "").toLowerCase();
-              let isComplete = stageStr.includes('ofs') || statusStr.includes('complete');
-              let isOnHold = statusStr.includes('hold');
-
-              let bslStr = String(item.bsls).replace(/,/g, '');
-              summary.bsls += parseInt(bslStr, 10) || 0;
-              if (getSeverity(item.flags) === 'crit') summary.critical++;
-
-              if (isComplete) summary.complete++;
-              else if (isOnHold) summary.hold++;
-              else if (today < start) summary.pending++;
-              else if (today > end) summary.overdue++;
-              else summary.active++;
-          });
-          return summary;
-      }
-
-      function renderProjectsHUD(anchorEl) {
-          let hud = getEl('gantt-hud');
-          if (!hud) return;
-          let summary = getProjectsLifecycleSummary(filteredItems || []);
-          let queueDate = new Date();
-          let displayDate = `${queueDate.getMonth() + 1}/${queueDate.getDate()}/${queueDate.getFullYear()}`;
-          let excludedHtml = '';
-          if (summary.complete > 0 || summary.hold > 0) {
-              excludedHtml = `<div style="display:flex; gap:12px; font-size:10px; color:#a1a1aa; margin-top:10px; border-top:1px solid #333338; padding-top:10px;"><span>Complete: <b style="color:#fff;">${summary.complete}</b></span><span>On Hold: <b style="color:#fff;">${summary.hold}</b></span></div>`;
-          }
-          hud.dataset.mode = 'projects';
-          hud.innerHTML = `
-              <div style="min-width:300px; padding:6px;">
-                  <div style="font-size:14px; font-weight:900; color:#f59e0b; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
-                      <span>QUEUE LIFECYCLE</span>
-                      <span style="color:#a1a1aa; font-size:11px;">${displayDate}</span>
-                  </div>
-                  <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:10px; text-align:center;">
-                      <div style="grid-column:1 / -1; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.2); padding:10px; border-radius:10px;">
-                          <div style="font-size:22px; font-weight:900; color:#fff;">${summary.total}</div>
-                          <div style="font-size:9px; color:#fcd34d; text-transform:uppercase; font-weight:bold; margin-top:2px;">Total Queued</div>
-                      </div>
-                      <div style="background:rgba(34,197,94,0.12); padding:8px; border-radius:8px; border:1px solid rgba(34,197,94,0.15);"><div style="font-size:18px; font-weight:900; color:#86efac;">${summary.active}</div><div style="font-size:9px; color:#86efac; text-transform:uppercase; font-weight:bold; margin-top:2px;">Active</div></div>
-                      <div style="background:rgba(245,158,11,0.12); padding:8px; border-radius:8px; border:1px solid rgba(245,158,11,0.15);"><div style="font-size:18px; font-weight:900; color:#fcd34d;">${summary.pending}</div><div style="font-size:9px; color:#fcd34d; text-transform:uppercase; font-weight:bold; margin-top:2px;">Pending</div></div>
-                      <div style="background:rgba(239,68,68,0.12); padding:8px; border-radius:8px; border:1px solid rgba(239,68,68,0.15);"><div style="font-size:18px; font-weight:900; color:#fca5a5;">${summary.overdue}</div><div style="font-size:9px; color:#fca5a5; text-transform:uppercase; font-weight:bold; margin-top:2px;">Overdue</div></div>
-                  </div>
-                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
-                      <div style="background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.16); padding:10px; border-radius:10px;">
-                          <div style="font-size:18px; font-weight:900; color:#93c5fd;">${summary.bsls.toLocaleString()}</div>
-                          <div style="font-size:9px; color:#60a5fa; text-transform:uppercase; font-weight:bold; margin-top:2px;">Filtered BSLs</div>
-                      </div>
-                      <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.16); padding:10px; border-radius:10px;">
-                          <div style="font-size:18px; font-weight:900; color:#fca5a5;">${summary.critical}</div>
-                          <div style="font-size:9px; color:#f87171; text-transform:uppercase; font-weight:bold; margin-top:2px;">Critical</div>
-                      </div>
-                  </div>
-                  ${excludedHtml}
-              </div>`;
-          hud.style.display = 'flex';
-          positionHUDToAnchor(anchorEl, hud);
-      }
-
-      function showProjectsHUD(anchorEl) {
-          if (hudLocked || !anchorEl) return;
-          renderProjectsHUD(anchorEl);
-      }
-
-      function toggleProjectsHUDLock(e, anchorEl) {
-          if (e) e.stopPropagation();
-          let hud = getEl('gantt-hud');
-          let isProjectsHud = hud && hud.dataset.mode === 'projects' && hud.style.display === 'flex';
-          if (hudLocked && isProjectsHud) {
-              hudLocked = false;
-              hideHUD();
-              return;
-          }
-          renderProjectsHUD(anchorEl);
-          hudLocked = true;
-          if (hud) {
-              hud.style.pointerEvents = 'auto';
-              hud.style.boxShadow = '0 0 0 2px var(--color-insight), 0 10px 25px rgba(0,0,0,0.5)';
-          }
-      }
-
       function showHUD(e, fdh) {
           if(hudLocked || !allActionItems) return; let item = allActionItems.find(i => i.fdh === fdh); if(!item) return;
           let hud = getEl('gantt-hud'); if(!hud) return;
@@ -2548,6 +2475,7 @@
       function moveSpikeHUD(e) { moveHUD(e); } function hideSpikeHUD() { hideHUD(); }
 
       let allActionItems = []; let committedItems = []; let currentActiveItem = null; let globalHeaders = []; let globalEndCounts = {}; let globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 };
+      let currentFilterStats = { bslByVendor: {}, bslByMonth: {} };
       let filteredItems = []; let currentQueueIndex = -1; let ganttManualHeight = null;
       let globalRefDataDate = "";
       // View mode is managed by currentViewMode + applyViewMode()
@@ -2930,13 +2858,67 @@
                 return true;
             });
 
-            let lifecycleSummary = getProjectsLifecycleSummary(filtered);
-            setTxt('kpi-total-proj', lifecycleSummary.total);
-            setTxt('kpi-sub-active', `${lifecycleSummary.active} Active`);
-            setTxt('kpi-sub-pending', `${lifecycleSummary.pending} Pending`);
-            setTxt('kpi-sub-overdue', `${lifecycleSummary.overdue} Overdue`);
-            setTxt('kpi-active-bsls', lifecycleSummary.bsls.toLocaleString());
-            setTxt('kpi-active-crit', lifecycleSummary.critical);
+            let activeProjCount = 0; let pendingProjCount = 0; let overdueProjCount = 0;
+            let activeBslsCount = 0; let activeCritCount = 0;
+            currentFilterStats.bslByVendor = {};
+            currentFilterStats.bslByMonth = {};
+            
+            filtered.forEach(item => {
+                let start = safeDate(item.cxStart) || safeDate(item.reportDate) || new Date(today);
+                let end = safeDate(item.cxEnd) || safeDate(item.targetDate) || new Date(start.getTime() + 86400000*30);
+                if(isNaN(start)) start = new Date(today); if(isNaN(end)) end = new Date(start.getTime() + 86400000*7); if(end < start) end = new Date(start.getTime() + 86400000);
+                
+                let isComplete = (item.stage || "").toLowerCase().includes('ofs') || (item.status || "").toLowerCase().includes('complete');
+                let isOnHold = (item.status || "").toLowerCase().includes('hold');
+                
+                let bslStr = String(item.bsls).replace(/,/g, '');
+                let bslNum = parseInt(bslStr, 10) || 0;
+                activeBslsCount += bslNum;
+                if (getSeverity(item.flags) === 'crit') activeCritCount++;
+
+                let v = item.vendor || "Unknown";
+                currentFilterStats.bslByVendor[v] = (currentFilterStats.bslByVendor[v] || 0) + bslNum;
+
+                let ofsD = safeDate(item.ofsDate) || safeDate(item.targetDate);
+                let mKey = (ofsD && !isNaN(ofsD.getTime()))
+                    ? ofsD.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase()
+                    : 'TBD';
+                currentFilterStats.bslByMonth[mKey] = (currentFilterStats.bslByMonth[mKey] || 0) + bslNum;
+
+                if (!isComplete && !isOnHold) {
+                    if (today < start) pendingProjCount++;
+                    else if (today > end) overdueProjCount++;
+                    else activeProjCount++;
+                }
+            });
+
+            setTxt('kpi-total-proj', filtered.length);
+            setTxt('kpi-active-bsls', activeBslsCount.toLocaleString());
+            setTxt('kpi-active-crit', activeCritCount);
+
+            setHtml('kpi-projects-breakdown', `
+                <span class="ok">${activeProjCount} Active</span>
+                <span class="sep">•</span>
+                <span class="pending">${pendingProjCount} Pending</span>
+                <span class="sep">•</span>
+                <span class="overdue">${overdueProjCount} Overdue</span>
+            `);
+
+            let sortedMonths = Object.keys(currentFilterStats.bslByMonth)
+                .sort((a, b) => currentFilterStats.bslByMonth[b] - currentFilterStats.bslByMonth[a])
+                .slice(0, 3);
+            let bslMonthHtml = sortedMonths
+                .map(m => `<span class="month-chip">${m}: ${currentFilterStats.bslByMonth[m].toLocaleString()}</span>`)
+                .join(' <span class="sep">•</span> ');
+            setHtml('kpi-bsls-breakdown', bslMonthHtml || `<span style="color:var(--text-muted);">No Target Dates</span>`);
+
+            if (bslsHudLocked) {
+                let pill = getEl('nav-bsls-pill');
+                if (!renderBslsPie()) {
+                    bslsHudLocked = false;
+                    if (pill) pill.classList.remove('is-locked');
+                }
+            }
 
             if (sortVal !== 'default') {
                 filtered.sort((a, b) => {
@@ -4034,6 +4016,124 @@
               deckIndex = filteredItems.indexOf(item);
               renderDeckStage();
           }
+      }
+
+      let bslsHudLocked = false;
+
+      function showBslsHUD() {
+          if (bslsHudLocked) return;
+          renderBslsPie();
+      }
+
+      function hideBslsHUD() {
+          if (bslsHudLocked) return;
+          let hud = getEl('bsls-pie-hud');
+          if (hud) {
+              hud.classList.remove('visible');
+              setTimeout(() => {
+                  if (!hud.classList.contains('visible')) hud.style.display = 'none';
+              }, 200);
+          }
+      }
+
+      function toggleBslsHUDLock(e) {
+          if (e) e.stopPropagation();
+          let hud = getEl('bsls-pie-hud');
+          let pill = getEl('nav-bsls-pill');
+          if (!hud || !pill) return;
+
+          bslsHudLocked = !bslsHudLocked;
+
+          if (bslsHudLocked) {
+              if (!renderBslsPie()) {
+                  bslsHudLocked = false;
+                  pill.classList.remove('is-locked');
+                  return;
+              }
+              pill.classList.add('is-locked');
+          } else {
+              pill.classList.remove('is-locked');
+              hideBslsHUD();
+          }
+      }
+
+      document.addEventListener('click', function(e) {
+          if (!bslsHudLocked) return;
+          let hud = getEl('bsls-pie-hud');
+          let pill = getEl('nav-bsls-pill');
+          if (hud && !hud.contains(e.target) && pill && !pill.contains(e.target)) {
+              bslsHudLocked = false;
+              pill.classList.remove('is-locked');
+              hideBslsHUD();
+          }
+      });
+
+      function renderBslsPie() {
+          let bslData = currentFilterStats.bslByVendor || {};
+          let totalBsls = Object.values(bslData).reduce((a, b) => a + b, 0);
+          let hud = getEl('bsls-pie-hud');
+          let pill = getEl('nav-bsls-pill');
+          if (!hud || !pill) return false;
+          if (totalBsls === 0) {
+              hud.classList.remove('visible');
+              hud.style.display = 'none';
+              return false;
+          }
+
+          let vendorArr = Object.keys(bslData).sort((a, b) => bslData[b] - bslData[a]);
+          let colors = ['#3b82f6', '#a855f7', '#f59e0b', '#10b981', '#ec4899', '#06b6d4', '#6366f1'];
+          let conicStr = [];
+          let legendHtml = '';
+          let currentPct = 0;
+
+          vendorArr.forEach((v, idx) => {
+              let count = bslData[v];
+              let pct = (count / totalBsls) * 100;
+              let c = colors[idx % colors.length];
+              conicStr.push(`${c} ${currentPct}% ${currentPct + pct}%`);
+              currentPct += pct;
+
+              legendHtml += `
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:8px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                      <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${c};"></span>
+                      <span style="color:var(--text-main); font-weight:800;">${v}</span>
+                  </div>
+                  <span style="color:var(--text-muted); font-weight:900; font-family:monospace; font-size:14px;">${count.toLocaleString()}</span>
+              </div>`;
+          });
+
+          let pieStyle = `background: conic-gradient(${conicStr.join(', ')}); border-radius: 50%; width: 130px; height: 130px; box-shadow: 0 8px 16px rgba(0,0,0,0.1);`;
+
+          hud.innerHTML = `
+              <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px; border-bottom:1px solid var(--border); padding-bottom:8px; margin-bottom:16px;">
+                  BSLs by Vendor
+              </div>
+              <div style="display:flex; gap:24px; align-items:center;">
+                  <div style="${pieStyle} flex-shrink:0;"></div>
+                  <div style="flex-grow:1; display:flex; flex-direction:column; max-height:180px; overflow-y:auto; padding-right:8px; gap:2px;">
+                      ${legendHtml}
+                  </div>
+              </div>
+          `;
+
+          let rect = pill.getBoundingClientRect();
+          let left = rect.left;
+          let top = rect.bottom + 12;
+          hud.style.display = 'flex';
+          hud.style.top = top + 'px';
+          hud.style.left = left + 'px';
+
+          requestAnimationFrame(() => {
+              if (hud.offsetWidth && left + hud.offsetWidth > window.innerWidth - 12) {
+                  hud.style.left = Math.max(12, window.innerWidth - hud.offsetWidth - 12) + 'px';
+              }
+              if (top + hud.offsetHeight > window.innerHeight - 12) {
+                  hud.style.top = Math.max(12, rect.top - hud.offsetHeight - 12) + 'px';
+              }
+              hud.classList.add('visible');
+          });
+          return true;
       }
 
     </script>
