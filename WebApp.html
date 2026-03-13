@@ -106,9 +106,9 @@
           z-index: 500 !important;
           padding: 8px 12px !important;
           border-radius: 34px !important;
-          background: rgba(255, 255, 255, 0.45) !important;
-          backdrop-filter: blur(30px) saturate(200%) !important;
-          -webkit-backdrop-filter: blur(30px) saturate(200%) !important;
+          background: rgba(255, 255, 255, 0.65) !important;
+          backdrop-filter: blur(32px) saturate(200%) !important;
+          -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
           border: 1px solid rgba(255, 255, 255, 0.8) !important;
           box-shadow: 0 16px 40px rgba(15, 23, 42, 0.1), inset 0 1px 1px rgba(255,255,255,1) !important;
           display: flex !important;
@@ -122,7 +122,7 @@
           transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease !important;
       }
       body.dark-mode .filter-strip {
-          background: rgba(24, 24, 27, 0.55) !important;
+          background: rgba(24, 24, 27, 0.65) !important;
           border: 1px solid rgba(255, 255, 255, 0.1) !important;
           box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255,255,255,0.05) !important;
       }
@@ -138,6 +138,23 @@
       }
       body.dark-mode.deck-mode-active .filter-strip {
           box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.05) !important;
+      }
+      /* Stop Clipping: Replace physical lift with lighting/shadow on hover */
+      .smart-dock .btn:hover,
+      .smart-dock .hover-trigger:hover,
+      .smart-dock input[type="text"]:hover,
+      .smart-dock select:hover {
+          transform: translateY(0) !important;
+          filter: brightness(1.05);
+          box-shadow: 0 6px 12px rgba(0,0,0,0.08) !important;
+      }
+      .smart-dock .btn:active,
+      .smart-dock .hover-trigger:active {
+          transform: scale(0.96) !important;
+      }
+      .smart-dock .btn {
+          height: 34px !important;
+          padding: 0 16px !important;
       }
       /* Polymorphic Dock Physics */
       .smart-dock {
@@ -581,6 +598,11 @@
             width: 100% !important;
             max-width: 1000px !important;
             margin: 0 auto !important;
+
+            /* PREVENT SQUISHING: Force the card to stay solid and scroll instead */
+            flex-shrink: 0 !important;
+            min-height: min-content !important;
+
             background: var(--card-bg);
             border-radius: 20px !important;
             border: 1.5px solid var(--border);
@@ -1162,9 +1184,15 @@
                 </select>
             </div>
 
+            <div class="dock-zone collapsed" id="dock-deck-actions-zone">
+                <div class="dock-divider"></div>
+                <button class="btn hover-trigger" onclick="navDeck(1)" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Skip (Next)</button>
+                <button class="btn collapsed hover-trigger" id="dock-btn-save" onclick="saveDeckToSheet(this)" style="background:#3b82f6; color:#fff; border-color:#2563eb;">Save to Sheet</button>
+                <button class="btn hover-trigger" onclick="exportDeckReport()" id="btn-export-deck" style="background:#16a34a; color:#fff; border-color:#15803d;">Copy Report</button>
+            </div>
+
             <div class="dock-zone">
                 <div class="dock-divider"></div>
-                <button class="btn collapsed hover-trigger" id="dock-btn-save" onclick="saveDeckToSheet(this)" style="background:#16a34a; color:#fff; border-color:#15803d; padding:0 14px;">SAVE TO SHEET</button>
                 <button class="btn collapsed hover-trigger" id="btn-clear-filters" onclick="clearAllFilters()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border); padding:0 12px;">Clear</button>
                 <div class="view-segment-group">
                     <button class="view-segment-btn active" id="view-btn-detail" onclick="switchWorkspaceView('detail')" title="Detail View">
@@ -3806,8 +3834,8 @@
         const navNext = getEl('dock-nav-next');
         if (navPrev) navPrev.classList.toggle('collapsed', !isDeckMode);
         if (navNext) navNext.classList.toggle('collapsed', !isDeckMode);
-        const saveBtn = getEl('dock-btn-save');
-        if (saveBtn) saveBtn.classList.add('collapsed');
+        const deckActionsZone = getEl('dock-deck-actions-zone');
+        if (deckActionsZone) deckActionsZone.classList.toggle('collapsed', !isDeckMode);
         if (grid) grid.classList.toggle('active', isGridMode);
         const sidebarPivot = getEl('sidebar-pivot-select');
         if (sidebarPivot) sidebarPivot.style.display = isDeckMode ? 'inline-block' : 'none';
@@ -3867,8 +3895,6 @@
       function renderDeckStage() {
         const stageCard = getEl('deck-stage-card');
         if (!stageCard) return;
-        const saveBtn = getEl('dock-btn-save');
-        if (saveBtn) saveBtn.classList.add('collapsed');
 
         // Scale slide by height to maximize vertical space
         stageCard.style.cssText = "height:65vh; max-height:800px; width:auto; max-width:100%; aspect-ratio:16/9; flex-shrink:0; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;";
@@ -4024,13 +4050,8 @@
               <textarea id="deck-note" class="chat-bubble" placeholder="Enter decision..." oninput="syncDeckNote()" style="flex-grow:1; min-height:120px; font-size:13px; line-height:1.5;">${item.comment || item.draft || ''}</textarea>
             </div>
 
-            <div style="display:flex; flex-direction:column; gap:10px; margin-top:auto; padding-top:16px; border-top:1px solid var(--border);">
+            <div style="display:flex; flex-direction:column; margin-top:auto; padding-top:16px; border-top:1px solid var(--border);">
               <button class="btn-ai" onclick="askGeminiForDraftDeck(this)" style="padding:12px 16px; font-size:12px; width:100%; box-shadow:0 4px 12px rgba(168,85,247,0.2);">✨ DRAFT W/ GEMINI</button>
-              
-              <div style="display:flex; gap:10px; width:100%;">
-                <button class="btn btn-skip" onclick="navDeck(1)" style="flex:1; padding:10px; font-size:11px;">SKIP (NEXT)</button>
-                <button class="btn btn-primary" onclick="exportDeckReport()" id="btn-export-deck" style="flex:1; padding:10px; font-size:11px;">COPY REPORT</button>
-              </div>
             </div>
           `;
         }
