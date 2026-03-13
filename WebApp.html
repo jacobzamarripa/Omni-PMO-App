@@ -3351,27 +3351,28 @@
 
       /* 📑 HEADLESS MAC DOCK SIDEBAR */
       .deck-sidebar {
-        width: 280px; background: transparent; border-right: none;
-        display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden;
-        padding: 50vh 20px; gap: 16px; flex-shrink: 0; scroll-behavior: smooth; position: relative;
+        width: min(45vw, 700px); background: transparent; border-right: none;
+        display: grid; grid-template-columns: 1fr 1fr; align-content: flex-start; overflow-y: auto; overflow-x: hidden;
+        padding: 40px 20px; gap: 16px; flex-shrink: 0; scroll-behavior: smooth; position: relative;
       }
       .deck-sidebar::-webkit-scrollbar { display: none; }
       .deck-sidebar::after {
-        content: ''; position: fixed; top: 0; bottom: 0; left: 280px; width: 1px;
+        content: ''; position: fixed; top: 0; bottom: 0; left: min(45vw, 700px); width: 1px;
         background: linear-gradient(to bottom, transparent, var(--border), transparent); opacity: 0.4;
       }
       .deck-thumb {
         width: 100%; background: var(--card-bg); border: 1px solid var(--border);
         border-radius: 12px; padding: 14px; cursor: pointer; position: relative;
         display: flex; flex-direction: column; gap: 6px;
-        zoom: 0.85; opacity: 0.5; transition: all 0.25s ease, opacity 0.25s ease;
+        opacity: 0.72; transition: all 0.25s ease, opacity 0.25s ease;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        transform: translateZ(0);
-        transform-origin: top center;
+        transform: translateY(0);
+        transform-origin: center;
+        height: fit-content;
       }
       .deck-thumb:hover { opacity: 0.8; transform: translateY(-2px); }
       .deck-thumb.active {
-        transform: translateY(-3px); opacity: 1; z-index: 10; border-color: var(--color-insight);
+        transform: translateY(-2px); opacity: 1; z-index: 10; border-color: var(--color-insight);
         box-shadow: 0 0 0 2px rgba(168,85,247,0.2), 0 20px 40px rgba(15,23,42,0.15);
       }
       .thumb-fdh { font-size: 14px; font-weight: 900; color: var(--text-main); }
@@ -3601,31 +3602,27 @@
       }
 
       function updateThumbState() {
-        let realEl = null;
-        let cloneEl = null;
+        let activeEl = null;
         document.querySelectorAll('.deck-thumb').forEach(el => {
-          const realIdx = parseInt(el.dataset.realIdx);
+          const realIdx = parseInt(el.dataset.realIdx || el.dataset.idx || '-1');
           if (realIdx === deckIndex) {
             el.classList.add('active');
-            if (el.dataset.copy === 'real') realEl = el;
-            else if (!cloneEl) cloneEl = el;
+            if (!activeEl) activeEl = el;
           } else {
             el.classList.remove('active');
           }
         });
-        const midEl = realEl || cloneEl;
-        if (midEl) {
-          midEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (activeEl) {
+          activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
 
       function renderDeckThumbnails() {
         const sidebar = getEl('deck-sidebar-content');
         if (!sidebar) return;
-        const n = deckSource.length;
-        if (n === 0) { sidebar.innerHTML = ''; return; }
+        if (deckSource.length === 0) { sidebar.innerHTML = ''; return; }
 
-        function buildThumb(item, realIdx, copy) {
+        function buildThumb(item, idx) {
           const safeD2 = (v) => { try { let d = safeDate ? safeDate(v) : new Date(v); return d && !isNaN(d) ? d : null; } catch(e) { return null; } };
           let tStart = safeD2(item.cxStart), tEnd = safeD2(item.cxEnd);
           let tToday = new Date(); tToday.setHours(0,0,0,0);
@@ -3651,41 +3648,27 @@
             let cm = b.match(/Cab:\s*([\d/]+)/); if (cm) addMb(cm[1], '#a855f7');
             let ltm = b.match(/Lit:\s*([\d/]+)/); if (ltm) addMb(ltm[1], '#eab308');
           }
-          let activeCls = realIdx === deckIndex ? 'active' : '';
-          return `<div class="deck-thumb ${activeCls}" id="thumb-${realIdx}" data-real-idx="${realIdx}" data-copy="${copy}" onclick="selectDeckThumb(${realIdx})" style="padding: 10px 14px; gap: 4px; display: flex; flex-direction: column; height: auto;">
-            <div style="position:absolute; top:8px; right:8px; font-size:9px; font-weight:900; color:var(--text-muted); z-index:5;">${realIdx + 1}</div>
-            <div style="font-size:9px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px;">Project Schedule</div>
-
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
-              <div style="display:flex; flex-direction:column;">
-                <div style="font-size:16px; font-weight:900; color:var(--text-main); letter-spacing:-0.5px; line-height:1.2;">${item.fdh}</div>
-                <div style="font-size:9px; font-weight:600; color:var(--text-muted);">${item.city}</div>
+          let activeCls = idx === deckIndex ? 'active' : '';
+          return `<div class="deck-thumb ${activeCls} grid-card" id="thumb-${idx}" data-idx="${idx}" onclick="selectDeckThumb(${idx})" style="padding: 12px; gap: 8px; margin: 0; box-shadow: ${idx === deckIndex ? '0 0 0 3px rgba(168, 85, 247, 0.8), 0 8px 20px rgba(168, 85, 247, 0.25)' : '0 4px 6px -1px rgba(0,0,0,0.05)'}; border-color: ${idx === deckIndex ? 'var(--color-insight)' : 'var(--border)'};">
+            <div class="grid-card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 6px;">
+              <div>
+                <div style="font-size:14px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${item.vendor || 'Unknown'}</div>
               </div>
-              <span class="glass-pill" style="font-size:7px; background:${tColor}22; color:${tColor}; border-color:${tColor}66; padding: 2px 6px;">${item.status || item.stage || '—'}</span>
+              <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                <span class="glass-pill" style="font-size:8px; background:${tColor}22; color:${tColor}; border-color:${tColor}66;">${item.status || item.stage || '—'}</span>
+                <div style="font-size:12px; font-weight:900; color:${tColor}; margin-top:4px;">${item.targetDate || 'TBD'}</div>
+              </div>
             </div>
-
-            <div style="display:flex; justify-content:space-between; font-size:8px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-top:8px; margin-bottom:2px;">
-              <span>CX START: <span style="color:var(--text-main);">${item.cxStart || 'TBD'}</span></span>
-              <span>CX COMPLETE: <span style="color:var(--text-main);">${item.cxEnd || 'TBD'}</span></span>
-            </div>
-
-            <div class="qb-time-bar" style="height:8px; margin-bottom:12px; min-height:8px;">
-              <div class="qb-time-fill" style="width:${tPct}%; background:${tColor};"></div>
+            <div class="qb-time-bar" style="height:6px; margin:4px 0 0 0;">
+              <div class="qb-time-fill" style="width:${tPct}%; background:${tColor}; border-radius:3px;"></div>
               ${miniBeadHtml}
-            </div>
-
-            <div class="qb-target-wrap ${item.isXing ? 'xing' : ''}" style="margin-top:auto;">
-              <div class="qb-target-inner" style="padding: 8px 6px 6px 6px; box-shadow: none; border: 1px solid var(--border); border-bottom: none;">
-                <div class="qb-target-label" style="font-size:8px;">TARGET DATE</div>
-                <div class="qb-target-date" style="font-size:14px; color:${tColor}; line-height:1;">${item.targetDate || 'TBD'}</div>
-                ${item.isXing ? `<div style="position:absolute; bottom:2px; right:2px; background:#171717; color:#facc15; padding:1px 4px; border-radius:2px; font-size:7px; font-weight:900; border: 1px solid #facc15;">X-ING</div>` : ''}
-              </div>
             </div>
           </div>`;
         }
 
         let html = '';
-        deckSource.forEach((item, idx) => html += buildThumb(item, idx, 'real'));
+        deckSource.forEach((item, idx) => html += buildThumb(item, idx));
         sidebar.innerHTML = html;
         updateThumbState();
       }
@@ -3839,49 +3822,34 @@
         let barsHtml = '';
         let v = item.vel;
         if (v) {
-          barsHtml += buildVelocityBar('Underground', v.ug?.daily, v.ug?.tot, v.ug?.bom, 'UG', daysLeft);
-          barsHtml += buildVelocityBar('Fiber', v.fib?.daily, v.fib?.tot, v.fib?.bom, 'FIB', daysLeft);
-          barsHtml += buildVelocityBar('Splicing', v.nap?.daily, v.nap?.tot, v.nap?.bom, 'NAP', daysLeft);
+          barsHtml += buildVelocityBar('UG', v.ug?.daily, v.ug?.tot, v.ug?.bom, 'UG', daysLeft);
+          barsHtml += buildVelocityBar('AE', v.ae?.daily, v.ae?.tot, v.ae?.bom, 'AE', daysLeft);
+          barsHtml += buildVelocityBar('FIB', v.fib?.daily, v.fib?.tot, v.fib?.bom, 'FIB', daysLeft);
+          barsHtml += buildVelocityBar('NAP', v.nap?.daily, v.nap?.tot, v.nap?.bom, 'NAP', daysLeft);
         }
-        let effectiveLight = item.isLight || isComplete;
-        let lightHtml = effectiveLight
-          ? `<span style="height:6px; width:6px; background:#22c55e; border-radius:50%; display:inline-block;"></span> <span style="color:#22c55e;">LIGHT PRESENT</span>`
-          : `<span style="height:6px; width:6px; background:#94a3b8; border-radius:50%; display:inline-block;"></span> <span style="color:#94a3b8;">PENDING LIGHT</span>`;
+        let gClass = getGanttClass(item.stage, item.status, isOverdue);
+        let microGanttHtml = `
+<div style="position:relative; height: 34px; background: repeating-linear-gradient(to right, transparent, transparent 10%, var(--border) 10%, var(--border) 10.5%); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-top: 12px;">
+    <div style="position:absolute; left: 50%; top:0; bottom:0; width:2px; background:rgba(239,68,68,0.8); z-index:1;"></div>
+    <div class="gantt-bar-fill ${gClass}" style="left: 10%; width: ${Math.max(10, pct * 0.8)}%; top: 8px; position:absolute; z-index:2; opacity:1; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+        <span class="gantt-bar-text">${item.fdh} • ${item.stage} | ${item.status}</span>
+    </div>
+    <div style="position:absolute; left: 10%; width: ${Math.max(10, pct * 0.8)}%; top:0; height:100%; z-index:3;">${projBeadHtml}</div>
+</div>`;
 
         const slideHtml = `
-          <div class="slide-header" style="display: grid; grid-template-columns: 4fr 6fr; gap: 24px; padding: 16px 30px; background: var(--bg); border-bottom: 1px solid var(--border);">
-            <div style="display: flex; flex-direction: column; justify-content: space-between; gap: 12px;">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                  <div style="font-size:24px; font-weight:900; color:var(--text-main); letter-spacing:-0.5px; line-height:1;">${item.fdh}</div>
-                  <div style="font-size:10px; font-weight:700; color:var(--text-muted); margin-top:4px;">${item.city} &bull; ${item.vendor}</div>
-                </div>
+          <div class="slide-header" style="padding: 20px 30px; background: var(--bg); border-bottom: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <div style="font-size:28px; font-weight:900; color:var(--text-main); letter-spacing:-1px; line-height:1;">${item.fdh}</div>
+                <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-top:4px;">${item.city} &bull; ${item.vendor}</div>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
                 <div style="font-size:10px; font-weight:900; background:var(--card-bg); border:1px solid var(--border); padding:4px 10px; border-radius:12px; text-transform:uppercase;">${item.stage} | ${item.status}</div>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 4px;">
-                <div class="slide-time-labels">
-                  <span>CX START: <span style="color:var(--text-main);">${item.cxStart || 'TBD'}</span></span>
-                  <span>CX COMPLETE: <span style="color:var(--text-main);">${item.cxEnd || 'TBD'}</span></span>
-                </div>
-                <div class="${item.isXing ? 'qb-target-wrap xing' : ''}" style="margin:0;">
-                  <div class="slide-time-bar" style="margin-bottom: ${item.isXing ? '8px' : '0'};">
-                    <div class="slide-time-fill" style="width:${pct}%; background:${sColor};"></div>
-                    ${pct > 0 && pct < 100 ? `<div class="slide-time-bead" style="left:${pct}%; border-color:${sColor};"></div>` : ''}
-                    ${projBeadHtml}
-                  </div>
-                  ${item.isXing ? `<div class="qb-target-inner" style="padding-top:4px; border-top:none;"><div class="qb-target-label">TARGET DATE</div><div class="qb-target-date" style="color:${sColor}; font-size:14px;">${item.targetDate || 'TBD'}</div><div style="background:#171717; color:#facc15; padding:1px 6px; border-radius:4px; font-size:8px; font-weight:900;">X-ING</div></div>` : ''}
-                </div>
+                <div style="font-size:12px; font-weight:900; color:${sColor};">TARGET: ${item.targetDate || 'TBD'}</div>
               </div>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
-                <span style="font-size:10px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Field Velocity & Production</span>
-                <div style="display:flex; align-items:center; gap:4px; font-size:9px; font-weight:800;">${lightHtml}</div>
-              </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0px 20px;">
-                ${barsHtml || '<div style="font-size:10px; color:var(--text-muted); font-style:italic; grid-column: span 2;">No active production tracking.</div>'}
-              </div>
-            </div>
+            ${microGanttHtml}
           </div>
 
           <div class="slide-body">
@@ -3911,17 +3879,26 @@
             </div>
           </div>
 
-          <div class="slide-footer" style="padding: 10px 30px; display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 16px;">
-            <div style="font-size:12px; font-weight:900; color:${sColor}; white-space:nowrap; flex-shrink: 0;">${daysLeftTxt}</div>
-            <div class="slide-fine-print" style="margin:0; display:flex; gap:12px; align-items:center; white-space:nowrap; flex-grow:1; justify-content:center; overflow:hidden;">
-              <span>Report Date <b>${deckReportDate}</b></span><span>|</span>
-              <span>Last Checked <b>${deckLastCheck}</b></span><span>|</span>
-              <span>Ref Data <b>${deckRefData}</b></span>
+          <div class="slide-footer" style="padding: 16px 30px; background: var(--bg); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size:10px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Field Velocity & Production</span>
+              <div style="font-size:12px; font-weight:900; color:${sColor};">${daysLeftTxt}</div>
             </div>
-            <div style="display:flex; gap:8px; align-items:center; white-space:nowrap; flex-shrink: 0;">
-              <div style="font-size:10px; font-weight:800; padding:3px 8px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--text-main);">BSLS: ${item.bsls || 'N/A'}</div>
-              <div style="font-size:10px; font-weight:800; padding:3px 8px; border-radius:6px; border:1px solid; ${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
-              ${deckViewRecord}
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+              ${barsHtml || '<div style="font-size:10px; color:var(--text-muted); font-style:italic; grid-column: span 4;">No active production tracking.</div>'}
+            </div>
+
+            <div class="slide-fine-print" style="margin-top:8px; display:flex; justify-content:space-between; align-items:center; border-top:1px dashed var(--border); padding-top:8px;">
+               <div>
+                 <span>Report Date <b>${deckReportDate}</b></span> <span style="margin:0 8px;">|</span>
+                 <span>Last Checked <b>${deckLastCheck}</b></span> <span style="margin:0 8px;">|</span>
+                 <span>Ref Data <b>${deckRefData}</b></span>
+               </div>
+               <div style="display:flex; gap:8px;">
+                  <div style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; border:1px solid var(--border); background:var(--card-bg); color:var(--text-main);">BSLS: ${item.bsls || 'N/A'}</div>
+                  ${deckViewRecord}
+               </div>
             </div>
           </div>`;
 
