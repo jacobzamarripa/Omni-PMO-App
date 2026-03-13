@@ -16,32 +16,57 @@ const QB_PAGE_SIZE    = 1000;
 const QB_MAX_PAGES    = 20;
 
 
-// --- 2. FIELD DISCOVERY (run once to identify field IDs) ---
+// --- 2. FIELD DISCOVERY (run once to build the Data Dictionary) ---
 
-function discoverQBFields() {
+/**
+ * Scans all QB tables and writes a searchable Data Dictionary to 9-QB_Fields.
+ * Read-only — no PATCH or POST calls are made.
+ */
+function discoverAllQBFields() {
+  const QB_TABLES = {
+    "Active Cabinets":    "bts8av3cw",
+    "FDH Projects":       "bts3c49e9",
+    "Project Management": "bvieaendx",
+    "Permits":            "bts3c49gt",
+    "FDH Inspections":    "bvterz4k4"
+  };
+
   const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
-  if (!token) {
-    SpreadsheetApp.getUi().alert("QB_USER_TOKEN not found.\n\nGo to Extensions \u2192 Script Properties and add it before running.");
-    return;
+  if (!token) throw new Error("QB_USER_TOKEN not found in Script Properties.");
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let dictSheet = ss.getSheetByName(QB_FIELDS_SHEET) || ss.insertSheet(QB_FIELDS_SHEET);
+
+  dictSheet.clear();
+  dictSheet.appendRow(["Table Name", "Table ID", "Field ID (fid)", "Field Label", "Field Type"]);
+  dictSheet.getRange("1:1").setFontWeight("bold").setBackground("#0f172a").setFontColor("white");
+
+  let totalFields = 0;
+
+  for (let tableName in QB_TABLES) {
+    let tableId = QB_TABLES[tableName];
+    let url = QB_API_BASE + "/fields?tableId=" + tableId;
+    let response = UrlFetchApp.fetch(url, _qbHeaders(token));
+
+    if (response.getResponseCode() === 200) {
+      let fields = JSON.parse(response.getContentText());
+      let rows = fields.map(function(f) { return [tableName, tableId, f.id, f.label, f.fieldType]; });
+      if (rows.length > 0) {
+        dictSheet.getRange(dictSheet.getLastRow() + 1, 1, rows.length, 5).setValues(rows);
+        totalFields += rows.length;
+      }
+    } else {
+      Logger.log("WARN: HTTP " + response.getResponseCode() + " for table " + tableName + " (" + tableId + ")");
+    }
   }
 
-  const url = QB_API_BASE + "/fields?tableId=" + QB_TABLE_ID;
-  const response = UrlFetchApp.fetch(url, _qbHeaders(token));
-  const code = response.getResponseCode();
+  dictSheet.setFrozenRows(1);
+  dictSheet.autoResizeColumns(1, 5);
+  if (dictSheet.getFilter() !== null) dictSheet.getFilter().remove();
+  dictSheet.getDataRange().createFilter();
 
-  if (code !== 200) {
-    throw new Error("QB API returned HTTP " + code + ": " + response.getContentText().substring(0, 300));
-  }
-
-  const fields = JSON.parse(response.getContentText());
-  fields.forEach(function(f) {
-    Logger.log("Field ID " + f.id + " \u2192 " + f.label + " (" + f.fieldType + ")");
-  });
-
-  SpreadsheetApp.getUi().alert(
-    "Found " + fields.length + " fields in the FDH Projects table.\n\n" +
-    "Open Apps Script \u2192 Executions \u2192 View logs to see all field IDs and labels."
-  );
+  Logger.log("Discovery Complete: Found " + totalFields + " fields across " + Object.keys(QB_TABLES).length + " tables.");
+  SpreadsheetApp.getUi().alert("Discovery Complete!\n\nFound " + totalFields + " fields across " + Object.keys(QB_TABLES).length + " tables.\nSee the \"" + QB_FIELDS_SHEET + "\" tab for the full Data Dictionary.");
 }
 
 
