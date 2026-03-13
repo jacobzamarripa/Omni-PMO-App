@@ -1054,8 +1054,8 @@
       .gantt-quick-peek {
           position: absolute;
           top: 0; right: 0; bottom: 0;
-          width: 380px;
-          background: rgba(255, 255, 255, 0.95);
+          width: 390px !important;
+          background: var(--bg) !important;
           backdrop-filter: blur(24px) saturate(180%);
           -webkit-backdrop-filter: blur(24px) saturate(180%);
           border-left: 1px solid var(--border);
@@ -1073,6 +1073,11 @@
           box-shadow: -15px 0 50px rgba(0,0,0,0.5);
       }
       .gantt-quick-peek.open { transform: translateX(0); }
+      .gantt-quick-peek .qb-module {
+          margin-bottom: 12px !important;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;
+      }
+      .gantt-quick-peek .chat-bubble { min-height: 120px !important; }
       .gantt-mini-btn { display: inline-flex; align-items: center; justify-content: center; padding: 0 10px !important; min-height: 26px; font-size: 9px !important; border-radius: 12px; margin-right: 6px !important; letter-spacing: 0.05em; background: color-mix(in srgb, var(--card-bg) 84%, transparent) !important; border: 1px solid var(--border) !important; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06); }
       .gantt-resize-grip { position: absolute; top: -4px; left: 0; right: 0; width: 88px; height: 12px; border-radius: 999px; background: transparent; margin: 0 auto; cursor: ns-resize; flex-shrink: 0; z-index: 1001; touch-action: none; }
       .gantt-resize-grip::before { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 46px; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--text-muted) 26%, transparent); }
@@ -1886,63 +1891,102 @@
           const panel = getEl('gantt-quick-peek');
           if (!panel) return;
 
-          let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
-          let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
-          let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+          const isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
+          const pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+          const combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+          const vComment = item.vendorComment ? item.vendorComment.trim() : 'No update.';
+          const targetDateVal = item.targetDate || item.cxEnd || '';
+          const targetDateLabel = targetDateVal ? formatDate(targetDateVal) : 'TBD';
 
-          const vComment = item.vendorComment ? item.vendorComment.trim() : 'No update provided.';
+          let pEnd = safeDate(item.cxEnd || item.targetDate);
+          let today = new Date();
+          today.setHours(0,0,0,0);
+          let daysLeft = 0;
+          if (pEnd) daysLeft = Math.ceil((pEnd - today) / 86400000);
+
+          const isComplete = (item.stage || '').toLowerCase().includes('ofs') || (item.status || '').toLowerCase().includes('complete');
+          const isPermit = (item.stage || '').toLowerCase().includes('permit');
+          const isOnHold = (item.status || '').toLowerCase().includes('hold');
+          const isOverdue = pEnd && today > pEnd && !isComplete && !isOnHold && !isPermit;
+
+          let sColor = '#facc15';
+          if (isComplete) sColor = '#22c55e';
+          else if (isPermit) sColor = '#a855f7';
+          else if (isOnHold) sColor = '#94a3b8';
+          else if (isOverdue) sColor = '#ef4444';
+
+          const daysLeftTxt = daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`;
+
+          const v = item.vel;
+          const velHtml = v ? `
+              <div class="velocity-grid" style="grid-template-columns:1fr; gap:10px;">
+                  ${buildVelocityBar('UG', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft)}
+                  ${buildVelocityBar('Fiber', v.fib.daily, v.fib.tot, v.fib.bom, 'FIB', daysLeft)}
+              </div>
+          ` : '<div class="empty-msg">No velocity data tracked.</div>';
 
           let diagClass = 'action-box';
           const sev = getSeverity(item.flags);
-          if (sev === 'crit') diagClass += ' crit'; else if (sev === 'warn') diagClass += ' warn';
+          if (sev === 'crit') diagClass += ' crit';
+          else if (sev === 'warn') diagClass += ' warn';
 
           const rawFlags = (item.flags || '').split('\n').map(f => f.trim()).filter(f => f !== '');
-          let tagsHtml = '';
-          rawFlags.forEach(f => {
-              const cleanText = f.replace(/[🚨🛑🚩⚠️🖍️🚧🪄🟣]/g, '').trim();
-              if (f.includes('ADMIN')) tagsHtml += `<span class="tag tag-admin" style="font-size:10px; padding:4px 8px;">${cleanText}</span>`;
-              else if (f.includes('🚨') || f.includes('🛑') || f.includes('🚩') || f.includes('STATUS') || f.includes('MISSING')) tagsHtml += `<span class="tag tag-red" style="font-size:10px; padding:4px 8px;">${cleanText}</span>`;
-              else if (f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧')) tagsHtml += `<span class="tag tag-yellow" style="font-size:10px; padding:4px 8px;">${cleanText}</span>`;
-              else tagsHtml += `<span class="tag tag-muted" style="font-size:10px; padding:4px 8px;">${cleanText}</span>`;
-          });
-          if (!tagsHtml) tagsHtml = '<span style="color:var(--text-muted); font-size:11px;">No anomalies detected.</span>';
-
-          const noteVal = (item.comment || item.draft || '').replace(/"/g, '&quot;');
+          const tagsHtml = rawFlags.map(f => {
+              const clean = f.replace(/[🚨🛑🚩⚠️🖍️🚧🪄🟣]/g, '').trim();
+              let tagCls = 'tag-muted';
+              if (f.includes('ADMIN')) tagCls = 'tag-admin';
+              else if (f.includes('🚨') || f.includes('🛑') || f.includes('🚩') || f.includes('STATUS') || f.includes('MISSING')) tagCls = 'tag-red';
+              else if (f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧')) tagCls = 'tag-yellow';
+              return `<span class="tag ${tagCls}" style="font-size:9px; padding:3px 7px;">${clean}</span>`;
+          }).join('') || '<span style="color:var(--text-muted);">No anomalies.</span>';
 
           panel.innerHTML = `
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:20px; border-bottom:1px solid var(--border); background:var(--bg); flex-shrink:0;">
-                  <div>
-                      <div style="font-size:24px; font-weight:900; color:var(--text-main); line-height:1; letter-spacing:-0.5px; margin-bottom:8px;">${item.fdh}</div>
+              <div style="position:sticky; top:0; z-index:10; background:color-mix(in srgb, var(--bg) 96%, transparent); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); padding:18px 20px; border-bottom:1px solid var(--border); flex-shrink:0;">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                      <div style="font-size:28px; font-weight:900; letter-spacing:-1.2px; line-height:1; color:var(--text-main);">${item.fdh}</div>
+                      <button class="panel-tab-close" onclick="closeQuickPeek()" title="Close panel">✕</button>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">
                       <span class="glass-pill ${pillCls}" style="font-size:9px; padding:4px 8px;">${combinedPill}</span>
-                      <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-top:8px;">${item.vendor || 'Unknown'} &bull; ${item.city || 'Unknown'}</div>
+                      <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">${item.vendor || 'Unknown'}${item.city ? ` • ${item.city}` : ''}</div>
                   </div>
-                  <button class="panel-tab-close" onclick="closeQuickPeek()" title="Close panel">✕</button>
               </div>
-              
-              <div style="padding:20px; flex-grow:1; overflow-y:auto; display:flex; flex-direction:column; gap:20px;">
-                  <div style="display:flex; flex-direction:column; gap:6px;">
-                      <div class="section-label" style="margin:0 !important;">Vendor Update</div>
-                      <div class="vendor-bubble" style="font-size:12px; padding:12px !important;">"${vComment}"</div>
+
+              <div style="flex:1; overflow-y:auto; padding:20px;">
+                  <div class="qb-module">
+                      <div class="qb-module-header">SCHEDULE &amp; TARGET</div>
+                      <div style="font-size:10px; font-weight:800; color:var(--text-muted); margin-bottom:8px;">
+                          TARGET DATE: <span style="color:${sColor}; font-size:14px;">${targetDateLabel}</span>
+                      </div>
+                      <div style="font-size:10px; font-weight:700; color:var(--text-tertiary);">${daysLeftTxt}</div>
                   </div>
 
-                  <div style="display:flex; flex-direction:column; gap:6px;">
-                      <div class="section-label" style="margin:0 !important;">System Diagnostics</div>
-                      <div class="${diagClass}" style="padding:12px !important;">
-                         <div style="display:flex; flex-wrap:wrap; gap:6px;">${tagsHtml}</div>
+                  <div class="qb-module">
+                      <div class="qb-module-header">FIELD PRODUCTION</div>
+                      ${velHtml}
+                  </div>
+
+                  <div class="qb-module">
+                      <div class="qb-module-header">SYSTEM DIAGNOSTICS</div>
+                      <div class="section-label" style="font-size:8px; margin-top:0;">VENDOR COMMENT</div>
+                      <div class="vendor-bubble" style="font-size:11px; margin-bottom:12px;">"${vComment}"</div>
+                      <div class="section-label" style="font-size:8px;">ANOMALIES</div>
+                      <div class="${diagClass}" style="padding:10px; border-radius:12px;">
+                          <div style="display:flex; flex-wrap:wrap; gap:5px;">${tagsHtml}</div>
                       </div>
                   </div>
 
-                  <div style="display:flex; flex-direction:column; gap:8px; flex-grow:1;">
-                      <div style="display:flex; justify-content:space-between; align-items:center;">
-                          <div class="section-label" style="color:var(--color-insight); margin:0 !important;">PM NOTE</div>
-                          ${item.geminiDate ? `<span style="font-size:9px; font-style:italic; color:#a855f7;">Drafted: ${formatDate(item.geminiDate)}</span>` : ''}
+                  <div class="qb-module" style="background:rgba(168, 85, 247, 0.03); border-color:rgba(168, 85, 247, 0.2);">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                          <div class="section-label" style="color:var(--color-insight); margin:0;">PM NOTE</div>
+                          ${item.geminiDate ? `<span style="font-size:8px; font-style:italic; color:var(--color-insight);">Drafted: ${formatDate(item.geminiDate)}</span>` : ''}
                       </div>
-                      <textarea id="qp-note-textarea" class="chat-bubble" placeholder="Enter decision..." oninput="syncQuickPeekNote()" style="flex-grow:1; min-height:140px; font-size:13px; line-height:1.5;">${noteVal}</textarea>
+                      <textarea id="qp-note-textarea" class="chat-bubble" oninput="syncQuickPeekNote()" placeholder="Enter decision...">${item.comment || item.draft || ''}</textarea>
                   </div>
               </div>
-              
-              <div style="padding:20px; border-top:1px solid var(--border); background:var(--bg); display:flex; gap:10px; flex-shrink:0;">
-                  <button class="btn-ai" onclick="askGeminiForQuickPeek(this)" style="flex:1; padding:14px; font-size:11px; box-shadow:0 4px 12px rgba(168,85,247,0.2);">✨ DRAFT W/ GEMINI</button>
+
+              <div style="padding:16px 20px; border-top:1px solid var(--border); background:var(--bg); display:flex; gap:10px; flex-shrink:0;">
+                  <button class="btn-ai" onclick="askGeminiForQuickPeek(this)" style="flex:1; padding:14px; font-size:11px;">✨ DRAFT W/ GEMINI</button>
                   <button class="btn btn-primary" onclick="saveQuickPeek(this)" style="flex:1; padding:14px; font-size:11px; background:#3b82f6; border-color:#2563eb;">SAVE TO SHEET</button>
               </div>
           `;
