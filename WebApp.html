@@ -3353,7 +3353,7 @@
       .deck-sidebar {
         width: 280px; background: transparent; border-right: none;
         display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden;
-        padding: calc(50vh - 120px) 20px; gap: 16px; flex-shrink: 0; scroll-behavior: smooth; position: relative;
+        padding: 50vh 20px; gap: 16px; flex-shrink: 0; scroll-behavior: smooth; position: relative;
       }
       .deck-sidebar::-webkit-scrollbar { display: none; }
       .deck-sidebar::after {
@@ -3391,7 +3391,7 @@
 
       /* 🃏 16:9 HYBRID PRESENTATION CARD */
       .deck-card {
-        width: 100%; aspect-ratio: 16 / 9; max-height: 75vh;
+        width: 100%; aspect-ratio: 16 / 9; max-height: 65vh;
         background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border);
         box-shadow: 0 30px 60px rgba(15,23,42,0.15); display: flex; flex-direction: column; overflow: hidden; z-index: 5;
       }
@@ -3458,6 +3458,7 @@
 
       /* REVIEW NOTES AREA */
       .deck-notes-area {
+        width: 60%; margin: 0 auto; align-self: center;
         padding: 10px 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card-bg);
         display: flex; flex-direction: column; gap: 10px; box-shadow: 0 10px 30px rgba(15,23,42,0.05);
       }
@@ -3614,13 +3615,7 @@
         });
         const midEl = realEl || cloneEl;
         if (midEl) {
-          const sidebar = getEl('deck-sidebar-content');
-          if (sidebar) {
-            const elTop = midEl.offsetTop;
-            const elH = midEl.offsetHeight;
-            const sidebarH = sidebar.clientHeight;
-            sidebar.scrollTo({ top: elTop - (sidebarH - elH) / 2, behavior: 'smooth' });
-          }
+          midEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
 
@@ -3656,34 +3651,20 @@
             let cm = b.match(/Cab:\s*([\d/]+)/); if (cm) addMb(cm[1], '#a855f7');
             let ltm = b.match(/Lit:\s*([\d/]+)/); if (ltm) addMb(ltm[1], '#eab308');
           }
-          let daysLeft = tEnd ? Math.ceil((tEnd - tToday) / 86400000) : 0;
-          let barsHtml = '';
-          if (item.vel) {
-            const v = item.vel;
-            barsHtml += buildVelocityBar('UG', v.ug?.daily, v.ug?.tot, v.ug?.bom, 'UG', daysLeft);
-            barsHtml += buildVelocityBar('AE', v.ae?.daily, v.ae?.tot, v.ae?.bom, 'AE', daysLeft);
-            barsHtml += buildVelocityBar('FIB', v.fib?.daily, v.fib?.tot, v.fib?.bom, 'FIB', daysLeft);
-            barsHtml += buildVelocityBar('NAP', v.nap?.daily, v.nap?.tot, v.nap?.bom, 'NAP', daysLeft);
-          }
           let activeCls = realIdx === deckIndex ? 'active' : '';
           let thumbId = copy === 'clone' ? `thumb-${realIdx}-clone` : `thumb-${realIdx}`;
-          return `<div class="deck-thumb ${activeCls}" id="${thumbId}" data-real-idx="${realIdx}" data-copy="${copy}" onclick="selectDeckThumb(${realIdx})" style="aspect-ratio: auto; padding: 12px; height: auto; gap: 10px;">
+          return `<div class="deck-thumb ${activeCls}" id="${thumbId}" data-real-idx="${realIdx}" data-copy="${copy}" onclick="selectDeckThumb(${realIdx})" style="padding: 12px; gap: 8px;">
             <div style="position:absolute; top:8px; right:8px; font-size:9px; font-weight:900; color:var(--text-muted); z-index:5;">${realIdx + 1}</div>
-            <div class="grid-card-header" style="border-bottom:none; padding-bottom:0;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <div>
                 <div style="font-size:14px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
                 <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${item.vendor || 'Unknown'}</div>
               </div>
-              <div style="display:flex; flex-direction:column; align-items:flex-end;">
-                <span class="glass-pill" style="font-size:8px; background:${tColor}22; color:${tColor}; border-color:${tColor}66;">${item.status || item.stage || '—'}</span>
-              </div>
+              <span class="glass-pill" style="font-size:8px; background:${tColor}22; color:${tColor}; border-color:${tColor}66;">${item.status || item.stage || '—'}</span>
             </div>
-            <div class="qb-time-bar" style="height:8px; margin-bottom:4px;">
+            <div class="qb-time-bar" style="height:8px; margin:0;">
               <div class="qb-time-fill" style="width:${tPct}%; background:${tColor}; border-radius:4px;"></div>
               ${miniBeadHtml}
-            </div>
-            <div class="velocity-grid" style="gap:4px;">
-              ${barsHtml || '<div style="font-size:9px; color:var(--text-muted);">No velocity data</div>'}
             </div>
           </div>`;
         }
@@ -3873,31 +3854,51 @@
         };
         const mi = (id, ph) => `<input type="text" class="slide-input" id="${id}" placeholder="${ph}" autocomplete="off" value="${mem[id] || ''}" oninput="persistDeckInput(this)">`;
 
+        let barsHtml = '';
+        let v = item.vel;
+        if (v) {
+          barsHtml += buildVelocityBar('Underground', v.ug?.daily, v.ug?.tot, v.ug?.bom, 'UG', daysLeft);
+          barsHtml += buildVelocityBar('Fiber', v.fib?.daily, v.fib?.tot, v.fib?.bom, 'FIB', daysLeft);
+          barsHtml += buildVelocityBar('Splicing', v.nap?.daily, v.nap?.tot, v.nap?.bom, 'NAP', daysLeft);
+        }
+        let effectiveLight = item.isLight || isComplete;
+        let lightHtml = effectiveLight
+          ? `<span style="height:6px; width:6px; background:#22c55e; border-radius:50%; display:inline-block;"></span> <span style="color:#22c55e;">LIGHT PRESENT</span>`
+          : `<span style="height:6px; width:6px; background:#94a3b8; border-radius:50%; display:inline-block;"></span> <span style="color:#94a3b8;">PENDING LIGHT</span>`;
+
         const slideHtml = `
-          <div class="slide-header">
-            <div class="slide-hdr-left">
-              <div class="slide-hdr-id">${item.fdh}</div>
-              <div class="slide-hdr-meta">${item.city}</div>
-              <div class="slide-hdr-meta">${item.vendor}</div>
-            </div>
-            <div class="slide-hdr-center">
-              <div class="slide-time-labels">
-                <span>CX START: <span style="color:var(--text-main);">${item.cxStart || 'TBD'}</span></span>
-                <span style="font-size:9px; font-weight:800; color:var(--text-muted);">Slide ${deckIndex + 1} / ${deckSource.length}</span>
-                <span>CX COMPLETE: <span style="color:var(--text-main);">${item.cxEnd || 'TBD'}</span></span>
+          <div class="slide-header" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; padding: 16px 30px; background: var(--bg); border-bottom: 1px solid var(--border);">
+            <div style="display: flex; flex-direction: column; justify-content: space-between; gap: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <div style="font-size:24px; font-weight:900; color:var(--text-main); letter-spacing:-0.5px; line-height:1;">${item.fdh}</div>
+                  <div style="font-size:10px; font-weight:700; color:var(--text-muted); margin-top:4px;">${item.city} &bull; ${item.vendor}</div>
+                </div>
+                <div style="font-size:10px; font-weight:900; background:var(--card-bg); border:1px solid var(--border); padding:4px 10px; border-radius:12px; text-transform:uppercase;">${item.stage} | ${item.status}</div>
               </div>
-              <div class="${item.isXing ? 'qb-target-wrap xing' : ''}">
-                <div class="slide-time-bar">
-                  <div class="slide-time-fill" style="width:${pct}%; background:${sColor};"></div>
-                  ${pct > 0 && pct < 100 ? `<div class="slide-time-bead" style="left:${pct}%; border-color:${sColor};"></div>` : ''}
-                  ${projBeadHtml}
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <div class="slide-time-labels">
+                  <span>CX START: <span style="color:var(--text-main);">${item.cxStart || 'TBD'}</span></span>
+                  <span>CX COMPLETE: <span style="color:var(--text-main);">${item.cxEnd || 'TBD'}</span></span>
+                </div>
+                <div class="${item.isXing ? 'qb-target-wrap xing' : ''}" style="margin:0;">
+                  <div class="slide-time-bar" style="margin-bottom: ${item.isXing ? '8px' : '0'};">
+                    <div class="slide-time-fill" style="width:${pct}%; background:${sColor};"></div>
+                    ${pct > 0 && pct < 100 ? `<div class="slide-time-bead" style="left:${pct}%; border-color:${sColor};"></div>` : ''}
+                    ${projBeadHtml}
+                  </div>
+                  ${item.isXing ? `<div class="qb-target-inner" style="padding-top:4px; border-top:none;"><div class="qb-target-label">TARGET DATE</div><div class="qb-target-date" style="color:${sColor}; font-size:14px;">${item.targetDate || 'TBD'}</div><div style="background:#171717; color:#facc15; padding:1px 6px; border-radius:4px; font-size:8px; font-weight:900;">X-ING</div></div>` : ''}
                 </div>
               </div>
             </div>
-            <div class="slide-hdr-right">
-              <span style="font-size:9px; font-weight:900; background:var(--bg); border:1px solid var(--border); padding:3px 8px; border-radius:10px; text-transform:uppercase; white-space:nowrap;">${item.stage} | ${item.status}</span>
-              <div style="font-size:10px; font-weight:900; color:${sColor}; text-transform:uppercase; text-align:right; line-height:1.2;">TARGET<br><span style="font-size:15px;">${item.targetDate || 'TBD'}</span></div>
-              <div style="font-size:10px; font-weight:900; color:var(--text-muted);">${daysLeftTxt}</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
+                <span style="font-size:10px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Field Velocity & Production</span>
+                <div style="display:flex; align-items:center; gap:4px; font-size:9px; font-weight:800;">${lightHtml}</div>
+              </div>
+              <div class="velocity-grid" style="gap: 6px;">
+                ${barsHtml || '<div style="font-size:10px; color:var(--text-muted); font-style:italic;">No active production tracking.</div>'}
+              </div>
             </div>
           </div>
 
