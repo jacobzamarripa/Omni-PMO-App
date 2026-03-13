@@ -156,6 +156,23 @@
           height: 34px !important;
           padding: 0 16px !important;
       }
+      /* Dynamic Island Spinner */
+      .dock-spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid rgba(15, 23, 42, 0.2);
+          border-top-color: var(--text-main);
+          border-radius: 50%;
+          animation: dock-spin 0.8s linear infinite;
+          flex-shrink: 0;
+      }
+      body.dark-mode .dock-spinner {
+          border-color: rgba(255, 255, 255, 0.2);
+          border-top-color: #fff;
+      }
+      @keyframes dock-spin { to { transform: rotate(360deg); } }
+      #dock-system-zone.success { color: #16a34a; }
+      #dock-system-zone.error { color: #dc2626; }
       /* Polymorphic Dock Physics */
       .smart-dock {
           transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
@@ -1158,6 +1175,10 @@
             <div class="detail-main">
                  <div class="filter-strip smart-dock" id="filter-strip">
             <button class="dock-arrow prev collapsed" id="dock-nav-prev" onclick="navDeck(-1)">&#8249;</button>
+            <div class="dock-zone collapsed" id="dock-system-zone" style="justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+                <span id="dock-sys-spinner" class="dock-spinner" style="display:none;"></span>
+                <span id="dock-sys-msg"></span>
+            </div>
             <div class="dock-zone">
                 <input type="text" id="search-input" placeholder="Search projects..." autocomplete="off">
             </div>
@@ -1536,6 +1557,54 @@
       const setStyle = (id, prop, val) => { let el = document.getElementById(id); if(el) el.style[prop] = val; };
       const setVal = (id, val) => { let el = document.getElementById(id); if(el) el.value = val; };
       const getEl = (id) => document.getElementById(id);
+
+      // Dynamic Island State Memory
+      let previousDockState = [];
+
+      function showDockLoading(message) {
+          const dock = getEl('filter-strip');
+          if (!dock) return;
+          previousDockState = [];
+          dock.querySelectorAll('.dock-zone').forEach(zone => {
+              if (zone.id !== 'dock-system-zone' && !zone.classList.contains('collapsed')) {
+                  previousDockState.push(zone.id);
+                  zone.classList.add('collapsed');
+              }
+          });
+          getEl('dock-nav-prev')?.classList.add('collapsed');
+          getEl('dock-nav-next')?.classList.add('collapsed');
+          const sysZone = getEl('dock-system-zone');
+          sysZone.className = 'dock-zone';
+          getEl('dock-sys-msg').innerText = message;
+          getEl('dock-sys-spinner').style.display = 'inline-block';
+          dock.style.transform = 'translateX(-50%) scale(0.98)';
+          setTimeout(() => dock.style.transform = 'translateX(-50%) scale(1)', 150);
+      }
+
+      function showDockSuccess(message, duration = 2000) {
+          getEl('dock-sys-spinner').style.display = 'none';
+          const sysZone = getEl('dock-system-zone');
+          sysZone.classList.add('success');
+          getEl('dock-sys-msg').innerHTML = `✓ ${message}`;
+          setTimeout(restoreDockState, duration);
+      }
+
+      function showDockError(message, duration = 3000) {
+          getEl('dock-sys-spinner').style.display = 'none';
+          const sysZone = getEl('dock-system-zone');
+          sysZone.classList.add('error');
+          getEl('dock-sys-msg').innerHTML = `✕ ${message}`;
+          setTimeout(restoreDockState, duration);
+      }
+
+      function restoreDockState() {
+          getEl('dock-system-zone').classList.add('collapsed');
+          previousDockState.forEach(id => getEl(id)?.classList.remove('collapsed'));
+          if (typeof isDeckMode !== 'undefined' && isDeckMode) {
+              getEl('dock-nav-prev')?.classList.remove('collapsed');
+              getEl('dock-nav-next')?.classList.remove('collapsed');
+          }
+      }
 
       function renderDeliverableChip(label, status) {
           let dot = status ? '#22c55e' : '#ef4444';
@@ -4181,17 +4250,12 @@ ${item.comment || 'No notes provided.'}
       function saveDeckToSheet(btn) {
         saveCurrentCardState();
         const item = ensureDeckIndex();
-        if (!item || !btn) return;
+        if (!item) return;
 
-        let origText = btn.innerHTML;
-        let origBackground = btn.style.background;
-        let origBorderColor = btn.style.borderColor;
-        btn.innerHTML = 'SAVING...';
-        btn.style.opacity = '0.7';
-        btn.disabled = true;
+        showDockLoading(`Saving ${item.fdh}...`);
 
         const mem = pmSessionMemory[item.fdh] || {};
-        let payload = {
+        const payload = {
           fdh: item.fdh,
           vendor: item.vendor,
           targetDate: item.targetDate || item.cxEnd || 'TBD',
@@ -4201,25 +4265,10 @@ ${item.comment || 'No notes provided.'}
 
         google.script.run
           .withSuccessHandler(timestamp => {
-            btn.innerHTML = '&#10003; SAVED';
-            btn.style.background = '#16a34a';
-            btn.style.borderColor = '#15803d';
-            btn.style.opacity = '1';
-            setTimeout(() => {
-              btn.innerHTML = origText;
-              btn.style.background = origBackground;
-              btn.style.borderColor = origBorderColor;
-              btn.disabled = false;
-              btn.classList.add('collapsed');
-            }, 2000);
+            showDockSuccess('Saved to Sheet');
           })
           .withFailureHandler(err => {
-            alert('Save failed: ' + err.message);
-            btn.innerHTML = origText;
-            btn.style.opacity = '1';
-            btn.style.background = origBackground;
-            btn.style.borderColor = origBorderColor;
-            btn.disabled = false;
+            showDockError('Save Failed');
           })
           .saveDeckAnswers(payload);
       }
