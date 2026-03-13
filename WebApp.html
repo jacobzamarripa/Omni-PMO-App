@@ -173,6 +173,30 @@
       @keyframes dock-spin { to { transform: rotate(360deg); } }
       #dock-system-zone.success { color: #16a34a; }
       #dock-system-zone.error { color: #dc2626; }
+      /* Elevate Grid Pivot Selector to Primary Control */
+      #grid-pivot-select {
+          background: #0f172a !important;
+          color: #f8fafc !important;
+          border: 1px solid #000000 !important;
+          box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2) !important;
+          font-weight: 900 !important;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          padding-left: 16px !important;
+          padding-right: 32px !important;
+      }
+      #grid-pivot-select:hover {
+          background: #1e293b !important;
+          transform: translateY(0) !important;
+      }
+      body.dark-mode #grid-pivot-select {
+          background: #f8fafc !important;
+          color: #0f172a !important;
+          border-color: #ffffff !important;
+      }
+      body.dark-mode #grid-pivot-select:hover {
+          background: #e2e8f0 !important;
+      }
       /* Polymorphic Dock Physics */
       .smart-dock {
           transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
@@ -187,10 +211,11 @@
           max-width: 800px;
           overflow: hidden;
           white-space: nowrap;
-          transition: max-width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+          will-change: max-width, opacity, margin, padding;
+          transition: max-width 0.4s cubic-bezier(0.25, 1, 0.5, 1),
                       opacity 0.3s ease,
-                      margin 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
-                      padding 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+                      margin 0.4s cubic-bezier(0.25, 1, 0.5, 1),
+                      padding 0.4s cubic-bezier(0.25, 1, 0.5, 1);
       }
       .dock-zone > * {
           flex-shrink: 0;
@@ -1851,9 +1876,9 @@
 
           if (typeof isDeckMode !== 'undefined' && isDeckMode) {
               let stageCard = document.getElementById('deck-stage-card');
-              if (stageCard) {
-                  cardsH = 20 + stageCard.offsetHeight + 40;
-              }
+              if (stageCard) cardsH = 20 + stageCard.offsetHeight + 40;
+          } else if (typeof isGridMode !== 'undefined' && isGridMode) {
+              return Math.floor(vh * 0.35);
           } else {
               let pane = document.getElementById('pane-content');
               if (pane && pane.style.display !== 'none') {
@@ -4260,6 +4285,7 @@
         isGridMode = (mode === 'grid');
         isDeckMode = (mode === 'deck');
 
+        // 1. INSTANT UI STATE CHANGES (lets CSS transitions start before heavy rendering)
         document.body.classList.remove('grid-mode-active', 'deck-mode-active');
         if (isGridMode) document.body.classList.add('grid-mode-active');
         if (isDeckMode) document.body.classList.add('deck-mode-active');
@@ -4269,64 +4295,69 @@
             if (btn) btn.classList.toggle('active', v === mode);
         });
 
-        const pivot = getEl('grid-pivot-select');
-        const grid = getEl('grid-content');
-        const welcome = getEl('welcome-screen');
-        const paneContent = getEl('pane-content');
         const pivotZone = getEl('dock-pivot-zone');
         if (pivotZone) pivotZone.classList.toggle('collapsed', !isGridMode);
         const filtersZone = getEl('dock-filters-zone');
         if (filtersZone) filtersZone.classList.toggle('collapsed', isDeckMode);
+        const deckActionsZone = getEl('dock-deck-actions-zone');
+        if (deckActionsZone) deckActionsZone.classList.toggle('collapsed', !isDeckMode);
         const navPrev = getEl('dock-nav-prev');
         const navNext = getEl('dock-nav-next');
         if (navPrev) navPrev.classList.toggle('collapsed', !isDeckMode);
         if (navNext) navNext.classList.toggle('collapsed', !isDeckMode);
-        const deckActionsZone = getEl('dock-deck-actions-zone');
-        if (deckActionsZone) deckActionsZone.classList.toggle('collapsed', !isDeckMode);
-        if (grid) grid.classList.toggle('active', isGridMode);
-        const sidebarPivot = getEl('sidebar-pivot-select');
-        if (sidebarPivot) sidebarPivot.style.display = isDeckMode ? 'inline-block' : 'none';
+
         const sortQueue = getEl('sort-queue');
         if (sortQueue) sortQueue.style.display = isDeckMode ? 'none' : '';
+        const sidebarPivot = getEl('sidebar-pivot-select');
+        if (sidebarPivot) sidebarPivot.style.display = isDeckMode ? 'inline-block' : 'none';
 
         if (prevMode === 'deck' && mode !== 'deck') {
-          currentGridPivot = deckPrevPivot || currentGridPivot;
-          if (pivot) pivot.value = currentGridPivot;
+            currentGridPivot = deckPrevPivot || currentGridPivot;
+            const pivot = getEl('grid-pivot-select');
+            if (pivot) pivot.value = currentGridPivot;
         }
 
-        if (mode === 'detail') {
-          if (currentActiveItem) {
-            if (welcome) welcome.style.display = 'none';
-            if (paneContent) paneContent.style.display = 'flex';
-          } else {
-            if (welcome) welcome.style.display = 'flex';
-            if (paneContent) paneContent.style.display = 'none';
-          }
-          if (grid) grid.style.display = 'none';
-          if (window.innerWidth > 768) syncAdminPanelForViewport();
-          applyFilters(); // re-renders sidebar as email cards
-          return;
-        }
+        const grid = getEl('grid-content');
+        const welcome = getEl('welcome-screen');
+        const paneContent = getEl('pane-content');
+        if (grid) grid.classList.toggle('active', isGridMode);
 
-        if (mode !== 'deck') setAdminPanelOpen(false);
-        if (welcome) welcome.style.display = 'none';
-        if (paneContent) paneContent.style.display = 'none';
+        // 2. DEFERRED HEAVY RENDERING (browser paints the dock animation first)
+        setTimeout(() => {
+            if (mode === 'detail') {
+                if (currentActiveItem) {
+                    if (welcome) welcome.style.display = 'none';
+                    if (paneContent) paneContent.style.display = 'flex';
+                } else {
+                    if (welcome) welcome.style.display = 'flex';
+                    if (paneContent) paneContent.style.display = 'none';
+                }
+                if (grid) grid.style.display = 'none';
+                if (window.innerWidth > 768) syncAdminPanelForViewport();
+                applyFilters();
+            } else if (mode === 'grid') {
+                setAdminPanelOpen(false);
+                if (welcome) welcome.style.display = 'none';
+                if (paneContent) paneContent.style.display = 'none';
+                renderGrid();
+            } else if (mode === 'deck') {
+                setAdminPanelOpen(false);
+                if (welcome) welcome.style.display = 'none';
+                if (paneContent) paneContent.style.display = 'none';
+                applyFilters();
+                if (currentActiveItem) {
+                    deckIndex = Math.max(0, filteredItems.findIndex(i => i.fdh === currentActiveItem.fdh));
+                }
+                const activeItem = ensureDeckIndex();
+                if (activeItem) openPane(activeItem, getEl(`card-${activeItem.fdh}`));
+                setAdminPanelOpen(true);
+                renderDeckStage();
+            }
 
-        if (mode === 'grid') {
-          renderGrid();
-          return;
-        }
-
-        if (grid) grid.style.display = 'none';
-        applyFilters(); // renders sidebar as grid cards via renderList()
-
-        if (currentActiveItem) {
-          deckIndex = Math.max(0, filteredItems.findIndex(i => i.fdh === currentActiveItem.fdh));
-        }
-        const activeItem = ensureDeckIndex();
-        if (activeItem) openPane(activeItem, getEl(`card-${activeItem.fdh}`));
-        setAdminPanelOpen(true);
-        renderDeckStage();
+            // Fix Gantt memory + re-sync Island
+            syncGanttIslandState();
+            applySmartGanttDocking({ resetManualHeight: true });
+        }, 40);
       }
 
       function navDeck(dir) {
