@@ -2504,7 +2504,7 @@
       function moveSpikeHUD(e) { moveHUD(e); } function hideSpikeHUD() { hideHUD(); }
 
       let allActionItems = []; let committedItems = []; let currentActiveItem = null; let globalHeaders = []; let globalEndCounts = {}; let globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 };
-      let currentFilterStats = { bslByVendor: {}, bslByMonth: {}, projectsByVendor: {} };
+      let currentFilterStats = { bslByVendor: {}, bslByMonth: {}, bslMatrix: {}, lifecycle: { active: 0, pending: 0, overdue: 0 } };
       let filteredItems = []; let currentQueueIndex = -1; let ganttManualHeight = null;
       let globalRefDataDate = "";
       // View mode is managed by currentViewMode + applyViewMode()
@@ -2891,7 +2891,8 @@
             let activeBslsCount = 0; let activeCritCount = 0;
             currentFilterStats.bslByVendor = {};
             currentFilterStats.bslByMonth = {};
-            currentFilterStats.projectsByVendor = {};
+            currentFilterStats.bslMatrix = {};
+            currentFilterStats.lifecycle = { active: 0, pending: 0, overdue: 0 };
             
             filtered.forEach(item => {
                 let start = safeDate(item.cxStart) || safeDate(item.reportDate) || new Date(today);
@@ -2908,18 +2909,26 @@
 
                 let v = item.vendor || "Unknown";
                 currentFilterStats.bslByVendor[v] = (currentFilterStats.bslByVendor[v] || 0) + bslNum;
-                currentFilterStats.projectsByVendor[v] = (currentFilterStats.projectsByVendor[v] || 0) + 1;
 
                 let ofsD = safeDate(item.ofsDate) || safeDate(item.targetDate);
                 let mKey = (ofsD && !isNaN(ofsD.getTime()))
                     ? ofsD.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase()
                     : 'TBD';
                 currentFilterStats.bslByMonth[mKey] = (currentFilterStats.bslByMonth[mKey] || 0) + bslNum;
+                if (!currentFilterStats.bslMatrix[v]) currentFilterStats.bslMatrix[v] = {};
+                currentFilterStats.bslMatrix[v][mKey] = (currentFilterStats.bslMatrix[v][mKey] || 0) + bslNum;
 
                 if (!isComplete && !isOnHold) {
-                    if (today < start) pendingProjCount++;
-                    else if (today > end) overdueProjCount++;
-                    else activeProjCount++;
+                    if (today < start) {
+                        pendingProjCount++;
+                        currentFilterStats.lifecycle.pending++;
+                    } else if (today > end) {
+                        overdueProjCount++;
+                        currentFilterStats.lifecycle.overdue++;
+                    } else {
+                        activeProjCount++;
+                        currentFilterStats.lifecycle.active++;
+                    }
                 }
             });
 
@@ -2945,14 +2954,14 @@
 
             if (bslsHudLocked) {
                 let pill = getEl('nav-bsls-pill');
-                if (!renderPieHUD('bsls')) {
+                if (!renderBslsHUD()) {
                     bslsHudLocked = false;
                     if (pill) pill.classList.remove('is-locked');
                 }
             }
             if (projectsHudLocked) {
                 let pill = getEl('nav-projects-pill');
-                if (!renderPieHUD('projects')) {
+                if (!renderProjectsHUD()) {
                     projectsHudLocked = false;
                     if (pill) pill.classList.remove('is-locked');
                 }
@@ -4059,14 +4068,14 @@
       let bslsHudLocked = false;
       let projectsHudLocked = false;
 
-      function showBslsHUD() { if (!bslsHudLocked) renderPieHUD('bsls'); }
+      function showBslsHUD() { if (!bslsHudLocked) renderBslsHUD(); }
       function hideBslsHUD() { if (!bslsHudLocked) hidePieHUD('bsls'); }
       function toggleBslsHUDLock(e) {
           if (e) e.stopPropagation();
           bslsHudLocked = !bslsHudLocked;
           let pill = getEl('nav-bsls-pill');
           if (bslsHudLocked) {
-              if (!renderPieHUD('bsls')) {
+              if (!renderBslsHUD()) {
                   bslsHudLocked = false;
                   if (pill) pill.classList.remove('is-locked');
                   return;
@@ -4078,14 +4087,14 @@
           }
       }
 
-      function showProjectsHUD() { if (!projectsHudLocked) renderPieHUD('projects'); }
+      function showProjectsHUD() { if (!projectsHudLocked) renderProjectsHUD(); }
       function hideProjectsHUD() { if (!projectsHudLocked) hidePieHUD('projects'); }
       function toggleProjectsHUDLock(e) {
           if (e) e.stopPropagation();
           projectsHudLocked = !projectsHudLocked;
           let pill = getEl('nav-projects-pill');
           if (projectsHudLocked) {
-              if (!renderPieHUD('projects')) {
+              if (!renderProjectsHUD()) {
                   projectsHudLocked = false;
                   if (pill) pill.classList.remove('is-locked');
                   return;
@@ -4128,11 +4137,11 @@
           }
       }
 
-      function renderPieHUD(type) {
-          let dataDict = type === 'bsls' ? currentFilterStats.bslByVendor : currentFilterStats.projectsByVendor;
-          let total = Object.values(dataDict || {}).reduce((a, b) => a + b, 0);
-          let hud = getEl(`${type}-pie-hud`);
-          let pill = getEl(`nav-${type}-pill`);
+      function renderProjectsHUD() {
+          let lf = currentFilterStats.lifecycle || { active: 0, pending: 0, overdue: 0 };
+          let total = lf.active + lf.pending + lf.overdue;
+          let hud = getEl('projects-pie-hud');
+          let pill = getEl('nav-projects-pill');
           if (!hud || !pill) return false;
           if (total === 0) {
               hud.classList.remove('visible');
@@ -4140,36 +4149,36 @@
               return false;
           }
 
-          let vendorArr = Object.keys(dataDict).sort((a, b) => dataDict[b] - dataDict[a]);
-          let colors = ['#3b82f6', '#a855f7', '#f59e0b', '#10b981', '#ec4899', '#06b6d4', '#6366f1'];
+          let slices = [
+              { label: 'Active', count: lf.active, color: '#16a34a' },
+              { label: 'Pending', count: lf.pending, color: '#f59e0b' },
+              { label: 'Overdue', count: lf.overdue, color: '#ef4444' }
+          ].filter(s => s.count > 0);
+
           let conicStr = [];
           let legendHtml = '';
           let currentPct = 0;
 
-          vendorArr.forEach((v, idx) => {
-              let count = dataDict[v];
-              let pct = (count / total) * 100;
-              let c = colors[idx % colors.length];
-              conicStr.push(`${c} ${currentPct}% ${currentPct + pct}%`);
+          slices.forEach(s => {
+              let pct = (s.count / total) * 100;
+              conicStr.push(`${s.color} ${currentPct}% ${currentPct + pct}%`);
               currentPct += pct;
 
               legendHtml += `
               <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:8px;">
                   <div style="display:flex; align-items:center; gap:8px;">
-                      <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${c};"></span>
-                      <span style="color:#fafafa; font-weight:800;">${v}</span>
+                      <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${s.color};"></span>
+                      <span style="color:#fafafa; font-weight:800;">${s.label}</span>
                   </div>
-                  <span style="color:#a1a1aa; font-weight:900; font-family:monospace; font-size:14px;">${count.toLocaleString()}</span>
+                  <span style="color:#a1a1aa; font-weight:900; font-family:monospace; font-size:14px;">${s.count.toLocaleString()}</span>
               </div>`;
           });
 
           let pieStyle = `background: conic-gradient(${conicStr.join(', ')}); border-radius: 50%; width: 130px; height: 130px; box-shadow: 0 8px 16px rgba(0,0,0,0.5);`;
-          let title = type === 'bsls' ? 'BSLs by Vendor' : 'Projects by Vendor';
-          let titleColor = type === 'bsls' ? '#93c5fd' : '#fde68a';
 
           hud.innerHTML = `
-              <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:${titleColor}; letter-spacing:0.5px; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:16px;">
-                  ${title}
+              <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:#fde68a; letter-spacing:0.5px; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:16px;">
+                  Queue Lifecycle
               </div>
               <div style="display:flex; gap:24px; align-items:center;">
                   <div style="${pieStyle} flex-shrink:0;"></div>
@@ -4177,6 +4186,73 @@
                       ${legendHtml}
                   </div>
               </div>
+          `;
+
+          let rect = pill.getBoundingClientRect();
+          let left = rect.left;
+          let top = rect.bottom + 12;
+          hud.style.display = 'flex';
+          hud.style.top = top + 'px';
+          hud.style.left = left + 'px';
+
+          requestAnimationFrame(() => {
+              if (hud.offsetWidth && left + hud.offsetWidth > window.innerWidth - 12) {
+                  hud.style.left = Math.max(12, window.innerWidth - hud.offsetWidth - 12) + 'px';
+              }
+              if (top + hud.offsetHeight > window.innerHeight - 12) {
+                  hud.style.top = Math.max(12, rect.top - hud.offsetHeight - 12) + 'px';
+              }
+              hud.classList.add('visible');
+          });
+          return true;
+      }
+
+      function renderBslsHUD() {
+          let matrix = currentFilterStats.bslMatrix || {};
+          let months = Object.keys(currentFilterStats.bslByMonth || {})
+              .sort((a, b) => currentFilterStats.bslByMonth[b] - currentFilterStats.bslByMonth[a])
+              .slice(0, 3);
+          let hud = getEl('bsls-pie-hud');
+          let pill = getEl('nav-bsls-pill');
+          if (!hud || !pill) return false;
+          if (months.length === 0) {
+              hud.classList.remove('visible');
+              hud.style.display = 'none';
+              return false;
+          }
+
+          let vendors = Object.keys(matrix).sort((a, b) => (currentFilterStats.bslByVendor[b] || 0) - (currentFilterStats.bslByVendor[a] || 0));
+          if (vendors.length === 0) {
+              hud.classList.remove('visible');
+              hud.style.display = 'none';
+              return false;
+          }
+
+          let thHtml = months.map(m => `<th style="padding:8px 10px; text-align:right; color:#93c5fd; white-space:nowrap;">${m}</th>`).join('');
+          let rowsHtml = vendors.map(v => {
+              let tdHtml = months.map(m => {
+                  let val = (matrix[v] && matrix[v][m]) || 0;
+                  let color = val > 0 ? '#fafafa' : '#52525b';
+                  return `<td style="padding:6px 10px; text-align:right; font-family:monospace; font-weight:900; color:${color};">${val > 0 ? val.toLocaleString() : '-'}</td>`;
+              }).join('');
+              return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:6px 10px; font-weight:800; color:#fafafa; border-right:1px solid #333338; white-space:nowrap;">${v}</td>${tdHtml}</tr>`;
+          }).join('');
+
+          hud.innerHTML = `
+              <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:#93c5fd; letter-spacing:0.5px; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:12px;">
+                  BSL Yield by Vendor
+              </div>
+              <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                  <thead>
+                      <tr style="border-bottom:1px solid #333338;">
+                          <th style="padding:8px 10px; text-align:left; color:#93c5fd; border-right:1px solid #333338;">VENDOR</th>
+                          ${thHtml}
+                      </tr>
+                  </thead>
+                  <tbody>
+                      ${rowsHtml}
+                  </tbody>
+              </table>
           `;
 
           let rect = pill.getBoundingClientRect();
