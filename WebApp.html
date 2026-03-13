@@ -388,6 +388,37 @@
           transition: all 0.2s ease;
           border: 1px solid transparent;
       }
+
+      #nav-projects-pill {
+          cursor: pointer;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+          min-width: 164px;
+      }
+      #nav-projects-pill:hover { box-shadow: 0 4px 12px rgba(245, 158, 11, 0.16); }
+      .kpi-pill-topline {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+      }
+      .kpi-pill-subrow {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 9px;
+          font-weight: 800;
+          opacity: 0.85;
+          letter-spacing: 0.3px;
+          white-space: nowrap;
+      }
+      .kpi-pill-subrow .sep { color: var(--text-muted); }
+      .kpi-pill-subrow .kpi-sub-active { color: #16a34a; }
+      .kpi-pill-subrow .kpi-sub-pending { color: #d97706; }
+      .kpi-pill-subrow .kpi-sub-overdue { color: #dc2626; }
+      body.dark-mode .kpi-pill-subrow .kpi-sub-active { color: #4ade80; }
+      body.dark-mode .kpi-pill-subrow .kpi-sub-pending { color: #fbbf24; }
+      body.dark-mode .kpi-pill-subrow .kpi-sub-overdue { color: #f87171; }
       
       .kpi-nav-box .kpi-val { font-size: 15px; font-weight: 900; line-height: 1; letter-spacing: -0.5px; }
       .kpi-nav-box .kpi-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -1054,6 +1085,8 @@
           .kpi-hud-group { gap: 2px; padding: 3px; }
           .kpi-hud-label { padding: 0 8px 0 6px; }
           .kpi-nav-box { padding: 3px 8px; min-width: 38px; }
+          #nav-projects-pill { min-width: 0; }
+          .kpi-pill-subrow { gap: 4px; font-size: 8px; }
           .ref-age-badge { padding: 5px 8px; }
       }
 
@@ -1189,9 +1222,19 @@
       <div class="kpi-nav-container">
           <div class="kpi-hud-group">
               <div class="kpi-hud-label">Pipeline</div>
-              <div class="kpi-nav-box metric-amber">
-                  <div class="kpi-val" id="kpi-active-proj">0</div>
-                  <div class="kpi-label">Projects</div>
+              <div class="kpi-nav-box metric-amber" id="nav-projects-pill"
+                   onmouseenter="showProjectsHUD(this)"
+                   onmouseleave="hideHUD()"
+                   onclick="toggleProjectsHUDLock(event, this)">
+                  <div class="kpi-pill-topline">
+                      <div class="kpi-val" id="kpi-total-proj">0</div>
+                      <div class="kpi-label">Total Queued</div>
+                  </div>
+                  <div class="kpi-pill-subrow">
+                      <span id="kpi-sub-active" class="kpi-sub-active">0 Active</span><span class="sep">•</span>
+                      <span id="kpi-sub-pending" class="kpi-sub-pending">0 Pending</span><span class="sep">•</span>
+                      <span id="kpi-sub-overdue" class="kpi-sub-overdue">0 Overdue</span>
+                  </div>
               </div>
               <div class="kpi-nav-box metric-blue">
                   <div class="kpi-val" id="kpi-active-bsls">0</div>
@@ -2337,6 +2380,122 @@
           hud.style.left = x + 'px'; hud.style.top = y + 'px';
       }
 
+      function positionHUDToAnchor(anchorEl, hud) {
+          if (!anchorEl || !hud) return;
+          let rect = anchorEl.getBoundingClientRect();
+          let x = rect.left + rect.width / 2 - 155;
+          let y = rect.bottom + 12;
+          if (x < 12) x = 12;
+          if (x + 310 > window.innerWidth) x = Math.max(12, window.innerWidth - 322);
+          if (y + hud.offsetHeight > window.innerHeight - 12) {
+              y = Math.max(12, rect.top - hud.offsetHeight - 12);
+          }
+          hud.style.left = x + 'px';
+          hud.style.top = y + 'px';
+      }
+
+      function getProjectsLifecycleSummary(items) {
+          let today = new Date();
+          today.setHours(0, 0, 0, 0);
+          let summary = {
+              total: items.length,
+              active: 0,
+              pending: 0,
+              overdue: 0,
+              complete: 0,
+              hold: 0,
+              bsls: 0,
+              critical: 0
+          };
+          items.forEach(item => {
+              let start = safeDate(item.cxStart) || safeDate(item.reportDate) || new Date(today);
+              let end = safeDate(item.cxEnd) || safeDate(item.targetDate) || new Date(start.getTime() + 86400000 * 30);
+              if (isNaN(start)) start = new Date(today);
+              if (isNaN(end)) end = new Date(start.getTime() + 86400000 * 7);
+              if (end < start) end = new Date(start.getTime() + 86400000);
+
+              let stageStr = (item.stage || "").toLowerCase();
+              let statusStr = (item.status || "").toLowerCase();
+              let isComplete = stageStr.includes('ofs') || statusStr.includes('complete');
+              let isOnHold = statusStr.includes('hold');
+
+              let bslStr = String(item.bsls).replace(/,/g, '');
+              summary.bsls += parseInt(bslStr, 10) || 0;
+              if (getSeverity(item.flags) === 'crit') summary.critical++;
+
+              if (isComplete) summary.complete++;
+              else if (isOnHold) summary.hold++;
+              else if (today < start) summary.pending++;
+              else if (today > end) summary.overdue++;
+              else summary.active++;
+          });
+          return summary;
+      }
+
+      function renderProjectsHUD(anchorEl) {
+          let hud = getEl('gantt-hud');
+          if (!hud) return;
+          let summary = getProjectsLifecycleSummary(filteredItems || []);
+          let queueDate = new Date();
+          let displayDate = `${queueDate.getMonth() + 1}/${queueDate.getDate()}/${queueDate.getFullYear()}`;
+          let excludedHtml = '';
+          if (summary.complete > 0 || summary.hold > 0) {
+              excludedHtml = `<div style="display:flex; gap:12px; font-size:10px; color:#a1a1aa; margin-top:10px; border-top:1px solid #333338; padding-top:10px;"><span>Complete: <b style="color:#fff;">${summary.complete}</b></span><span>On Hold: <b style="color:#fff;">${summary.hold}</b></span></div>`;
+          }
+          hud.dataset.mode = 'projects';
+          hud.innerHTML = `
+              <div style="min-width:300px; padding:6px;">
+                  <div style="font-size:14px; font-weight:900; color:#f59e0b; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                      <span>QUEUE LIFECYCLE</span>
+                      <span style="color:#a1a1aa; font-size:11px;">${displayDate}</span>
+                  </div>
+                  <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:10px; text-align:center;">
+                      <div style="grid-column:1 / -1; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.2); padding:10px; border-radius:10px;">
+                          <div style="font-size:22px; font-weight:900; color:#fff;">${summary.total}</div>
+                          <div style="font-size:9px; color:#fcd34d; text-transform:uppercase; font-weight:bold; margin-top:2px;">Total Queued</div>
+                      </div>
+                      <div style="background:rgba(34,197,94,0.12); padding:8px; border-radius:8px; border:1px solid rgba(34,197,94,0.15);"><div style="font-size:18px; font-weight:900; color:#86efac;">${summary.active}</div><div style="font-size:9px; color:#86efac; text-transform:uppercase; font-weight:bold; margin-top:2px;">Active</div></div>
+                      <div style="background:rgba(245,158,11,0.12); padding:8px; border-radius:8px; border:1px solid rgba(245,158,11,0.15);"><div style="font-size:18px; font-weight:900; color:#fcd34d;">${summary.pending}</div><div style="font-size:9px; color:#fcd34d; text-transform:uppercase; font-weight:bold; margin-top:2px;">Pending</div></div>
+                      <div style="background:rgba(239,68,68,0.12); padding:8px; border-radius:8px; border:1px solid rgba(239,68,68,0.15);"><div style="font-size:18px; font-weight:900; color:#fca5a5;">${summary.overdue}</div><div style="font-size:9px; color:#fca5a5; text-transform:uppercase; font-weight:bold; margin-top:2px;">Overdue</div></div>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+                      <div style="background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.16); padding:10px; border-radius:10px;">
+                          <div style="font-size:18px; font-weight:900; color:#93c5fd;">${summary.bsls.toLocaleString()}</div>
+                          <div style="font-size:9px; color:#60a5fa; text-transform:uppercase; font-weight:bold; margin-top:2px;">Filtered BSLs</div>
+                      </div>
+                      <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.16); padding:10px; border-radius:10px;">
+                          <div style="font-size:18px; font-weight:900; color:#fca5a5;">${summary.critical}</div>
+                          <div style="font-size:9px; color:#f87171; text-transform:uppercase; font-weight:bold; margin-top:2px;">Critical</div>
+                      </div>
+                  </div>
+                  ${excludedHtml}
+              </div>`;
+          hud.style.display = 'flex';
+          positionHUDToAnchor(anchorEl, hud);
+      }
+
+      function showProjectsHUD(anchorEl) {
+          if (hudLocked || !anchorEl) return;
+          renderProjectsHUD(anchorEl);
+      }
+
+      function toggleProjectsHUDLock(e, anchorEl) {
+          if (e) e.stopPropagation();
+          let hud = getEl('gantt-hud');
+          let isProjectsHud = hud && hud.dataset.mode === 'projects' && hud.style.display === 'flex';
+          if (hudLocked && isProjectsHud) {
+              hudLocked = false;
+              hideHUD();
+              return;
+          }
+          renderProjectsHUD(anchorEl);
+          hudLocked = true;
+          if (hud) {
+              hud.style.pointerEvents = 'auto';
+              hud.style.boxShadow = '0 0 0 2px var(--color-insight), 0 10px 25px rgba(0,0,0,0.5)';
+          }
+      }
+
       function showHUD(e, fdh) {
           if(hudLocked || !allActionItems) return; let item = allActionItems.find(i => i.fdh === fdh); if(!item) return;
           let hud = getEl('gantt-hud'); if(!hud) return;
@@ -2355,10 +2514,11 @@
               flags.forEach(f => { let cleanText = f.replace(/[🚨🛑🚩⚠️🖍️🚧]/g, '').trim(); let color = (f.includes("🚨") || f.includes("🚩") || f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) ? "#fca5a5" : "#fde047"; html += `<span style="font-size:9px; font-weight:bold; color:${color};">⚠️ ${cleanText}</span>`; });
               html += `</div>`;
           }
+          hud.dataset.mode = 'project';
           hud.innerHTML = html; hud.style.display = 'flex'; positionHUD(e, hud);
       }
       
-      function hideHUD() { if(hudLocked) return; let hud = getEl('gantt-hud'); if(hud) { hud.style.display = 'none'; hud.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)'; hud.style.pointerEvents = 'none'; } }
+      function hideHUD() { if(hudLocked) return; let hud = getEl('gantt-hud'); if(hud) { hud.style.display = 'none'; hud.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)'; hud.style.pointerEvents = 'none'; hud.dataset.mode = ''; } }
       function moveHUD(e) { if(hudLocked) return; let hud = getEl('gantt-hud'); if(hud && hud.style.display === 'flex') positionHUD(e, hud); }
       
       function showSpikeHUD(e, dateKey) {
@@ -2366,6 +2526,7 @@
           let vendorHtml = ''; for(let v in data.vendors) { let projs = data.projects.filter(p => p.vendor === v).map(p => p.fdh).join(', '); vendorHtml += `<div style="margin-top:6px;"><span style="color:var(--starGold); font-weight:bold;">${v} (${data.vendors[v]}):</span><br/><span style="color:#a1a1aa; font-size:9px; line-height:1.2; display:block; margin-top:2px;">${projs}</span></div>`; }
           let dArr = dateKey.split('-'); let fDate = `${dArr[1]}/${dArr[2]}/${dArr[0]}`;
           let html = `<div style="font-size:12px; font-weight:900; color:#facc15; border-bottom:1px solid #333338; padding-bottom:6px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;"><span>🔥 CLOSEOUT SURGE</span><span style="color:#a1a1aa; font-size:10px;">${fDate}</span></div><div style="font-size:11px; display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#a1a1aa;">Total Projects: <b style="color:#fff;">${data.total}</b></span><span style="color:#a1a1aa;">Projected BSLs: <b style="color:#fff;">${data.bsls.toLocaleString()}</b></span></div><div style="border-top:1px solid #333338; padding-top:2px; max-height:300px; overflow-y:auto; padding-right:4px;">${vendorHtml}</div>`;
+          hud.dataset.mode = 'spike';
           hud.innerHTML = html; hud.style.display = 'flex'; positionHUD(e, hud);
       }
       
@@ -2380,6 +2541,7 @@
           let pieStyle = `background: conic-gradient(${conicStr.join(', ')}); border-radius: 50%; width: 120px; height: 120px;`;
           let d = new Date(); let fDate = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
           let html = `<div style="min-width: 300px; padding: 6px;"><div style="font-size:14px; font-weight:900; color:#ef4444; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;"><span>📍 ACTIVE TODAY</span><span style="color:#a1a1aa; font-size:11px;">${fDate}</span></div><div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; text-align: center;"><div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;"><div style="font-size:18px; font-weight:900; color:#fff;">${data.total}</div><div style="font-size:9px; color:#a1a1aa; text-transform:uppercase; font-weight:bold; margin-top:2px;">Projects</div></div><div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;"><div style="font-size:18px; font-weight:900; color:#fff;">${data.activeBsls.toLocaleString()}</div><div style="font-size:9px; color:#a1a1aa; text-transform:uppercase; font-weight:bold; margin-top:2px;">BSLs</div></div><div style="background: rgba(239,68,68,0.1); padding: 8px; border-radius: 6px; border: 1px solid rgba(239,68,68,0.2);"><div style="font-size:18px; font-weight:900; color:#fca5a5;">${data.criticalCount}</div><div style="font-size:9px; color:#fca5a5; text-transform:uppercase; font-weight:bold; margin-top:2px;">Critical</div></div></div><div style="display:flex; gap: 20px; align-items: center; border-top: 1px solid #333338; padding-top: 16px;"><div style="${pieStyle} flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"></div><div style="flex-grow: 1; display:flex; flex-direction:column; max-height:220px; overflow-y:auto; padding-right:8px; gap:4px;">${legendHtml}</div></div></div>`;
+          hud.dataset.mode = 'today';
           hud.innerHTML = html; hud.style.display = 'flex'; positionHUD(e, hud);
       }
 
@@ -2768,18 +2930,13 @@
                 return true;
             });
 
-            let activeProjCount = 0; let activeBslsCount = 0; let activeCritCount = 0;
-            filtered.forEach(item => {
-                let start = safeDate(item.cxStart) || safeDate(item.reportDate) || new Date(today);
-                let end = safeDate(item.cxEnd) || safeDate(item.targetDate) || new Date(start.getTime() + 86400000*30);
-                if(isNaN(start)) start = new Date(today); if(isNaN(end)) end = new Date(start.getTime() + 86400000*7); if(end < start) end = new Date(start.getTime() + 86400000);
-                if (today >= start && today <= end) {
-                    activeProjCount++; let bslStr = String(item.bsls).replace(/,/g, ''); activeBslsCount += parseInt(bslStr) || 0;
-                    if (getSeverity(item.flags) === 'crit') activeCritCount++;
-                }
-            });
-
-            setTxt('kpi-active-proj', activeProjCount); setTxt('kpi-active-bsls', activeBslsCount.toLocaleString()); setTxt('kpi-active-crit', activeCritCount);
+            let lifecycleSummary = getProjectsLifecycleSummary(filtered);
+            setTxt('kpi-total-proj', lifecycleSummary.total);
+            setTxt('kpi-sub-active', `${lifecycleSummary.active} Active`);
+            setTxt('kpi-sub-pending', `${lifecycleSummary.pending} Pending`);
+            setTxt('kpi-sub-overdue', `${lifecycleSummary.overdue} Overdue`);
+            setTxt('kpi-active-bsls', lifecycleSummary.bsls.toLocaleString());
+            setTxt('kpi-active-crit', lifecycleSummary.critical);
 
             if (sortVal !== 'default') {
                 filtered.sort((a, b) => {
