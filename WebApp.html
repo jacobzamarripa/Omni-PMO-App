@@ -353,17 +353,73 @@
           transform: scale(0.5);
       }
 
-      .kpi-nav-container { display: flex; align-items: center; gap: 8px; flex-shrink: 1; margin-left: 4px; overflow: visible; flex-wrap: wrap; }
-      .kpi-nav-header { font-size: 10px; font-weight: 900; color: var(--color-critical); text-transform: uppercase; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 16px; background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08); }
-      .kpi-dot { height: 6px; width: 6px; background: var(--color-critical); border-radius: 50%; display: inline-block; box-shadow: 0 0 6px var(--color-critical); }
-      .kpi-nav-box { background: color-mix(in srgb, var(--card-bg) 88%, transparent); padding: 4px 10px; border-radius: 14px; text-align: center; border: 1px solid var(--border); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08); min-width: 45px; transition: background 0.3s, border-color 0.3s;}
-      .kpi-nav-box .kpi-val { font-size: 14px; font-weight: 900; color: var(--text-main); line-height: 1.1; transition: color 0.3s;}
-      .kpi-nav-box .kpi-label { font-size: 8px; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-top: 2px; letter-spacing: 0.5px; transition: color 0.3s;}
-      .kpi-nav-box.crit-box { background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2); cursor: pointer; transition: all 0.2s;}
-      .kpi-nav-box.crit-box:hover { background: rgba(239, 68, 68, 0.1); transform: translateY(-1px); box-shadow: 0 2px 4px rgba(239,68,68,0.15);}
-      .kpi-nav-box.crit-box .kpi-val, .kpi-nav-box.crit-box .kpi-label { color: var(--color-critical); }
-      body.dark-mode .kpi-nav-box.crit-box { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3);}
-      body.dark-mode .kpi-nav-box.crit-box:hover { background: rgba(239, 68, 68, 0.15); }
+      /* 🧠 UNIFIED METRICS HUD */
+      .kpi-nav-container { display: flex; align-items: center; gap: 12px; flex-shrink: 1; margin-left: 12px; overflow: visible; flex-wrap: wrap; }
+      
+      .kpi-hud-group {
+          display: flex;
+          align-items: center;
+          background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 4px;
+          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+          gap: 4px;
+      }
+
+      .kpi-hud-label {
+          font-size: 10px;
+          font-weight: 900;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          padding: 0 10px 0 8px;
+          border-right: 1px solid var(--border);
+      }
+
+      .kpi-nav-box {
+          display: flex;
+          align-items: baseline;
+          gap: 5px;
+          padding: 5px 12px;
+          border-radius: 12px;
+          transition: all 0.2s ease;
+          border: 1px solid transparent;
+      }
+      
+      .kpi-nav-box .kpi-val { font-size: 15px; font-weight: 900; line-height: 1; letter-spacing: -0.5px; }
+      .kpi-nav-box .kpi-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+
+      /* 🟡 Projects (Amber/Yellow) */
+      .metric-amber { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2); }
+      .metric-amber .kpi-val { color: #b45309; }
+      .metric-amber .kpi-label { color: #d97706; }
+      body.dark-mode .metric-amber { background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3); }
+      body.dark-mode .metric-amber .kpi-val { color: #fde68a; }
+      body.dark-mode .metric-amber .kpi-label { color: #fbbf24; }
+
+      /* 🔵 BSLs (Blue) */
+      .metric-blue { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2); }
+      .metric-blue .kpi-val { color: #1d4ed8; }
+      .metric-blue .kpi-label { color: #2563eb; }
+      body.dark-mode .metric-blue { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); }
+      body.dark-mode .metric-blue .kpi-val { color: #93c5fd; }
+      body.dark-mode .metric-blue .kpi-label { color: #60a5fa; }
+
+      /* 🔴 Critical (Red - Hoverable) */
+      .metric-red { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); cursor: pointer; }
+      .metric-red:hover { background: rgba(239, 68, 68, 0.18); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15); }
+      .metric-red .kpi-val { color: #b91c1c; }
+      .metric-red .kpi-label { color: #dc2626; }
+      body.dark-mode .metric-red { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); }
+      body.dark-mode .metric-red:hover { background: rgba(239, 68, 68, 0.22); }
+      body.dark-mode .metric-red .kpi-val { color: #fca5a5; }
+      body.dark-mode .metric-red .kpi-label { color: #f87171; }
+
+      /* Ref Age Badge */
+      .ref-age-badge { font-size: 9px; font-weight: 900; padding: 6px 10px; border-radius: 12px; border: 1px solid; white-space: nowrap; background: var(--card-bg); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05); }
       
       input[type="text"], select { background: color-mix(in srgb, var(--card-bg) 90%, transparent); padding: 7px 12px; font-size: 12px; font-weight: 700; color: var(--text-main); border: 1px solid var(--border); border-radius: 12px; outline: none; transition: background 0.3s, color 0.3s, box-shadow 0.2s; width: 130px; max-width:100%; box-sizing: border-box; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);}
       input[type="text"]:focus { border-color: var(--color-insight); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15); }
@@ -992,8 +1048,11 @@
           .inbox-sidebar { min-width: 240px; }
           .reading-pane { padding: 16px; }
           .qb-grid { gap: 20px; }
-          .kpi-nav-container { gap: 4px; }
+          .kpi-nav-container { gap: 8px; margin-left: 8px; }
+          .kpi-hud-group { gap: 2px; padding: 3px; }
+          .kpi-hud-label { padding: 0 8px 0 6px; }
           .kpi-nav-box { padding: 3px 8px; min-width: 38px; }
+          .ref-age-badge { padding: 5px 8px; }
       }
 
       /* iPad handles fallback — (hover: none) catches Edge which may not report pointer:coarse */
@@ -1126,13 +1185,22 @@
       <div class="nav-brand">Dailies Command Center</div>
 
       <div class="kpi-nav-container">
-          <div class="kpi-nav-header"><span class="kpi-dot"></span> Active Today</div>
-          <div class="kpi-nav-box"><div class="kpi-val" id="kpi-active-proj">0</div><div class="kpi-label">Projects</div></div>
-          <div class="kpi-nav-box"><div class="kpi-val" id="kpi-active-bsls">0</div><div class="kpi-label">BSLs</div></div>
-          <div class="kpi-nav-box crit-box has-tooltip" data-tooltip="Toggle Critical Filter" onclick="toggleCriticalFilter()">
-              <div class="kpi-val" id="kpi-active-crit">0</div><div class="kpi-label">Critical</div>
+          <div class="kpi-hud-group">
+              <div class="kpi-hud-label">Pipeline</div>
+              <div class="kpi-nav-box metric-amber">
+                  <div class="kpi-val" id="kpi-active-proj">0</div>
+                  <div class="kpi-label">Projects</div>
+              </div>
+              <div class="kpi-nav-box metric-blue">
+                  <div class="kpi-val" id="kpi-active-bsls">0</div>
+                  <div class="kpi-label">BSLs</div>
+              </div>
+              <div class="kpi-nav-box metric-red has-tooltip" data-tooltip="Toggle Critical Filter" onclick="toggleCriticalFilter()">
+                  <div class="kpi-val" id="kpi-active-crit">0</div>
+                  <div class="kpi-label">Critical</div>
+              </div>
           </div>
-          <span id="nav-ref-age" style="font-size:9px; font-weight:900; padding:6px 10px; border-radius:12px; border:1px solid; display:none; white-space:nowrap; margin-left:4px;"></span>
+          <span id="nav-ref-age" class="ref-age-badge" style="display:none;"></span>
       </div>
 
       <div class="view-segment-group" style="position: absolute; left: 50%; transform: translateX(-50%); z-index: 100;">
