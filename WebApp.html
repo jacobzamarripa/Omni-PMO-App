@@ -383,6 +383,16 @@
           padding: 14px;
           gap: 12px;
       }
+      body.deck-mode-active #outbox-pane,
+      body.deck-mode-active .admin-dock,
+      body.deck-mode-active .outbox-overlay {
+          display: none !important;
+      }
+      body.deck-mode-active .detail-main {
+          flex-direction: row !important;
+          gap: 0;
+          min-width: 0 !important;
+      }
       body.grid-mode-active .outbox-pane {
           position: absolute !important;
           right: 0 !important;
@@ -1072,7 +1082,7 @@
                  </div>
               </div>
             <div id="deck-stage" style="display:none; flex:1; flex-direction:column; padding:40px 40px 20px; overflow-y:auto; align-items:center; box-sizing:border-box;">
-                <div id="deck-stage-card" style="width:100%; max-width:1200px; aspect-ratio:16/9; max-height:65vh; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden; z-index:5;"></div>
+                <div id="deck-stage-card" style="width:100%; max-width:1100px; aspect-ratio:16/9; height:auto; flex-shrink:0; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden; z-index:5;"></div>
                 <div id="deck-stage-notes" style="width:60%; margin-top:20px; padding:10px 18px; border:1px solid var(--border); border-radius:16px; background:var(--card-bg); display:flex; flex-direction:column; gap:10px; box-shadow:0 10px 30px rgba(15,23,42,0.05);"></div>
             </div>
             </div>
@@ -1334,14 +1344,21 @@
           let vh = window.innerHeight;
           let nav = document.querySelector('.top-nav');
           let navH = nav ? nav.offsetHeight : 58;
-          let pane = document.getElementById('pane-content');
-
           let cardsH = 0;
-          if (pane) {
-              let children = Array.from(pane.children).filter(c => c.style.display !== 'none' && !c.classList.contains('hidden'));
-              if (children.length > 0) {
-                  let lastChild = children[children.length - 1];
-                  cardsH = lastChild.offsetTop + lastChild.offsetHeight;
+
+          if (typeof isDeckMode !== 'undefined' && isDeckMode) {
+              let notes = document.getElementById('deck-stage-notes');
+              if (notes) {
+                  cardsH = notes.offsetTop + notes.offsetHeight + 40;
+              }
+          } else {
+              let pane = document.getElementById('pane-content');
+              if (pane && pane.style.display !== 'none') {
+                  let children = Array.from(pane.children).filter(c => c.style.display !== 'none' && !c.classList.contains('hidden'));
+                  if (children.length > 0) {
+                      let lastChild = children[children.length - 1];
+                      cardsH = lastChild.offsetTop + lastChild.offsetHeight;
+                  }
               }
           }
 
