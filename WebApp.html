@@ -369,12 +369,12 @@
       body.deck-mode-active #deck-stage {
           display: flex !important;
           flex: 1;
-          flex-direction: row;
-          align-items: center;
-          justify-content: center;
-          gap: 24px;
-          padding: 20px 0;
-          overflow-y: auto;
+          flex-direction: row !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 40px !important;
+          padding: 20px 40px !important;
+          overflow: hidden !important;
           box-sizing: border-box;
           min-width: 0 !important;
       }
@@ -384,26 +384,6 @@
       body.deck-mode-active .inbox-list {
           padding: 14px;
           gap: 12px;
-      }
-      body.deck-mode-active .admin-dock,
-      body.deck-mode-active .outbox-overlay {
-          display: none !important;
-      }
-      body.deck-mode-active #outbox-pane {
-          display: flex !important;
-          position: relative !important;
-          transform: none !important;
-          opacity: 1 !important;
-          width: 380px !important;
-          min-width: 380px !important;
-          max-width: 380px !important;
-          border-radius: 0 !important;
-          border-top: none !important;
-          border-bottom: none !important;
-          border-right: none !important;
-          box-shadow: -4px 0 15px rgba(0,0,0,0.03) !important;
-          pointer-events: auto !important;
-          z-index: 10;
       }
       body.deck-mode-active .panel-tab-bar,
       body.deck-mode-active #ob-panel-admin,
@@ -3606,7 +3586,7 @@
           return;
         }
 
-        setAdminPanelOpen(false);
+        if (mode !== 'deck') setAdminPanelOpen(false);
         if (welcome) welcome.style.display = 'none';
         if (paneContent) paneContent.style.display = 'none';
 
@@ -3623,6 +3603,7 @@
         }
         const activeItem = ensureDeckIndex();
         if (activeItem) openPane(activeItem, getEl(`card-${activeItem.fdh}`));
+        setAdminPanelOpen(true);
         renderDeckStage();
       }
 
@@ -3646,10 +3627,14 @@
           const prevBtn = document.createElement('button');
           prevBtn.className = 'deck-arrow prev';
           prevBtn.innerHTML = '&#8249;';
+          prevBtn.style.position = 'relative';
+          prevBtn.style.transform = 'none';
           prevBtn.onclick = () => navDeck(-1);
           const nextBtn = document.createElement('button');
           nextBtn.className = 'deck-arrow next';
           nextBtn.innerHTML = '&#8250;';
+          nextBtn.style.position = 'relative';
+          nextBtn.style.transform = 'none';
           nextBtn.onclick = () => navDeck(1);
           stageWrap.insertBefore(prevBtn, stageCard);
           stageWrap.appendChild(nextBtn);
@@ -3781,7 +3766,10 @@
           });
 
           actionPanel.innerHTML = `
-            <div style="font-size:12px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid var(--border); padding-bottom:8px;">Diagnostic &amp; Manager Review</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:4px;">
+              <div style="font-size:12px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Manager Review</div>
+              <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel">✕</button>
+            </div>
 
             <div style="display:flex; flex-direction:column; gap:6px;">
               <div class="section-label" style="margin:0 !important;">Vendor Update</div>
