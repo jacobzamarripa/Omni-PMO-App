@@ -28,7 +28,7 @@ function onOpen() {
       .addToUi();
     ui.createMenu('Daily Analyzer')
       .addItem('Sync from QuickBase',    'importFDHProjects')
-      .addItem('Discover QB Fields',     'discoverQBFields')
+      .addItem('🔍 Discover All QB Fields', 'discoverAllQBFields')
       .addSeparator()
       .addItem('Run CD Analysis',        'runCDAnalysis')
       .addItem('Check Gemini API Usage', 'checkCDApiUsage')
