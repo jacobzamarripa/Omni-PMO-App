@@ -48,7 +48,7 @@ function discoverQBFields() {
 // --- 3. WEB APP SYNC (returns JSON result, no UI alerts) ---
 
 function syncFromQBWebApp() {
-  CacheService.getScriptCache().remove('dashboard_data_cache');
+  CacheService.getScriptCache().remove('dashboard_data_cache_v6');
   try {
     const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
     if (!token) return { success: false, error: "QB_USER_TOKEN not configured in Script Properties." };
@@ -301,7 +301,7 @@ function commitToQueue() {
 
 // Web-app-safe version — returns JSON result instead of ui.alert
 function commitToQueueWebApp() {
-  CacheService.getScriptCache().remove('dashboard_data_cache');
+  CacheService.getScriptCache().remove('dashboard_data_cache_v6');
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 

@@ -892,7 +892,7 @@ function runBennyDiagnostics(row, refDict, vendorDict) {
 }
 
 function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent = false) {
-  CacheService.getScriptCache().remove('dashboard_data_cache');
+  CacheService.getScriptCache().remove('dashboard_data_cache_v6');
   setupSheets();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const histSheet = ss.getSheetByName(HISTORY_SHEET);

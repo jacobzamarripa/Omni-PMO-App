@@ -417,7 +417,7 @@ function webAppTrigger3a(targetDateStr) {
 
 // 🧠 WEB APP BRIDGE: Logs the Admin Check permanently and cleans the Daily Review sheet instantly
 function markAdminCheckComplete(fdhId) {
-  CacheService.getScriptCache().remove('dashboard_data_cache');
+  CacheService.getScriptCache().remove('dashboard_data_cache_v6');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if(!adminSheet) return false;
@@ -463,7 +463,7 @@ function markAdminCheckComplete(fdhId) {
 }
 
 function verifySpecialCrossings(fdhId) {
-  CacheService.getScriptCache().remove('dashboard_data_cache');
+  CacheService.getScriptCache().remove('dashboard_data_cache_v6');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if (!adminSheet) return false;
@@ -510,7 +510,7 @@ function verifySpecialCrossings(fdhId) {
 
 // 🧠 NEW: Status Sync Log Bridge
 function markStatusSyncComplete(fdhId) {
-  CacheService.getScriptCache().remove('dashboard_data_cache');
+  CacheService.getScriptCache().remove('dashboard_data_cache_v6');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if(!adminSheet) return false;
