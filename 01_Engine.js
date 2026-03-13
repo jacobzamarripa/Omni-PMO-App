@@ -438,66 +438,131 @@ function getExistingKeys() {
 
 function processIncomingForQuickBase(isSilent = false) {
   setupSheets();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const histSheet = ss.getSheetByName(HISTORY_SHEET);
-  
-  // 🧠 Smart Failsafe: If the archive was manually emptied, force re-process!
-  let forceReprocess = getTrueLastDataRow(histSheet) < 2; 
-
   const keys = getExistingKeys(); 
   const refDict = getReferenceDictionary(); 
   let newRowsAppended = []; 
-  let allProcessedDates = []; 
+  let allProcessedDates = [];
+  let allParsedRowsForQB = [];
   
-  processFolderRecursive(DriveApp.getFolderById(INCOMING_FOLDER_ID), keys, refDict, "", false, newRowsAppended, allProcessedDates, forceReprocess);
-  
-  // 🧠 Pass ALL unique dates found in the batch to the QuickBase tab
-  if (allProcessedDates.length > 0) {
-     let uniqueDates = [...new Set(allProcessedDates)].filter(d => d !== "");
-     populateQuickBaseTabCore(uniqueDates);
-  }
+  processFolderRecursive(DriveApp.getFolderById(INCOMING_FOLDER_ID), keys, refDict, "", false, newRowsAppended, allProcessedDates, false, allParsedRowsForQB);
+  populateQuickBaseTabDirectly(allParsedRowsForQB);
+  autoArchiveProcessedFiles();
 
   if (!isSilent) {
-      let uniqueCount = [...new Set(allProcessedDates)].filter(d => d !== "").length;
-      SpreadsheetApp.getUi().alert(`Done scanning.\n\nFiltered duplicates and appended ${newRowsAppended.length} new rows to the Archive.\nQuickBase Upload tab refreshed with data from ${uniqueCount} day(s).`);
+      SpreadsheetApp.getUi().alert(`Done scanning.\n\nFiltered duplicates and appended ${newRowsAppended.length} new rows to the Archive.\nQuickBase Upload tab refreshed with ${allParsedRowsForQB.length} row(s).\n\n📁 All processed files have been moved to the Master Archive.`);
   }
 }
 
-function processFolderRecursive(folder, existingKeys, refDict, folderDate, isArchive, newRowsAppended = null, allProcessedDates = null, forceReprocess = false) {
-  let dateMatch = folder.getName().match(/(\d{1,2})[\.\-\/](\d{1,2})[\.\-\/](\d{2,4})/);
-  if (dateMatch) { 
-    let yr = dateMatch[3].length === 2 ? "20" + dateMatch[3] : dateMatch[3];
-    folderDate = `${yr}-${dateMatch[1].padStart(2, '0')}-${dateMatch[2].padStart(2, '0')}`;
+function normalizeDateString(value) {
+  if (value === "" || value === null || value === undefined) return "";
+  
+  let strVal = String(value).trim();
+  
+  // 1. If it's already an exact YYYY-MM-DD string, return it immediately
+  // to prevent JavaScript from applying a UTC timezone shift.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) return strVal;
+
+  // 2. Safely handle native Google Sheets Date objects
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? "" : Utilities.formatDate(value, "GMT-5", "yyyy-MM-dd");
   }
+
+  // 3. Fallback regex for M/D/YY or M-D-YYYY strings
+  let match = strVal.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (match) {
+    let yr = match[3].length === 2 ? "20" + match[3] : match[3];
+    return `${yr}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}`;
+  }
+
+  // 4. Last resort Date parsing
+  let parsed = new Date(strVal);
+  if (!isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, "GMT-5", "yyyy-MM-dd");
+  }
+  
+  return "";
+}
+
+function deriveFallbackTargetDate(file) {
+  let creationDate = new Date(file.getDateCreated());
+  if (creationDate.getDay() === 1) creationDate.setDate(creationDate.getDate() - 3);
+  else creationDate.setDate(creationDate.getDate() - 1);
+  return Utilities.formatDate(creationDate, "GMT-5", "yyyy-MM-dd");
+}
+
+function extractDateFromName(name) {
+  let str = String(name || "");
+  
+  // 1. First check for YYYY-MM-DD format to prevent capturing the wrong digits
+  let isoMatch = str.match(/(20\d{2})[\.\-\/](\d{1,2})[\.\-\/](\d{1,2})/);
+  if (isoMatch) {
+     return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
+  }
+
+  // 2. Standard check for MM-DD-YY or MM-DD-YYYY folders
+  let match = str.match(/(\d{1,2})[\.\-\/](\d{1,2})[\.\-\/](\d{2,4})/);
+  if (!match) return "";
+  let yr = match[3].length === 2 ? "20" + match[3] : match[3];
+  return `${yr}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}`;
+}
+
+function mapHistoryRowsToQuickBaseRows(rows) {
+  return rows.map(row => QB_HEADERS.map(h => {
+    let lookupH = h === "Construction Comments" ? "Vendor Comment" : h;
+    let hIdx = HISTORY_HEADERS.indexOf(lookupH);
+    let val = hIdx > -1 ? row[hIdx] : "";
+    if (lookupH === "Vendor Comment" && typeof val === "string") return val.replace(/\[Auto-Fixed FDH: .*?\]\s*/, "");
+    return typeof val === "boolean" ? (val ? "TRUE" : "FALSE") : val;
+  }));
+}
+
+function applyQuickBaseTabStyling(qbSheet) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const styleSheet = ss.getSheetByName(STYLE_MASTER);
+
+  if (typeof applyFormatting === "function") {
+    try { applyFormatting(qbSheet); } catch (e) {}
+  } else {
+    qbSheet.getRange(1, 1, 1, QB_HEADERS.length).setBackground("#0f172a").setFontColor("white").setFontWeight("bold");
+  }
+
+  if (styleSheet && styleSheet.getLastColumn() > 0) {
+    let styleHeaders = styleSheet.getRange(1, 1, 1, styleSheet.getLastColumn()).getValues()[0].map(h => h.toString().trim());
+    QB_HEADERS.forEach((h, i) => {
+      let lookupH = h === "Construction Comments" ? "Vendor Comment" : h;
+      let styleIdx = styleHeaders.indexOf(h);
+      if (styleIdx === -1) styleIdx = styleHeaders.indexOf(lookupH);
+      if (styleIdx > -1) {
+        let width = styleSheet.getColumnWidth(styleIdx + 1);
+        if (width) qbSheet.setColumnWidth(i + 1, width);
+      }
+    });
+  }
+}
+
+function processFolderRecursive(folder, existingKeys, refDict, folderDate, isArchive, newRowsAppended = null, allProcessedDates = null, forceReprocess = false, allParsedRowsForQB = null) {
+  let resolvedFolderDate = extractDateFromName(folder.getName());
+  if (resolvedFolderDate) folderDate = resolvedFolderDate;
   const files = folder.getFiles();
   while (files.hasNext()) {
     let file = files.next();
     if (!file.getName().toLowerCase().endsWith(".xlsx")) continue;
     
-    // 🧠 ALWAYS extract the date for the QB Tab, even if we skip parsing!
-    let fDate = folderDate;
-    let fileDateMatch = file.getName().match(/(\d{1,2})[\.\-\/](\d{1,2})[\.\-\/](\d{2,4})/);
-    if (fileDateMatch) { 
-        let yr = fileDateMatch[3].length === 2 ? "20" + fileDateMatch[3] : fileDateMatch[3]; 
-        fDate = `${yr}-${fileDateMatch[1].padStart(2, '0')}-${fileDateMatch[2].padStart(2, '0')}`; 
-    }
+    let fDate = folderDate || extractDateFromName(file.getName()) || deriveFallbackTargetDate(file);
     if (fDate && allProcessedDates !== null) allProcessedDates.push(fDate);
-
-    // 🧠 Skip processed files UNLESS the archive was emptied
-    if (!forceReprocess && file.getDescription() === "PROCESSED") continue;
     
     try { 
-        parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppended, allProcessedDates); 
+        parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppended, allProcessedDates, allParsedRowsForQB); 
         file.setDescription("PROCESSED"); 
     } catch (e) {
         logMsg(`Failed to process file ${file.getName()}: ${e.message}`);
     }
   }
   const subfolders = folder.getFolders();
-  while (subfolders.hasNext()) processFolderRecursive(subfolders.next(), existingKeys, refDict, folderDate, isArchive, newRowsAppended, allProcessedDates, forceReprocess);
+  while (subfolders.hasNext()) processFolderRecursive(subfolders.next(), existingKeys, refDict, folderDate, isArchive, newRowsAppended, allProcessedDates, forceReprocess, allParsedRowsForQB);
 }
 
-function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppended, allProcessedDates) {
+function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppended, allProcessedDates, allParsedRowsForQB = null) {
   let tempFile = Drive.Files.insert({ title: "[TEMP]_" + file.getName(), parents: [{id: file.getParents().next().getId()}] }, file.getBlob(), {convert: true});
   let tempSS = SpreadsheetApp.openById(tempFile.id);
   let reportTab = tempSS.getSheetByName("Daily Report") || tempSS.getSheets()[0];
@@ -526,10 +591,9 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
   };
 
   const rows = fullData.slice(headerRowIndex + 1);
-  let lastValidDate = folderDate, dataToAppend = [];
-  let fileDateMatch = file.getName().match(/(\d{1,2})[\.\-\/](\d{1,2})[\.\-\/](\d{2,4})/);
-  let filenameDate = "";
-  if (fileDateMatch) { let yr = fileDateMatch[3].length === 2 ? "20" + fileDateMatch[3] : fileDateMatch[3]; filenameDate = `${yr}-${fileDateMatch[1].padStart(2, '0')}-${fileDateMatch[2].padStart(2, '0')}`; }
+  let dataToAppend = [];
+  let filenameDate = extractDateFromName(file.getName());
+  let targetDate = normalizeDateString(folderDate) || normalizeDateString(filenameDate) || deriveFallbackTargetDate(file);
 
   rows.forEach(row => {
     let fdhId = row[fdhIdx] ? row[fdhIdx].toString().trim().toUpperCase() : ""; 
@@ -541,6 +605,10 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
         if (matched) { logMsg(`🪄 AUTO-CORRECT (Ingestion): ${fdhId} -> ${matched}`); fdhId = matched; }
     }
     let wasCorrected = (originalFdh !== fdhId);
+    let vendorDateIdx = getIdx("Date");
+    let vendorDateRaw = vendorDateIdx === -1 ? "" : row[vendorDateIdx];
+    let normalizedVendorDate = normalizeDateString(vendorDateRaw);
+    if (normalizedVendorDate && normalizedVendorDate !== targetDate) return;
     
     let rowMapped = HISTORY_HEADERS.map(h => {
       if (h === "FDH Engineering ID") return fdhId; 
@@ -549,41 +617,15 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
       
       if (h === "Vendor Comment") { if (wasCorrected) val = `[Auto-Fixed FDH: ${originalFdh}] ` + (val || ""); return val; }
       
-      if (h === "Date") {
-        let parsedDateStr = "";
-        if (val) {
-          if (val instanceof Date) {
-              parsedDateStr = Utilities.formatDate(val, "GMT-5", "yyyy-MM-dd");
-          } else {
-            let d = new Date(val);
-            if (!isNaN(d.getTime())) {
-                parsedDateStr = Utilities.formatDate(d, "GMT-5", "yyyy-MM-dd");
-            } else { 
-                let m = String(val).match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/); 
-                if(m) { let yr = m[3].length === 2 ? "20"+m[3] : m[3]; parsedDateStr = `${yr}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`; } 
-            }
-          }
-        }
-        if (parsedDateStr !== "") lastValidDate = parsedDateStr;
-        else if (filenameDate !== "") lastValidDate = filenameDate;
-        else if (folderDate && folderDate !== "") lastValidDate = folderDate;
-        else if (!lastValidDate || lastValidDate === "") { 
-            let creationDate = new Date(file.getDateCreated()); 
-            if (creationDate.getDay() === 1) creationDate.setDate(creationDate.getDate() - 3); 
-            else creationDate.setDate(creationDate.getDate() - 1); 
-            lastValidDate = Utilities.formatDate(creationDate, "GMT-5", "yyyy-MM-dd"); 
-        }
-        return lastValidDate;
-      }
+      if (h === "Date") return targetDate;
       if (isBooleanColumn(h) && typeof val === "string") { let cleanStr = val.trim().toLowerCase(); if (cleanStr === "true" || cleanStr === "yes") return true; if (cleanStr === "false" || cleanStr === "no") return false; }
       return val;
     });
     
-    if (allProcessedDates !== null && rowMapped[0]) {
-        allProcessedDates.push(rowMapped[0]);
-    }
+    if (allProcessedDates !== null && rowMapped[0]) allProcessedDates.push(rowMapped[0]);
+    if (allParsedRowsForQB !== null) allParsedRowsForQB.push(rowMapped);
     
-    let key = rowMapped[0] + "_" + fdhId;
+    let key = targetDate + "_" + fdhId;
     if (!existingKeys.has(key)) { 
         dataToAppend.push(rowMapped); 
         existingKeys.add(key); 
@@ -601,12 +643,28 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
   Drive.Files.remove(tempFile.id);
 }
 
+function populateQuickBaseTabDirectly(parsedRows) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const qbSheet = ss.getSheetByName(QB_UPLOAD_SHEET);
+  const safeRows = Array.isArray(parsedRows) ? parsedRows : [];
+
+  qbSheet.clear();
+  qbSheet.getRange(1, 1, 1, QB_HEADERS.length).setValues([QB_HEADERS]);
+
+  if (safeRows.length > 0) {
+    const qbData = mapHistoryRowsToQuickBaseRows(safeRows);
+    ensureCapacity(qbSheet, qbData.length + 1, QB_HEADERS.length);
+    qbSheet.getRange(2, 1, qbData.length, QB_HEADERS.length).setValues(qbData);
+  }
+
+  applyQuickBaseTabStyling(qbSheet);
+}
+
 // 🧠 UPGRADED TO HANDLE BATCH ARRAYS & STYLE MASTER FORMATTING
 function populateQuickBaseTabCore(targetDates) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const histSheet = ss.getSheetByName(HISTORY_SHEET);
   const qbSheet = ss.getSheetByName(QB_UPLOAD_SHEET);
-  const styleSheet = ss.getSheetByName(STYLE_MASTER);
   
   let dateArr = Array.isArray(targetDates) ? targetDates : [targetDates];
   dateArr = dateArr.map(d => d.toString().trim());
@@ -628,38 +686,14 @@ function populateQuickBaseTabCore(targetDates) {
   qbSheet.getRange(1, 1, 1, QB_HEADERS.length).setValues([QB_HEADERS]);
   
   if (filteredRows.length > 0) {
-    const qbData = filteredRows.map(row => QB_HEADERS.map(h => {
-      let lookupH = h === "Construction Comments" ? "Vendor Comment" : h;
-      let hIdx = HISTORY_HEADERS.indexOf(lookupH);
-      let val = (hIdx > -1) ? row[hIdx] : "";
-      if (lookupH === "Vendor Comment" && typeof val === "string") return val.replace(/\[Auto-Fixed FDH: .*?\]\s*/, ""); 
-      return typeof val === "boolean" ? (val ? "TRUE" : "FALSE") : val;
-    }));
+    const qbData = mapHistoryRowsToQuickBaseRows(filteredRows);
     ensureCapacity(qbSheet, qbData.length + 1, QB_HEADERS.length);
     qbSheet.getRange(2, 1, qbData.length, QB_HEADERS.length).setValues(qbData);
   } else {
     logMsg(`⚠️ populateQuickBaseTab: No data found for dates: ${dateArr.join(", ")}`);
   }
-  
-  if (typeof applyFormatting === "function") {
-      try { applyFormatting(qbSheet); } catch(e) {}
-  } else {
-      qbSheet.getRange(1, 1, 1, QB_HEADERS.length).setBackground("#0f172a").setFontColor("white").setFontWeight("bold");
-  }
-  
-  // 🧠 DYNAMICALLY APPLY WIDTHS FROM STYLE MASTER
-  if (styleSheet && styleSheet.getLastColumn() > 0) {
-    let styleHeaders = styleSheet.getRange(1, 1, 1, styleSheet.getLastColumn()).getValues()[0].map(h => h.toString().trim());
-    QB_HEADERS.forEach((h, i) => {
-       let lookupH = h === "Construction Comments" ? "Vendor Comment" : h;
-       let styleIdx = styleHeaders.indexOf(h);
-       if (styleIdx === -1) styleIdx = styleHeaders.indexOf(lookupH);
-       if (styleIdx > -1) {
-           let width = styleSheet.getColumnWidth(styleIdx + 1);
-           if (width) qbSheet.setColumnWidth(i + 1, width);
-       }
-    });
-  }
+
+  applyQuickBaseTabStyling(qbSheet);
 }
 
 function exportQuickBaseCSVCore(isSilent = false) {
@@ -1305,4 +1339,54 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
   } else if (!isSilent) {
     SpreadsheetApp.getUi().alert(`No data found in Master Archive for Date: ${targetDateStr}`);
   }
+}
+
+function autoArchiveProcessedFiles() {
+  const incomingFolder = DriveApp.getFolderById(INCOMING_FOLDER_ID);
+  const archiveFolder = DriveApp.getFolderById(ARCHIVE_FOLDER_ID);
+
+  function getArchiveFolderForDate(dateStr) {
+    if (!dateStr) return archiveFolder;
+
+    let existingFolders = archiveFolder.getFolders();
+    while (existingFolders.hasNext()) {
+      let f = existingFolders.next();
+      let fDate = extractDateFromName(f.getName());
+      if (fDate === dateStr) return f;
+    }
+
+    let parts = dateStr.split("-");
+    let m = parseInt(parts[1], 10);
+    let d = parseInt(parts[2], 10);
+    let yy = parts[0].substring(2);
+    let formattedFolderName = `${m}.${d}.${yy}`;
+    return archiveFolder.createFolder(formattedFolderName);
+  }
+
+  function sweep(currentFolder, parentDateStr) {
+    let currentFolderDate = extractDateFromName(currentFolder.getName()) || parentDateStr;
+
+    let files = currentFolder.getFiles();
+    while (files.hasNext()) {
+      let file = files.next();
+      if (file.getDescription() !== "PROCESSED") continue;
+
+      let fileDate = extractDateFromName(file.getName()) || currentFolderDate || deriveFallbackTargetDate(file);
+      let targetFolder = getArchiveFolderForDate(fileDate);
+      file.moveTo(targetFolder);
+      file.setDescription("");
+    }
+
+    let subfolders = currentFolder.getFolders();
+    while (subfolders.hasNext()) {
+      let sub = subfolders.next();
+      sweep(sub, currentFolderDate);
+
+      if (!sub.getFiles().hasNext() && !sub.getFolders().hasNext()) {
+        sub.setTrashed(true);
+      }
+    }
+  }
+
+  sweep(incomingFolder, "");
 }
