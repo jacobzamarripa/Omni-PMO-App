@@ -3376,34 +3376,41 @@
       .thumb-ven { font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; }
       .thumb-mini-bar { height: 6px; background: var(--bg); border-radius: 3px; border: 1px solid var(--border); overflow: visible; position: relative; margin-top: auto; }
       .thumb-mini-bead { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid; background: var(--card-bg); pointer-events: none; }
+      .thumb-vel-grid { display: flex; flex-direction: column; gap: 2px; margin-top: 5px; }
+      .thumb-vel-row { display: flex; align-items: center; gap: 3px; }
+      .thumb-vel-label { font-size: 6px; font-weight: 900; color: var(--text-muted); width: 12px; flex-shrink: 0; text-transform: uppercase; }
+      .thumb-vel-track { flex: 1; height: 3px; background: var(--bg); border-radius: 2px; overflow: hidden; }
+      .thumb-vel-fill { height: 100%; border-radius: 2px; }
+      .thumb-vel-pct { font-size: 6px; font-weight: 900; width: 18px; text-align: right; flex-shrink: 0; }
 
       /* 🎭 MAIN STAGE */
-      .deck-stage { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 80px 40px 20px; position: relative; }
-      .deck-center-column { width: 100%; max-width: 1050px; display: flex; flex-direction: column; gap: 20px; position: relative; }
+      .deck-stage { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 70px 40px 0; position: relative; }
+      .deck-center-column { width: 100%; max-width: 1050px; display: flex; flex-direction: column; gap: 10px; position: relative; }
 
       /* 🃏 16:9 HYBRID PRESENTATION CARD */
       .deck-card {
-        width: 100%; aspect-ratio: 16 / 9; max-height: calc(100vh - 280px);
+        width: 100%; aspect-ratio: 16 / 9; max-height: calc(100vh - 160px);
         background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border);
         box-shadow: 0 30px 60px rgba(15,23,42,0.15); display: flex; flex-direction: column; overflow: hidden; z-index: 5;
       }
 
-      /* SLIDE HEADER: PROJECT SCHEDULE WIDGET CLONE */
+      /* SLIDE HEADER: DECONSTRUCTED 3-COLUMN INFO BAR */
       .slide-header {
-        padding: 20px 30px; border-bottom: 1px solid var(--border); background: var(--bg);
-        flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;
+        padding: 14px 24px; border-bottom: 1px solid var(--border); background: var(--bg);
+        flex-shrink: 0; display: flex; align-items: center; gap: 20px;
       }
-      .slide-hdr-top { display: flex; justify-content: space-between; align-items: flex-start; }
-      .slide-hdr-id { font-size: 28px; font-weight: 900; letter-spacing: -1px; color: var(--text-main); line-height: 1; }
-      .slide-hdr-meta { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-top: 4px; }
-      .slide-hdr-bar-container { display: flex; flex-direction: column; gap: 6px; }
-      .slide-time-labels { display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; }
+      .slide-hdr-left { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; min-width: 150px; justify-content: center; }
+      .slide-hdr-id { font-size: 26px; font-weight: 900; letter-spacing: -1px; color: var(--text-main); line-height: 1; }
+      .slide-hdr-meta { font-size: 10px; font-weight: 700; color: var(--text-muted); }
+      .slide-hdr-center { flex: 1; display: flex; flex-direction: column; gap: 5px; justify-content: center; min-width: 0; }
+      .slide-hdr-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; min-width: 120px; justify-content: center; }
+      .slide-time-labels { display: flex; justify-content: space-between; font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; }
       .slide-time-bar { height: 14px; background: var(--card-bg); border-radius: 7px; border: 1px solid var(--border); position: relative; overflow: visible; }
       .slide-time-fill { height: 100%; border-radius: 7px; transition: width 0.5s; }
       .slide-time-bead {
         position: absolute; top: 50%; transform: translate(-50%, -50%); width: 18px; height: 18px;
         background: rgba(255,255,255,0.9); border-radius: 50%; border: 3px solid;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15); box-sizing: border-box;
       }
 
       /* SLIDE BODY: Q&A COLUMNS */
@@ -3449,8 +3456,8 @@
 
       /* REVIEW NOTES AREA */
       .deck-notes-area {
-        padding: 20px 24px; border: 1px solid var(--border); border-radius: 16px; background: var(--card-bg);
-        display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 30px rgba(15,23,42,0.05);
+        padding: 10px 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card-bg);
+        display: flex; flex-direction: column; gap: 10px; box-shadow: 0 10px 30px rgba(15,23,42,0.05);
       }
 
       /* NAV ARROWS */
@@ -3584,29 +3591,41 @@
       function navDeck(dir) {
         if (deckSource.length === 0) return;
         saveCurrentCardState();
-        deckIndex += dir;
-        if (deckIndex < 0) deckIndex = 0;
-        if (deckIndex >= deckSource.length) deckIndex = deckSource.length - 1;
+        const n = deckSource.length;
+        deckIndex = ((deckIndex + dir) % n + n) % n;
         renderDeckCard();
         updateThumbState();
       }
 
       function updateThumbState() {
-        document.querySelectorAll('.deck-thumb').forEach((el, i) => {
-          if (i === deckIndex) {
+        let midEl = null;
+        document.querySelectorAll('.deck-thumb').forEach(el => {
+          const realIdx = parseInt(el.dataset.realIdx);
+          if (realIdx === deckIndex) {
             el.classList.add('active');
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (el.dataset.copy === '1') midEl = el;
           } else {
             el.classList.remove('active');
           }
         });
+        if (midEl) {
+          const sidebar = getEl('deck-sidebar-content');
+          if (sidebar) {
+            const elTop = midEl.offsetTop;
+            const elH = midEl.offsetHeight;
+            const sidebarH = sidebar.clientHeight;
+            sidebar.scrollTo({ top: elTop - (sidebarH - elH) / 2, behavior: 'smooth' });
+          }
+        }
       }
 
       function renderDeckThumbnails() {
         const sidebar = getEl('deck-sidebar-content');
         if (!sidebar) return;
-        let html = '';
-        deckSource.forEach((item, idx) => {
+        const n = deckSource.length;
+        if (n === 0) { sidebar.innerHTML = ''; return; }
+
+        function buildThumb(item, realIdx, copy) {
           const safeD2 = (v) => { try { let d = safeDate ? safeDate(v) : new Date(v); return d && !isNaN(d) ? d : null; } catch(e) { return null; } };
           let tStart = safeD2(item.cxStart), tEnd = safeD2(item.cxEnd);
           let tToday = new Date(); tToday.setHours(0,0,0,0);
@@ -3632,23 +3651,73 @@
             let cm = b.match(/Cab:\s*([\d/]+)/); if (cm) addMb(cm[1], '#a855f7');
             let ltm = b.match(/Lit:\s*([\d/]+)/); if (ltm) addMb(ltm[1], '#eab308');
           }
-          let activeCls = idx === deckIndex ? 'active' : '';
-          html += `<div class="deck-thumb ${activeCls}" id="thumb-${idx}" onclick="selectDeckThumb(${idx})">
-            <div style="position:absolute; top:8px; right:8px; font-size:9px; font-weight:900; color:var(--text-muted);">${idx + 1}</div>
-            <div class="thumb-fdh">${item.fdh}</div>
-            <div class="thumb-ven">${item.vendor || 'Unknown'} &bull; ${item.stage}</div>
+          let velBarsHtml = '';
+          if (item.vel) {
+            const phases = [
+              {v:item.vel.ug,  label:'UG', color:'var(--qb-ug)'},
+              {v:item.vel.ae,  label:'ST', color:'#94a3b8'},
+              {v:item.vel.fib, label:'FB', color:'var(--qb-fib-border)'},
+              {v:item.vel.nap, label:'NP', color:'var(--qb-nap-border)'},
+            ];
+            let bars = '';
+            phases.forEach(p => {
+              if (!p.v || p.v.bom <= 0) return;
+              let pct = Math.min(100, Math.round((p.v.tot / p.v.bom) * 100));
+              bars += `<div class="thumb-vel-row"><span class="thumb-vel-label">${p.label}</span><div class="thumb-vel-track"><div class="thumb-vel-fill" style="width:${pct}%; background:${p.color};"></div></div><span class="thumb-vel-pct" style="color:${p.color};">${pct}%</span></div>`;
+            });
+            if (bars) velBarsHtml = `<div class="thumb-vel-grid">${bars}</div>`;
+          }
+          let activeCls = realIdx === deckIndex ? 'active' : '';
+          return `<div class="deck-thumb ${activeCls}" data-real-idx="${realIdx}" data-copy="${copy}" onclick="selectDeckThumb(${realIdx})">
+            <div style="position:absolute; top:6px; right:6px; font-size:8px; font-weight:900; color:var(--text-muted);">${realIdx + 1}</div>
+            <div style="font-size:7px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:2px; display:flex; justify-content:space-between;"><span>${item.cxStart || '—'}</span><span>${item.cxEnd || '—'}</span></div>
             <div class="thumb-mini-bar">
               <div style="height:100%; width:${tPct}%; background:${tColor}; border-radius:3px;"></div>
               ${miniBeadHtml}
             </div>
-            <div style="display:flex; gap:4px; margin-top:5px; flex-wrap:wrap;">
-              <span style="font-size:8px; font-weight:900; padding:2px 5px; border-radius:4px; background:${tColor}22; color:${tColor}; border:1px solid ${tColor}66; white-space:nowrap;">${item.status || item.stage || '—'}</span>
-              ${item.isXing ? '<span style="font-size:8px; font-weight:900; padding:2px 5px; border-radius:4px; background:rgba(250,204,21,0.15); color:#854d0e; border:1px solid #fde047;">X-ING</span>' : ''}
+            <div class="thumb-fdh" style="margin-top:6px;">${item.fdh}</div>
+            <div class="thumb-ven">${item.vendor || 'Unknown'} &bull; ${item.stage}</div>
+            ${velBarsHtml}
+            <div style="display:flex; gap:3px; margin-top:4px; flex-wrap:wrap;">
+              <span style="font-size:7px; font-weight:900; padding:1px 4px; border-radius:3px; background:${tColor}22; color:${tColor}; border:1px solid ${tColor}66; white-space:nowrap;">${item.status || item.stage || '—'}</span>
+              ${item.isXing ? '<span style="font-size:7px; font-weight:900; padding:1px 4px; border-radius:3px; background:rgba(250,204,21,0.15); color:#854d0e; border:1px solid #fde047;">X-ING</span>' : ''}
             </div>
           </div>`;
-        });
+        }
+
+        let html = '';
+        deckSource.forEach((item, idx) => html += buildThumb(item, idx, '0'));
+        deckSource.forEach((item, idx) => html += buildThumb(item, idx, '1'));
+        deckSource.forEach((item, idx) => html += buildThumb(item, idx, '2'));
         sidebar.innerHTML = html;
+
+        initInfiniteScroll(sidebar, n);
         updateThumbState();
+      }
+
+      function initInfiniteScroll(sidebar, n) {
+        if (sidebar._deckScrollHandler) {
+          sidebar.removeEventListener('scroll', sidebar._deckScrollHandler);
+          sidebar._deckScrollHandler = null;
+        }
+        requestAnimationFrame(() => {
+          const padTop  = parseFloat(getComputedStyle(sidebar).paddingTop)  || 0;
+          const padBot  = parseFloat(getComputedStyle(sidebar).paddingBottom) || 0;
+          const contentH = sidebar.scrollHeight - padTop - padBot;
+          const oneSetH  = contentH / 3;
+          sidebar._oneSetH = oneSetH;
+          sidebar._padTop  = padTop;
+          sidebar.scrollTop = padTop + oneSetH;
+          sidebar._deckScrollHandler = function() {
+            const st = sidebar.scrollTop;
+            if (st < padTop + oneSetH * 0.15) {
+              sidebar.scrollTop = st + oneSetH;
+            } else if (st > padTop + oneSetH * 1.85) {
+              sidebar.scrollTop = st - oneSetH;
+            }
+          };
+          sidebar.addEventListener('scroll', sidebar._deckScrollHandler);
+        });
       }
 
       function saveCurrentCardState() {
@@ -3815,22 +3884,15 @@
 
         const slideHtml = `
           <div class="slide-header">
-            <div class="slide-hdr-top">
-              <div>
-                <div class="slide-hdr-id">${item.fdh}</div>
-                <div class="slide-hdr-meta">${item.city} &bull; ${item.vendor}</div>
-              </div>
-              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <span style="font-size:10px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Slide ${deckIndex + 1} of ${deckSource.length}</span>
-                  <span style="font-size:10px; font-weight:900; background:var(--bg); border:1px solid var(--border); padding:4px 10px; border-radius:12px; text-transform:uppercase;">${item.stage} | ${item.status}</span>
-                </div>
-                <div style="font-size:10px; font-weight:900; color:${sColor}; text-transform:uppercase; margin-top:4px;">TARGET: <span style="font-size:14px;">${item.targetDate || 'TBD'}</span></div>
-              </div>
+            <div class="slide-hdr-left">
+              <div class="slide-hdr-id">${item.fdh}</div>
+              <div class="slide-hdr-meta">${item.city}</div>
+              <div class="slide-hdr-meta">${item.vendor}</div>
             </div>
-            <div class="slide-hdr-bar-container">
+            <div class="slide-hdr-center">
               <div class="slide-time-labels">
                 <span>CX START: <span style="color:var(--text-main);">${item.cxStart || 'TBD'}</span></span>
+                <span style="font-size:9px; font-weight:800; color:var(--text-muted);">Slide ${deckIndex + 1} / ${deckSource.length}</span>
                 <span>CX COMPLETE: <span style="color:var(--text-main);">${item.cxEnd || 'TBD'}</span></span>
               </div>
               <div class="${item.isXing ? 'qb-target-wrap xing' : ''}">
@@ -3840,6 +3902,11 @@
                   ${projBeadHtml}
                 </div>
               </div>
+            </div>
+            <div class="slide-hdr-right">
+              <span style="font-size:9px; font-weight:900; background:var(--bg); border:1px solid var(--border); padding:3px 8px; border-radius:10px; text-transform:uppercase; white-space:nowrap;">${item.stage} | ${item.status}</span>
+              <div style="font-size:10px; font-weight:900; color:${sColor}; text-transform:uppercase; text-align:right; line-height:1.2;">TARGET<br><span style="font-size:15px;">${item.targetDate || 'TBD'}</span></div>
+              <div style="font-size:10px; font-weight:900; color:var(--text-muted);">${daysLeftTxt}</div>
             </div>
           </div>
 
@@ -3889,13 +3956,10 @@
           </div>
 
           <div class="slide-footer">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-              <div style="font-size:13px; font-weight:900; color:${sColor};">${daysLeftTxt}</div>
-              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <div style="font-size:11px; font-weight:800; padding:4px 10px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--text-main);">BSLS: ${item.bsls || 'N/A'}</div>
-                <div style="font-size:11px; font-weight:800; padding:4px 10px; border-radius:6px; border:1px solid; ${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
-                ${deckViewRecord}
-              </div>
+            <div style="display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:8px;">
+              <div style="font-size:11px; font-weight:800; padding:4px 10px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--text-main);">BSLS: ${item.bsls || 'N/A'}</div>
+              <div style="font-size:11px; font-weight:800; padding:4px 10px; border-radius:6px; border:1px solid; ${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
+              ${deckViewRecord}
             </div>
             <div class="slide-fine-print">
               <span>Report Date <b>${deckReportDate}</b></span>
