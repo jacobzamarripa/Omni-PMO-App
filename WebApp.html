@@ -1166,8 +1166,8 @@
       .mob-sheet-list { overflow-y: auto; flex-grow: 1; -webkit-overflow-scrolling: touch; }
       .mob-sheet-footer { padding: 10px 16px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); flex-shrink: 0; }
 
-      /* 💻 LAPTOP & SMALL DESKTOP OPTIMIZATION (Screens under 1600px wide) */
-      @media screen and (max-width: 1600px) {
+      /* 💻 LAPTOP & SMALL DESKTOP OPTIMIZATION (Screens up to 1080p / 16-inch MBP) */
+      @media screen and (max-width: 1920px) {
           .inbox-sidebar {
               width: 280px !important;
               min-width: 280px !important;
@@ -3452,14 +3452,14 @@
 
           setTimeout(scrollGanttToToday, 150);
 
-          if (!hasPeekedGantt && window.innerWidth <= 1600) {
+          if (!hasPeekedGantt && window.innerWidth <= 1920) {
               hasPeekedGantt = true;
               setTimeout(() => {
                   let panel = getEl('gantt-panel');
                   if (panel && !panel.classList.contains('fullscreen') && !panel.classList.contains('minimized')) {
                       toggleMinimize();
                   }
-              }, 1500);
+              }, 1800);
           }
       }
 
