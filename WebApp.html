@@ -1270,6 +1270,8 @@
           .slide-hdr-id { font-size: 24px !important; }
           .deck-stage .slide-q-label { font-size: 10px !important; }
           .deck-stage .slide-input { width: 120px !important; }
+          .deck-modules-body { padding: 12px 16px !important; gap: 16px !important; }
+          .deck-module .slide-q-row { grid-template-columns: 1fr 120px !important; }
 
           .pane-content {
               padding: 60px 16px 16px !important;
@@ -4775,6 +4777,31 @@
       .slide-q-nested { margin-left: 20px; }
       .slide-q-nested .slide-q-label { font-size: 12px; font-weight: 500; }
       .slide-q-nested .slide-q-label::before { content: "◦"; font-size: 14px; }
+
+      /* DECK MODULE GROUPING */
+      .deck-modules-body {
+        flex-grow: 1; display: flex; gap: 24px; padding: 16px 24px;
+        overflow-y: auto; align-items: flex-start;
+      }
+      .deck-modules-col {
+        flex: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0;
+      }
+      .deck-module {
+        background: var(--card-bg); border: 1px solid var(--border);
+        border-radius: 10px; padding: 12px 16px;
+        display: flex; flex-direction: column; gap: 8px;
+      }
+      .deck-module.module-permitting { border-left: 3px solid #a855f7; }
+      .module-header {
+        font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+        color: var(--text-muted); padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
+      }
+      .module-header.ph-permitting { color: #a855f7; }
+      .deck-module .slide-q-row {
+        display: grid; grid-template-columns: 1fr 140px; align-items: center; gap: 8px;
+      }
+      .deck-module .slide-q-nested { margin-left: 12px; }
+
       .slide-input {
         width: 140px; padding: 4px 8px; font-size: 11px; font-family: inherit; font-weight: 700;
         border: none; border-bottom: 2px solid var(--border); background: rgba(248,250,252,0.5);
@@ -4809,6 +4836,10 @@
         width: 60%; margin: 0 auto; align-self: center;
         padding: 10px 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card-bg);
         display: flex; flex-direction: column; gap: 10px; box-shadow: 0 10px 30px rgba(15,23,42,0.05);
+      }
+
+      @media screen and (max-width: 850px) {
+        .deck-modules-body { flex-direction: column; }
       }
 
     </style>
@@ -5148,30 +5179,41 @@
                 ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={'3'.EX.'${item.rid}'}" target="_blank" class="hover-trigger" style="text-decoration:none; font-size:10px; font-weight:900; color:var(--text-muted); background:var(--card-bg); padding:8px 14px; border-radius:12px; border:1px solid var(--border); box-shadow:0 2px 6px rgba(15,23,42,0.06); display:inline-flex; align-items:center; transition:all 0.2s;">⚙ EDIT IN ENGINE</a>` : ''}
               </div>
             </div>
-            <div class="slide-body">
-              <div class="slide-col">
-                <div class="slide-q-row"><div class="slide-q-label">What is the FDH Number?</div><span class="slide-sys-val" style="color:var(--text-main); border-color:var(--text-main); font-size:12px;">${item.fdh}</span></div>
-                <div class="slide-q-row"><div class="slide-q-label">Date sent for permitting:</div>${md('q_permit_sent', item.qbRef && item.qbRef.permitSent, 'PERMITTING')}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Permit approval date:</div>${md('q_permit_appr', item.qbRef && item.qbRef.permitAppr, 'PERMITTING')}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Has the CD been distributed?</div>${mc('q_cd_dist', item.qbRef && item.qbRef.cdDist)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Have splice docs been distributed?</div>${mc('q_splice_dist', item.qbRef && item.qbRef.spliceDist)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Have strand maps been distributed?</div>${mc('q_strand_dist', item.qbRef && item.qbRef.strandDist)}</div>
-                <div class="slide-q-row" style="margin-top:10px; border-bottom:none;"><div class="slide-q-label">Are there any special crossings?</div><select class="slide-input" id="q_is_xing" onchange="persistDeckInput(this); toggleXingRows(this.value === 'true')" style="font-size:12px; padding:4px 8px; border:1px solid var(--border); border-radius:6px; background:var(--card-bg); color:var(--text-main); cursor:pointer;"><option value="true" ${isXingActive ? 'selected' : ''}>YES (Action Required)</option><option value="false" ${!isXingActive ? 'selected' : ''}>NO / None Detected</option></select></div>
-                <div class="slide-q-nested slide-q-row xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><div class="slide-q-label">DOT paperwork submitted date:</div>${md('q_cross_sub', item.qbRef && item.qbRef.crossSub, 'PERMITTING')}</div>
-                <div class="slide-q-nested slide-q-row xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><div class="slide-q-label">Special crossing approval date:</div>${md('q_cross_appr', item.qbRef && item.qbRef.crossAppr, 'PERMITTING')}</div>
-                <div class="slide-q-nested slide-q-row xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><div class="slide-q-label">Approval distributed to vendor date:</div>${md('q_cross_dist', item.qbRef && item.qbRef.crossDist)}</div>
+            <div class="deck-modules-body">
+              <div class="deck-modules-col">
+                <div class="deck-module module-permitting">
+                  <div class="module-header ph-permitting">Compliance &amp; Permitting</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Date sent for permitting</span>${md('q_permit_sent', item.qbRef && item.qbRef.permitSent, 'PERMITTING')}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Permit approval date</span>${md('q_permit_appr', item.qbRef && item.qbRef.permitAppr, 'PERMITTING')}</div>
+                </div>
+                <div class="deck-module">
+                  <div class="module-header">Distribution</div>
+                  <div class="slide-q-row"><span class="slide-q-label">CD distributed?</span>${mc('q_cd_dist', item.qbRef && item.qbRef.cdDist)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Splice docs distributed?</span>${mc('q_splice_dist', item.qbRef && item.qbRef.spliceDist)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Strand maps distributed?</span>${mc('q_strand_dist', item.qbRef && item.qbRef.strandDist)}</div>
+                </div>
               </div>
-              <div class="slide-col">
-                <div class="slide-q-row"><div class="slide-q-label">Was the BOM / PO sent?</div>${mc('q_bom_po', item.qbRef && item.qbRef.bomPo)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Has the SOW been signed?</div>${mc('q_sow_sign', item.qbRef && item.qbRef.sowSign)}</div>
-                <div class="slide-q-row" style="margin-top:10px;"><div class="slide-q-label">Has the active been set?</div>${mc('q_active_set', item.qbRef && item.qbRef.activeSet)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Does the active have power?</div>${mc('q_active_pwr', item.qbRef && item.qbRef.activePwr)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">What leg is this FDH on?</div>${mi('q_leg', 'Enter leg ID...', item.qbRef && item.qbRef.leg)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Is transport readily available?</div>${mc('q_transport', item.qbRef && item.qbRef.transport)}</div>
-                <div class="slide-q-row" style="margin-top:10px;"><div class="slide-q-label">How is this FDH being fed?</div>${mc('q_how_fed', item.qbRef && item.qbRef.howFed)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">What does this FDH feed?</div>${mta('q_what_feeds', 'Enter downstream...', item.qbRef && item.qbRef.whatFeeds)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">If FDH is an island, what is missing?</div>${mta('q_island', 'N/A or list...', item.qbRef && item.qbRef.island)}</div>
-                <div class="slide-q-row" style="margin-top:10px;"><div class="slide-q-label">Did the OFS date change? (Why?)</div>${mta('q_ofs_change', 'Yes/No + Reason...', item.qbRef && item.qbRef.ofsChange)}</div>
+              <div class="deck-modules-col">
+                <div class="deck-module">
+                  <div class="module-header">Special Crossings</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Are there special crossings?</span><select class="slide-input" id="q_is_xing" onchange="persistDeckInput(this); toggleXingRows(this.value === 'true')" style="font-size:12px; padding:4px 8px; border:1px solid var(--border); border-radius:6px; background:var(--card-bg); color:var(--text-main); cursor:pointer;"><option value="true" ${isXingActive ? 'selected' : ''}>YES (Action Required)</option><option value="false" ${!isXingActive ? 'selected' : ''}>NO / None Detected</option></select></div>
+                  <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">DOT paperwork submitted</span>${md('q_cross_sub', item.qbRef && item.qbRef.crossSub, 'PERMITTING')}</div>
+                  <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">Special crossing approved</span>${md('q_cross_appr', item.qbRef && item.qbRef.crossAppr, 'PERMITTING')}</div>
+                  <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">Approval dist to vendor</span>${md('q_cross_dist', item.qbRef && item.qbRef.crossDist)}</div>
+                </div>
+                <div class="deck-module">
+                  <div class="module-header">Readiness &amp; Architecture</div>
+                  <div class="slide-q-row"><span class="slide-q-label">BOM / PO sent?</span>${mc('q_bom_po', item.qbRef && item.qbRef.bomPo)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">SOW signed?</span>${mc('q_sow_sign', item.qbRef && item.qbRef.sowSign)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Active set?</span>${mc('q_active_set', item.qbRef && item.qbRef.activeSet)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Active has power?</span>${mc('q_active_pwr', item.qbRef && item.qbRef.activePwr)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Leg ID</span>${mi('q_leg', 'Enter leg ID...', item.qbRef && item.qbRef.leg)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Transport available?</span>${mc('q_transport', item.qbRef && item.qbRef.transport)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">How is this FDH fed?</span>${mc('q_how_fed', item.qbRef && item.qbRef.howFed)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">What does this FDH feed?</span>${mta('q_what_feeds', 'Enter downstream...', item.qbRef && item.qbRef.whatFeeds)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Island — what is missing?</span>${mta('q_island', 'N/A or list...', item.qbRef && item.qbRef.island)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">OFS date change reason</span>${mta('q_ofs_change', 'Yes/No + Reason...', item.qbRef && item.qbRef.ofsChange)}</div>
+                </div>
               </div>
             </div>
             <div class="slide-footer" style="padding:10px 30px; display:flex; flex-direction:row; justify-content:space-between; align-items:center; flex-wrap:nowrap; gap:16px;">
