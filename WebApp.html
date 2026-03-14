@@ -4816,6 +4816,12 @@
       body.dark-mode .deck-module { border-top-color: rgba(255,255,255,0.08); }
       .deck-module:first-child { border-top: none; padding-top: 4px; }
       .deck-module:last-child { padding-bottom: 8px; }
+      .deck-module-grid {
+        display: grid;
+        gap: 12px 24px;
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
       .module-header {
         font-size: 12px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase;
         color: var(--text-main); margin-bottom: 4px; padding-bottom: 8px;
@@ -4824,15 +4830,18 @@
       body.dark-mode .module-header { border-bottom-color: rgba(255,255,255,0.08); }
       .module-header.ph-permitting { color: #a855f7; }
       .deck-module .slide-q-row {
-        display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
+        display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px;
         padding: 6px 0; border-bottom: 1px dashed rgba(15,23,42,0.05);
       }
       body.dark-mode .deck-module .slide-q-row { border-bottom-color: rgba(255,255,255,0.05); }
       .deck-module .slide-q-row:last-child { border-bottom: none; }
       .deck-module .slide-q-nested { margin-left: 14px; }
       .deck-module .slide-q-nested .slide-q-label { font-size: 12px; }
+      .deck-module .slide-q-row.span-full {
+        grid-column: 1 / -1;
+      }
       .slide-q-action {
-        min-width: 200px; max-width: 220px; flex-shrink: 0;
+        min-width: 160px; max-width: 160px; width: 160px; flex-shrink: 0;
         display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px;
       }
       .slide-q-action.checkbox-action {
@@ -4840,7 +4849,7 @@
       }
 
       .slide-input {
-        width: 200px; max-width: 200px; padding: 6px 10px; font-size: 11px; font-family: inherit; font-weight: 700;
+        width: 160px; max-width: 160px; padding: 6px 10px; font-size: 11px; font-family: inherit; font-weight: 700;
         border: 1px solid var(--border); background: rgba(248,250,252,0.5);
         color: var(--color-insight); text-align: right; outline: none; border-radius: 8px;
         box-sizing: border-box;
@@ -4852,7 +4861,7 @@
         border: none; background: transparent;
       }
       .deck-module textarea.slide-input {
-        min-height: 44px; max-height: 80px; line-height: 1.35; text-align: left;
+        min-height: 48px; max-height: 72px; line-height: 1.35; text-align: left;
       }
       .deck-module select.slide-input {
         text-align: left; padding-right: 28px;
@@ -4886,17 +4895,14 @@
         display: flex; flex-direction: column; gap: 10px; box-shadow: 0 10px 30px rgba(15,23,42,0.05);
       }
 
-      @media screen and (max-width: 992px) {
-        .deck-module .slide-q-row {
-          gap: 12px !important;
+      @media screen and (min-width: 850px) {
+        .deck-module-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
-        .slide-q-action {
-          min-width: 180px !important;
-          max-width: 180px !important;
-        }
-        .slide-input {
-          width: 180px !important;
-          max-width: 180px !important;
+      }
+      @media screen and (min-width: 1400px) {
+        .deck-module-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
       }
       @media screen and (max-width: 600px) {
@@ -5204,11 +5210,13 @@
         let deckViewRecord = item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=dr&rid=${item.rid}" target="_blank" class="btn" style="padding:5px 12px; font-size:9px; color:var(--text-main); background:var(--bg); border-color:var(--border); text-decoration:none;">VIEW RECORD</a>` : '';
 
         const mem = pmSessionMemory[item.fdh] || {};
+        const bomPoRef = item.qbRef && item.qbRef.bomPo;
         const yesNo = (bool, trueText='YES', falseText='NO') => {
           if (bool === true) return `<span class="slide-sys-val yes">${trueText}</span>`;
           if (bool === false) return `<span class="slide-sys-val no">${falseText}</span>`;
           return `<span class="slide-sys-val">UNKNOWN</span>`;
         };
+        const readOnlyDeckValue = (value) => `<span class="slide-q-action"><span class="slide-sys-val">${value || 'UNKNOWN'}</span></span>`;
         const mi  = (id, ph, refVal) => {
           const v = mem[id] || '';
           const gap = !v && (!refVal || refVal === '' || refVal === '-');
@@ -5236,6 +5244,13 @@
           const gap = !v && (!refVal || refVal === '' || refVal === '-');
           return `<span class="slide-q-action"><span style="display:inline-flex; align-items:flex-start; gap:8px;">${gapDot(gap)}<textarea class="slide-input" id="${id}" placeholder="${gap ? 'QB: No data yet' : ph}" oninput="persistDeckInput(this)" style="resize:vertical; border-color:${gap ? '#ef4444' : 'var(--border)'}; background:var(--card-bg); color:var(--text-main);">${v}</textarea></span></span>`;
         };
+        const linkedBomPo = (uiId) => {
+          const memVal = mem.q_bom_po;
+          const refChecked = bomPoRef === true || String(bomPoRef).toLowerCase() === 'true';
+          const checked = memVal !== undefined ? (memVal === true || memVal === 'true') : refChecked;
+          const gap = memVal === undefined && (bomPoRef === undefined || bomPoRef === '' || bomPoRef === null);
+          return `<span class="slide-q-action checkbox-action"><span style="display:inline-flex; align-items:center; gap:8px;">${gapDot(gap)}<input type="checkbox" class="slide-input" id="${uiId}" data-deck-linked-key="q_bom_po" ${checked ? 'checked' : ''} onchange="persistDeckInput(this)" style="cursor:pointer; accent-color:var(--accent, #6366f1);"></span></span>`;
+        };
 
         const storedIsXing = mem['q_is_xing'];
         const isXingActive = storedIsXing !== undefined
@@ -5258,35 +5273,45 @@
             </div>
             <div class="deck-modules-body">
               <div class="deck-module module-permitting">
-                <div class="module-header ph-permitting">Compliance</div>
-                <div class="slide-q-row"><span class="slide-q-label">Date sent for permitting</span>${md('q_permit_sent', item.qbRef && item.qbRef.permitSent, 'PERMITTING')}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Permit approval date</span>${md('q_permit_appr', item.qbRef && item.qbRef.permitAppr, 'PERMITTING')}</div>
+                <div class="module-header ph-permitting">COMPLIANCE</div>
+                <div class="deck-module-grid">
+                  <div class="slide-q-row"><span class="slide-q-label">What is the FDH Number?</span>${readOnlyDeckValue(item.fdh)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Was it sent for permitting?</span>${md('q_permit_sent', item.qbRef && item.qbRef.permitSent, 'PERMITTING')}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Has it been permit approved?</span>${md('q_permit_appr', item.qbRef && item.qbRef.permitAppr, 'PERMITTING')}</div>
+                </div>
               </div>
               <div class="deck-module">
-                <div class="module-header">Distribution</div>
-                <div class="slide-q-row"><span class="slide-q-label">CD distributed?</span>${mc('q_cd_dist', item.qbRef && item.qbRef.cdDist)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Splice docs distributed?</span>${mc('q_splice_dist', item.qbRef && item.qbRef.spliceDist)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Strand maps distributed?</span>${mc('q_strand_dist', item.qbRef && item.qbRef.strandDist)}</div>
+                <div class="module-header">DISTRIBUTION</div>
+                <div class="deck-module-grid">
+                  <div class="slide-q-row"><span class="slide-q-label">Has the CD been distributed?</span>${mc('q_cd_dist', item.qbRef && item.qbRef.cdDist)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Have splice docs been distributed?</span>${mc('q_splice_dist', item.qbRef && item.qbRef.spliceDist)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Have strand maps been distributed?</span>${mc('q_strand_dist', item.qbRef && item.qbRef.strandDist)}</div>
+                </div>
               </div>
               <div class="deck-module">
-                <div class="module-header">Special Crossings</div>
-                <div class="slide-q-row"><span class="slide-q-label">Are there special crossings?</span><span class="slide-q-action"><select class="slide-input" id="q_is_xing" onchange="persistDeckInput(this); toggleXingRows(this.value === 'true')" style="border-color:var(--border); background:var(--card-bg); color:var(--text-main); cursor:pointer;"><option value="true" ${isXingActive ? 'selected' : ''}>YES (Action Required)</option><option value="false" ${!isXingActive ? 'selected' : ''}>NO / None Detected</option></select></span></div>
-                <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">DOT paperwork submitted</span>${md('q_cross_sub', item.qbRef && item.qbRef.crossSub, 'PERMITTING')}</div>
-                <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">Special crossing approved</span>${md('q_cross_appr', item.qbRef && item.qbRef.crossAppr, 'PERMITTING')}</div>
-                <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">Approval dist to vendor</span>${md('q_cross_dist', item.qbRef && item.qbRef.crossDist)}</div>
+                <div class="module-header">CROSSINGS</div>
+                <div class="deck-module-grid">
+                  <div class="slide-q-row"><span class="slide-q-label">Are there any special crossings?</span><span class="slide-q-action"><select class="slide-input" id="q_is_xing" onchange="persistDeckInput(this); toggleXingRows(this.value === 'true')" style="border-color:var(--border); background:var(--card-bg); color:var(--text-main); cursor:pointer;"><option value="true" ${isXingActive ? 'selected' : ''}>YES (Action Required)</option><option value="false" ${!isXingActive ? 'selected' : ''}>NO / None Detected</option></select></span></div>
+                  <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">Has the special crossing been submitted?</span>${md('q_cross_sub', item.qbRef && item.qbRef.crossSub, 'PERMITTING')}</div>
+                  <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">Has the special crossing been approved?</span>${md('q_cross_appr', item.qbRef && item.qbRef.crossAppr, 'PERMITTING')}</div>
+                  <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">Has approval been distributed?</span>${md('q_cross_dist', item.qbRef && item.qbRef.crossDist)}</div>
+                </div>
               </div>
               <div class="deck-module">
-                <div class="module-header">Readiness &amp; Architecture</div>
-                <div class="slide-q-row"><span class="slide-q-label">BOM / PO sent?</span>${mc('q_bom_po', item.qbRef && item.qbRef.bomPo)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">SOW signed?</span>${mc('q_sow_sign', item.qbRef && item.qbRef.sowSign)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Active set?</span>${mc('q_active_set', item.qbRef && item.qbRef.activeSet)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Active has power?</span>${mc('q_active_pwr', item.qbRef && item.qbRef.activePwr)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Leg ID</span>${mi('q_leg', 'Enter leg ID...', item.qbRef && item.qbRef.leg)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Transport available?</span>${mc('q_transport', item.qbRef && item.qbRef.transport)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">How is this FDH fed?</span>${mc('q_how_fed', item.qbRef && item.qbRef.howFed)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">What does this FDH feed?</span>${mta('q_what_feeds', 'Enter downstream...', item.qbRef && item.qbRef.whatFeeds)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Island — what is missing?</span>${mta('q_island', 'N/A or list...', item.qbRef && item.qbRef.island)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">OFS date change reason</span>${mta('q_ofs_change', 'Yes/No + Reason...', item.qbRef && item.qbRef.ofsChange)}</div>
+                <div class="module-header">READINESS</div>
+                <div class="deck-module-grid">
+                  <div class="slide-q-row"><span class="slide-q-label">Was the BOM sent?</span>${linkedBomPo('q_bom_po_bom')}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Was the PO number sent?</span>${linkedBomPo('q_bom_po_po')}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Has the SOW been signed?</span>${mc('q_sow_sign', item.qbRef && item.qbRef.sowSign)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Has the active been set?</span>${mc('q_active_set', item.qbRef && item.qbRef.activeSet)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Does the active have power?</span>${mc('q_active_pwr', item.qbRef && item.qbRef.activePwr)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">What leg is this FDH on?</span>${mi('q_leg', 'Enter leg ID...', item.qbRef && item.qbRef.leg)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">Is transport readily available?</span>${mc('q_transport', item.qbRef && item.qbRef.transport)}</div>
+                  <div class="slide-q-row"><span class="slide-q-label">How is this FDH being fed?</span>${mi('q_how_fed', 'Enter feed path...', item.qbRef && item.qbRef.howFed)}</div>
+                  <div class="slide-q-row span-full"><span class="slide-q-label">What does this FDH feed?</span>${mta('q_what_feeds', 'Enter downstream...', item.qbRef && item.qbRef.whatFeeds)}</div>
+                  <div class="slide-q-row span-full"><span class="slide-q-label">If FDH is an island, what is missing?</span>${mta('q_island', 'N/A or list...', item.qbRef && item.qbRef.island)}</div>
+                  <div class="slide-q-row span-full"><span class="slide-q-label">Did the OFS date change?</span>${mta('q_ofs_change', 'Yes/No + Reason...', item.qbRef && item.qbRef.ofsChange)}</div>
+                </div>
               </div>
             </div>
             <div class="slide-footer" style="padding:10px 30px; display:flex; flex-direction:row; justify-content:space-between; align-items:center; flex-wrap:nowrap; gap:16px;">
@@ -5386,6 +5411,10 @@
         if (!item) return;
         if (!pmSessionMemory[item.fdh]) pmSessionMemory[item.fdh] = {};
         document.querySelectorAll('.slide-input').forEach(inp => {
+          if (inp.dataset.deckLinkedKey === 'q_bom_po') {
+            pmSessionMemory[item.fdh].q_bom_po = inp.checked;
+            return;
+          }
           pmSessionMemory[item.fdh][inp.id] = inp.type === 'checkbox' ? inp.checked : inp.value;
         });
         syncDeckNote();
@@ -5395,7 +5424,24 @@
         const item = ensureDeckIndex();
         if (!item || !inputEl) return;
         if (!pmSessionMemory[item.fdh]) pmSessionMemory[item.fdh] = {};
+        if (inputEl.dataset.deckLinkedKey === 'q_bom_po') {
+          syncLinkedDeckCheckboxes(inputEl);
+          return;
+        }
         pmSessionMemory[item.fdh][inputEl.id] = inputEl.type === 'checkbox' ? inputEl.checked : inputEl.value;
+        const saveBtn = getEl('dock-btn-save');
+        if (saveBtn) saveBtn.classList.remove('collapsed');
+      }
+
+      function syncLinkedDeckCheckboxes(inputEl) {
+        const item = ensureDeckIndex();
+        if (!item || !inputEl) return;
+        if (!pmSessionMemory[item.fdh]) pmSessionMemory[item.fdh] = {};
+        const checked = !!inputEl.checked;
+        document.querySelectorAll('[data-deck-linked-key="q_bom_po"]').forEach(el => {
+          el.checked = checked;
+        });
+        pmSessionMemory[item.fdh].q_bom_po = checked;
         const saveBtn = getEl('dock-btn-save');
         if (saveBtn) saveBtn.classList.remove('collapsed');
       }
