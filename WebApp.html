@@ -1634,6 +1634,7 @@
             <div class="dock-zone collapsed" id="dock-deck-actions-zone">
                 <div class="dock-divider"></div>
                 <button class="btn hover-trigger" onclick="navDeck(1)" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Skip (Next)</button>
+                <button class="btn hover-trigger" id="dock-btn-edit-mode" onclick="toggleDeckEditMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Edit Answers</button>
                 <button class="btn hover-trigger" id="dock-btn-stage" onclick="toggleStageCurrentDeckItem()" style="background:#a855f7; color:#fff; border-color:#9333ea;">Stage Project</button>
                 <button class="btn hover-trigger" onclick="exportDeckReport()" id="btn-export-deck" style="background:#16a34a; color:#fff; border-color:#15803d;">Copy Report</button>
                 <button class="btn collapsed hover-trigger" id="dock-btn-save" onclick="saveDeckToSheet(this)" style="background:#3b82f6; color:#fff; border-color:#2563eb;">Save to Sheet</button>
@@ -4828,7 +4829,7 @@
       @media (max-width: 900px) { .grid-density-date, .grid-density-check { grid-template-columns: 1fr !important; } }
 
       /* DUAL MODE TOGGLE */
-      .deck-display-mode { display: flex; flex-direction: column; gap: 16px; padding: 10px 20px; }
+      .deck-display-mode { display: flex; flex-direction: column; gap: 16px; padding: 24px 40px; }
       .deck-edit-mode { display: none; flex-direction: column; }
       body.deck-is-editing .deck-display-mode { display: none; }
       body.deck-is-editing .deck-edit-mode { display: flex; }
@@ -4841,21 +4842,17 @@
       body.deck-is-editing .btn-mode-toggle { background: #3b82f6; color: #fff; border-color: #2563eb; }
 
       /* DISPLAY MODE (POWERPOINT LOOK) */
-      .slide-ppt-grid {
-        display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 40px; align-items: start;
+      .slide-ppt-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 40px; align-items: start; }
+      .slide-ppt-row { 
+        display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; 
+        padding-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,0.04);
       }
-      .slide-ppt-row {
-        display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
-        font-size: 12px; line-height: 1.4; color: var(--text-main);
-      }
-      .slide-ppt-q { flex: 1; font-weight: 500; }
-      .slide-ppt-q::before { content: "•"; margin-right: 6px; font-weight: 900; }
-      .slide-ppt-ans {
-        font-weight: 900; color: #3b82f6; text-align: right; max-width: 140px;
-      }
+      .slide-ppt-q { flex: 1; font-size: 13px; font-weight: 600; color: var(--text-main); line-height: 1.4; }
+      .slide-ppt-q::before { content: "•"; margin-right: 8px; font-weight: 900; color: var(--text-muted); }
+      .slide-ppt-ans { font-size: 13px; font-weight: 900; color: #3b82f6; text-align: right; max-width: 160px; line-height: 1.4; }
       .slide-ppt-ans.gap { color: #ef4444; font-style: italic; }
-      .slide-ppt-sub { margin-left: 16px; font-size: 11px; color: var(--text-muted); }
-      .slide-ppt-sub::before { content: "◦"; margin-right: 6px; }
+      .slide-ppt-sub { margin-left: 20px; font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+      .slide-ppt-sub::before { content: "◦"; margin-right: 8px; }
 
       /* AIR GAP / STAGED INDICATORS */
       .indicator-staged {
@@ -5207,6 +5204,13 @@
       function toggleDeckEditMode() {
         isDeckEditing = !isDeckEditing;
         document.body.classList.toggle('deck-is-editing', isDeckEditing);
+        const btn = document.getElementById('dock-btn-edit-mode');
+        if (btn) {
+          btn.innerHTML = isDeckEditing ? 'View Slide' : 'Edit Answers';
+          btn.style.background = isDeckEditing ? '#3b82f6' : 'var(--card-bg)';
+          btn.style.color = isDeckEditing ? '#fff' : 'var(--text-main)';
+          btn.style.borderColor = isDeckEditing ? '#2563eb' : 'var(--border)';
+        }
         renderDeckStage();
       }
 
@@ -5333,17 +5337,22 @@
         };
 
         stageCard.innerHTML = `
-            <div class="slide-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px 24px; background:var(--bg); border-bottom:1px solid var(--border);">
-              <div style="display:flex; align-items:center; gap:16px;">
-                <div style="font-size:24px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
-                <div style="font-size:12px; color:var(--text-muted);">${item.city} &bull; ${item.vendor}</div>
+            <div class="slide-header" style="display:flex; justify-content:space-between; align-items:center; padding:20px 30px; background:var(--bg); border-bottom:1px solid var(--border);">
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <div style="font-size:28px; font-weight:900; color:var(--text-main); letter-spacing:-1px; line-height:1;">${item.fdh}</div>
+                  <div style="font-size:10px; font-weight:900; background:var(--card-bg); border:1px solid var(--border); padding:4px 10px; border-radius:12px; text-transform:uppercase; color:var(--text-main);">${item.stage} | ${item.status}</div>
+                  ${isXingActive ? `<div style="background:#171717; color:#facc15; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:900; border:1px solid #facc15; box-shadow:0 2px 4px rgba(0,0,0,0.1);">X-ING</div>` : ''}
+                </div>
+                <div style="font-size:12px; font-weight:700; color:var(--text-muted);">${item.city} &bull; ${item.vendor}</div>
               </div>
-              <button id="btn-deck-edit" class="btn-mode-toggle" onclick="toggleDeckEditMode()">${isDeckEditing ? '👁️ View Slide' : '✏️ Edit Answers'}</button>
+              <div>
+                ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={'3'.EX.'${item.rid}'}" target="_blank" class="hover-trigger" style="text-decoration:none; font-size:10px; font-weight:900; color:var(--text-muted); background:var(--card-bg); padding:8px 14px; border-radius:12px; border:1px solid var(--border); box-shadow:0 2px 6px rgba(15,23,42,0.06); display:inline-flex; align-items:center; transition:all 0.2s;">⚙ EDIT IN ENGINE</a>` : ''}
+              </div>
             </div>
 
             <div style="flex-grow:1; overflow-y:auto;">
               <div class="deck-display-mode">
-                <h2 style="color:#6b21a8; font-size:18px; margin-bottom:16px;">Questions Project Managers Must Know Answers to:</h2>
                 <div class="slide-ppt-grid">
                   <div style="display:flex; flex-direction:column; gap:10px;">
                     ${pptRow('Was it sent for permitting?', getVal('q_permit_sent', item.qbRef?.permitSent, 'date'))}
@@ -5441,6 +5450,13 @@
             </div>
         `;
         document.body.classList.toggle('deck-is-editing', isDeckEditing);
+        const dockBtn = document.getElementById('dock-btn-edit-mode');
+        if (dockBtn) {
+          dockBtn.innerHTML = isDeckEditing ? 'View Slide' : 'Edit Answers';
+          dockBtn.style.background = isDeckEditing ? '#3b82f6' : 'var(--card-bg)';
+          dockBtn.style.color = isDeckEditing ? '#fff' : 'var(--text-main)';
+          dockBtn.style.borderColor = isDeckEditing ? '#2563eb' : 'var(--border)';
+        }
 
         // Right pane: diagnostics + PM note + action buttons
         const actionPanel = getEl('deck-action-panel');
