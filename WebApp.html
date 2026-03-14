@@ -1275,10 +1275,10 @@
 
           .slide-hdr-id { font-size: 24px !important; }
           .deck-stage .slide-q-label { font-size: 10px !important; }
-          .deck-stage .slide-input { width: 180px !important; max-width: 180px !important; }
+          .deck-stage .slide-input { width: 150px !important; max-width: 150px !important; }
           .deck-modules-body { padding: 12px 16px !important; gap: 16px !important; }
-          .deck-module .slide-q-row { gap: 14px !important; }
-          .deck-stage .slide-q-action { min-width: 180px !important; max-width: 180px !important; }
+          .deck-module .slide-q-row { gap: 12px !important; }
+          .deck-stage .slide-input-wrap { width: 180px !important; }
           .deck-stage .slide-q-action.checkbox-action { min-width: 40px !important; max-width: 60px !important; }
 
           .pane-content {
@@ -4803,33 +4803,58 @@
 
       /* DECK MODULE GROUPING */
       .deck-module-grid {
-        flex-grow: 1; display: grid; grid-template-columns: 1fr;
-        gap: 0 24px; padding: 16px 24px; overflow-y: auto;
+        flex-grow: 1; display: flex; flex-direction: column;
+        gap: 0; padding: 16px 24px; overflow-y: auto;
       }
       .deck-module {
-        display: flex; flex-direction: column; gap: 10px;
-        padding: 16px 0 18px; border-top: 1px solid rgba(15,23,42,0.08);
+        width: 100%;
+        margin-bottom: 32px;
       }
-      body.dark-mode .deck-module { border-top-color: rgba(255,255,255,0.08); }
-      .deck-module:first-child { border-top: none; padding-top: 4px; }
-      .deck-module:last-child { padding-bottom: 8px; }
+      .deck-module:last-child { margin-bottom: 0; }
       .module-header {
-        font-size: 12px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase;
-        color: var(--text-main); margin-bottom: 4px; padding-bottom: 8px;
-        border-bottom: 1px solid rgba(15,23,42,0.08);
+        font-size: 11px;
+        font-weight: 900;
+        color: var(--text-muted);
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        padding-bottom: 8px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--border);
       }
-      body.dark-mode .module-header { border-bottom-color: rgba(255,255,255,0.08); }
       .module-header.ph-permitting { color: #a855f7; }
-      .deck-module .slide-q-row {
-        display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px;
-        padding: 6px 0; border-bottom: 1px dashed rgba(15,23,42,0.05);
+      .section-question-grid {
+        display: grid;
+        gap: 16px 40px;
+        grid-template-columns: 1fr;
       }
-      body.dark-mode .deck-module .slide-q-row { border-bottom-color: rgba(255,255,255,0.05); }
-      .deck-module .slide-q-row:last-child { border-bottom: none; }
+      .deck-module .slide-q-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 4px 0;
+        min-height: 40px;
+        border-bottom: none;
+      }
       .deck-module .slide-q-nested { margin-left: 14px; }
       .deck-module .slide-q-nested .slide-q-label { font-size: 12px; }
+      .slide-q-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-main);
+        line-height: 1.3;
+        flex: 1;
+        min-width: 0;
+      }
+      .slide-input-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        width: 180px;
+        flex-shrink: 0;
+      }
       .slide-q-action {
-        min-width: 160px; max-width: 160px; flex-shrink: 0;
         display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px;
       }
       .slide-q-action.checkbox-action {
@@ -4837,7 +4862,7 @@
       }
 
       .slide-input {
-        width: 160px; max-width: 160px; padding: 6px 10px; font-size: 11px; font-family: inherit; font-weight: 700;
+        width: 150px !important; max-width: 150px !important; padding: 6px 10px; font-size: 11px; font-family: inherit; font-weight: 700;
         border: 1px solid var(--border); background: rgba(248,250,252,0.5);
         color: var(--color-insight); text-align: right; outline: none; border-radius: 8px;
         box-sizing: border-box;
@@ -4849,10 +4874,15 @@
         border: none; background: transparent;
       }
       .deck-module textarea.slide-input {
-        min-height: 48px; max-height: 72px; line-height: 1.35; text-align: left;
+        width: 100% !important; max-width: 100% !important; min-height: 50px; max-height: 72px; line-height: 1.35; text-align: left;
       }
       .deck-module select.slide-input {
         text-align: left; padding-right: 28px;
+      }
+      .wide-cell { grid-column: 1 / -1; align-items: flex-start !important; }
+      .wide-cell .slide-input-wrap {
+        width: min(100%, 520px);
+        flex: 1;
       }
       .slide-section-divider { border: none; border-top: 1px dashed var(--border); margin: 8px 0; opacity: 0.5; }
       .slide-inline-vendor { font-size: 10px; font-style: italic; line-height: 1.4; color: var(--text-main); padding: 6px 10px; border: 1.5px solid #fde047; border-radius: 8px 8px 8px 2px; background: rgba(255,251,235,0.7); }
@@ -4884,21 +4914,23 @@
       }
 
       @media screen and (max-width: 992px) {
-        .deck-module .slide-q-row { gap: 8px !important; }
-        .slide-q-action { min-width: 140px !important; max-width: 140px !important; }
-        .slide-input { width: 140px !important; max-width: 140px !important; }
+        .deck-module-grid { padding: 12px 16px !important; }
+        .deck-module .slide-q-row { gap: 10px !important; }
+        .slide-input-wrap { width: 180px !important; }
       }
       @media screen and (max-width: 600px) {
         .deck-module-grid { padding: 12px 14px !important; }
-        .deck-module .slide-q-row { grid-template-columns: 1fr !important; }
+        .deck-module .slide-q-row { flex-direction: column !important; align-items: stretch !important; }
+        .slide-q-label { width: 100%; }
+        .slide-input-wrap { width: 100% !important; }
         .slide-q-action { min-width: unset !important; max-width: unset !important; width: 100% !important; }
         .slide-input { width: 100% !important; max-width: 100% !important; }
       }
-      @media (min-width: 850px) {
-        .deck-module-grid { grid-template-columns: repeat(2, 1fr); }
+      @media (min-width: 1000px) {
+        .section-question-grid { grid-template-columns: repeat(2, 1fr); }
       }
-      @media (min-width: 1400px) {
-        .deck-module-grid { grid-template-columns: repeat(3, 1fr); }
+      @media (min-width: 1450px) {
+        .section-question-grid { grid-template-columns: repeat(3, 1fr); }
       }
 
     </style>
@@ -5191,10 +5223,11 @@
           if (bool === false) return `<span class="slide-sys-val no">${falseText}</span>`;
           return `<span class="slide-sys-val">UNKNOWN</span>`;
         };
+        const actionWrap = (content, extraClass='') => `<span class="slide-input-wrap${extraClass ? ` ${extraClass}` : ''}">${content}</span>`;
         const mi  = (id, ph, refVal) => {
           const v = mem[id] || '';
           const gap = !v && (!refVal || refVal === '' || refVal === '-');
-          return `<span class="slide-q-action"><span style="display:inline-flex; align-items:center; gap:8px;">${gapDot(gap)}<input type="text" class="slide-input" id="${id}" placeholder="${gap ? 'QB: No data yet' : ph}" autocomplete="off" value="${v}" oninput="persistDeckInput(this)" style="border-color:${gap ? '#ef4444' : 'var(--border)'}; background:var(--card-bg); color:var(--text-main);"></span></span>`;
+          return actionWrap(`<span class="slide-q-action">${gapDot(gap)}<input type="text" class="slide-input" id="${id}" placeholder="${gap ? 'QB: No data yet' : ph}" autocomplete="off" value="${v}" oninput="persistDeckInput(this)" style="border-color:${gap ? '#ef4444' : 'var(--border)'}; background:var(--card-bg); color:var(--text-main);"></span>`);
         };
         const gapDot = (show, color='#ef4444') => show ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-right:5px;flex-shrink:0;vertical-align:middle;"></span>` : '';
         const deptBadge = (show, dept) => show ? `<span style="display:inline-block;font-size:9px;font-weight:800;color:#a855f7;background:rgba(168,85,247,0.15);padding:1px 6px;border-radius:4px;margin-left:5px;white-space:nowrap;letter-spacing:0.3px;vertical-align:middle;">WAITING ON ${dept}</span>` : '';
@@ -5204,20 +5237,21 @@
           const locked = dept !== '';
           const dotColor = locked ? '#a855f7' : '#ef4444';
           const borderColor = gap ? dotColor : 'var(--border)';
-          return `<span class="slide-q-action"><span style="display:inline-flex; align-items:center; gap:8px;">${gapDot(gap, dotColor)}<input type="date" class="slide-input" id="${id}" value="${v}" ${locked ? 'disabled' : 'onchange="persistDeckInput(this)"'} style="border-color:${borderColor}; background:var(--card-bg); color:${locked ? 'var(--text-muted)' : 'var(--text-main)'}; cursor:${locked ? 'not-allowed' : 'pointer'}; opacity:${locked ? '0.7' : '1'};">${deptBadge(gap && locked, dept)}</span></span>`;
+          return actionWrap(`<span class="slide-q-action">${gapDot(gap, dotColor)}<input type="date" class="slide-input" id="${id}" value="${v}" ${locked ? 'disabled' : 'onchange="persistDeckInput(this)"'} style="border-color:${borderColor}; background:var(--card-bg); color:${locked ? 'var(--text-muted)' : 'var(--text-main)'}; cursor:${locked ? 'not-allowed' : 'pointer'}; opacity:${locked ? '0.7' : '1'};">${deptBadge(gap && locked, dept)}</span>`);
         };
         const mc  = (id, refVal) => {
           const memVal = mem[id];
           const refChecked = refVal === true || String(refVal).toLowerCase() === 'true';
           const checked = memVal !== undefined ? (memVal === true || memVal === 'true') : refChecked;
           const gap = memVal === undefined && (refVal === undefined || refVal === '' || refVal === null);
-          return `<span class="slide-q-action checkbox-action"><span style="display:inline-flex; align-items:center; gap:8px;">${gapDot(gap)}<input type="checkbox" class="slide-input" id="${id}" ${checked ? 'checked' : ''} onchange="persistDeckInput(this)" style="cursor:pointer; accent-color:var(--accent, #6366f1);"></span></span>`;
+          return actionWrap(`<span class="slide-q-action checkbox-action">${gapDot(gap)}<input type="checkbox" class="slide-input" id="${id}" ${checked ? 'checked' : ''} onchange="persistDeckInput(this)" style="cursor:pointer; accent-color:var(--accent, #6366f1);"></span>`);
         };
         const mta = (id, ph, refVal) => {
           const v = mem[id] || '';
           const gap = !v && (!refVal || refVal === '' || refVal === '-');
-          return `<span class="slide-q-action"><span style="display:inline-flex; align-items:flex-start; gap:8px;">${gapDot(gap)}<textarea class="slide-input" id="${id}" placeholder="${gap ? 'QB: No data yet' : ph}" oninput="persistDeckInput(this)" style="resize:vertical; border-color:${gap ? '#ef4444' : 'var(--border)'}; background:var(--card-bg); color:var(--text-main);">${v}</textarea></span></span>`;
+          return actionWrap(`<span class="slide-q-action" style="align-items:flex-start;">${gapDot(gap)}<textarea class="slide-input" id="${id}" placeholder="${gap ? 'QB: No data yet' : ph}" oninput="persistDeckInput(this)" style="resize:vertical; border-color:${gap ? '#ef4444' : 'var(--border)'}; background:var(--card-bg); color:var(--text-main);">${v}</textarea></span>`);
         };
+        const row = (label, control, classes='') => `<div class="slide-q-row${classes ? ` ${classes}` : ''}"><span class="slide-q-label">${label}</span>${control}</div>`;
 
         const storedIsXing = mem['q_is_xing'];
         const isXingActive = storedIsXing !== undefined
@@ -5241,34 +5275,42 @@
             <div class="deck-module-grid">
               <div class="deck-module module-permitting">
                 <div class="module-header ph-permitting">Compliance</div>
-                <div class="slide-q-row"><span class="slide-q-label">Date sent for permitting</span>${md('q_permit_sent', item.qbRef && item.qbRef.permitSent, 'PERMITTING')}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Permit approval date</span>${md('q_permit_appr', item.qbRef && item.qbRef.permitAppr, 'PERMITTING')}</div>
+                <div class="section-question-grid">
+                  ${row('Date sent for permitting', md('q_permit_sent', item.qbRef && item.qbRef.permitSent, 'PERMITTING'))}
+                  ${row('Permit approval date', md('q_permit_appr', item.qbRef && item.qbRef.permitAppr, 'PERMITTING'))}
+                </div>
               </div>
               <div class="deck-module">
                 <div class="module-header">Distribution</div>
-                <div class="slide-q-row"><span class="slide-q-label">Has the CD been distributed?</span>${mc('q_cd_dist', item.qbRef && item.qbRef.cdDist)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Have splice docs been distributed?</span>${mc('q_splice_dist', item.qbRef && item.qbRef.spliceDist)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Have strand maps been distributed?</span>${mc('q_strand_dist', item.qbRef && item.qbRef.strandDist)}</div>
+                <div class="section-question-grid">
+                  ${row('Has the CD been distributed?', mc('q_cd_dist', item.qbRef && item.qbRef.cdDist))}
+                  ${row('Have splice docs been distributed?', mc('q_splice_dist', item.qbRef && item.qbRef.spliceDist))}
+                  ${row('Have strand maps been distributed?', mc('q_strand_dist', item.qbRef && item.qbRef.strandDist))}
+                </div>
               </div>
               <div class="deck-module">
                 <div class="module-header">Special Crossings</div>
-                <div class="slide-q-row"><span class="slide-q-label">Are there special crossings?</span><span class="slide-q-action"><select class="slide-input" id="q_is_xing" onchange="persistDeckInput(this); toggleXingRows(this.value === 'true')" style="border-color:var(--border); background:var(--card-bg); color:var(--text-main); cursor:pointer;"><option value="true" ${isXingActive ? 'selected' : ''}>YES (Action Required)</option><option value="false" ${!isXingActive ? 'selected' : ''}>NO / None Detected</option></select></span></div>
-                <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">DOT paperwork submitted</span>${md('q_cross_sub', item.qbRef && item.qbRef.crossSub, 'PERMITTING')}</div>
-                <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">Special crossing approved</span>${md('q_cross_appr', item.qbRef && item.qbRef.crossAppr, 'PERMITTING')}</div>
-                <div class="slide-q-row slide-q-nested xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><span class="slide-q-label">Approval dist to vendor</span>${md('q_cross_dist', item.qbRef && item.qbRef.crossDist)}</div>
+                <div class="section-question-grid">
+                  ${row('Are there special crossings?', actionWrap(`<span class="slide-q-action"><select class="slide-input" id="q_is_xing" onchange="persistDeckInput(this); toggleXingRows(this.value === 'true')" style="border-color:var(--border); background:var(--card-bg); color:var(--text-main); cursor:pointer;"><option value="true" ${isXingActive ? 'selected' : ''}>YES (Action Required)</option><option value="false" ${!isXingActive ? 'selected' : ''}>NO / None Detected</option></select></span>`))}
+                  ${row('DOT paperwork submitted', md('q_cross_sub', item.qbRef && item.qbRef.crossSub, 'PERMITTING'), 'slide-q-nested xing-nested-row')}
+                  ${row('Special crossing approved', md('q_cross_appr', item.qbRef && item.qbRef.crossAppr, 'PERMITTING'), 'slide-q-nested xing-nested-row')}
+                  ${row('Approval dist to vendor', md('q_cross_dist', item.qbRef && item.qbRef.crossDist, 'PERMITTING'), 'slide-q-nested xing-nested-row')}
+                </div>
               </div>
               <div class="deck-module">
                 <div class="module-header">Readiness &amp; Architecture</div>
-                <div class="slide-q-row"><span class="slide-q-label">BOM &amp; PO sent?</span>${mc('q_bom_po', item.qbRef && item.qbRef.bomPo)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Has the SOW been signed?</span>${mc('q_sow_sign', item.qbRef && item.qbRef.sowSign)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Has the active been set?</span>${mc('q_active_set', item.qbRef && item.qbRef.activeSet)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Does the active have power?</span>${mc('q_active_pwr', item.qbRef && item.qbRef.activePwr)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">What leg is this FDH on?</span>${mi('q_leg', 'Enter leg ID...', item.qbRef && item.qbRef.leg)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Is transport readily available?</span>${mc('q_transport', item.qbRef && item.qbRef.transport)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">How is this FDH being fed?</span>${mc('q_how_fed', item.qbRef && item.qbRef.howFed)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">What does this FDH feed?</span>${mta('q_what_feeds', 'Enter downstream...', item.qbRef && item.qbRef.whatFeeds)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">If FDH is an island, what is missing?</span>${mta('q_island', 'N/A or list...', item.qbRef && item.qbRef.island)}</div>
-                <div class="slide-q-row"><span class="slide-q-label">Did the OFS date change?</span>${mta('q_ofs_change', 'Yes/No + Reason...', item.qbRef && item.qbRef.ofsChange)}</div>
+                <div class="section-question-grid">
+                  ${row('BOM &amp; PO sent?', mc('q_bom_po', item.qbRef && item.qbRef.bomPo))}
+                  ${row('Has the SOW been signed?', mc('q_sow_sign', item.qbRef && item.qbRef.sowSign))}
+                  ${row('Has the active been set?', mc('q_active_set', item.qbRef && item.qbRef.activeSet))}
+                  ${row('Does the active have power?', mc('q_active_pwr', item.qbRef && item.qbRef.activePwr))}
+                  ${row('What leg is this FDH on?', mi('q_leg', 'Enter leg ID...', item.qbRef && item.qbRef.leg))}
+                  ${row('Is transport readily available?', mc('q_transport', item.qbRef && item.qbRef.transport))}
+                  ${row('How is this FDH being fed?', mc('q_how_fed', item.qbRef && item.qbRef.howFed))}
+                  ${row('What does this FDH feed?', mta('q_what_feeds', 'Enter downstream...', item.qbRef && item.qbRef.whatFeeds), 'wide-cell')}
+                  ${row('If FDH is an island, what is missing?', mta('q_island', 'N/A or list...', item.qbRef && item.qbRef.island), 'wide-cell')}
+                  ${row('Did the OFS date change?', mta('q_ofs_change', 'Yes/No + Reason...', item.qbRef && item.qbRef.ofsChange), 'wide-cell')}
+                </div>
               </div>
             </div>
             <div class="slide-footer" style="padding:10px 30px; display:flex; flex-direction:row; justify-content:space-between; align-items:center; flex-wrap:nowrap; gap:16px;">
