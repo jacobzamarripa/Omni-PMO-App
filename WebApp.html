@@ -5022,10 +5022,7 @@
         if (!card) return;
         const isDark = card.classList.toggle('slide-dark-mode');
         const btn = document.getElementById('dock-btn-slide-theme');
-        if (btn) {
-          btn.innerHTML = isDark ? _SUN_SVG : _MOON_SVG;
-          btn.classList.toggle('active', isDark);
-        }
+        if (btn) btn.innerHTML = isDark ? _SUN_SVG : _MOON_SVG;
       }
 
       function toggleDeckPresentationMode() {
@@ -5187,11 +5184,11 @@
             <div style="flex-grow:1; overflow-y:auto; overflow-x:hidden;" id="deck-scroll-body">
                 <div class="deck-display-mode">
                     <div class="slide-ppt-grid">
-                        <div style="display:flex; flex-direction:column; gap:32px;">
+                        <div style="display:flex; flex-direction:column; gap:28px;">
                             <div class="slide-ppt-quadrant">
                                 <div class="slide-ppt-quad-header">Compliance</div>
                                 ${pptRow('Was it sent for permitting?', getVal('q_permit_sent', item.qbRef?.permitSent, 'date'))}
-                                ${pptRow('Has it been permit approved? If so, date approved?', getVal('q_permit_appr', item.qbRef?.permitAppr, 'date'))}
+                                ${pptRow('Has it been permit approved? Yes or No. If so, date approved?', getVal('q_permit_appr', item.qbRef?.permitAppr, 'date'))}
                             </div>
                             <div class="slide-ppt-quadrant">
                                 <div class="slide-ppt-quad-header">Distribution</div>
@@ -5203,20 +5200,26 @@
                                 ${pptRow('Has the SOW been signed?', getVal('q_sow_sign', item.qbRef?.sowSign, 'bool'))}
                             </div>
                         </div>
-                        <div style="display:flex; flex-direction:column; gap:32px;">
+                        <div style="display:flex; flex-direction:column; gap:28px;">
                             <div class="slide-ppt-quadrant">
                                 <div class="slide-ppt-quad-header">Special Crossings</div>
                                 ${pptRow('Are there any special crossings?', getVal('q_is_xing', isXingActive, 'bool'))}
-                                ${pptRow('Confirm engineers have proper paperwork for DOT crossings', '', !isXingActive, true)}
-                                ${pptRow('Has approval been distributed?', getVal('q_cross_dist', item.qbRef?.crossDist, 'date'), !isXingActive, true)}
+                                ${pptRow('Confirm with engineers that proper paperwork is ready for DOT crossings', '', !isXingActive, true, 'sub-q')}
+                                ${pptRow('Has the special crossing been submitted?', getVal('q_cross_sub', item.qbRef?.crossSub, 'date'), !isXingActive, true, 'sub-q')}
+                                ${pptRow('Has the special crossing been approved?', getVal('q_cross_appr', item.qbRef?.crossAppr, 'date'), !isXingActive, true, 'sub-q')}
+                                ${pptRow('Has the special crossing approval been distributed?', getVal('q_cross_dist', item.qbRef?.crossDist, 'date'), !isXingActive, true, 'sub-q')}
                             </div>
                             <div class="slide-ppt-quadrant">
                                 <div class="slide-ppt-quad-header">Readiness &amp; Architecture</div>
                                 ${pptRow('Has the active been set?', getVal('q_active_set', item.qbRef?.activeSet, 'bool'))}
+                                ${pptRow('Does the active have power?', getVal('q_active_pwr', item.qbRef?.activePwr, 'bool'))}
                                 ${pptRow('What leg is this FDH on?', getVal('q_leg', item.qbRef?.leg, 'text'))}
+                                ${pptRow('Is transport readily available for this active?', getVal('q_transport', item.qbRef?.transport, 'bool'))}
                                 ${pptRow('How is this FDH being fed?', getVal('q_how_fed', item.qbRef?.howFed, 'text'))}
+                                ${pptRow('What does this FDH feed?', getVal('q_what_feeds', item.qbRef?.whatFeeds, 'text'))}
+                                ${pptRow('If the FDH is an island, what is all missing?', getVal('q_island', item.qbRef?.island, 'text'))}
                                 ${pptRow('Did the OFS date change?', getVal('q_ofs_change', isOfsChangeActive, 'bool'))}
-                                ${pptRow('If so, why?', getVal('q_ofs_reason', item.qbRef?.ofsReason, 'text'), !isOfsChangeActive, true, 'ofs-reason-row')}
+                                ${pptRow('If so, why?', getVal('q_ofs_reason', item.qbRef?.ofsReason, 'text'), !isOfsChangeActive, true, 'sub-q')}
                             </div>
                         </div>
                     </div>
@@ -5591,7 +5594,7 @@ ${item.comment || 'No notes provided.'}
       /* DUAL MODE TOGGLE */
       .deck-display-mode { display: flex; flex-direction: column; padding: 24px 32px; height: 100%; box-sizing: border-box; }
       .deck-edit-mode { display: none; flex-direction: column; }
-      /* ── CINEMA PRO PRESENTATION ── */
+      /* ── CINEMA PRO: RATIO-LOCKED PRESENTATION ── */
       body.deck-presentation-active #deck-stage {
         position: fixed; inset: 0; z-index: 99998;
         background: rgba(9, 9, 11, 0.98) !important;
@@ -5600,19 +5603,20 @@ ${item.comment || 'No notes provided.'}
         display: flex !important; justify-content: center; align-items: center;
       }
       #deck-stage-card {
-        transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-                    background 0.3s ease, color 0.3s ease, box-shadow 0.5s ease;
+        transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
         transform-origin: center center;
         aspect-ratio: 16 / 9 !important;
+        width: 100%; max-width: 1100px; height: auto;
       }
       body.deck-presentation-active #deck-stage-card {
-        transform: scale(1.08); max-width: 94vw !important; max-height: 88vh !important;
+        width: 94vw !important; max-height: 84vh !important; max-width: none !important;
+        transform: scale(1.05);
         box-shadow: 0 60px 120px rgba(0,0,0,0.9);
       }
-      /* Dynamic Font Scaling */
-      body.deck-presentation-active .slide-hdr-id { font-size: 34px !important; }
-      body.deck-presentation-active .slide-ppt-q { font-size: 15px !important; }
-      body.deck-presentation-active .slide-ppt-ans { font-size: 15px !important; }
+      /* Professional Font Scaling */
+      body.deck-presentation-active .slide-hdr-id { font-size: 32px !important; }
+      body.deck-presentation-active .slide-ppt-q { font-size: 14.5px !important; }
+      body.deck-presentation-active .slide-ppt-ans { font-size: 14.5px !important; }
       body.deck-presentation-active .slide-ppt-quad-header { font-size: 12px !important; }
       /* Cinema Dock — dark treatment */
       body.deck-presentation-active .filter-strip {
