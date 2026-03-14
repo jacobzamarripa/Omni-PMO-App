@@ -1634,6 +1634,7 @@
             <div class="dock-zone collapsed" id="dock-deck-actions-zone">
                 <div class="dock-divider"></div>
                 <button class="btn hover-trigger" id="dock-btn-presentation" onclick="toggleDeckPresentationMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Theater Mode</button>
+                <button class="btn hover-trigger" id="dock-btn-slide-theme" onclick="toggleSlideSpecificTheme()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">☀️ Light Slide</button>
                 <button class="btn hover-trigger" onclick="navDeck(1)" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Skip (Next)</button>
                 <button class="btn hover-trigger" id="dock-btn-edit-mode" onclick="toggleDeckEditMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Edit Answers</button>
                 <button class="btn hover-trigger" id="dock-btn-stage" onclick="toggleStageCurrentDeckItem()" style="background:#a855f7; color:#fff; border-color:#9333ea;">Stage Project</button>
@@ -5016,6 +5017,15 @@
         renderDeckStage();
       }
 
+      function toggleSlideSpecificTheme() {
+        const card = document.getElementById('deck-stage-card');
+        if (card) {
+          const isDark = card.classList.toggle('slide-dark-mode');
+          const btn = document.getElementById('dock-btn-slide-theme');
+          if (btn) btn.innerHTML = isDark ? '🌙 Dark Slide' : '☀️ Light Slide';
+        }
+      }
+
       function toggleDeckPresentationMode() {
         isDeckPresentationMode = !isDeckPresentationMode;
         document.body.classList.toggle('deck-presentation-active', isDeckPresentationMode);
@@ -5161,7 +5171,7 @@
               <div style="display:flex; flex-direction:column; gap:2px;">
                 <div style="font-size:10px; font-weight:900; color:#6b21a8; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Questions Project Managers Must Know Answers to:</div>
                 <div style="display:flex; align-items:center; gap:12px;">
-                  <div style="font-size:28px; font-weight:900; color:var(--text-main); letter-spacing:-1px; line-height:1;">${item.fdh}</div>
+                  <div class="slide-hdr-id" style="font-size:28px; font-weight:900; color:var(--text-main); letter-spacing:-1px; line-height:1;">${item.fdh}</div>
                   <div style="font-size:10px; font-weight:900; background:var(--card-bg); border:1px solid var(--border); padding:4px 10px; border-radius:12px; text-transform:uppercase; color:var(--text-main);">${item.stage} | ${item.status}</div>
                   ${isXingActive ? `<div style="background:#171717; color:#facc15; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:900; border:1px solid #facc15; box-shadow:0 2px 4px rgba(0,0,0,0.1);">X-ING</div>` : ''}
                 </div>
@@ -5585,34 +5595,47 @@ ${item.comment || 'No notes provided.'}
       /* DUAL MODE TOGGLE */
       .deck-display-mode { display: flex; flex-direction: column; padding: 24px 32px; height: 100%; box-sizing: border-box; }
       .deck-edit-mode { display: none; flex-direction: column; }
-      /* ── CINEMA PRESENTATION & ZOOM ── */
+      /* ── CINEMA PRO PRESENTATION ── */
       #deck-stage-card {
         transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-                    box-shadow 0.5s ease,
-                    max-width 0.5s ease;
+                    background 0.3s ease, color 0.3s ease, box-shadow 0.5s ease;
         transform-origin: center center;
         will-change: transform, box-shadow;
+        margin: 0 auto;
       }
       body.deck-presentation-active #deck-stage {
         position: fixed; inset: 0; z-index: 99998;
-        background: rgba(9, 9, 11, 0.96) !important;
-        backdrop-filter: blur(30px) saturate(180%);
-        -webkit-backdrop-filter: blur(30px) saturate(180%);
+        background: rgba(9, 9, 11, 0.98) !important;
+        backdrop-filter: blur(40px) saturate(180%);
+        -webkit-backdrop-filter: blur(40px) saturate(180%);
         display: flex !important; justify-content: center; align-items: center;
       }
       body.deck-presentation-active #deck-stage-card {
-        transform: scale(1.08);
-        max-width: 94vw !important;
-        box-shadow: 0 50px 100px rgba(0,0,0,0.8);
+        transform: scale(1.08); max-width: 95vw !important; max-height: 90vh !important;
+        box-shadow: 0 60px 120px rgba(0,0,0,0.9);
         border: 1px solid rgba(255,255,255,0.1);
       }
+      /* Dynamic Font Scaling */
+      body.deck-presentation-active .slide-hdr-id { font-size: 34px !important; }
+      body.deck-presentation-active .slide-ppt-q { font-size: 15px !important; }
+      body.deck-presentation-active .slide-ppt-ans { font-size: 15px !important; }
+      body.deck-presentation-active .slide-ppt-quad-header { font-size: 12px !important; }
+      /* Cinema Dock — dark treatment */
       body.deck-presentation-active .filter-strip {
         position: fixed !important; bottom: 40px !important; z-index: 100000 !important;
-        background: rgba(255,255,255,0.95) !important; box-shadow: 0 20px 50px rgba(0,0,0,0.5) !important;
+        background: rgba(24, 24, 27, 0.95) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.6) !important; color: #fff !important;
       }
       body.deck-presentation-active .top-nav,
       body.deck-presentation-active .inbox-sidebar,
       body.deck-presentation-active .outbox-pane { display: none !important; }
+      /* ── INDEPENDENT SLIDE THEME (Dark Mode) ── */
+      #deck-stage-card.slide-dark-mode { background: #18181b !important; border-color: #27272a !important; color: #f4f4f5 !important; }
+      #deck-stage-card.slide-dark-mode .slide-ppt-q { color: #f4f4f5 !important; }
+      #deck-stage-card.slide-dark-mode .slide-ppt-quad-header { color: #a1a1aa !important; border-color: #3f3f46 !important; }
+      #deck-stage-card.slide-dark-mode .slide-header { background: #09090b !important; border-bottom: 1px solid #27272a !important; }
+      #deck-stage-card.slide-dark-mode .slide-footer { background: #09090b !important; border-top: 1px solid #27272a !important; }
 
       body.deck-is-editing .deck-display-mode { display: none; }
       body.deck-is-editing .deck-edit-mode { display: flex; }
