@@ -4840,7 +4840,7 @@
       @media (max-width: 900px) { .grid-density-date, .grid-density-check { grid-template-columns: 1fr !important; } }
 
       /* DUAL MODE TOGGLE */
-      .deck-display-mode { display: flex; flex-direction: column; gap: 12px; padding: 20px 40px; }
+      .deck-display-mode { display: flex; flex-direction: column; padding: 30px 50px; height: 100%; box-sizing: border-box; }
       .deck-edit-mode { display: none; flex-direction: column; }
       body.deck-is-editing .deck-display-mode { display: none; }
       body.deck-is-editing .deck-edit-mode { display: flex; }
@@ -4853,17 +4853,16 @@
       body.deck-is-editing .btn-mode-toggle { background: #3b82f6; color: #fff; border-color: #2563eb; }
 
       /* DISPLAY MODE (POWERPOINT LOOK) */
-      .slide-ppt-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 60px; align-items: start; }
-      .slide-ppt-row {
-        display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
-        padding-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,0.04); margin-bottom: 0px;
-      }
-      .slide-ppt-q { flex: 1; font-size: 13px; font-weight: 600; color: var(--text-main); line-height: 1.4; }
+      .slide-ppt-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 80px; align-items: start; }
+      .slide-ppt-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid rgba(0,0,0,0.04); }
+      .slide-ppt-q { flex: 1; font-size: 14px; font-weight: 600; color: var(--text-main); line-height: 1.4; }
       .slide-ppt-q::before { content: "•"; margin-right: 8px; font-weight: 900; color: var(--text-muted); }
-      .slide-ppt-ans { font-size: 13px; font-weight: 900; color: #3b82f6; text-align: right; flex-shrink: 0; white-space: nowrap; }
+      .slide-ppt-ans { font-size: 14px; font-weight: 900; color: #3b82f6; text-align: right; flex-shrink: 0; white-space: nowrap; }
       .slide-ppt-ans.gap { color: #ef4444; font-style: italic; font-weight: 700; }
-      .slide-ppt-sub { margin-left: 20px; font-size: 11px; color: var(--text-muted); line-height: 1.4; margin-bottom: 4px; }
-      .slide-ppt-sub::before { content: "◦"; margin-right: 8px; }
+      .slide-ppt-q.sub-q { font-size: 12px; color: var(--text-muted); margin-left: 20px; }
+      .slide-ppt-q.sub-q::before { content: "◦"; }
+      .slide-ppt-row.muted-row { opacity: 0.35; pointer-events: none; border-bottom: 1px solid rgba(0,0,0,0.02); }
+      .slide-ppt-row.muted-row .slide-ppt-ans { color: var(--text-muted) !important; }
 
       /* AIR GAP / STAGED INDICATORS */
       .indicator-staged {
@@ -5262,7 +5261,7 @@
         const stageCard = getEl('deck-stage-card');
         if (!stageCard) return;
 
-        stageCard.style.cssText = "height:65vh; max-height:800px; width:100%; max-width:1200px; flex-shrink:0; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;";
+        stageCard.style.cssText = "width:100%; max-width:1200px; height:auto; aspect-ratio:16/9; min-height:600px; flex-shrink:0; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden; margin:auto;";
 
         const item = ensureDeckIndex();
         if (!item) {
@@ -5339,7 +5338,7 @@
           if (type === 'bool') return `<span class="slide-ppt-ans">${(v === true || String(v).toLowerCase() === 'true') ? 'YES' : 'NO'}</span>${stagedBadge}`;
           return `<span class="slide-ppt-ans">${v}</span>${stagedBadge}`;
         };
-        const pptRow = (q, ans) => `<div class="slide-ppt-row"><div class="slide-ppt-q">${q}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">${ans}</div></div>`;
+        const pptRow = (q, ans, isMuted=false, isSub=false) => `<div class="slide-ppt-row ${isMuted ? 'muted-row' : ''}"><div class="slide-ppt-q ${isSub ? 'sub-q' : ''}">${q}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">${isMuted ? '<span class="slide-ppt-ans" style="color:var(--text-muted);">—</span>' : ans}</div></div>`;
 
         const actionWrap = (content, extraClass='') => `<span class="slide-input-wrap ${extraClass}">${content}</span>`;
         const gapDot = (show, color='#ef4444') => show ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-right:5px;flex-shrink:0;vertical-align:middle;"></span>` : '';
@@ -5409,7 +5408,7 @@
 
             <div style="flex-grow:1; overflow-y:auto; overflow-x:hidden;">
               <div class="deck-display-mode">
-                <h2 style="color:#6b21a8; font-size:18px; margin-top:0; margin-bottom:8px;">Questions Project Managers Must Know Answers to:</h2>
+                <h2 style="color:#6b21a8; font-size:20px; margin-top:0; margin-bottom:16px;">Questions Project Managers Must Know Answers to:</h2>
                 <div class="slide-ppt-grid">
                   <div style="display:flex; flex-direction:column;">
                     ${pptRow('Was it sent for permitting?', getVal('q_permit_sent', item.qbRef?.permitSent, 'date'))}
@@ -5418,12 +5417,10 @@
                     ${pptRow('Have splice docs been distributed?', getVal('q_splice_dist', item.qbRef?.spliceDist, 'bool'))}
                     ${pptRow('Have strand maps been distributed?', getVal('q_strand_dist', item.qbRef?.strandDist, 'bool'))}
                     ${pptRow('Are there any special crossings?', getVal('q_is_xing', isXingActive, 'bool'))}
-                    ${isXingActive ? `
-                      <div class="slide-ppt-sub">Confirm with engineers that proper paperwork is ready for DOT crossings</div>
-                      <div class="slide-ppt-sub" style="display:flex; justify-content:space-between; margin-bottom:0;">Has the special crossing been submitted? ${getVal('q_cross_sub', item.qbRef?.crossSub, 'date')}</div>
-                      <div class="slide-ppt-sub" style="display:flex; justify-content:space-between; margin-bottom:0;">Has the special crossing been approved? ${getVal('q_cross_appr', item.qbRef?.crossAppr, 'date')}</div>
-                      <div class="slide-ppt-sub" style="display:flex; justify-content:space-between; margin-bottom:0;">Has the special crossing approval been distributed? ${getVal('q_cross_dist', item.qbRef?.crossDist, 'date')}</div>
-                    ` : ''}
+                    ${pptRow('Confirm with engineers that proper paperwork is ready for DOT crossings', '', !isXingActive, true)}
+                    ${pptRow('Has the special crossing been submitted?', getVal('q_cross_sub', item.qbRef?.crossSub, 'date'), !isXingActive, true)}
+                    ${pptRow('Has the special crossing been approved?', getVal('q_cross_appr', item.qbRef?.crossAppr, 'date'), !isXingActive, true)}
+                    ${pptRow('Has the special crossing approval been distributed?', getVal('q_cross_dist', item.qbRef?.crossDist, 'date'), !isXingActive, true)}
                   </div>
                   <div style="display:flex; flex-direction:column;">
                     ${pptRow('Was the BOM sent?', getVal('q_bom_sent', item.qbRef?.bomSent, 'bool'))}
@@ -5437,7 +5434,7 @@
                     ${pptRow('What does this FDH feed?', getVal('q_what_feeds', item.qbRef?.whatFeeds, 'text'))}
                     ${pptRow('If the FDH is an island, what is all missing?', getVal('q_island', item.qbRef?.island, 'text'))}
                     ${pptRow('Did the OFS date change?', getVal('q_ofs_change', item.qbRef?.ofsChange, 'bool'))}
-                    ${isOfsChangeActive ? `<div class="slide-ppt-sub ofs-reason-row" style="display:flex; justify-content:space-between; margin-bottom:0;">If so, why? ${getVal('q_ofs_reason', item.qbRef?.ofsReason, 'text')}</div>` : ''}
+                    ${pptRow('If so, why?', getVal('q_ofs_reason', item.qbRef?.ofsReason, 'text'), !isOfsChangeActive, true)}
                   </div>
                 </div>
               </div>
