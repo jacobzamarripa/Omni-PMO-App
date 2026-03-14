@@ -61,7 +61,9 @@ const QB_DECK_QUERY_CONFIG = {
       q_cross_appr:  623, q_cross_dist:  624, q_active_set: 192,
       q_active_pwr:  193, q_leg:         274, q_transport:  613,
       q_how_fed:     614, q_what_feeds:  615, q_island:     617,
-      q_ofs_change:  619
+      q_ofs_change:  619,
+      q_cd_dist:     471, q_splice_dist: 473, q_strand_dist: 472,
+      q_bom_po:      434, q_sow_sign:    436
     }
   }
   // bts3c49gt (Permits) and bts8av3cw (Cabinets) — add FID configs after field discovery
@@ -71,7 +73,8 @@ const QB_DECK_QUERY_CONFIG = {
 const QB_DECK_COLUMNS = [
   "QB_Permit_Sent", "QB_Permit_Appr", "QB_Cross_Sub", "QB_Cross_Appr", "QB_Cross_Dist",
   "QB_Active_Set",  "QB_Active_Pwr",  "QB_Leg",       "QB_Transport",
-  "QB_How_Fed",     "QB_What_Feeds",  "QB_Island",    "QB_Ofs_Change"
+  "QB_How_Fed",     "QB_What_Feeds",  "QB_Island",    "QB_Ofs_Change",
+  "QB_CD_Dist",     "QB_Splice_Dist", "QB_Strand_Dist","QB_BOM_PO",   "QB_SOW_Sign"
 ];
 
 
@@ -227,7 +230,10 @@ function syncFromQBWebApp() {
           q_active_pwr:  "QB_Active_Pwr",  q_leg:         "QB_Leg",
           q_transport:   "QB_Transport",   q_how_fed:     "QB_How_Fed",
           q_what_feeds:  "QB_What_Feeds",  q_island:      "QB_Island",
-          q_ofs_change:  "QB_Ofs_Change"
+          q_ofs_change:  "QB_Ofs_Change",
+          q_cd_dist:     "QB_CD_Dist",     q_splice_dist: "QB_Splice_Dist",
+          q_strand_dist: "QB_Strand_Dist", q_bom_po:      "QB_BOM_PO",
+          q_sow_sign:    "QB_SOW_Sign"
         };
         var colMap = {};
         Object.keys(cfg.fields).forEach(function(key) {

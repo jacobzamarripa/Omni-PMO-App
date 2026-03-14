@@ -5098,8 +5098,10 @@
           return `${gapDot(gap, dotColor)}<input type="date" class="slide-input" id="${id}" value="${v}" ${locked ? 'disabled' : 'onchange="persistDeckInput(this)"'} style="padding:6px 10px; font-size:12px; border:1px solid ${borderColor}; border-radius:6px; background:var(--card-bg); color:${locked ? 'var(--text-muted)' : 'var(--text-main)'}; cursor:${locked ? 'not-allowed' : 'pointer'}; opacity:${locked ? '0.7' : '1'}; width:100%;">${deptBadge(gap && locked, dept)}`;
         };
         const mc  = (id, refVal) => {
-          const checked = mem[id] === true || mem[id] === 'true';
-          const gap = mem[id] === undefined && (refVal === undefined || refVal === '');
+          const memVal = mem[id];
+          const refChecked = refVal === true || String(refVal).toLowerCase() === 'true';
+          const checked = memVal !== undefined ? (memVal === true || memVal === 'true') : refChecked;
+          const gap = memVal === undefined && (refVal === undefined || refVal === '' || refVal === null);
           return `${gapDot(gap)}<input type="checkbox" class="slide-input" id="${id}" ${checked ? 'checked' : ''} onchange="persistDeckInput(this)" style="width:20px; height:20px; cursor:pointer; accent-color:var(--accent, #6366f1);">`;
         };
         const mta = (id, ph, refVal) => {
@@ -5107,6 +5109,11 @@
           const gap = !v && (!refVal || refVal === '' || refVal === '-');
           return `${gapDot(gap)}<textarea class="slide-input" id="${id}" placeholder="${gap ? 'QB: No data yet' : ph}" oninput="persistDeckInput(this)" style="resize:vertical; min-height:60px; width:100%; padding:6px 10px; font-size:12px; border:1px solid ${gap ? '#ef4444' : 'var(--border)'}; border-radius:6px; background:var(--card-bg); color:var(--text-main);">${v}</textarea>`;
         };
+
+        const storedIsXing = mem['q_is_xing'];
+        const isXingActive = storedIsXing !== undefined
+          ? (storedIsXing === 'true' || storedIsXing === true)
+          : item.isXing;
 
         stageCard.innerHTML = `
             <div class="slide-header" style="display:flex; justify-content:space-between; align-items:center; padding:20px 30px; background:var(--bg); border-bottom:1px solid var(--border);">
@@ -5127,17 +5134,17 @@
                 <div class="slide-q-row"><div class="slide-q-label">What is the FDH Number?</div><span class="slide-sys-val" style="color:var(--text-main); border-color:var(--text-main); font-size:12px;">${item.fdh}</span></div>
                 <div class="slide-q-row"><div class="slide-q-label">Date sent for permitting:</div>${md('q_permit_sent', item.qbRef && item.qbRef.permitSent, 'PERMITTING')}</div>
                 <div class="slide-q-row"><div class="slide-q-label">Permit approval date:</div>${md('q_permit_appr', item.qbRef && item.qbRef.permitAppr, 'PERMITTING')}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Has the CD been distributed?</div>${yesNo(item.hasCDDist)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Have splice docs been distributed?</div>${yesNo(item.hasSpliceDist)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Have strand maps been distributed?</div>${yesNo(item.hasStrandDist)}</div>
-                <div class="slide-q-row" style="margin-top:10px; border-bottom:none;"><div class="slide-q-label">Are there any special crossings?</div>${item.isXing ? yesNo(true, 'YES (ACTION REQ)') : yesNo(false, '', 'NONE DETECTED')}</div>
-                <div class="slide-q-nested slide-q-row"><div class="slide-q-label">DOT paperwork submitted date:</div>${md('q_cross_sub', item.qbRef && item.qbRef.crossSub, 'PERMITTING')}</div>
-                <div class="slide-q-nested slide-q-row"><div class="slide-q-label">Special crossing approval date:</div>${md('q_cross_appr', item.qbRef && item.qbRef.crossAppr, 'PERMITTING')}</div>
-                <div class="slide-q-nested slide-q-row"><div class="slide-q-label">Approval distributed to vendor date:</div>${md('q_cross_dist', item.qbRef && item.qbRef.crossDist, 'PERMITTING')}</div>
+                <div class="slide-q-row"><div class="slide-q-label">Has the CD been distributed?</div>${mc('q_cd_dist', item.qbRef && item.qbRef.cdDist)}</div>
+                <div class="slide-q-row"><div class="slide-q-label">Have splice docs been distributed?</div>${mc('q_splice_dist', item.qbRef && item.qbRef.spliceDist)}</div>
+                <div class="slide-q-row"><div class="slide-q-label">Have strand maps been distributed?</div>${mc('q_strand_dist', item.qbRef && item.qbRef.strandDist)}</div>
+                <div class="slide-q-row" style="margin-top:10px; border-bottom:none;"><div class="slide-q-label">Are there any special crossings?</div><select class="slide-input" id="q_is_xing" onchange="persistDeckInput(this); toggleXingRows(this.value === 'true')" style="font-size:12px; padding:4px 8px; border:1px solid var(--border); border-radius:6px; background:var(--card-bg); color:var(--text-main); cursor:pointer;"><option value="true" ${isXingActive ? 'selected' : ''}>YES (Action Required)</option><option value="false" ${!isXingActive ? 'selected' : ''}>NO / None Detected</option></select></div>
+                <div class="slide-q-nested slide-q-row xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><div class="slide-q-label">DOT paperwork submitted date:</div>${md('q_cross_sub', item.qbRef && item.qbRef.crossSub, 'PERMITTING')}</div>
+                <div class="slide-q-nested slide-q-row xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><div class="slide-q-label">Special crossing approval date:</div>${md('q_cross_appr', item.qbRef && item.qbRef.crossAppr, 'PERMITTING')}</div>
+                <div class="slide-q-nested slide-q-row xing-nested-row" style="${isXingActive ? '' : 'display:none'}"><div class="slide-q-label">Approval distributed to vendor date:</div>${md('q_cross_dist', item.qbRef && item.qbRef.crossDist)}</div>
               </div>
               <div class="slide-col">
-                <div class="slide-q-row"><div class="slide-q-label">Was the BOM / PO sent?</div>${yesNo(item.hasBOMPo)}</div>
-                <div class="slide-q-row"><div class="slide-q-label">Has the SOW been signed?</div>${yesNo(item.hasSOW)}</div>
+                <div class="slide-q-row"><div class="slide-q-label">Was the BOM / PO sent?</div>${mc('q_bom_po', item.qbRef && item.qbRef.bomPo)}</div>
+                <div class="slide-q-row"><div class="slide-q-label">Has the SOW been signed?</div>${mc('q_sow_sign', item.qbRef && item.qbRef.sowSign)}</div>
                 <div class="slide-q-row" style="margin-top:10px;"><div class="slide-q-label">Has the active been set?</div>${mc('q_active_set', item.qbRef && item.qbRef.activeSet)}</div>
                 <div class="slide-q-row"><div class="slide-q-label">Does the active have power?</div>${mc('q_active_pwr', item.qbRef && item.qbRef.activePwr)}</div>
                 <div class="slide-q-row"><div class="slide-q-label">What leg is this FDH on?</div>${mi('q_leg', 'Enter leg ID...', item.qbRef && item.qbRef.leg)}</div>
@@ -5257,6 +5264,12 @@
         pmSessionMemory[item.fdh][inputEl.id] = inputEl.type === 'checkbox' ? inputEl.checked : inputEl.value;
         const saveBtn = getEl('dock-btn-save');
         if (saveBtn) saveBtn.classList.remove('collapsed');
+      }
+
+      function toggleXingRows(show) {
+        document.querySelectorAll('.xing-nested-row').forEach(function(el) {
+          el.style.display = show ? '' : 'none';
+        });
       }
 
       function syncDeckNote() {

@@ -298,6 +298,11 @@ function saveDeckAnswers(payload) {
       case "DOT Paperwork Submitted": return safeAnswers.q_cross_sub || "";
       case "Special Crossing Approved": return safeAnswers.q_cross_appr || "";
       case "Approval Dist to Vendor": return safeAnswers.q_cross_dist || "";
+      case "CD Distributed":   return toBool(safeAnswers.q_cd_dist);
+      case "Splice Docs Dist":  return toBool(safeAnswers.q_splice_dist);
+      case "Strand Maps Dist":  return toBool(safeAnswers.q_strand_dist);
+      case "BOM PO Sent":       return toBool(safeAnswers.q_bom_po);
+      case "SOW Signed":        return toBool(safeAnswers.q_sow_sign);
       case "Active Set": return toBool(safeAnswers.q_active_set);
       case "Active Has Power": return toBool(safeAnswers.q_active_pwr);
       case "Leg ID": return safeAnswers.q_leg || "";
@@ -306,6 +311,7 @@ function saveDeckAnswers(payload) {
       case "What Does it Feed": return safeAnswers.q_what_feeds || "";
       case "Island Missing Components": return safeAnswers.q_island || "";
       case "OFS Changed Reason": return safeAnswers.q_ofs_change || "";
+      case "Is Xing Override":  return safeAnswers.q_is_xing !== undefined ? toBool(safeAnswers.q_is_xing) : "";
       case "Manager Note": return safePayload.note || "";
       case "QB Sync Status": return "Pending";
       default: return "";

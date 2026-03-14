@@ -171,6 +171,11 @@ function getReferenceDictionary() {
     let qbWhatFeedsIdx  = getIdx("QB_What_Feeds");
     let qbIslandIdx     = getIdx("QB_Island");
     let qbOfsChangeIdx  = getIdx("QB_Ofs_Change");
+    let qbCdDistIdx     = getIdx("QB_CD_Dist");
+    let qbSpliceDistIdx = getIdx("QB_Splice_Dist");
+    let qbStrandDistIdx = getIdx("QB_Strand_Dist");
+    let qbBomPoIdx      = getIdx("QB_BOM_PO");
+    let qbSowSignIdx    = getIdx("QB_SOW_Sign");
 
     const isChecked = (val) => val != null && ["true", "1", "yes", "checked"].includes(String(val).toLowerCase().trim());
     const safeDate = (val) => {
@@ -230,7 +235,12 @@ function getReferenceDictionary() {
              howFed:     qbHowFedIdx     > -1 ? String(r[qbHowFedIdx]     || "") : "",
              whatFeeds:  qbWhatFeedsIdx  > -1 ? String(r[qbWhatFeedsIdx]  || "") : "",
              island:     qbIslandIdx     > -1 ? String(r[qbIslandIdx]     || "") : "",
-             ofsChange:  qbOfsChangeIdx  > -1 ? String(r[qbOfsChangeIdx]  || "") : ""
+             ofsChange:  qbOfsChangeIdx  > -1 ? String(r[qbOfsChangeIdx]  || "") : "",
+             cdDist:     qbCdDistIdx     > -1 ? String(r[qbCdDistIdx]     || "") : "",
+             spliceDist: qbSpliceDistIdx > -1 ? String(r[qbSpliceDistIdx] || "") : "",
+             strandDist: qbStrandDistIdx > -1 ? String(r[qbStrandDistIdx] || "") : "",
+             bomPo:      qbBomPoIdx      > -1 ? String(r[qbBomPoIdx]      || "") : "",
+             sowSign:    qbSowSignIdx    > -1 ? String(r[qbSowSignIdx]     || "") : ""
            }
          };
       });
