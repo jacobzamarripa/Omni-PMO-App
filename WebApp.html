@@ -793,7 +793,7 @@
           flex: 1;
           flex-direction: row !important;
           align-items: flex-start !important;
-          justify-content: center !important;
+          justify-content: flex-start !important;
           gap: 40px !important;
           padding: 40px 60px !important;
           overflow: hidden !important;
@@ -4853,14 +4853,16 @@
       body.deck-is-editing .btn-mode-toggle { background: #3b82f6; color: #fff; border-color: #2563eb; }
 
       /* DISPLAY MODE (POWERPOINT LOOK) */
-      .slide-ppt-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 80px; align-items: start; }
-      .slide-ppt-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid rgba(0,0,0,0.04); }
-      .slide-ppt-q { flex: 1; font-size: 14px; font-weight: 600; color: var(--text-main); line-height: 1.4; }
+      .slide-ppt-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px 40px; align-items: start; }
+      .slide-ppt-quadrant { display: flex; flex-direction: column; gap: 8px; }
+      .slide-ppt-quad-header { font-size: 10px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); padding-bottom: 4px; margin-bottom: 4px; }
+      .slide-ppt-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,0.04); }
+      .slide-ppt-q { flex: 1; font-size: 12px; font-weight: 700; color: var(--text-main); line-height: 1.4; }
       .slide-ppt-q::before { content: "•"; margin-right: 8px; font-weight: 900; color: var(--text-muted); }
-      .slide-ppt-ans { font-size: 14px; font-weight: 900; color: #3b82f6; text-align: right; flex-shrink: 0; white-space: nowrap; }
-      .slide-ppt-ans.gap { color: #ef4444; font-style: italic; font-weight: 700; }
-      .slide-ppt-q.sub-q { font-size: 12px; color: var(--text-muted); margin-left: 20px; }
-      .slide-ppt-q.sub-q::before { content: "◦"; }
+      .slide-ppt-ans { font-size: 12px; font-weight: 900; color: #3b82f6; text-align: right; flex-shrink: 0; white-space: nowrap; }
+      .slide-ppt-ans.gap { color: #ef4444; font-weight: 900; }
+      .slide-ppt-q.sub-q { font-size: 11px; color: var(--text-muted); padding-left: 12px; border-left: 2px solid var(--border); }
+      .slide-ppt-q.sub-q::before { content: none; }
       .slide-ppt-row.muted-row { opacity: 0.35; pointer-events: none; border-bottom: 1px solid rgba(0,0,0,0.02); }
       .slide-ppt-row.muted-row .slide-ppt-ans { color: var(--text-muted) !important; }
 
@@ -5227,41 +5229,39 @@
       function buildSmartFdhDatalist(currentFdh) {
         if (!globalAllFdhIds || globalAllFdhIds.length === 0) return '';
         let match = String(currentFdh).match(/^(.*?)-F(\d+)$/i);
-        let sorted = globalAllFdhIds.slice();
+        let options = [];
         if (match) {
           let prefix = match[1].toUpperCase();
           let currentNum = parseInt(match[2], 10);
-          sorted.sort((a, b) => {
-            let matchA = String(a).match(/^(.*?)-F(\d+)$/i);
-            let matchB = String(b).match(/^(.*?)-F(\d+)$/i);
-            let isSameA = matchA && matchA[1].toUpperCase() === prefix;
-            let isSameB = matchB && matchB[1].toUpperCase() === prefix;
-            if (isSameA && !isSameB) return -1;
-            if (!isSameA && isSameB) return 1;
-            if (isSameA && isSameB) {
-              let distA = Math.abs(parseInt(matchA[2], 10) - currentNum);
-              let distB = Math.abs(parseInt(matchB[2], 10) - currentNum);
-              return distA - distB;
-            }
-            return String(a).localeCompare(String(b));
+          let sameMarket = globalAllFdhIds.filter(id => id.toUpperCase().startsWith(prefix + '-F'));
+          sameMarket.sort((a, b) => {
+            let numA = parseInt((a.match(/-F(\d+)$/i) || [0,0])[1], 10);
+            let numB = parseInt((b.match(/-F(\d+)$/i) || [0,0])[1], 10);
+            return Math.abs(numA - currentNum) - Math.abs(numB - currentNum);
           });
+          let others = globalAllFdhIds.filter(id => !id.toUpperCase().startsWith(prefix + '-F')).sort();
+          options = [...sameMarket, ...others];
         } else {
-          sorted.sort();
+          options = globalAllFdhIds.slice().sort();
         }
-        return sorted.map(id => `<option value="${id}">`).join('');
+        return options.map(id => `<option value="${id}">`).join('');
       }
 
-      function toggleOfsReasonRows(show) {
-        document.querySelectorAll('.ofs-reason-row').forEach(el => {
-          el.style.display = show ? '' : 'none';
-        });
+      function toggleXingRows(show) {
+        document.querySelectorAll('.xing-nested-row').forEach(el => el.classList.toggle('muted-row', !show));
+        document.querySelectorAll('.xing-nested-edit').forEach(el => { el.style.display = show ? '' : 'none'; });
+      }
+
+      function toggleOfsRows(show) {
+        document.querySelectorAll('.ofs-reason-row').forEach(el => el.classList.toggle('muted-row', !show));
+        document.querySelectorAll('.ofs-reason-edit').forEach(el => { el.style.display = show ? '' : 'none'; });
       }
 
       function renderDeckStage() {
         const stageCard = getEl('deck-stage-card');
         if (!stageCard) return;
 
-        stageCard.style.cssText = "width:100%; max-width:1200px; height:auto; aspect-ratio:16/9; min-height:600px; flex-shrink:0; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden; margin:auto;";
+        stageCard.style.cssText = "width:100%; max-width:1200px; height:auto; aspect-ratio:16/9; min-height:600px; flex-shrink:0; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;";
 
         const item = ensureDeckIndex();
         if (!item) {
@@ -5338,25 +5338,25 @@
           if (type === 'bool') return `<span class="slide-ppt-ans">${(v === true || String(v).toLowerCase() === 'true') ? 'YES' : 'NO'}</span>${stagedBadge}`;
           return `<span class="slide-ppt-ans">${v}</span>${stagedBadge}`;
         };
-        const pptRow = (q, ans, isMuted=false, isSub=false) => `<div class="slide-ppt-row ${isMuted ? 'muted-row' : ''}"><div class="slide-ppt-q ${isSub ? 'sub-q' : ''}">${q}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">${isMuted ? '<span class="slide-ppt-ans" style="color:var(--text-muted);">—</span>' : ans}</div></div>`;
+        const pptRow = (q, ans, isMuted=false, isSub=false, extraClass='') => `<div class="slide-ppt-row ${isMuted ? 'muted-row' : ''} ${extraClass}"><div class="slide-ppt-q ${isSub ? 'sub-q' : ''}">${q}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">${isMuted ? '<span class="slide-ppt-ans" style="color:var(--text-muted);">—</span>' : ans}</div></div>`;
 
         const actionWrap = (content, extraClass='') => `<span class="slide-input-wrap ${extraClass}">${content}</span>`;
         const gapDot = (show, color='#ef4444') => show ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-right:5px;flex-shrink:0;vertical-align:middle;"></span>` : '';
         const stagedIcon = (show) => show ? `<span class="indicator-staged" title="Staged locally. Does not match QuickBase.">🔄</span>` : '';
         const row = (label, control, isFull=false) => `<div class="slide-q-row ${isFull ? 'full-width-row' : ''}"><span class="slide-q-label">${label}</span>${control}</div>`;
-        
+
         const mi = (id, label, refVal) => {
           let mismatch = isMismatch(mem[id], refVal, 'text');
           let gap = !mem[id] && (!refVal || refVal === '' || refVal === '-');
           let borderColor = mismatch ? '#f59e0b' : (gap ? '#ef4444' : 'var(--border)');
-          return row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(mismatch)}${gapDot(gap && !mismatch)}<input type="text" class="slide-input" id="${id}" value="${mem[id] !== undefined ? mem[id] : (refVal || '')}" placeholder="${refVal || 'Missing'}" oninput="persistDeckInput(this); renderDeckStage();" style="border-color:${borderColor}; background:var(--card-bg); color:var(--text-main);"></span>`));
+          return row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(mismatch)}${gapDot(gap && !mismatch)}<input type="text" class="slide-input" id="${id}" value="${mem[id] !== undefined ? mem[id] : (refVal || '')}" placeholder="${refVal || 'Missing'}" oninput="persistDeckInput(this)" style="border-color:${borderColor}; background:var(--card-bg); color:var(--text-main);"></span>`));
         };
 
         const mdl = (id, label, refVal, listId='fdh-list') => {
           let mismatch = isMismatch(mem[id], refVal, 'text');
           let gap = !mem[id] && (!refVal || refVal === '' || refVal === '-');
           let borderColor = mismatch ? '#f59e0b' : (gap ? '#ef4444' : 'var(--border)');
-          return row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(mismatch)}${gapDot(gap && !mismatch)}<input type="text" list="${listId}" class="slide-input" id="${id}" value="${mem[id] !== undefined ? mem[id] : (refVal || '')}" placeholder="${refVal || 'Missing'}" oninput="persistDeckInput(this); renderDeckStage();" style="border-color:${borderColor}; background:var(--card-bg); color:var(--text-main);"></span>`));
+          return row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(mismatch)}${gapDot(gap && !mismatch)}<input type="text" list="${listId}" class="slide-input" id="${id}" value="${mem[id] !== undefined ? mem[id] : (refVal || '')}" placeholder="${refVal || 'Missing'}" oninput="persistDeckInput(this)" style="border-color:${borderColor}; background:var(--card-bg); color:var(--text-main);"></span>`));
         };
 
         const md = (id, label, refVal, locked=false) => {
@@ -5364,7 +5364,7 @@
           let gap = !mem[id] && (!refVal || refVal === '' || refVal === '-');
           let dotColor = locked ? '#a855f7' : '#ef4444';
           let borderColor = mismatch ? '#f59e0b' : (gap ? dotColor : 'var(--border)');
-          return row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(mismatch)}${gapDot(gap && !mismatch, dotColor)}<input type="date" class="slide-input" id="${id}" value="${mem[id] !== undefined ? mem[id] : (refVal || '')}" ${locked ? 'disabled' : ''} onchange="persistDeckInput(this); renderDeckStage();" style="border-color:${borderColor}; background:var(--card-bg); color:${locked ? 'var(--text-muted)' : 'var(--text-main)'}; cursor:${locked ? 'not-allowed' : 'pointer'}; opacity:${locked ? '0.7' : '1'};"></span>`));
+          return row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(mismatch)}${gapDot(gap && !mismatch, dotColor)}<input type="date" class="slide-input" id="${id}" value="${mem[id] !== undefined ? mem[id] : (refVal || '')}" ${locked ? 'disabled' : ''} onchange="persistDeckInput(this)" style="border-color:${borderColor}; background:var(--card-bg); color:${locked ? 'var(--text-muted)' : 'var(--text-main)'}; cursor:${locked ? 'not-allowed' : 'pointer'}; opacity:${locked ? '0.7' : '1'};"></span>`));
         };
 
         const mc = (id, label, refVal, onChangeExtra='') => {
@@ -5374,19 +5374,19 @@
           let checked = memVal !== undefined ? (memVal === true || memVal === 'true') : refChecked;
           let gap = memVal === undefined && (refVal === undefined || refVal === '' || refVal === null);
           let accent = mismatch ? '#f59e0b' : 'var(--accent, #6366f1)';
-          return row(label, actionWrap(`<span class="slide-q-action checkbox-action">${stagedIcon(mismatch)}${gapDot(gap && !mismatch)}<input type="checkbox" class="slide-input" id="${id}" ${checked ? 'checked' : ''} onchange="persistDeckInput(this); ${onChangeExtra} renderDeckStage();" style="cursor:pointer; accent-color:${accent};"></span>`, 'check-wrap'));
+          return row(label, actionWrap(`<span class="slide-q-action checkbox-action">${stagedIcon(mismatch)}${gapDot(gap && !mismatch)}<input type="checkbox" class="slide-input" id="${id}" ${checked ? 'checked' : ''} onchange="persistDeckInput(this); ${onChangeExtra}" style="cursor:pointer; accent-color:${accent};"></span>`, 'check-wrap'));
         };
 
         const mta = (id, label, refVal) => {
           let mismatch = isMismatch(mem[id], refVal, 'text');
           let gap = !mem[id] && (!refVal || refVal === '' || refVal === '-');
           let borderColor = mismatch ? '#f59e0b' : (gap ? '#ef4444' : 'var(--border)');
-          return row(label, actionWrap(`<span class="slide-q-action" style="width:100%;">${stagedIcon(mismatch)}${gapDot(gap && !mismatch)}<textarea class="slide-input" id="${id}" placeholder="${gap ? 'QB: No data yet' : label}" oninput="persistDeckInput(this); renderDeckStage();" style="resize:vertical; border-color:${borderColor}; background:var(--card-bg); color:var(--text-main);">${mem[id] !== undefined ? mem[id] : (refVal || '')}</textarea></span>`), true);
+          return row(label, actionWrap(`<span class="slide-q-action" style="width:100%;">${stagedIcon(mismatch)}${gapDot(gap && !mismatch)}<textarea class="slide-input" id="${id}" placeholder="${gap ? 'QB: No data yet' : label}" oninput="persistDeckInput(this)" style="resize:vertical; border-color:${borderColor}; background:var(--card-bg); color:var(--text-main);">${mem[id] !== undefined ? mem[id] : (refVal || '')}</textarea></span>`), true);
         };
 
         const ms = (id, label, selected) => {
           let mismatch = mem[id] !== undefined;
-          return row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(mismatch)}<select class="slide-input" id="${id}" onchange="persistDeckInput(this); renderDeckStage();" style="border-color:${mismatch ? '#f59e0b' : 'var(--border)'}; background:var(--card-bg); color:var(--text-main); cursor:pointer;"><option value="true" ${selected ? 'selected' : ''}>YES (Action Req)</option><option value="false" ${!selected ? 'selected' : ''}>NO / None</option></select></span>`));
+          return row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(mismatch)}<select class="slide-input" id="${id}" onchange="persistDeckInput(this); toggleXingRows(this.value === 'true');" style="border-color:${mismatch ? '#f59e0b' : 'var(--border)'}; background:var(--card-bg); color:var(--text-main); cursor:pointer;"><option value="true" ${selected ? 'selected' : ''}>YES (Action Req)</option><option value="false" ${!selected ? 'selected' : ''}>NO / None</option></select></span>`));
         };
 
         stageCard.innerHTML = `
@@ -5402,39 +5402,51 @@
                 <div style="font-size:12px; font-weight:700; color:var(--text-muted);">${item.city} &bull; ${item.vendor}</div>
               </div>
               <div>
-                ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=dr&rid=${item.rid}" target="_blank" class="hover-trigger" style="text-decoration:none; font-size:10px; font-weight:900; color:var(--text-muted); background:var(--card-bg); padding:8px 14px; border-radius:12px; border:1px solid var(--border); box-shadow:0 2px 6px rgba(15,23,42,0.06); display:inline-flex; align-items:center; transition:all 0.2s;">👁️ VIEW RECORD</a>` : ''}
+                ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=dr&rid=${item.rid}" target="_blank" class="hover-trigger" style="text-decoration:none; font-size:10px; font-weight:900; color:var(--text-muted); background:var(--card-bg); padding:8px 14px; border-radius:12px; border:1px solid var(--border); box-shadow:0 2px 6px rgba(15,23,42,0.06); display:inline-flex; align-items:center; transition:all 0.2s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>VIEW RECORD</a>` : ''}
               </div>
             </div>
 
             <div style="flex-grow:1; overflow-y:auto; overflow-x:hidden;">
               <div class="deck-display-mode">
-                <h2 style="color:#6b21a8; font-size:20px; margin-top:0; margin-bottom:16px;">Questions Project Managers Must Know Answers to:</h2>
+                <h2 style="color:#6b21a8; font-size:18px; margin-top:0; margin-bottom:16px;">Questions Project Managers Must Know Answers to:</h2>
                 <div class="slide-ppt-grid">
-                  <div style="display:flex; flex-direction:column;">
-                    ${pptRow('Was it sent for permitting?', getVal('q_permit_sent', item.qbRef?.permitSent, 'date'))}
-                    ${pptRow('Has it been permit approved? Yes or No. If so, date approved?', getVal('q_permit_appr', item.qbRef?.permitAppr, 'date'))}
-                    ${pptRow('Has the CD been distributed?', getVal('q_cd_dist', item.qbRef?.cdDist, 'bool'))}
-                    ${pptRow('Have splice docs been distributed?', getVal('q_splice_dist', item.qbRef?.spliceDist, 'bool'))}
-                    ${pptRow('Have strand maps been distributed?', getVal('q_strand_dist', item.qbRef?.strandDist, 'bool'))}
-                    ${pptRow('Are there any special crossings?', getVal('q_is_xing', isXingActive, 'bool'))}
-                    ${pptRow('Confirm with engineers that proper paperwork is ready for DOT crossings', '', !isXingActive, true)}
-                    ${pptRow('Has the special crossing been submitted?', getVal('q_cross_sub', item.qbRef?.crossSub, 'date'), !isXingActive, true)}
-                    ${pptRow('Has the special crossing been approved?', getVal('q_cross_appr', item.qbRef?.crossAppr, 'date'), !isXingActive, true)}
-                    ${pptRow('Has the special crossing approval been distributed?', getVal('q_cross_dist', item.qbRef?.crossDist, 'date'), !isXingActive, true)}
+                  <div style="display:flex; flex-direction:column; gap:20px;">
+                    <div class="slide-ppt-quadrant">
+                      <div class="slide-ppt-quad-header">Compliance</div>
+                      ${pptRow('Was it sent for permitting?', getVal('q_permit_sent', item.qbRef?.permitSent, 'date'))}
+                      ${pptRow('Has it been permit approved? If so, date approved?', getVal('q_permit_appr', item.qbRef?.permitAppr, 'date'))}
+                    </div>
+                    <div class="slide-ppt-quadrant">
+                      <div class="slide-ppt-quad-header">Special Crossings</div>
+                      ${pptRow('Are there any special crossings?', getVal('q_is_xing', isXingActive, 'bool'))}
+                      ${pptRow('Confirm engineers have proper paperwork for DOT crossings', '', !isXingActive, true, 'xing-nested-row')}
+                      ${pptRow('Has the special crossing been submitted?', getVal('q_cross_sub', item.qbRef?.crossSub, 'date'), !isXingActive, true, 'xing-nested-row')}
+                      ${pptRow('Has the special crossing been approved?', getVal('q_cross_appr', item.qbRef?.crossAppr, 'date'), !isXingActive, true, 'xing-nested-row')}
+                      ${pptRow('Has the special crossing approval been distributed?', getVal('q_cross_dist', item.qbRef?.crossDist, 'date'), !isXingActive, true, 'xing-nested-row')}
+                    </div>
                   </div>
-                  <div style="display:flex; flex-direction:column;">
-                    ${pptRow('Was the BOM sent?', getVal('q_bom_sent', item.qbRef?.bomSent, 'bool'))}
-                    ${pptRow('Was the PO number sent?', getVal('q_po_sent', null, 'bool'))}
-                    ${pptRow('Has the SOW been signed?', getVal('q_sow_sign', item.qbRef?.sowSign, 'bool'))}
-                    ${pptRow('Has the active been set?', getVal('q_active_set', item.qbRef?.activeSet, 'bool'))}
-                    ${pptRow('Does the active have power?', getVal('q_active_pwr', item.qbRef?.activePwr, 'bool'))}
-                    ${pptRow('What leg is this FDH on?', getVal('q_leg', item.qbRef?.leg, 'text'))}
-                    ${pptRow('Is transport readily available for this active?', getVal('q_transport', item.qbRef?.transport, 'bool'))}
-                    ${pptRow('How is this FDH being fed?', getVal('q_how_fed', item.qbRef?.howFed, 'text'))}
-                    ${pptRow('What does this FDH feed?', getVal('q_what_feeds', item.qbRef?.whatFeeds, 'text'))}
-                    ${pptRow('If the FDH is an island, what is all missing?', getVal('q_island', item.qbRef?.island, 'text'))}
-                    ${pptRow('Did the OFS date change?', getVal('q_ofs_change', item.qbRef?.ofsChange, 'bool'))}
-                    ${pptRow('If so, why?', getVal('q_ofs_reason', item.qbRef?.ofsReason, 'text'), !isOfsChangeActive, true)}
+                  <div style="display:flex; flex-direction:column; gap:20px;">
+                    <div class="slide-ppt-quadrant">
+                      <div class="slide-ppt-quad-header">Distribution</div>
+                      ${pptRow('Has the CD been distributed?', getVal('q_cd_dist', item.qbRef?.cdDist, 'bool'))}
+                      ${pptRow('Have splice docs been distributed?', getVal('q_splice_dist', item.qbRef?.spliceDist, 'bool'))}
+                      ${pptRow('Have strand maps been distributed?', getVal('q_strand_dist', item.qbRef?.strandDist, 'bool'))}
+                      ${pptRow('Was the BOM sent?', getVal('q_bom_sent', item.qbRef?.bomSent, 'bool'))}
+                      ${pptRow('Was the PO number sent?', getVal('q_po_sent', null, 'bool'))}
+                      ${pptRow('Has the SOW been signed?', getVal('q_sow_sign', item.qbRef?.sowSign, 'bool'))}
+                    </div>
+                    <div class="slide-ppt-quadrant">
+                      <div class="slide-ppt-quad-header">Readiness &amp; Architecture</div>
+                      ${pptRow('Has the active been set?', getVal('q_active_set', item.qbRef?.activeSet, 'bool'))}
+                      ${pptRow('Does the active have power?', getVal('q_active_pwr', item.qbRef?.activePwr, 'bool'))}
+                      ${pptRow('Is transport readily available for this active?', getVal('q_transport', item.qbRef?.transport, 'bool'))}
+                      ${pptRow('What leg is this FDH on?', getVal('q_leg', item.qbRef?.leg, 'text'))}
+                      ${pptRow('How is this FDH being fed?', getVal('q_how_fed', item.qbRef?.howFed, 'text'))}
+                      ${pptRow('What does this FDH feed?', getVal('q_what_feeds', item.qbRef?.whatFeeds, 'text'))}
+                      ${pptRow('If the FDH is an island, what is missing?', getVal('q_island', item.qbRef?.island, 'text'))}
+                      ${pptRow('Did the OFS date change?', getVal('q_ofs_change', item.qbRef?.ofsChange, 'bool'))}
+                      ${pptRow('If so, why?', getVal('q_ofs_reason', item.qbRef?.ofsReason, 'text'), !isOfsChangeActive, true, 'ofs-reason-row')}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -5450,12 +5462,12 @@
                 <div class="deck-module">
                   <div class="module-header">SPECIAL CROSSINGS</div>
                   <div class="grid-density-date">
-                    <div class="slide-q-row"><span class="slide-q-label">Special crossings present?</span><span class="slide-input-wrap"><select class="slide-input" id="q_is_xing" onchange="persistDeckInput(this); renderDeckStage();"><option value="true" ${isXingActive ? 'selected' : ''}>YES</option><option value="false" ${!isXingActive ? 'selected' : ''}>NO</option></select></span></div>
-                    ${isXingActive ? `
+                    ${ms('q_is_xing', 'Special crossings present?', isXingActive)}
+                    <div class="xing-nested-edit" style="display:${isXingActive ? '' : 'none'}; width:100%; grid-column: 1 / -1; flex-direction:column; gap:8px;">
                       ${md('q_cross_sub', 'Crossing submitted?', item.qbRef?.crossSub)}
                       ${md('q_cross_appr', 'Crossing approved?', item.qbRef?.crossAppr)}
                       ${md('q_cross_dist', 'Approval distributed?', item.qbRef?.crossDist)}
-                    ` : ''}
+                    </div>
                   </div>
                 </div>
                 <div class="deck-module">
@@ -5475,7 +5487,7 @@
                     ${mc('q_active_set', 'Active Set?', item.qbRef?.activeSet)}
                     ${mc('q_active_pwr', 'Active has power?', item.qbRef?.activePwr)}
                     ${mc('q_transport', 'Transport available?', item.qbRef?.transport)}
-                    ${mc('q_ofs_change', 'OFS Date Changed?', item.qbRef?.ofsChange, 'toggleOfsReasonRows(this.checked);')}
+                    ${mc('q_ofs_change', 'OFS Date Changed?', item.qbRef?.ofsChange, 'toggleOfsRows(this.checked);')}
                   </div>
                   <div class="grid-density-date">
                     ${mi('q_leg', 'FDH Leg ID?', item.qbRef?.leg)}
@@ -5484,7 +5496,7 @@
                   <div style="display:flex; flex-direction:column; gap:8px;">
                     ${mdl('q_what_feeds', 'What does it feed? (Search)', item.qbRef?.whatFeeds)}
                     ${mta('q_island', 'Island missing components?', item.qbRef?.island)}
-                    <div class="ofs-reason-row" style="display:${isOfsChangeActive ? '' : 'none'}; width:100%;">
+                    <div class="ofs-reason-edit" style="display:${isOfsChangeActive ? '' : 'none'}; width:100%;">
                       ${mta('q_ofs_reason', 'OFS Change Reason?', item.qbRef?.ofsReason)}
                     </div>
                   </div>
