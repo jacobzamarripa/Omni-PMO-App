@@ -4376,6 +4376,12 @@
       let isGridMode = false;
       let currentGridPivot = 'velocity';
       let currentWorkspaceView = 'detail';
+      let deckIndex = 0;
+      let isDeckMode = false;
+      let isDeckEditing = false;
+      let pmSessionMemory = {};
+      let stagedDeckItems = [];
+      let deckPrevPivot = 'velocity';
 
       function updateGridPivot() {
           const pivot = getEl('grid-pivot-select');
@@ -4978,12 +4984,6 @@
     </style>
 
     <script>
-      let deckIndex = 0;
-      let isDeckMode = false;
-      let isDeckEditing = false;
-      let pmSessionMemory = {};
-      let stagedDeckItems = [];
-      let deckPrevPivot = 'velocity';
 
       function clearStagedDeckItems() {
           stagedDeckItems = [];
