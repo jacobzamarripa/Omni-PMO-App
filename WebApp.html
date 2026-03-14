@@ -348,6 +348,15 @@
           transition: all 0.15s ease !important;
           cursor: pointer;
       }
+      .filter-strip select {
+          width: auto !important;
+          min-width: 120px !important;
+          max-width: 220px !important;
+      }
+      #grid-pivot-select {
+          width: auto !important;
+          min-width: 150px !important;
+      }
       body.dark-mode .filter-strip input[type="text"],
       body.dark-mode .filter-strip select {
           background: rgba(0, 0, 0, 0.4) !important;
@@ -2014,13 +2023,23 @@
           const isFs = document.body.classList.contains('gantt-fullscreen');
           const hasFocus = getEl('gantt-area-main')?.classList.contains('has-focus');
 
-          const btnFs    = getEl('dock-btn-exit-fs');
-          const btnFocus = getEl('dock-btn-exit-theater');
-          const zone     = getEl('dock-gantt-actions-zone');
+          const btnFs     = getEl('dock-btn-exit-fs');
+          const btnFocus  = getEl('dock-btn-exit-theater');
+          const ganttZone = getEl('dock-gantt-actions-zone');
+          const pivotZone = getEl('dock-pivot-zone');
+          const deckZone  = getEl('dock-deck-actions-zone');
 
-          if (btnFs)    btnFs.classList.toggle('collapsed', !isFs);
+          if (btnFs) btnFs.classList.toggle('collapsed', !isFs);
           if (btnFocus) btnFocus.classList.toggle('collapsed', !hasFocus);
-          if (zone)     zone.classList.toggle('collapsed', !(isFs || hasFocus));
+          if (ganttZone) ganttZone.classList.toggle('collapsed', !(isFs || hasFocus));
+
+          if (isFs) {
+              if (pivotZone) pivotZone.classList.add('collapsed');
+              if (deckZone) deckZone.classList.add('collapsed');
+          } else {
+              if (pivotZone) pivotZone.classList.toggle('collapsed', currentWorkspaceView !== 'grid' && currentWorkspaceView !== 'deck');
+              if (deckZone) deckZone.classList.toggle('collapsed', currentWorkspaceView !== 'deck');
+          }
       }
 
       // ── Gantt Quick-Peek Slide-Over ──────────────────────────────────────────
