@@ -1168,14 +1168,27 @@
       /* 💻 LAPTOP & SMALL DESKTOP OPTIMIZATION (Screens under 1600px wide) */
       @media screen and (max-width: 1600px) {
           .inbox-sidebar {
-              width: 310px !important;
-              min-width: 310px !important;
-              max-width: 310px !important;
+              width: 280px !important;
+              min-width: 280px !important;
+              max-width: 280px !important;
           }
           .outbox-pane {
-              width: 320px !important;
+              width: 300px !important;
               min-width: 300px !important;
           }
+
+          .email-card { padding: 10px 12px 8px !important; }
+          .em-fdh { font-size: 11px !important; }
+          .glass-pill { font-size: 8px !important; padding: 2px 6px !important; }
+          .tag { font-size: 7.5px !important; padding: 2px 4px !important; }
+
+          .panel-tab-bar { padding: 0 10px !important; }
+          .admin-kpi { padding: 8px 4px !important; min-width: 70px !important; }
+          .admin-kpi-val { font-size: 16px !important; }
+          .admin-kpi-label { font-size: 7.5px !important; }
+          .admin-list-card { padding: 10px 12px !important; }
+          .vendor-bubble { font-size: 10px !important; padding: 10px !important; }
+          .action-box { font-size: 10px !important; padding: 10px !important; }
 
           body.deck-mode-active #deck-stage {
               padding: 20px 24px !important;
@@ -2844,6 +2857,7 @@
       }
 
       let activeAdminFilter = null;
+      let hasPeekedGantt = false;
 
       const QB_STYLES = {
           "UG": { color: "var(--qb-ug)", bg: "var(--qb-ug)", border: "var(--qb-ug)" }, "AE": { color: "var(--text-main)", bg: "var(--qb-ae-bg)", border: "#94a3b8" },
@@ -3434,6 +3448,16 @@
           applySmartGanttDocking();
 
           setTimeout(scrollGanttToToday, 150);
+
+          if (!hasPeekedGantt && window.innerWidth <= 1600) {
+              hasPeekedGantt = true;
+              setTimeout(() => {
+                  let panel = getEl('gantt-panel');
+                  if (panel && !panel.classList.contains('fullscreen') && !panel.classList.contains('minimized')) {
+                      toggleMinimize();
+                  }
+              }, 1500);
+          }
       }
 
       function scrollGanttToToday() {
