@@ -349,7 +349,7 @@
           width: max-content !important;
           max-width: 95% !important;
           margin: 0 !important;
-          z-index: 10005 !important;
+          z-index: 2000 !important;
           padding: 8px 12px !important;
           border-radius: 34px !important;
           background: rgba(255, 255, 255, 0.65) !important;
@@ -639,6 +639,30 @@
           overflow-y: auto;
           z-index: 100000;
       }
+      /* ── ACTIVE FILTER PILLS ── */
+      #active-filter-pills {
+          display: flex; flex-wrap: wrap; justify-content: center;
+          gap: 6px; margin-top: 12px; width: 100%; pointer-events: auto;
+      }
+      .filter-pill {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 4px 10px; background: var(--card-bg); border: 1px solid var(--border);
+          border-radius: 999px; font-size: 10px; font-weight: 800; color: var(--text-main);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+          animation: pill-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      .filter-pill .remove-btn {
+          display: flex; align-items: center; justify-content: center;
+          width: 14px; height: 14px; border-radius: 50%;
+          background: var(--bg); color: var(--text-muted);
+          font-size: 10px; cursor: pointer; transition: all 0.2s;
+      }
+      .filter-pill .remove-btn:hover { background: #ef4444; color: #fff; }
+      @keyframes pill-pop {
+          from { transform: scale(0.8); opacity: 0; }
+          to   { transform: scale(1);   opacity: 1; }
+      }
+      .ms-opt input { display: none !important; }
       .ms-wrap.open .ms-dropdown { display: flex; }
       .ms-opt {
           display: flex;
@@ -1960,6 +1984,7 @@
                     <option value="schedule">Project Schedule</option>
                     <option value="notes">Manager Notes</option>
                     <option value="deliverables">Deliverables</option>
+                    <option value="changelog">Recent Activity</option>
                 </select>
             </div>
 
@@ -1990,6 +2015,7 @@
             </div>
             <button class="dock-arrow next collapsed" id="dock-nav-next" onclick="navDeck(1)">&#8250;</button>
         </div>
+        <div id="active-filter-pills"></div>
                  <div id="welcome-screen" class="empty-msg"><div style="font-size:32px; margin-bottom:12px;">Select a Project</div></div>
                  <div id="grid-content" style="display:none; width:100%; flex:1; overflow-y:auto; padding:20px; align-content:flex-start; gap:16px; box-sizing:border-box;"></div>
               <div class="pane-content" id="pane-content">
@@ -2160,8 +2186,23 @@
                    </div>
 
                    <div id="ob-panel-changelog" style="display:none; flex-direction:column; flex-grow:1; overflow:hidden;">
-                      <div class="ob-header" style="flex-shrink:0; padding:10px 16px;">
+                      <div class="ob-header" style="flex-shrink:0; padding:10px 16px; display:flex; flex-direction:column; gap:8px;">
                          <input type="text" id="changelog-search" placeholder="Search PM or FDH..." oninput="renderChangeLog()" style="width:100%; border-radius:8px; padding:8px 12px; font-size:11px; border:1px solid var(--border); outline:none;">
+                         <div style="display:flex; gap:6px;">
+                             <select id="changelog-time" onchange="renderChangeLog()" style="flex:1; font-size:10px; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                                 <option value="ALL">All Time (14d)</option>
+                                 <option value="24">Last 24 Hours</option>
+                                 <option value="48">Last 48 Hours</option>
+                                 <option value="168">Last 7 Days</option>
+                             </select>
+                             <select id="changelog-user" onchange="renderChangeLog()" style="flex:1; font-size:10px; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                                 <option value="ALL">All Users</option>
+                             </select>
+                         </div>
+                         <label style="font-size:10px; font-weight:800; color:var(--text-muted); display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:2px;">
+                             <input type="checkbox" id="changelog-current-fdh" onchange="renderChangeLog()" style="cursor:pointer; accent-color:#3b82f6;">
+                             Show only currently selected project
+                         </label>
                       </div>
                       <div class="ob-list" id="changelog-list" style="flex-grow:1; overflow-y:auto;"></div>
                    </div>
@@ -2406,8 +2447,9 @@
           let displayHtml = `<div class="ms-display ${isActive ? 'is-active' : ''}" onclick="toggleDropdown('${id}', event)"><span>${esc(displayText)}</span><span style="font-size:8px;">▼</span></div>`;
           let optionsHtml = `<div class="ms-dropdown" onclick="event.stopPropagation()">`;
           optionsArr.forEach(opt => {
-              let checked = selected.includes(opt.val) ? 'checked' : '';
-              optionsHtml += `<label class="ms-opt"><input type="checkbox" value="${esc(opt.val)}" ${checked} onchange="handleFilterCheck('${category}', this.value, this.checked)"> ${esc(opt.label)}</label>`;
+              let isSel = selected.includes(opt.val);
+              let style = isSel ? 'background:rgba(59,130,246,0.1);color:#2563eb;font-weight:900;' : '';
+              optionsHtml += `<div class="ms-opt" style="${style}" onclick="toggleFilterValue('${category}','${escJs(opt.val)}')">${esc(opt.label)}${isSel ? '<span style="margin-left:auto;">✓</span>' : ''}</div>`;
           });
           optionsHtml += `</div>`;
           wrap.innerHTML = displayHtml + optionsHtml;
@@ -2457,6 +2499,42 @@
               .replace(/>/g, '&gt;')
               .replace(/"/g, '&quot;')
               .replace(/'/g, '&#39;');
+      }
+
+      function escJs(s) {
+          return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      }
+
+      function toggleFilterValue(category, value) {
+          if (activeFilters[category].includes(value)) {
+              activeFilters[category] = activeFilters[category].filter(v => v !== value);
+          } else {
+              activeFilters[category].push(value);
+          }
+          applyFilters();
+      }
+
+      function renderActiveFilterPills() {
+          const container = getEl('active-filter-pills');
+          if (!container) return;
+          container.innerHTML = '';
+          const catLabels = { sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS' };
+          Object.keys(activeFilters).forEach(cat => {
+              activeFilters[cat].forEach(val => {
+                  let label = val === '60_DAYS' ? '< 60 Days' : val === '90_DAYS' ? '< 90 Days' : val;
+                  let pill = document.createElement('div');
+                  pill.className = 'filter-pill';
+                  pill.innerHTML = `<span style="color:var(--text-muted);">${catLabels[cat]}:</span><span>${esc(label)}</span><div class="remove-btn" onclick="toggleFilterValue('${cat}','${escJs(val)}')">✕</div>`;
+                  container.appendChild(pill);
+              });
+          });
+          if (activePieStageFilter) {
+              let pill = document.createElement('div');
+              pill.className = 'filter-pill';
+              pill.style.borderColor = getStageColor(activePieStageFilter);
+              pill.innerHTML = `<span style="color:var(--text-muted);">Stage:</span><span>${esc(activePieStageFilter)}</span><div class="remove-btn" onclick="togglePieStageFilter('${escJs(activePieStageFilter)}')">✕</div>`;
+              container.appendChild(pill);
+          }
       }
 
       // Dynamic Island State Memory
@@ -3003,25 +3081,44 @@
       }
       function renderChangeLog() {
           let list = getEl('changelog-list');
-          let search = (getEl('changelog-search')?.value || '').toLowerCase();
           if (!list) return;
+          let search = (getEl('changelog-search')?.value || '').toLowerCase();
+          let timeFilter = getEl('changelog-time')?.value || 'ALL';
+          let userFilter = getEl('changelog-user')?.value || 'ALL';
+          let currentFdhOnly = getEl('changelog-current-fdh')?.checked;
 
-          let allLogs = (allGlobalLogs || []).slice().sort((a, b) => (b.timestampObj || 0) - (a.timestampObj || 0));
+          let logsToRender = allGlobalLogs.slice();
+
+          if (currentFdhOnly && typeof currentActiveItem !== 'undefined' && currentActiveItem) {
+              logsToRender = logsToRender.filter(log => String(log.fdh || '') === String(currentActiveItem.fdh || ''));
+          }
+
+          if (timeFilter !== 'ALL') {
+              let cutoffTime = Date.now() - (parseInt(timeFilter, 10) * 60 * 60 * 1000);
+              logsToRender = logsToRender.filter(log => Number(log.timestampObj || 0) >= cutoffTime);
+          }
+
+          if (userFilter !== 'ALL') {
+              logsToRender = logsToRender.filter(log => String(log.user || '') === userFilter);
+          }
+
           if (search) {
-              allLogs = allLogs.filter(log =>
+              logsToRender = logsToRender.filter(log =>
                   String(log.fdh || '').toLowerCase().includes(search) ||
                   String(log.user || '').toLowerCase().includes(search) ||
                   String(log.type || '').toLowerCase().includes(search)
               );
           }
 
-          if (allLogs.length === 0) {
-              list.innerHTML = `<div class="empty-msg" style="margin-top:20px; font-size:11px;">No recent activity found.</div>`;
+          logsToRender.sort((a, b) => Number(b.timestampObj || 0) - Number(a.timestampObj || 0));
+
+          if (logsToRender.length === 0) {
+              list.innerHTML = `<div class="empty-msg" style="margin-top:20px; font-size:11px;">No activity matches current filters.</div>`;
               return;
           }
 
           let html = '';
-          allLogs.forEach(log => {
+          logsToRender.forEach(log => {
               let navArg = JSON.stringify(String(log.fdh || ''));
               html += `
               <div class="log-card">
@@ -4013,6 +4110,15 @@
                 datalist.innerHTML = data.allFdhIds.sort().map(id => `<option value="${id}">`).join('');
             }
             allGlobalLogs = (data && data.globalLogs) ? data.globalLogs : [];
+            const userSelect = getEl('changelog-user');
+            if (userSelect) {
+                if (allGlobalLogs.length > 0) {
+                    let uniqueUsers = [...new Set(allGlobalLogs.map(l => l.user).filter(Boolean))].sort();
+                    userSelect.innerHTML = '<option value="ALL">All Users</option>' + uniqueUsers.map(u => `<option value="${esc(u)}">${esc(u)}</option>`).join('');
+                } else {
+                    userSelect.innerHTML = '<option value="ALL">All Users</option>';
+                }
+            }
             renderChangeLog();
             if (data && data.hasRecentChanges) {
                 let pulseSeen = false;
@@ -4290,6 +4396,7 @@
                 renderGrid();
                 renderDeckStage();
             }
+            renderActiveFilterPills();
         });
       }
 
@@ -4739,6 +4846,7 @@
       function openPane(item, cardEl) {
           safeExecute('openPane', () => {
               currentActiveItem = item;
+              renderChangeLog();
               currentQueueIndex = filteredItems.indexOf(item);
               document.querySelectorAll('.email-card').forEach(c => c.classList.remove('selected'));
               if(cardEl) cardEl.classList.add('selected');
@@ -5361,6 +5469,31 @@
                               </div>
                           </div>
                       </div>
+                  `;
+              } else if (currentGridPivot === 'changelog') {
+                  let projectLogs = allGlobalLogs
+                      .filter(log => String(log.fdh || '') === String(item.fdh || ''))
+                      .sort((a, b) => Number(b.timestampObj || 0) - Number(a.timestampObj || 0))
+                      .slice(0, 4);
+                  let logHtml = '';
+                  if (projectLogs.length > 0) {
+                      logHtml = '<div style="display:flex; flex-direction:column; gap:8px;">' + projectLogs.map(log => `
+                          <div style="padding:8px 10px; background:rgba(248, 250, 252, 0.7); border:1px solid var(--border); border-radius:8px;">
+                              <div style="display:flex; justify-content:space-between; margin-bottom:4px; align-items:center; gap:8px;">
+                                  <span style="font-weight:900; font-size:9px; color:var(--color-insight); text-transform:uppercase;">${esc(log.type)}</span>
+                                  <span style="color:var(--text-muted); font-size:9px; font-weight:700;">${esc(String(log.time || '').split(' ')[0])}</span>
+                              </div>
+                              <div style="color:var(--text-main); font-size:11px; font-weight:600; line-height:1.3; margin-bottom:4px;">&#8594; ${esc(log.val)}</div>
+                              <div style="font-size:8px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">By: ${esc(log.user)}</div>
+                          </div>
+                      `).join('') + '</div>';
+                  } else {
+                      logHtml = `<div style="font-style:italic; color:var(--text-muted); font-size:10px; text-align:center; padding:20px 0;">No QuickBase changes in the last 14 days.</div>`;
+                  }
+
+                  bodyHtml = `
+                      <div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; margin-bottom:10px;">Recent QuickBase Changes</div>
+                      ${logHtml}
                   `;
               }
 
