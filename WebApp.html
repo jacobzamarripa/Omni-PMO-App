@@ -3215,8 +3215,8 @@
           let d = new Date();
           subtitle.innerText = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
-          let yesterdayTime = Date.now() - (24 * 60 * 60 * 1000);
-          let recentLogs = allGlobalLogs.filter(l => Number(l.timestampObj || 0) >= yesterdayTime);
+          let cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 1); cutoff.setHours(0, 0, 0, 0);
+          let recentLogs = allGlobalLogs.filter(l => Number(l.timestampObj || 0) >= cutoff.getTime());
 
           let shifts = { ofs: 0, cx: 0, permit: 0, totalChanges: recentLogs.length };
 
@@ -3777,8 +3777,8 @@
           const ws = getEl('digest-workspace');
           if (!ws) return;
 
-          let yesterdayTime = Date.now() - (24 * 60 * 60 * 1000);
-          let recentLogs = allGlobalLogs.filter(l => Number(l.timestampObj || 0) >= yesterdayTime);
+          let cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 1); cutoff.setHours(0, 0, 0, 0);
+          let recentLogs = allGlobalLogs.filter(l => Number(l.timestampObj || 0) >= cutoff.getTime());
 
           let movedToOfs = [];
           let movedToCx = [];
@@ -4471,7 +4471,7 @@
             }
             const shouldShowDigestAfterLoad = !!showDigestAfterNextDataLoad;
             showDigestAfterNextDataLoad = false;
-            showDigestAfterStartupSelection = shouldShowDigestAfterLoad && !!(data && data.hasRecentChanges && allGlobalLogs.length > 0);
+            showDigestAfterStartupSelection = shouldShowDigestAfterLoad;
             if (!data || !data.actionItems || data.actionItems.length === 0) {
                 allActionItems = [];
                 setHtml('gantt-container', `<div class="empty-msg">All Clear ✓</div>`);

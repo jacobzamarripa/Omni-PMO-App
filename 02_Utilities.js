@@ -159,6 +159,7 @@ function getDashboardData() {
   let hasRecentGlobalChange = false;
   let yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(0, 0, 0, 0);
 
   if (logSheet && logSheet.getLastRow() > 1) {
     const logData = logSheet.getDataRange().getValues();
