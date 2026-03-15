@@ -1635,7 +1635,7 @@
                 <div class="dock-divider"></div>
                 <button class="btn hover-trigger" id="dock-btn-presentation" onclick="toggleDeckPresentationMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Theater Mode</button>
                 <button class="btn hover-trigger" id="dock-btn-slide-theme" onclick="toggleSlideSpecificTheme()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">☀️ Light Slide</button>
-                <button class="btn hover-trigger" onclick="navDeck(1)" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Skip (Next)</button>
+                <button class="btn hover-trigger" id="dock-btn-skip" onclick="navDeck(1)" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Skip (Next)</button>
                 <button class="btn hover-trigger" id="dock-btn-edit-mode" onclick="toggleDeckEditMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Edit Answers</button>
                 <button class="btn hover-trigger" id="dock-btn-stage" onclick="toggleStageCurrentDeckItem()" style="background:#a855f7; color:#fff; border-color:#9333ea;">Stage Project</button>
                 <button class="btn hover-trigger" onclick="exportDeckReport()" id="btn-export-deck" style="background:#16a34a; color:#fff; border-color:#15803d;">Copy Report</button>
@@ -1989,6 +1989,7 @@
       let stagedDeckItems = [];
       let deckPrevPivot = 'velocity';
       let isDeckPresentationMode = false; // Controls Theater blackout
+      let deckIdleTimer = null;
 
       const setHtml = (id, val) => { let el = document.getElementById(id); if(el) el.innerHTML = val; };
       const setTxt = (id, val) => { let el = document.getElementById(id); if(el) el.innerText = val; };
@@ -2058,8 +2059,11 @@
           const navNext     = getEl('dock-nav-next');
 
           if (btnFs) btnFs.classList.toggle('collapsed', !isFs);
-          if (btnFocus) btnFocus.classList.toggle('collapsed', !hasFocus);
+          if (btnFocus) btnFocus.classList.toggle('collapsed', !(isFs && hasFocus));
           if (ganttZone) ganttZone.classList.toggle('collapsed', !(isFs || hasFocus));
+          // Floating pill Exit button: show when focused but NOT fullscreen
+          const btnFocusPill = document.getElementById('btn-exit-theater');
+          if (btnFocusPill) btnFocusPill.style.display = (!isFs && hasFocus) ? 'inline-flex' : 'none';
 
           if (isFs) {
               if (filtersZone) filtersZone.classList.add('collapsed');
@@ -5025,14 +5029,56 @@
         if (btn) btn.innerHTML = isDark ? _SUN_SVG : _MOON_SVG;
       }
 
-      // Keyboard navigation for Deck mode
+      // Stealth Dock idle timer
+      function resetDeckIdleTimer() {
+        if (!isDeckPresentationMode) return;
+        const dock = document.getElementById('filter-strip');
+        if (dock) dock.classList.remove('dock-idle');
+        clearTimeout(deckIdleTimer);
+        deckIdleTimer = setTimeout(() => {
+          if (isDeckPresentationMode) {
+            const d = document.getElementById('filter-strip');
+            if (d) d.classList.add('dock-idle');
+          }
+        }, 3000);
+      }
+      document.addEventListener('mousemove', resetDeckIdleTimer);
+
+      // Global keyboard navigation
       document.addEventListener('keydown', function(e) {
-        if (isDeckMode && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
-          if (e.key === 'ArrowRight' || e.code === 'Space') { e.preventDefault(); navDeck(1); }
-          if (e.key === 'ArrowLeft') { e.preventDefault(); navDeck(-1); }
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+        resetDeckIdleTimer();
+
+        const isDeck = currentWorkspaceView === 'deck';
+        const isDetail = currentWorkspaceView === 'detail';
+
+        if (isDeck || isDetail) {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.code === 'Space') {
+            e.preventDefault(); navGlobal(1);
+          }
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault(); navGlobal(-1);
+          }
         }
-        if (e.key === 'Escape' && isDeckPresentationMode) toggleDeckPresentationMode();
+
+        if (e.key === 'Escape') {
+          if (isDeckPresentationMode) toggleDeckPresentationMode();
+          else if (document.getElementById('gantt-area-main')?.classList.contains('has-focus')) exitTheaterMode();
+        }
       });
+
+      function navGlobal(dir) {
+        if (currentWorkspaceView === 'deck') {
+          navDeck(dir);
+        } else {
+          const items = filteredItems || [];
+          if (items.length === 0) return;
+          let idx = items.findIndex(i => i.fdh === currentActiveItem?.fdh);
+          if (idx === -1) idx = 0;
+          const nextIdx = (idx + dir + items.length) % items.length;
+          openPane(items[nextIdx], document.getElementById(`card-${items[nextIdx].fdh}`));
+        }
+      }
 
       function showCinemaTooltip() {
         showToast('⌨️ SPACE / ARROWS to navigate · ESC to exit', 'info');
@@ -5042,8 +5088,14 @@
         isDeckPresentationMode = !isDeckPresentationMode;
         document.body.classList.toggle('deck-presentation-active', isDeckPresentationMode);
         const btn = document.getElementById('dock-btn-presentation');
-        if (btn) btn.innerHTML = isDeckPresentationMode ? 'Exit Theater' : 'Theater Mode';
-        if (isDeckPresentationMode) showCinemaTooltip();
+        if (btn) btn.innerHTML = isDeckPresentationMode ? 'Exit Cinema' : 'Theater Mode';
+        if (isDeckPresentationMode) {
+          showCinemaTooltip();
+          resetDeckIdleTimer();
+        } else {
+          clearTimeout(deckIdleTimer);
+          document.getElementById('filter-strip')?.classList.remove('dock-idle');
+        }
       }
 
       function toggleDeckEditMode() {
@@ -5198,7 +5250,7 @@
             <div style="flex-grow:1; overflow-y:auto; overflow-x:hidden;" id="deck-scroll-body">
                 <div class="deck-display-mode">
                     <div class="slide-ppt-grid">
-                        <div style="display:flex; flex-direction:column; gap:28px;">
+                        <div style="display:flex; flex-direction:column; gap:32px;">
                             <div class="slide-ppt-quadrant">
                                 <div class="slide-ppt-quad-header">Compliance</div>
                                 ${pptRow('Was it sent for permitting?', getVal('q_permit_sent', item.qbRef?.permitSent, 'date'))}
@@ -5214,7 +5266,7 @@
                                 ${pptRow('Has the SOW been signed?', getVal('q_sow_sign', item.qbRef?.sowSign, 'bool'))}
                             </div>
                         </div>
-                        <div style="display:flex; flex-direction:column; gap:28px;">
+                        <div style="display:flex; flex-direction:column; gap:32px;">
                             <div class="slide-ppt-quadrant">
                                 <div class="slide-ppt-quad-header">Special Crossings</div>
                                 ${pptRow('Are there any special crossings?', getVal('q_is_xing', isXingActive, 'bool'))}
@@ -5602,7 +5654,7 @@ ${item.comment || 'No notes provided.'}
       /* DUAL MODE TOGGLE */
       .deck-display-mode { display: flex; flex-direction: column; padding: 24px 32px; height: 100%; box-sizing: border-box; }
       .deck-edit-mode { display: none; flex-direction: column; }
-      /* ── CINEMA PRO: RATIO-LOCKED BLACKOUT ── */
+      /* ── CINEMA PRO: STEALTH THEATER ── */
       body.deck-presentation-active #deck-stage {
         position: fixed !important; inset: 0 !important; z-index: 999999 !important;
         background: rgba(9, 9, 11, 0.98) !important;
@@ -5611,26 +5663,35 @@ ${item.comment || 'No notes provided.'}
         display: flex !important; justify-content: center; align-items: center;
       }
       #deck-stage-card {
-        transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-                    background 0.3s ease, color 0.3s ease, box-shadow 0.5s ease;
+        transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, color 0.3s ease;
         transform-origin: center center;
         aspect-ratio: 16 / 9 !important;
-        width: 90%; max-width: 1100px; height: auto;
+        width: 90%; max-width: 1150px; height: auto;
       }
       body.deck-presentation-active #deck-stage-card {
-        width: 94vw !important; max-height: 85vh !important;
-        transform: scale(1.04); box-shadow: 0 60px 120px rgba(0,0,0,1);
+        width: 95vw !important; max-height: 86vh !important;
+        transform: scale(1.02); box-shadow: 0 80px 160px rgba(0,0,0,1);
       }
       /* Dynamic Executive Typography Scaling */
       body.deck-presentation-active .slide-hdr-id { font-size: 32px !important; }
       body.deck-presentation-active .slide-ppt-q { font-size: 15px !important; }
       body.deck-presentation-active .slide-ppt-ans { font-size: 15px !important; font-weight: 900 !important; }
       body.deck-presentation-active .slide-ppt-quad-header { font-size: 12px !important; }
-      /* Cinema Dock treatment */
+      /* Stealth Dock Physics */
+      .filter-strip { transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.8s ease, filter 0.8s ease !important; }
       body.deck-presentation-active .filter-strip {
         z-index: 1000000 !important; background: rgba(24, 24, 27, 0.96) !important; color: #fff !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
       }
-      body.deck-presentation-active .dock-arrow { color: #fff !important; }
+      body.deck-presentation-active .filter-strip.dock-idle {
+        opacity: 0.05; filter: blur(4px); pointer-events: none; transform: translateX(-50%) translateY(20px);
+      }
+      /* Hide redundant nav in Cinema */
+      body.deck-presentation-active .dock-arrow,
+      body.deck-presentation-active #dock-btn-skip { display: none !important; }
+      /* Slide theme: hidden by default, shown only in Cinema */
+      #dock-btn-slide-theme { display: none !important; }
+      body.deck-presentation-active #dock-btn-slide-theme { display: inline-flex !important; }
       body.deck-presentation-active .top-nav,
       body.deck-presentation-active .inbox-sidebar,
       body.deck-presentation-active .outbox-pane { display: none !important; }
@@ -5641,6 +5702,17 @@ ${item.comment || 'No notes provided.'}
       #deck-stage-card.slide-dark-mode .slide-header,
       #deck-stage-card.slide-dark-mode .slide-footer { background: #09090b !important; border-color: #27272a !important; }
       #deck-stage-card.slide-dark-mode .slide-ppt-ans.gap { color: #f87171 !important; }
+
+      /* ── RESPONSIVE EDIT MODE ── */
+      .deck-edit-mode .slide-q-label { font-size: 11px; transition: font-size 0.2s; }
+      .deck-edit-mode .slide-input { height: 26px; font-size: 11px; transition: all 0.2s; }
+      @media screen and (min-height: 850px) {
+        .deck-edit-mode .slide-q-label { font-size: 13.5px !important; }
+        .deck-edit-mode .module-header { font-size: 12px !important; margin-bottom: 20px !important; }
+        .deck-edit-mode .slide-input { height: 34px !important; font-size: 13.5px !important; border-radius: 10px !important; }
+        .deck-edit-mode .slide-q-row { padding: 10px 0 !important; min-height: 40px !important; }
+        .deck-edit-mode .deck-module { margin-bottom: 40px !important; }
+      }
 
       body.deck-is-editing .deck-display-mode { display: none; }
       body.deck-is-editing .deck-edit-mode { display: flex; }
