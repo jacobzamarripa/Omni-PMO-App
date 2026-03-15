@@ -139,6 +139,7 @@ function discoverAllQBFields() {
 // --- 3. WEB APP SYNC (returns JSON result, no UI alerts) ---
 
 function syncFromQBWebApp() {
+  CacheService.getScriptCache().remove('dashboard_data_cache_v6');
   CacheService.getScriptCache().remove('dashboard_data_cache');
   try {
     const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
@@ -266,12 +267,78 @@ function syncFromQBWebApp() {
       Logger.log("Deck enrichment WARN: " + deckErr.message);
     }
 
+    try {
+      syncChangeLogs();
+    } catch (clErr) {
+      Logger.log("Change Log Sync Error: " + clErr.message);
+    }
+
     return { success: true, count: allRows.length, timestamp: timestamp };
 
   } catch (e) {
     Logger.log("syncFromQBWebApp ERROR: " + e.message);
     return { success: false, error: e.message };
   }
+}
+
+function syncChangeLogs() {
+  const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
+  if (!token) return { success: false, error: "Token missing." };
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(CHANGE_LOG_SHEET) || ss.insertSheet(CHANGE_LOG_SHEET);
+
+  const fids = [8, 13, 17, 10, 11];
+  const headers = ["FDH Engineering ID", "Type of Change", "New Value", "Updated By", "Date & Time Updated"];
+
+  const sinceDate = new Date();
+  sinceDate.setDate(sinceDate.getDate() - 14);
+  const timestamp = sinceDate.getTime();
+
+  const url = "https://api.quickbase.com/v1/records/query";
+  const payload = {
+    from: "bvqruhtyc",
+    select: fids,
+    where: "{11.GT." + timestamp + "}",
+    sortBy: [{ fieldId: 11, order: "DESC" }]
+  };
+
+  const options = {
+    method: "post",
+    headers: {
+      "QB-Realm-Hostname": "omnifiber.quickbase.com",
+      "Authorization": "QB-USER-TOKEN " + token,
+      "Content-Type": "application/json"
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(url, options);
+  if (response.getResponseCode() !== 200) throw new Error("QB API Error: " + response.getContentText());
+
+  const result = JSON.parse(response.getContentText());
+  const rows = (result.data || []).map(function(rec) {
+    const userVal = rec["10"] ? rec["10"].value : null;
+    return [
+      rec["8"] ? rec["8"].value : "",
+      rec["13"] ? rec["13"].value : "",
+      rec["17"] ? rec["17"].value : "",
+      (userVal && (userVal.name || userVal.email)) || "System",
+      Utilities.formatDate(new Date(rec["11"].value), "GMT-5", "MM/dd/yyyy HH:mm")
+    ];
+  });
+
+  sheet.clear();
+  ensureCapacity(sheet, Math.max(rows.length + 1, 2), headers.length);
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (rows.length > 0) {
+    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  }
+  sheet.getRange("1:1").setBackground("#0f172a").setFontColor("white").setFontWeight("bold");
+  sheet.setFrozenRows(1);
+  trimAndFilterSheet(sheet, rows.length + 1, headers.length);
+  return { success: true, count: rows.length };
 }
 
 
@@ -730,4 +797,55 @@ function _qbHeaders(token) {
     },
     muteHttpExceptions: true
   };
+}
+
+/**
+ * Targeted discovery for the Change Log table FIDs.
+ * Run this once to see the field mapping in the Apps Script Logger.
+ */
+function discoverChangeLogFields() {
+  const CHANGE_LOG_TABLE_ID = "bvqruhtyc";
+  const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
+  
+  if (!token) {
+    Logger.log("ERROR: QB_USER_TOKEN not found in Script Properties.");
+    return;
+  }
+
+  const url = "https://api.quickbase.com/v1/fields?tableId=" + CHANGE_LOG_TABLE_ID;
+  const options = {
+    method: "get",
+    headers: {
+      "QB-Realm-Hostname": "omnifiber.quickbase.com",
+      "Authorization": "QB-USER-TOKEN " + token,
+      "Content-Type": "application/json"
+    },
+    muteHttpExceptions: true
+  };
+
+  try {
+    const response = UrlFetchApp.fetch(url, options);
+    const result = JSON.parse(response.getContentText());
+
+    if (response.getResponseCode() === 200) {
+      Logger.log("--- FIELD DISCOVERY FOR TABLE: " + CHANGE_LOG_TABLE_ID + " ---");
+      result.forEach(field => {
+        Logger.log("FID: " + field.id + " | Label: " + field.label + " | Type: " + field.fieldType);
+      });
+      Logger.log("--- END DISCOVERY ---");
+      
+      // Optionally write to your dictionary sheet as well
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      let dictSheet = ss.getSheetByName("9-QB_Fields") || ss.insertSheet("9-QB_Fields");
+      const rows = result.map(f => ["FDH Change Logs", CHANGE_LOG_TABLE_ID, f.id, f.label, f.fieldType]);
+      if (rows.length > 0) {
+        dictSheet.getRange(dictSheet.getLastRow() + 1, 1, rows.length, 5).setValues(rows);
+        SpreadsheetApp.getUi().alert("FIDs captured! Check the Logger (Cmd+Enter) or the '9-QB_Fields' tab.");
+      }
+    } else {
+      Logger.log("API Error: " + response.getContentText());
+    }
+  } catch (e) {
+    Logger.log("Script Error: " + e.toString());
+  }
 }

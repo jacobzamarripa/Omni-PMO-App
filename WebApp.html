@@ -1337,6 +1337,21 @@
       .panel-title { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); margin-right: 8px; flex-shrink: 0; }
       .panel-tab { flex: 1; height: 32px; border-radius: 6px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; border: none; background: transparent; color: var(--text-muted); transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
       .panel-tab.active { background: var(--card-bg); color: var(--text-main); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+      @keyframes pulse-dot {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+      }
+      .tab-pulse {
+        width: 8px; height: 8px; background: #ef4444; border-radius: 50%;
+        display: inline-block; animation: pulse-dot 2s infinite; margin-left: 6px;
+      }
+      .log-card {
+        padding: 12px; background: var(--card-bg); border-bottom: 1px solid var(--border);
+        display: flex; flex-direction: column; gap: 6px;
+      }
+      .log-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+      .log-type { font-size: 9px; font-weight: 900; color: #a855f7; text-transform: uppercase; background: rgba(168,85,247,0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid #d8b4fe; }
       /* 🧠 POSITION CLOSE BUTTON TO MATCH ORIGINAL FAB LOCATION */
       .panel-tab-close {
           width: 34px;
@@ -2105,6 +2120,9 @@
                     <button class="panel-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">
                         Reviewed <span id="ob-count">0</span>
                     </button>
+                    <button class="panel-tab" id="panel-tab-changelog" onclick="switchPanelTab('changelog')">
+                        Activity Log <span id="changelog-pulse" class="tab-pulse" style="display:none;"></span>
+                    </button>
                     <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel">✕</button>
                   </div>
 
@@ -2139,6 +2157,13 @@
                       <div class="ob-list" id="outbox-list" style="flex-grow:1; overflow-y:auto;">
                          <div class="empty-msg" style="margin-top:20px; font-size:11px;">No items reviewed.</div>
                       </div>
+                   </div>
+
+                   <div id="ob-panel-changelog" style="display:none; flex-direction:column; flex-grow:1; overflow:hidden;">
+                      <div class="ob-header" style="flex-shrink:0; padding:10px 16px;">
+                         <input type="text" id="changelog-search" placeholder="Search PM or FDH..." oninput="renderChangeLog()" style="width:100%; border-radius:8px; padding:8px 12px; font-size:11px; border:1px solid var(--border); outline:none;">
+                      </div>
+                      <div class="ob-list" id="changelog-list" style="flex-grow:1; overflow-y:auto;"></div>
                    </div>
 
             </div>
@@ -2318,6 +2343,7 @@
       let activePieStageFilter = null;
       let activeFilters = { sev: [], vendor: [], city: [], ofs: [] };
       let openDropdownId = null;
+      const CHANGELOG_PULSE_SESSION_KEY = 'changelogPulseSeen';
 
       function getStageColor(stage) {
           let sLower = (stage || "").toLowerCase();
@@ -2945,26 +2971,76 @@
       function _syncDrawerTop() { /* no-op */ }
 
       let currentPanelTab = 'admin';
+      let globalRecentChanges = [];
       function toggleAdminPanel() {
           let pane = getEl('outbox-pane');
           let isOpen = pane && pane.classList.contains('open');
           setAdminPanelOpen(!isOpen);
       }
+      function setChangelogPulse(show) {
+          let pulse = getEl('changelog-pulse');
+          if (!pulse) return;
+          pulse.style.display = show ? 'inline-block' : 'none';
+      }
       function switchPanelTab(tab) {
           currentPanelTab = tab;
-          let adminPanel = getEl('ob-panel-admin'), reviewedPanel = getEl('ob-panel-reviewed');
-          let adminTab = getEl('panel-tab-admin'), reviewedTab = getEl('panel-tab-reviewed');
-          if (tab === 'admin') {
-              if (adminPanel) adminPanel.style.display = 'flex';
-              if (reviewedPanel) reviewedPanel.style.display = 'none';
-              if (adminTab) adminTab.classList.add('active');
-              if (reviewedTab) reviewedTab.classList.remove('active');
-          } else {
-              if (adminPanel) adminPanel.style.display = 'none';
-              if (reviewedPanel) reviewedPanel.style.display = 'flex';
-              if (adminTab) adminTab.classList.remove('active');
-              if (reviewedTab) reviewedTab.classList.add('active');
+          let adminPanel = getEl('ob-panel-admin'), reviewedPanel = getEl('ob-panel-reviewed'), changelogPanel = getEl('ob-panel-changelog');
+          let adminTab = getEl('panel-tab-admin'), reviewedTab = getEl('panel-tab-reviewed'), changelogTab = getEl('panel-tab-changelog');
+
+          if (adminPanel) adminPanel.style.display = (tab === 'admin') ? 'flex' : 'none';
+          if (reviewedPanel) reviewedPanel.style.display = (tab === 'reviewed') ? 'flex' : 'none';
+          if (changelogPanel) changelogPanel.style.display = (tab === 'changelog') ? 'flex' : 'none';
+
+          if (adminTab) adminTab.classList.toggle('active', tab === 'admin');
+          if (reviewedTab) reviewedTab.classList.toggle('active', tab === 'reviewed');
+          if (changelogTab) changelogTab.classList.toggle('active', tab === 'changelog');
+
+          if (tab === 'changelog') {
+              try { sessionStorage.setItem(CHANGELOG_PULSE_SESSION_KEY, '1'); } catch (e) {}
+              setChangelogPulse(false);
+              renderChangeLog();
           }
+      }
+      function renderChangeLog() {
+          let list = getEl('changelog-list');
+          let search = (getEl('changelog-search')?.value || '').toLowerCase();
+          if (!list) return;
+
+          let allLogs = (globalRecentChanges || []).slice().sort((a, b) => (b.timestampObj || 0) - (a.timestampObj || 0));
+          if (search) {
+              allLogs = allLogs.filter(log =>
+                  String(log.fdh || '').toLowerCase().includes(search) ||
+                  String(log.user || '').toLowerCase().includes(search) ||
+                  String(log.type || '').toLowerCase().includes(search)
+              );
+          }
+
+          if (allLogs.length === 0) {
+              list.innerHTML = `<div class="empty-msg" style="margin-top:20px; font-size:11px;">No recent activity found.</div>`;
+              return;
+          }
+
+          let html = '';
+          allLogs.forEach(log => {
+              let navArg = JSON.stringify(String(log.fdh || ''));
+              html += `
+              <div class="log-card">
+                  <div class="log-header">
+                      <div style="font-size:12px; font-weight:900; color:var(--text-main);">${esc(log.fdh)}</div>
+                      <div style="font-size:9px; font-weight:700; color:var(--text-muted);">${esc(log.time)}</div>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:2px;">
+                      <span class="log-type">${esc(log.type)}</span>
+                      <span style="font-size:10px; font-weight:800; color:var(--text-muted);">By: <span style="color:var(--text-main);">${esc(log.user)}</span></span>
+                  </div>
+                  <div style="font-size:11px; color:var(--text-main); font-weight:600; margin-top:4px; padding:6px; background:var(--bg); border-radius:6px; border:1px solid var(--border);">
+                      &#8594; ${esc(log.val)}
+                  </div>
+                  <button class="btn" style="margin-top:6px; align-self:flex-start; padding:4px 10px;" onclick='selectItemForNav(${navArg})'>Go to Project</button>
+              </div>`;
+          });
+
+          list.innerHTML = html;
       }
       function toggleFilterStrip() {
           let strip = getEl('filter-strip');
@@ -3935,6 +4011,15 @@
                     document.body.appendChild(datalist);
                 }
                 datalist.innerHTML = data.allFdhIds.sort().map(id => `<option value="${id}">`).join('');
+            }
+            globalRecentChanges = (data && data.recentChanges) ? data.recentChanges : [];
+            renderChangeLog();
+            if (data && data.hasRecentChanges) {
+                let pulseSeen = false;
+                try { pulseSeen = sessionStorage.getItem(CHANGELOG_PULSE_SESSION_KEY) === '1'; } catch (e) {}
+                if (!pulseSeen) setChangelogPulse(true);
+            } else {
+                setChangelogPulse(false);
             }
             if (!data || !data.actionItems || data.actionItems.length === 0) {
                 setHtml('gantt-container', `<div class="empty-msg">All Clear ✓</div>`);
@@ -5302,9 +5387,15 @@
       function openPaneFromGrid(fdh) {
           let item = filteredItems.find(i => i.fdh === fdh);
           if (!item) return;
-          let cardEl = getEl(`card-${item.fdh}`);
+          let cardEl = getEl(`grid-card-${item.fdh}`);
           openPane(item, cardEl);
-          if (cardEl && currentWorkspaceView === 'grid') cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (cardEl && currentWorkspaceView === 'grid') {
+              const gridContent = document.getElementById('grid-content');
+              if (gridContent) {
+                  const scrollTarget = cardEl.offsetTop + (cardEl.offsetHeight / 2) - (gridContent.clientHeight / 2);
+                  gridContent.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+              }
+          }
           if (isDeckMode) {
               deckIndex = filteredItems.indexOf(item);
               renderDeckStage();
@@ -6456,7 +6547,7 @@ ${item.comment || 'No notes provided.'}
         backdrop-filter: blur(40px) saturate(180%) !important;
         -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
         display: flex !important; align-items: center !important; justify-content: center !important;
-        padding: 20px !important; margin: 0 !important;
+        padding: 0 !important; margin: 0 !important;
         cursor: pointer;
       }
       /* Shared focus properties */

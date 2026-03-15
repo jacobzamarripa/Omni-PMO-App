@@ -154,6 +154,39 @@ function getDashboardData() {
       return match ? Number(match[0]) : 0;
   };
 
+  const logSheet = ss.getSheetByName(CHANGE_LOG_SHEET);
+  let changeLogDict = {};
+  let allRecentChanges = [];
+  let hasRecentGlobalChange = false;
+  let yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (logSheet && logSheet.getLastRow() > 1) {
+    const logData = logSheet.getDataRange().getValues();
+    for (let j = 1; j < logData.length; j++) {
+      let fdhId = String(logData[j][0] || "").toUpperCase().trim();
+      if (!fdhId) continue;
+
+      let timeVal = logData[j][4];
+      let logTime = timeVal instanceof Date ? new Date(timeVal.getTime()) : new Date(timeVal);
+      let timestampObj = isNaN(logTime.getTime()) ? 0 : logTime.getTime();
+      if (timestampObj > yesterday.getTime()) hasRecentGlobalChange = true;
+
+      let logItem = {
+        fdh: fdhId,
+        type: String(logData[j][1] || ""),
+        val: String(logData[j][2] || ""),
+        user: String(logData[j][3] || "System"),
+        time: String(logData[j][4] || ""),
+        timestampObj: timestampObj
+      };
+
+      if (!changeLogDict[fdhId]) changeLogDict[fdhId] = [];
+      changeLogDict[fdhId].push(logItem);
+      allRecentChanges.push(logItem);
+    }
+  }
+
   let actionItems = [];
 
   for (let i = 1; i < data.length; i++) {
@@ -166,7 +199,7 @@ function getDashboardData() {
      // Ignore all permitting projects unless they are Approved.
      if (stageStr.includes("PERMITTING") && !statStr.includes("APPROVED")) continue;
 
-     if (flags !== "" && !flags.includes("✅ No Anomalies") && !flags.includes("COMPLETE") && !stageStr.includes("OFS") && !statStr.includes("OPEN FOR SALE")) {
+     if (flags !== "" && !flags.includes("✅ No Anomalies")) {
          const parseDate = (val) => val ? ((val instanceof Date) ? Utilities.formatDate(val, "GMT-5", "MM-dd-yyyy") : String(val).split('T')[0]) : "";
          
          // 🧠 FIX: Ensure no Date objects make it into the raw row
@@ -208,6 +241,7 @@ function getDashboardData() {
              hasCDDist: refData ? refData.hasCDDist : false,
              hasBOMPo: refData ? refData.hasBOMPo : false,
              hasSOW: refData ? refData.hasSOW : false,
+             recentChanges: changeLogDict[fdhKey] || [],
              qbRef: refData ? (refData.qbRef || {}) : {},
              vel: {
                  ug: { tot: parseNum(data[i][ugTotIdx]), bom: parseNum(data[i][ugBomIdx]), daily: parseNum(data[i][ugDailyIdx]) },
@@ -224,6 +258,8 @@ function getDashboardData() {
   let refDataDate = String(PropertiesService.getScriptProperties().getProperty('refDataImportDate') || "");
   let payload = {
     actionItems: actionItems,
+    recentChanges: allRecentChanges,
+    hasRecentChanges: hasRecentGlobalChange,
     totalRows: data.length - 1,
     headers: headers,
     refDataDate: refDataDate,
