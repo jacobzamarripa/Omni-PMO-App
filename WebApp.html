@@ -587,13 +587,14 @@
           background: rgba(59, 130, 246, 0.2) !important;
       }
       .ms-wrap { position: relative; display: inline-block; }
+      .ms-wrap.open { z-index: 5000 !important; }
       .ms-display {
           border-radius: 20px !important;
           background: rgba(255, 255, 255, 0.6) !important;
           border: 1px solid var(--border) !important;
-          padding: 8px 16px !important;
-          height: 38px !important;
-          font-size: 11px !important;
+          padding: 0 14px !important;
+          height: 32px !important;
+          font-size: 10px !important;
           font-weight: 800 !important;
           color: var(--text-main) !important;
           box-shadow: 0 2px 6px rgba(0,0,0,0.04) !important;
@@ -644,23 +645,23 @@
       /* ── 🧠 DYNAMIC ANCHORED FILTER TAGS ── */
       #active-filter-pills {
           position: fixed !important;
-          top: 62px;
+          top: 56px;
           bottom: auto;
           left: 50%;
           transform: translateX(-50%);
           display: flex;
           flex-wrap: wrap;
           justify-content: center;
-          gap: 8px;
+          gap: 6px;
           width: auto;
           max-width: 85vw;
           z-index: 3000 !important;
           pointer-events: none;
-          transition: top 0.4s var(--ease-out-expo, cubic-bezier(0.19,1,0.22,1)), bottom 0.4s var(--ease-out-expo, cubic-bezier(0.19,1,0.22,1));
+          transition: all 0.4s var(--ease-out-expo, cubic-bezier(0.19,1,0.22,1));
       }
       body.deck-mode-active #active-filter-pills {
           top: auto;
-          bottom: 82px;
+          bottom: 74px;
       }
       .filter-pill {
           pointer-events: auto;
@@ -2562,7 +2563,7 @@
           const container = getEl('active-filter-pills');
           if (!container) return;
           container.innerHTML = '';
-          const categories = { sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS' };
+          const categories = { sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS', user: 'User' };
           Object.keys(activeFilters).forEach(cat => {
               activeFilters[cat].forEach(val => {
                   const pill = document.createElement('div');
@@ -2571,8 +2572,8 @@
                   if (val === '60_DAYS') label = '< 60 Days';
                   if (val === '90_DAYS') label = '< 90 Days';
                   pill.innerHTML = `
-                      <span style="color:var(--text-muted); opacity: 0.8; font-size: 8px; text-transform: uppercase;">${categories[cat]}</span>
-                      <span style="letter-spacing: 0.01em;">${esc(label)}</span>
+                      <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px; text-transform: uppercase; letter-spacing: 0.5px;">${categories[cat] || cat}</span>
+                      <span style="font-weight: 900;">${esc(label)}</span>
                       <div class="remove-btn" onclick="toggleFilterValue('${cat}', '${escJs(val)}')">✕</div>
                   `;
                   container.appendChild(pill);
@@ -2584,7 +2585,7 @@
               const color = getStageColor(activePieStageFilter);
               pill.style.borderLeft = `3px solid ${color}`;
               pill.innerHTML = `
-                  <span style="color:var(--text-muted); opacity: 0.8; font-size: 8px; text-transform: uppercase;">Stage</span>
+                  <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Stage</span>
                   <span style="color:${color}; font-weight: 900;">${esc(activePieStageFilter)}</span>
                   <div class="remove-btn" onclick="togglePieStageFilter(null)">✕</div>
               `;
