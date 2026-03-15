@@ -1406,6 +1406,9 @@
       .help-close:hover { background: var(--border); }
       .help-body { overflow-y: auto; flex-grow: 1; padding: 16px 18px; display: flex; flex-direction: column; gap: 20px; }
       .help-body::-webkit-scrollbar { width: 4px; } .help-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+      .help-search-wrap { position: sticky; top: -16px; z-index: 2; margin: -16px -18px 0; padding: 16px 18px 10px; background: linear-gradient(to bottom, color-mix(in srgb, var(--card-bg) 96%, transparent), color-mix(in srgb, var(--card-bg) 92%, transparent)); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+      #help-search-input { width: 100%; box-sizing: border-box; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main); font-size: 12px; font-weight: 600; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.03); transition: border-color 0.2s, box-shadow 0.2s; }
+      #help-search-input:focus { border-color: var(--color-insight); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15), inset 0 1px 3px rgba(0,0,0,0.03); }
       .help-sec { display: flex; flex-direction: column; gap: 8px; }
       .help-sec-title { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); padding-bottom: 6px; border-bottom: 1px solid var(--border); }
       .help-row { display: flex; gap: 8px; align-items: flex-start; }
@@ -1631,9 +1634,13 @@
                 </select>
             </div>
 
+            <div class="dock-zone collapsed" id="dock-focus-zone">
+                <div class="dock-divider"></div>
+                <button class="btn hover-trigger" id="dock-btn-presentation" onclick="togglePresentationMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Theater Mode</button>
+            </div>
+
             <div class="dock-zone collapsed" id="dock-deck-actions-zone">
                 <div class="dock-divider"></div>
-                <button class="btn hover-trigger" id="dock-btn-presentation" onclick="toggleDeckPresentationMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Theater Mode</button>
                 <button class="btn hover-trigger" id="dock-btn-slide-theme" onclick="toggleSlideSpecificTheme()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);"></button>
                 <button class="btn hover-trigger" id="dock-btn-skip" onclick="navDeck(1)" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Skip (Next)</button>
                 <button class="btn hover-trigger" id="dock-btn-edit-mode" onclick="toggleDeckEditMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Edit Answers</button>
@@ -1846,112 +1853,72 @@
         <button class="help-close" onclick="toggleHelpPanel()">✕</button>
       </div>
       <div class="help-body">
+        <div class="help-search-wrap">
+           <input type="text" id="help-search-input" placeholder="Search topics, flags, terms..." onkeyup="searchHelp()">
+        </div>
 
-        <!-- WORKFLOW -->
+        <div class="help-sec">
+          <div class="help-sec-title">Workspaces &amp; Views</div>
+          <div class="help-row"><span class="hbadge hbadge-gray">Detail View</span><div class="hdesc">The standard QA view. Focuses on one project at a time, providing full schedule, velocity, and AI diagnostic breakdowns.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-gray">Grid View</span><div class="hdesc">High-density overview. Displays multiple projects at once. Use the <b>Pivot Selector</b> in the dock to switch between Schedule, Velocity, Notes, or Deliverables data.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-gray">Deck Mode</span><div class="hdesc">Presentation mode. Formats projects into 16:9 slides. Ideal for morning meetings. Allows you to "Stage" multiple projects for batch email exports.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-purple">Theater Mode</span><div class="hdesc">Available in Deck mode. Blacks out the surrounding UI for distraction-free presentations. Use Arrow Keys or Spacebar to navigate slides.</div></div>
+        </div>
+
         <div class="help-sec">
           <div class="help-sec-title">Daily Workflow</div>
-          <div class="help-wf-step"><div class="help-wf-num">1</div><div class="hdesc"><b>Sync QB</b> — Pull the latest project data from QuickBase into the reference sheet. Do this when QB statuses or BOMs have changed.</div></div>
-          <div class="help-wf-step"><div class="help-wf-num">2</div><div class="hdesc"><b>Run Review</b> — Re-run the diagnostic engine for a specific date. Prompts for a date, processes daily files, and reloads the queue.</div></div>
-          <div class="help-wf-step"><div class="help-wf-num">3</div><div class="hdesc"><b>Refresh</b> — Fast reload of the current mirror sheet. Use when corrections have been made directly in the sheet.</div></div>
-          <div class="help-wf-step"><div class="help-wf-num">4</div><div class="hdesc"><b>Select a project</b> — Click any item in the Diag. Queue. The detail panel opens. On mobile, tap Prev / Next to move through projects without committing or skipping.</div></div>
-          <div class="help-wf-step"><div class="help-wf-num">5</div><div class="hdesc"><b>Review</b> — Read the Vendor Update, check the System Diagnostic flags, and review the project schedule and velocity cards.</div></div>
-          <div class="help-wf-step"><div class="help-wf-num">6</div><div class="hdesc"><b>Write your note</b> — The OMNI Manager Note pre-fills with an AI-drafted summary. Edit it to reflect your actual decision. Your edits are tracked separately from the auto-draft.</div></div>
-          <div class="help-wf-step"><div class="help-wf-num">7</div><div class="hdesc"><b>Commit or Skip</b> — <b>Commit</b> saves the review and moves the project to the Reviewed drawer. <b>Skip (Clear)</b> removes it from the queue without saving.</div></div>
-          <div class="help-wf-step"><div class="help-wf-num">8</div><div class="hdesc"><b>Export All</b> — Click <b>Export All</b> in the Reviewed drawer to email the daily summary CSV.</div></div>
+          <div class="help-wf-step"><div class="help-wf-num">1</div><div class="hdesc"><b>Sync QB</b> — Pull the latest project data from QuickBase. Do this when QB statuses or BOMs have changed.</div></div>
+          <div class="help-wf-step"><div class="help-wf-num">2</div><div class="hdesc"><b>Run Review</b> — Prompts for a date, processes daily vendor files, and loads anomalies into the queue.</div></div>
+          <div class="help-wf-step"><div class="help-wf-num">3</div><div class="hdesc"><b>Admin Checks</b> — Open the right-side <b>Review Hub</b> to clear Status Mismatches, verify Special Crossings, and log missing BOMs.</div></div>
+          <div class="help-wf-step"><div class="help-wf-num">4</div><div class="hdesc"><b>Review &amp; Note</b> — Check the Vendor Update and System Flags. The AI (Gemini) pre-drafts a manager note. Edit it to reflect your decision.</div></div>
+          <div class="help-wf-step"><div class="help-wf-num">5</div><div class="hdesc"><b>Commit</b> — Saves the review and moves the project to the Reviewed drawer.</div></div>
+          <div class="help-wf-step"><div class="help-wf-num">6</div><div class="hdesc"><b>Export</b> — In the Reviewed drawer (or via Deck Staging), export the daily summaries to CSV or Email.</div></div>
         </div>
 
-        <!-- NAVIGATION BAR -->
         <div class="help-sec">
-          <div class="help-sec-title">Navigation Bar</div>
-          <div class="help-row"><span class="hbadge hbadge-gray">⟳ Sync QB</span><div class="hdesc">Pulls fresh project data from QuickBase API directly into the reference sheet. Required before running a review if QB data has changed.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">▶ Run Review</span><div class="hdesc">Prompts for a date and re-runs the full diagnostic engine — processes daily files and reloads the queue.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">↻ Refresh</span><div class="hdesc">Fast reload from the existing mirror sheet without re-running diagnostics. Use after making manual corrections in the sheet.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">AI badge</span><div class="hdesc">Shows how many Gemini API calls have been used today out of the daily limit. Green = OK, yellow = nearing limit, red = at limit.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Projects</span><div class="hdesc">Total active projects in the current daily run.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">BSLs</span><div class="hdesc">Total build-site locations (homes passed) across all active projects.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-red">Critical</span><div class="hdesc">Projects with at least one critical flag. Click to toggle Critical-only filter on/off.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Ref Data age</span><div class="hdesc">Shows the age of the QB reference data. <b>FRESH</b> = synced today. <b>STALE</b> = data older than expected — run Sync QB.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">☀ / 🌙</span><div class="hdesc">Toggle dark/light mode. The app also follows your system preference automatically.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Reviewed tab</span><div class="hdesc">The <b>Reviewed</b> drawer tab is always visible on the right edge of the screen. Click it to slide the drawer open and see committed projects or export the daily summary.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Gantt resize</span><div class="hdesc">Drag the thin bar above the Gantt chart up or down to resize its height.</div></div>
+          <div class="help-sec-title">Dynamic Filter Dock</div>
+          <div class="hdesc">The floating dock at the top of the screen adapts to your current workspace.</div>
+          <div class="help-row"><span class="hbadge hbadge-gray">Search</span><div class="hdesc">Instantly filter the queue by FDH ID, City, or Vendor.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-gray">Filters</span><div class="hdesc">Narrow projects by Health (Critical/Warning), Vendor, City, or Target OFS month.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-blue">Stage Project</span><div class="hdesc">(Deck Mode) Adds the current project to a batch queue. Allows you to email a combined PDF/text report for all staged projects at once.</div></div>
         </div>
 
-        <!-- MOBILE -->
         <div class="help-sec">
-          <div class="help-sec-title">Mobile Navigation</div>
-          <div class="help-row"><span class="hbadge hbadge-gray">◀ Back</span><div class="hdesc">Return to the project queue from the detail view.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">‹ Prev / Next ›</span><div class="hdesc">Move to the previous or next project in the queue without committing or skipping. Disabled at the first or last item.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Reviewed</span><div class="hdesc">Opens the Reviewed bottom sheet showing all committed projects for the session.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Skip (Clear)</span><div class="hdesc">Removes the current project from the queue without saving a review.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-green">✔ Commit</span><div class="hdesc">Saves your manager note and moves the project to the Reviewed list. The next project opens automatically.</div></div>
+          <div class="help-sec-title">Network Path &amp; Dependencies</div>
+          <div class="hdesc">The horizontal strip in the Detail View showing physical fiber dependencies.</div>
+          <div class="help-row"><span class="hbadge hbadge-green">Green Dot</span><div class="hdesc">Node has light to cabinet confirmed (or is OFS/Complete).</div></div>
+          <div class="help-row"><span class="hbadge hbadge-yellow">Amber Dot</span><div class="hdesc">Node is currently waiting on light.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-blue">⚡ Transport</span><div class="hdesc">Transport (backhaul) is ready, meaning this project bypasses upstream physical dependencies for light.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-gray">Click to Walk</span><div class="hdesc">Click any upstream or downstream node to immediately jump to that project's dashboard.</div></div>
         </div>
 
-        <!-- DIAGNOSTIC QUEUE -->
-        <div class="help-sec">
-          <div class="help-sec-title">Diagnostic Queue</div>
-          <div class="help-row"><span class="hbadge hbadge-yellow">Check Crossings</span><div class="hdesc">Count of projects flagged for a special road or utility crossing. Click to filter the queue to only those projects.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-red">QB Status</span><div class="hdesc">Count of projects with a QuickBase status mismatch or missing status. Click to filter. This is an admin action — the status in QB needs to be updated to match field reality.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Filters</span><div class="hdesc">Reveals the filter strip to narrow the queue by severity, vendor, city, or OFS forecast date. The button turns red when any filter is active.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">☰ / ⊞</span><div class="hdesc">Toggle between card view (default) and compact list view for the queue.</div></div>
-        </div>
-
-        <!-- PROJECT SCHEDULE CARD -->
-        <div class="help-sec">
-          <div class="help-sec-title">Project Schedule Card</div>
-          <div class="hdesc">Shows the construction timeline for the selected project.</div>
-          <div class="help-row"><span class="hbadge hbadge-gray">CX Start / Complete</span><div class="hdesc">The official construction start and completion dates from QuickBase.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Time Bar</span><div class="hdesc">Visual progress from CX Start to CX Complete. The bead shows today's position. Stars mark 100% completion milestones for each phase (UG, AE, Fiber, NAP).</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Target Date</span><div class="hdesc">The projected OFS (On For Service) date. Turns red when overdue.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-stripe" style="color:#fde047;">X-ING</span><div class="hdesc">A special crossing is present on this project (road bore, railroad, waterway, etc.). Extra permits and restoration scope may apply — verify with the vendor.</div></div>
-        </div>
-
-        <!-- FIELD VELOCITY CARD -->
         <div class="help-sec">
           <div class="help-sec-title">Field Velocity &amp; Production</div>
-          <div class="hdesc">Real-time production progress pulled from the daily report.</div>
-          <div class="help-row"><span class="hbadge hbadge-gray">UG / Fiber / Splicing / NAP</span><div class="hdesc">Each bar shows completed vs. BOM quantity and the daily pace needed to finish on time.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Days Left</span><div class="hdesc">Calendar days remaining until the target date. Zero or negative means the project is at or past its deadline.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">BSLs</span><div class="hdesc">Total homes in scope for this project.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-yellow">Pending Light</span><div class="hdesc">Light has not yet been confirmed at cabinets. No fiber or splicing can begin until light is present.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-gray">Pace Tracker</span><div class="hdesc">Calculates the daily footage/NAPs required to hit the Target Date. Turns red if the required pace exceeds standard thresholds.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-gray">Days Left</span><div class="hdesc">Calendar days remaining until the target date. Overdue projects display in red.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-green">+ TODAY</span><div class="hdesc">Green badges indicate fresh production was logged in the latest daily report.</div></div>
         </div>
 
-        <!-- DIAGNOSTIC & MANAGER REVIEW -->
-        <div class="help-sec">
-          <div class="help-sec-title">Diagnostic &amp; Manager Review</div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Vendor Update</span><div class="hdesc">The most recent comment submitted by the vendor in their daily report. This is unedited — it reflects exactly what the crew reported.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">System Diagnostics</span><div class="hdesc">Auto-detected flags generated by the engine. Each flag represents a data discrepancy or condition that may require action. See the Flag Glossary below.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-purple">OMNI Manager Note</span><div class="hdesc">Your field for the daily decision or action taken on this project. The AI pre-drafts a note based on the flags — shown in muted italic text. Edit it before committing. Once you type, the draft is replaced with your words.</div></div>
-        </div>
-
-        <!-- CD INTELLIGENCE -->
-        <div class="help-sec">
-          <div class="help-sec-title">CD Intelligence</div>
-          <div class="help-row"><span class="hbadge hbadge-stripe" style="color:#fde047;">CD Intel</span><div class="hdesc">Only appears when a construction drawing has been analyzed by AI (Gemini). Summarizes complexity factors from the CD — bore depths, crossing counts, restoration scope, special conditions. Use this to verify whether the vendor's reported scope matches the design intent.</div></div>
-        </div>
-
-        <!-- GLOBAL TIMELINE -->
         <div class="help-sec">
           <div class="help-sec-title">Global Construction Timeline (Gantt)</div>
-          <div class="hdesc">Shows all active projects as bars across a shared calendar. Automatically sizes to fit the number of projects.</div>
           <div class="help-row"><span class="hbadge hbadge-gray">Bar Color</span><div class="hdesc">Matches the project's current stage/status. Overdue projects display in red. Hover a bar to see a summary HUD.</div></div>
           <div class="help-row"><span class="hbadge hbadge-gray">Beads</span><div class="hdesc">Small markers on the bar: <b>L</b> = Locates called, <b>C</b> = Cabinets set, <b>⚡</b> = Light present, <b>★</b> = Phase 100% complete.</div></div>
           <div class="help-row"><span class="hbadge hbadge-yellow">EOM Spike</span><div class="hdesc">A concentration of projects ending at or near end-of-month. Hover for a breakdown of which vendors and BSL counts are involved.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Theater Mode</span><div class="hdesc">Click any project row in the Gantt to highlight it and dim others. Click again or press Escape to exit. Use Fullscreen to expand the Gantt edge-to-edge.</div></div>
         </div>
 
-        <!-- FLAG GLOSSARY -->
         <div class="help-sec">
           <div class="help-sec-title">Flag Glossary</div>
-          <div class="help-row"><span class="hbadge hbadge-red">ID Auto-Corrected</span><div class="hdesc">The vendor submitted under a slightly different FDH ID. The engine matched it to the correct project automatically — confirm the vendor is using the right ID going forward.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-red">Status Mismatch</span><div class="hdesc">The project's QB status does not match what the field report indicates. Admin action required: update the status in QuickBase.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-red">Missing QB Status</span><div class="hdesc">No status was found in QB for this project. The record may be missing or incorrectly named. Admin action required.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-yellow">Check Crossings</span><div class="hdesc">One or more special crossings detected on this project. Confirm permit status, bore depths, and restoration plan with the vendor.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-yellow">BOM Discrepancy</span><div class="hdesc">Reported quantities exceed the BOM (Bill of Materials). Either the scope has expanded or the vendor over-reported. Verify with the PM.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-yellow">Scope Deviation (NAP)</span><div class="hdesc">NAP count reported by the vendor does not match the BOM. Could indicate a scope change, a partial installation, or a reporting error.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-yellow">Possible Reroute</span><div class="hdesc">Field conditions suggest the route may have changed from the original design. A new CD or field sketch may be needed.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-yellow">Lighting Risk</span><div class="hdesc">Light-to-cabinets is not confirmed and the project is approaching or past the point where fiber work should have started. Escalate if blocking production.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-gray">Pending Light</span><div class="hdesc">Light has been called for but not yet confirmed at the cabinet. No fiber or splice work can begin.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-red">Refresh Ref Data</span><div class="hdesc">An admin action cleared a mismatch flag — the reference data in the system has been updated and a fresh sync is recommended to reflect the correction.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-red">Status Mismatch</span><div class="hdesc">Project's QB status does not match the field report. Update QB.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-yellow">Check Crossings</span><div class="hdesc">Special crossings detected. Confirm permit status, bore depths, and restoration plan with the vendor.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-yellow">Please Input BOM</span><div class="hdesc">Main BOM quantities are zero. Add BOMs to QuickBase so the engine can calculate velocity.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-yellow">Blocked by Upstream</span><div class="hdesc">The project feeding this FDH is not yet lit, and Transport is not ready to override it.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-red">Delaying Downstream</span><div class="hdesc">This project is not lit, and is actively holding up a downstream project that lacks transport.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-purple">Transport Override</span><div class="hdesc">Transport is available, bypassing the physical upstream dependency.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-red">Overrun</span><div class="hdesc">Vendor has reported total footage exceeding the QuickBase BOM by more than 5%.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-yellow">Possible Reroute</span><div class="hdesc">Vendor reported activity on a phase (like UG or Strand) where the BOM is 0. Indicates a possible field design change.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-yellow">BOM Discrepancy</span><div class="hdesc">The vendor's reported BOM total does not match QuickBase's BOM total.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-gray">Ghost Report</span><div class="hdesc">A project is marked active but the vendor did not submit a daily report today.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-stripe" style="color:#fde047;">CD Intel</span><div class="hdesc">Gemini detected major crossing risks (Highways, Railroads, Rivers) in the Construction Drawing PDF.</div></div>
         </div>
 
       </div>
@@ -1990,7 +1957,7 @@
       let pmSessionMemory = {};
       let stagedDeckItems = [];
       let deckPrevPivot = 'velocity';
-      let isDeckPresentationMode = false; // Controls Theater blackout
+      let isPresentationMode = false; // Controls Theater blackout
       let deckIdleTimer = null;
 
       const setHtml = (id, val) => { let el = document.getElementById(id); if(el) el.innerHTML = val; };
@@ -2533,11 +2500,48 @@
           let open = !strip.classList.contains('hidden');
           if (btn) btn.classList.toggle('btn-filters-active', open);
       }
+      function searchHelp() {
+          let input = getEl('help-search-input');
+          if (!input) return;
+
+          let filter = input.value.toLowerCase().trim();
+          let sections = document.querySelectorAll('#help-panel .help-sec');
+
+          sections.forEach(sec => {
+              let title = sec.querySelector('.help-sec-title');
+              let titleMatches = !!(title && title.innerText.toLowerCase().includes(filter));
+              let hasVisibleContent = titleMatches;
+
+              let items = sec.querySelectorAll('.help-row, .help-wf-step');
+              items.forEach(item => {
+                  let matches = titleMatches || !filter || item.innerText.toLowerCase().includes(filter);
+                  item.style.display = matches ? '' : 'none';
+                  if (matches) hasVisibleContent = true;
+              });
+
+              let descs = Array.from(sec.children).filter(el => el.classList.contains('hdesc'));
+              descs.forEach(desc => {
+                  let matches = titleMatches || !filter || desc.innerText.toLowerCase().includes(filter);
+                  desc.style.display = matches ? '' : 'none';
+                  if (matches) hasVisibleContent = true;
+              });
+
+              sec.style.display = hasVisibleContent ? 'flex' : 'none';
+          });
+      }
       function toggleHelpPanel() {
           let panel = getEl('help-panel'); let overlay = getEl('help-overlay');
           if (!panel) return;
           let isOpen = panel.classList.toggle('open');
           if (overlay) overlay.classList.toggle('open', isOpen);
+          if (isOpen) {
+              let searchInput = getEl('help-search-input');
+              if (searchInput) {
+                  searchInput.value = '';
+                  searchHelp();
+                  setTimeout(() => searchInput.focus(), 300);
+              }
+          }
       }
       function isIPadLike() {
           if (window.matchMedia('(pointer: coarse) and (min-width: 769px) and (min-height: 600px)').matches) return true;
@@ -5012,6 +5016,9 @@
         const filtersZone = getEl('dock-filters-zone');
         if (filtersZone) filtersZone.classList.toggle('collapsed', isDeckMode);
         const deckActionsZone = getEl('dock-deck-actions-zone');
+        const focusZone = getEl('dock-focus-zone');
+        document.body.classList.toggle('deck-mode-active', isDeckMode);
+        if (focusZone) focusZone.classList.toggle('collapsed', !isDeckMode && currentWorkspaceView !== 'detail');
         if (deckActionsZone) deckActionsZone.classList.toggle('collapsed', !isDeckMode);
         const navPrev = getEl('dock-nav-prev');
         const navNext = getEl('dock-nav-next');
@@ -5101,12 +5108,12 @@
 
       // Stealth Dock idle timer
       function resetDeckIdleTimer() {
-        if (!isDeckPresentationMode) return;
+        if (!isPresentationMode) return;
         const dock = document.getElementById('filter-strip');
         if (dock) dock.classList.remove('dock-idle');
         clearTimeout(deckIdleTimer);
         deckIdleTimer = setTimeout(() => {
-          if (isDeckPresentationMode) {
+          if (isPresentationMode) {
             const d = document.getElementById('filter-strip');
             if (d) d.classList.add('dock-idle');
           }
@@ -5125,7 +5132,7 @@
         if (e.key === 'ArrowUp') { e.preventDefault(); navGlobal(-1, true); }
 
         if (e.key === 'Escape') {
-          if (isDeckPresentationMode) toggleDeckPresentationMode();
+          if (isPresentationMode) togglePresentationMode();
           else if (document.getElementById('gantt-area-main')?.classList.contains('has-focus')) exitTheaterMode();
         }
       });
@@ -5176,20 +5183,21 @@
         showToast('⌨️ SPACE / ARROWS to navigate · ESC to exit', 'info');
       }
 
-      function toggleDeckPresentationMode() {
-        isDeckPresentationMode = !isDeckPresentationMode;
-        document.body.classList.toggle('deck-presentation-active', isDeckPresentationMode);
+      function togglePresentationMode() {
+        isPresentationMode = !isPresentationMode;
+        const body = document.body;
+        body.classList.toggle('presentation-active', isPresentationMode);
         const btn = document.getElementById('dock-btn-presentation');
-        const stage = getEl('deck-stage');
-        if (btn) btn.innerHTML = isDeckPresentationMode ? 'Exit Cinema' : 'Theater Mode';
-        if (isDeckPresentationMode) {
+        const activeContainer = isDeckMode ? getEl('deck-stage') : getEl('pane-content');
+        if (btn) btn.innerHTML = isPresentationMode ? 'Exit Cinema' : 'Theater Mode';
+        if (isPresentationMode) {
           showCinemaTooltip();
           resetDeckIdleTimer();
-          if (stage) stage.onclick = (e) => { if (e.target === stage) toggleDeckPresentationMode(); };
+          if (activeContainer) activeContainer.onclick = (e) => { if (e.target === activeContainer) togglePresentationMode(); };
         } else {
           clearTimeout(deckIdleTimer);
           document.getElementById('filter-strip')?.classList.remove('dock-idle');
-          if (stage) stage.onclick = null;
+          if (activeContainer) activeContainer.onclick = null;
         }
       }
 
@@ -5756,43 +5764,56 @@ ${item.comment || 'No notes provided.'}
       /* DUAL MODE TOGGLE */
       .deck-display-mode { display: flex; flex-direction: column; padding: 24px 32px; height: 100%; box-sizing: border-box; }
       .deck-edit-mode { display: none; flex-direction: column; }
-      /* ── CINEMA PRO: STEALTH THEATER ── */
-      body.deck-presentation-active #deck-stage {
+      /* ── UNIFIED CINEMA PRO ── */
+      body.presentation-active.deck-mode-active #pane-content { display: none !important; }
+      body.presentation-active:not(.deck-mode-active) #deck-stage { display: none !important; }
+      body.presentation-active #deck-stage,
+      body.presentation-active #pane-content {
         position: fixed !important; inset: 0 !important; z-index: 999999 !important;
         background: rgba(9, 9, 11, 0.28) !important;
         backdrop-filter: blur(40px) saturate(180%) !important;
         -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
         display: flex !important; align-items: center !important; justify-content: center !important;
-        padding: 0 !important; margin: 0 !important;
+        padding: 20px !important; margin: 0 !important;
         cursor: pointer;
       }
-      #deck-stage-card {
-        aspect-ratio: 16 / 9 !important; width: 90%; max-width: 1150px; height: auto;
+      /* Shared focus properties */
+      #deck-stage-card, .qb-grid {
         margin: 0 !important; border-radius: 24px !important;
         cursor: default;
         transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
         box-shadow: 0 80px 160px rgba(0,0,0,0.6);
       }
-      body.deck-presentation-active #deck-stage-card {
+      /* Deck slide: rigid 16:9 */
+      #deck-stage-card {
+        aspect-ratio: 16 / 9 !important; width: 90%; max-width: 1150px; height: auto; overflow: hidden;
+      }
+      body.presentation-active #deck-stage-card {
         width: 94vw !important; max-height: 85vh !important; transform: scale(1.02);
       }
+      /* Detail card: flexible vertical */
+      .qb-grid {
+        aspect-ratio: auto !important; width: 100%; max-width: 1000px;
+        max-height: 92vh; overflow-y: auto !important;
+      }
+      body.presentation-active .qb-grid { transform: scale(1.02); }
       /* Dynamic Executive Typography Scaling */
-      body.deck-presentation-active .slide-hdr-id { font-size: 32px !important; }
-      body.deck-presentation-active .slide-ppt-q { font-size: 15px !important; }
-      body.deck-presentation-active .slide-ppt-ans { font-size: 15px !important; font-weight: 900 !important; }
-      body.deck-presentation-active .slide-ppt-quad-header { font-size: 12px !important; }
+      body.presentation-active .slide-hdr-id { font-size: 32px !important; }
+      body.presentation-active .slide-ppt-q { font-size: 15px !important; }
+      body.presentation-active .slide-ppt-ans { font-size: 15px !important; font-weight: 900 !important; }
+      body.presentation-active .slide-ppt-quad-header { font-size: 12px !important; }
       /* Stealth Dock Physics */
       .filter-strip { transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.8s ease, filter 0.8s ease !important; }
-      body.deck-presentation-active .filter-strip {
-        z-index: 1000000 !important; background: rgba(24, 24, 27, 0.96) !important; color: #fff !important;
+      body.presentation-active .filter-strip {
+        z-index: 2000000 !important; background: rgba(24, 24, 27, 0.96) !important; color: #fff !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
       }
-      body.deck-presentation-active .filter-strip.dock-idle {
-        opacity: 0.05; filter: blur(4px); pointer-events: none; transform: translateX(-50%) translateY(20px);
+      body.presentation-active .filter-strip.dock-idle {
+        opacity: 0.05; filter: blur(6px); pointer-events: none; transform: translateX(-50%) translateY(20px);
       }
       /* Hide redundant nav in Cinema */
-      body.deck-presentation-active #dock-btn-skip { display: none !important; }
-      body.deck-presentation-active .dock-arrow { display: inline-flex !important; color: #fff !important; opacity: 0.8; }
+      body.presentation-active #dock-btn-skip { display: none !important; }
+      body.presentation-active .dock-arrow { display: inline-flex !important; color: #fff !important; opacity: 0.8; }
       #dock-btn-presentation:hover {
         background: var(--color-insight, #a855f7) !important;
         color: #fff !important;
@@ -5800,10 +5821,10 @@ ${item.comment || 'No notes provided.'}
       }
       /* Slide theme: hidden by default, shown only in Cinema */
       #dock-btn-slide-theme { display: none !important; width: 44px; height: 44px; padding: 0 !important; border-radius: 50%; font-size: 0 !important; align-items: center; justify-content: center; }
-      body.deck-presentation-active #dock-btn-slide-theme { display: inline-flex !important; }
-      body.deck-presentation-active .top-nav,
-      body.deck-presentation-active .inbox-sidebar,
-      body.deck-presentation-active .outbox-pane { display: none !important; }
+      body.presentation-active #dock-btn-slide-theme { display: inline-flex !important; }
+      body.presentation-active .top-nav,
+      body.presentation-active .inbox-sidebar,
+      body.presentation-active .outbox-pane { display: none !important; }
       /* ── INDEPENDENT SLIDE THEME (Dark Mode) ── */
       #deck-stage-card.slide-dark-mode { background: #18181b !important; border-color: #27272a !important; color: #f4f4f5 !important; }
       #deck-stage-card.slide-dark-mode .slide-ppt-q { color: #f4f4f5 !important; }
