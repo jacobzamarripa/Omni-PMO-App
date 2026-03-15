@@ -598,7 +598,7 @@
       #grid-pivot-select {
           width: 190px !important;
           min-width: 190px !important;
-          padding-right: 32px !important;
+          padding-right: 30px !important;
           font-size: 10px !important;
       }
       #filter-log-user {
@@ -1193,12 +1193,17 @@
       body.deck-mode-active #welcome-screen,
       body.deck-mode-active #pane-content { display: none !important; }
       body.deck-mode-active #deck-stage {
-          flex: 1 1 0% !important;
-          min-width: 0 !important;
           display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
+          flex: 1;
+          flex-direction: row !important;
+          align-items: flex-start !important;
+          justify-content: flex-start !important;
+          gap: 40px !important;
+          padding: 40px 60px !important;
           overflow: hidden !important;
+          position: relative !important;
+          box-sizing: border-box;
+          min-width: 0 !important;
       }
       body.deck-mode-active .inbox-sidebar {
           display: flex !important;
@@ -2964,6 +2969,8 @@
                   </div>`;
       }
 
+      function toggleMobileMenu() {}
+
       function safeExecute(fnName, fn) {
           try { fn(); } catch (err) {
               console.error(`UI Error in ${fnName}:`, err);
@@ -3660,19 +3667,9 @@
               dateInput.max = maxDateStr;
 
               let defaultDate = new Date(localToday);
-              let dayOfWeek = defaultDate.getUTCDay();
-              let currentHour = d.getHours();
-              if (dayOfWeek === 5) {                          // Friday → Thu
-                  defaultDate.setUTCDate(defaultDate.getUTCDate() - 1);
-              } else if (dayOfWeek === 6) {                   // Saturday → Thu
-                  defaultDate.setUTCDate(defaultDate.getUTCDate() - 2);
-              } else if (dayOfWeek === 0) {                   // Sunday → Thu
+              if (defaultDate.getUTCDay() === 1) {
                   defaultDate.setUTCDate(defaultDate.getUTCDate() - 3);
-              } else if (dayOfWeek === 1 && currentHour < 11) { // Mon before 11 → Thu
-                  defaultDate.setUTCDate(defaultDate.getUTCDate() - 4);
-              } else if (dayOfWeek === 1) {                   // Mon after 11 → Fri
-                  defaultDate.setUTCDate(defaultDate.getUTCDate() - 3);
-              } else {                                        // Tue/Wed/Thu → yesterday
+              } else {
                   defaultDate.setUTCDate(defaultDate.getUTCDate() - 1);
               }
 
@@ -4183,36 +4180,39 @@
       let globalAllFdhIds = [];
       // View mode is managed by currentViewMode + applyViewMode()
 
-      /**
-       * UTC-locked date parser.
-       * Rebuilds dates using Date.UTC to prevent browser-local timezone shifting.
-       */
+      // UTC-locked date parser — prevents browser local-time shifting across timezones.
       function safeDate(str) {
           if (!str || str === '' || str === '-' || str === 'Unknown') return null;
-          let m = String(str).match(/(\d{4})[\-\/](\d{1,2})[\-\/](\d{1,2})/);
-          if (m) return new Date(Date.UTC(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)));
-          m = String(str).match(/(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{2,4})/);
-          if (m) {
-              let yr = m[3].length === 2 ? parseInt("20" + m[3], 10) : parseInt(m[3], 10);
-              return new Date(Date.UTC(yr, parseInt(m[1], 10) - 1, parseInt(m[2], 10)));
-          }
+          let m;
+          // MM-dd-yyyy or M-d-yyyy (backend Utilities.formatDate output)
+          m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+          if (m) return new Date(Date.UTC(+m[3], +m[1]-1, +m[2]));
+          // MM/dd/yyyy or M/d/yyyy
+          m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+          if (m) return new Date(Date.UTC(+m[3], +m[1]-1, +m[2]));
+          // yyyy-MM-dd (ISO 8601)
+          m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+          // Last resort
           let d = new Date(str);
           return isNaN(d.getTime()) ? null : d;
       }
-      /**
-       * Robust UTC-locked formatter.
-       * Forces clean MM/DD/YY and kills GMT metadata strings in cards.
-       */
+      // UTC-locked date formatter — everyone on the team sees the same Business Day date.
       function formatDate(val, includeTime = false) {
-          if (!val || val === '-' || val === 'Unknown' || val === "") return 'TBD';
+          if (!val || val === '-' || val === 'Unknown' || val === '') return 'TBD';
+
           let d;
           if (val instanceof Date) {
               d = val;
           } else {
-              let raw = String(val).split('GMT')[0].split('(')[0].trim();
+              // Strip trailing GMT/timezone metadata from raw JS Date strings
+              let raw = String(val).split('GMT')[0].trim();
               d = new Date(raw);
-              if (isNaN(d.getTime())) d = safeDate(val);
+              if (isNaN(d.getTime())) {
+                  d = safeDate(val);
+              }
           }
+
           if (!d || isNaN(d.getTime())) return String(val);
 
           const options = { month: '2-digit', day: '2-digit', year: '2-digit', timeZone: 'UTC' };
@@ -4262,148 +4262,6 @@
           }
           badge.style.display = 'inline';
       }
-      let ganttResizeControlsInitialized = false;
-      function initGanttResizeControls() {
-          const grip = getEl('gantt-resize-grip');
-          const panel = getEl('gantt-panel');
-          const controls = document.querySelector('.gantt-controls');
-          if (ganttResizeControlsInitialized || !grip || !panel) return;
-          ganttResizeControlsInitialized = true;
-
-          let dragging = false;
-          let dragged = false;
-          let startY = 0;
-          let startH = 0;
-          let dragRAF = null;
-
-          function startDrag(clientY) {
-              let isFs = panel.classList.contains('fullscreen');
-              let isMin = panel.classList.contains('minimized');
-              panel.dataset.wasFullscreen = isFs;
-              panel.dataset.wasMinimized = isMin;
-              startH = isFs ? panel.offsetHeight : (isMin ? 55 : panel.offsetHeight);
-              panel.style.transition = 'none';
-              dragging = true;
-              dragged = false;
-              startY = clientY;
-              document.body.style.cursor = 'ns-resize';
-              document.body.style.userSelect = 'none';
-          }
-
-          function moveDrag(clientY) {
-              let delta;
-              if (!dragging) return;
-              delta = startY - clientY;
-              if (!dragged && Math.abs(delta) > 3) {
-                  dragged = true;
-                  if (panel.dataset.wasMinimized === 'true') {
-                      panel.classList.remove('minimized');
-                      let icon = getEl('gantt-expand-icon');
-                      if (icon) icon.textContent = '▲';
-                      let minBtn = getEl('btn-minimize');
-                      if (minBtn) minBtn.innerText = 'Minimize';
-                  }
-                  if (panel.dataset.wasFullscreen === 'true' && delta < 0) {
-                      panel.classList.remove('fullscreen');
-                      document.body.classList.remove('gantt-fullscreen');
-                      let fsBtn = getEl('btn-fullscreen');
-                      if (fsBtn) fsBtn.innerText = 'Fullscreen';
-                      let minBtn = getEl('btn-minimize');
-                      if (minBtn) minBtn.style.display = 'inline-flex';
-                      syncGanttIslandState();
-                      let nav = document.querySelector('.top-nav');
-                      let navH = nav ? nav.offsetHeight : 0;
-                      panel.style.top = '';
-                      startH = window.innerHeight - navH;
-                      startY = clientY;
-                      delta = 0;
-                  }
-              }
-              if (!dragged) return;
-              if (dragRAF) cancelAnimationFrame(dragRAF);
-              dragRAF = requestAnimationFrame(function() {
-                  let nextHeight = Math.max(startH + delta, 55);
-                  ganttManualHeight = nextHeight;
-                  document.documentElement.style.setProperty('--gantt-panel-height', nextHeight + 'px');
-                  panel.style.height = nextHeight + 'px';
-                  panel.style.boxShadow = nextHeight > window.innerHeight * 0.70 ? '0 -10px 30px rgba(59, 130, 246, 0.15)' : 'none';
-                  dragRAF = null;
-              });
-          }
-
-          function endDrag() {
-              if (!dragging) return;
-              dragging = false;
-              panel.style.transition = '';
-              panel.style.boxShadow = 'none';
-              document.body.style.cursor = '';
-              document.body.style.userSelect = '';
-              if (!dragged) {
-                  if (panel.classList.contains('fullscreen')) toggleFullscreen();
-                  else toggleMinimize();
-              } else if (ganttManualHeight && ganttManualHeight < 80) {
-                  if (!panel.classList.contains('minimized')) toggleMinimize();
-                  ganttManualHeight = null;
-              } else if (ganttManualHeight > window.innerHeight * 0.85) {
-                  if (!panel.classList.contains('fullscreen')) {
-                      toggleFullscreen();
-                      ganttManualHeight = null;
-                  }
-              }
-              delete panel.dataset.wasMinimized;
-              delete panel.dataset.wasFullscreen;
-          }
-
-          grip.addEventListener('mousedown', function(e) {
-              e.stopPropagation();
-              startDrag(e.clientY);
-          });
-          document.addEventListener('mousemove', function(e) {
-              moveDrag(e.clientY);
-          });
-          document.addEventListener('mouseup', endDrag);
-          grip.addEventListener('touchstart', function(e) {
-              e.preventDefault();
-              e.stopPropagation();
-              startDrag(e.touches[0].clientY);
-          }, { passive: false });
-          document.addEventListener('touchmove', function(e) {
-              if (!dragging) return;
-              e.preventDefault();
-              moveDrag(e.touches[0].clientY);
-          }, { passive: false });
-          document.addEventListener('touchend', endDrag);
-
-          if (controls) {
-              controls.addEventListener('mousedown', function(e) {
-                  if (e.target.closest('button')) return;
-                  startDrag(e.clientY);
-              });
-              controls.addEventListener('touchstart', function(e) {
-                  if (e.target.closest('button')) return;
-                  e.preventDefault();
-                  startDrag(e.touches[0].clientY);
-              }, { passive: false });
-              controls.addEventListener('click', function(e) {
-                  if (!dragged) return;
-                  e.preventDefault();
-                  e.stopPropagation();
-                  dragged = false;
-              }, true);
-          }
-
-          window.addEventListener('resize', function() {
-              if (panel.classList.contains('fullscreen') || panel.classList.contains('minimized')) return;
-              if (ganttManualHeight) {
-                  let capped = Math.min(Math.max(ganttManualHeight, 55), window.innerHeight);
-                  ganttManualHeight = capped;
-                  panel.style.height = capped + 'px';
-                  document.documentElement.style.setProperty('--gantt-panel-height', capped + 'px');
-              } else {
-                  applySmartGanttDocking();
-              }
-          });
-      }
       function checkViewportHandOff() {
           const currentUrl = new URL(window.location.href);
           const isPhoneWidth = window.innerWidth <= 430;
@@ -4425,21 +4283,9 @@
               setVvh();
               window.visualViewport.addEventListener('resize', setVvh);
           }
-          let bootTimeoutId = setTimeout(() => {
-              bootTimeoutId = null;
-              hideSplash();
-              let dl = getEl('detail-layout'); if (dl) dl.style.display = 'flex';
-              let pc = getEl('pane-content');
-              if (pc) {
-                  pc.innerHTML = `<div class="error-msg" style="color:#ef4444; padding:24px; font-family:monospace; text-align:center;"><b>Connection timeout.</b><br/><span style="font-size:11px; color:#94a3b8;">Apps Script did not respond. Please refresh the page.</span></div>`;
-                  pc.style.display = 'flex';
-              }
-          }, 20000);
-
           google.script.run
-              .withSuccessHandler(data => { clearTimeout(bootTimeoutId); initDashboard(data); })
+              .withSuccessHandler(initDashboard)
               .withFailureHandler(err => {
-                  clearTimeout(bootTimeoutId);
                   hideSplash();
                   let ws = getEl('welcome-screen'); if (ws) ws.style.display = 'none';
                   let dl = getEl('detail-layout'); if (dl) dl.style.display = 'flex';
@@ -4451,7 +4297,120 @@
               })
               .getDashboardData();
           google.script.run.withSuccessHandler(updateGeminiBadge).getGeminiUsage();
-          initGanttResizeControls();
+          
+          (function() {
+              const grip = getEl('gantt-resize-grip');
+              const panel = getEl('gantt-panel');
+              const controls = document.querySelector('.gantt-controls');
+              if (!grip || !panel) return;
+              let dragging = false, dragged = false, startY = 0, startH = 0;
+              let dragRAF = null;
+              function startDrag(clientY) {
+                  let isFs = panel.classList.contains('fullscreen');
+                  let isMin = panel.classList.contains('minimized');
+                  panel.dataset.wasFullscreen = isFs;
+                  panel.dataset.wasMinimized = isMin;
+                  startH = isFs ? panel.offsetHeight : (isMin ? 55 : panel.offsetHeight);
+                  panel.style.transition = 'none';
+                  dragging = true; dragged = false; startY = clientY;
+                  document.body.style.cursor = 'ns-resize'; document.body.style.userSelect = 'none';
+              }
+              function moveDrag(clientY) {
+                  if (!dragging) return;
+                  let delta = startY - clientY;
+                  if (!dragged && Math.abs(delta) > 3) {
+                      dragged = true;
+                      if (panel.dataset.wasMinimized === 'true') {
+                          panel.classList.remove('minimized');
+                          let icon = getEl('gantt-expand-icon'); if (icon) icon.textContent = '▲';
+                          let minBtn = getEl('btn-minimize'); if (minBtn) minBtn.innerText = 'Minimize';
+                      }
+                      // Seamless Pull-Down to Exit Fullscreen
+                      if (panel.dataset.wasFullscreen === 'true' && delta < 0) {
+                          panel.classList.remove('fullscreen');
+                          document.body.classList.remove('gantt-fullscreen');
+                          let fsBtn = getEl('btn-fullscreen'); if(fsBtn) fsBtn.innerText = 'Fullscreen';
+                          let minBtn = getEl('btn-minimize'); if(minBtn) minBtn.style.display = 'inline-flex';
+                          syncGanttIslandState();
+                          // Reset drag origin so height tracks mouse perfectly
+                          let navH = (document.querySelector('.top-nav') || {offsetHeight: 0}).offsetHeight;
+                          panel.style.top = '';
+                          startH = window.innerHeight - navH;
+                          startY = clientY;
+                          delta = 0;
+                      }
+                  }
+                  if (!dragged) return;
+                  if (dragRAF) cancelAnimationFrame(dragRAF);
+                  dragRAF = requestAnimationFrame(() => {
+                      let nextHeight = Math.max(startH + delta, 55);
+                      ganttManualHeight = nextHeight;
+                      document.documentElement.style.setProperty('--gantt-panel-height', nextHeight + 'px');
+                      panel.style.height = nextHeight + 'px';
+                      panel.style.boxShadow = nextHeight > window.innerHeight * 0.70 ? '0 -10px 30px rgba(59, 130, 246, 0.15)' : 'none';
+                      dragRAF = null;
+                  });
+              }
+              function endDrag() {
+                  if (!dragging) return;
+                  dragging = false;
+                  panel.style.transition = '';
+                  panel.style.boxShadow = 'none';
+                  document.body.style.cursor = '';
+                  document.body.style.userSelect = '';
+                  if (!dragged) {
+                      if (panel.classList.contains('fullscreen')) toggleFullscreen();
+                      else toggleMinimize();
+                  } else {
+                      if (ganttManualHeight && ganttManualHeight < 80) {
+                          if (!panel.classList.contains('minimized')) toggleMinimize();
+                          ganttManualHeight = null;
+                      } else if (ganttManualHeight > window.innerHeight * 0.85) {
+                          if (!panel.classList.contains('fullscreen')) {
+                              toggleFullscreen();
+                              ganttManualHeight = null;
+                          }
+                      }
+                  }
+                  delete panel.dataset.wasMinimized;
+                  delete panel.dataset.wasFullscreen;
+              }
+              grip.addEventListener('mousedown', e => { e.stopPropagation(); startDrag(e.clientY); });
+              document.addEventListener('mousemove', e => moveDrag(e.clientY));
+              document.addEventListener('mouseup', endDrag);
+              grip.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); startDrag(e.touches[0].clientY); }, { passive: false });
+              document.addEventListener('touchmove', e => { if (dragging) { e.preventDefault(); moveDrag(e.touches[0].clientY); } }, { passive: false });
+              document.addEventListener('touchend', endDrag);
+              if (controls) {
+                  controls.addEventListener('mousedown', e => {
+                      if (e.target.closest('button')) return;
+                      startDrag(e.clientY);
+                  });
+                  controls.addEventListener('touchstart', e => {
+                      if (e.target.closest('button')) return;
+                      e.preventDefault();
+                      startDrag(e.touches[0].clientY);
+                  }, { passive: false });
+                  controls.addEventListener('click', e => {
+                      if (dragged) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          dragged = false;
+                      }
+                  }, true);
+              }
+              window.addEventListener('resize', () => {
+                  if (panel.classList.contains('fullscreen') || panel.classList.contains('minimized')) return;
+                  if (ganttManualHeight) {
+                      let capped = Math.min(Math.max(ganttManualHeight, 55), window.innerHeight);
+                      ganttManualHeight = capped;
+                      panel.style.height = `${capped}px`;
+                      document.documentElement.style.setProperty('--gantt-panel-height', `${capped}px`);
+                  } else {
+                      applySmartGanttDocking();
+                  }
+              });
+          })();
       };
 
       function updateCityDropdown() {
@@ -6694,9 +6653,8 @@
           let v = mismatch ? mVal : refVal;
           let stagedBadge = mismatch ? `<span class="badge-staged" title="Staged locally.">STAGED 🔄</span>` : '';
           if (v === undefined || v === '' || v === null || v === '-') return `<span class="slide-ppt-ans gap">Pending</span>`;
-          if (type === 'date') return `<span class="slide-ppt-ans">${formatDate(v)}</span>${stagedBadge}`;
           if (type === 'bool') return `<span class="slide-ppt-ans">${(v === true || String(v).toLowerCase() === 'true') ? 'YES' : 'NO'}</span>${stagedBadge}`;
-          return `<span class="slide-ppt-ans">${esc(v)}</span>${stagedBadge}`;
+          return `<span class="slide-ppt-ans">${v}</span>${stagedBadge}`;
         };
 
         const pptRow = (q, ans, isMuted=false, isSub=false, extraClass='') => `<div class="slide-ppt-row ${isMuted ? 'muted-row' : ''} ${extraClass}"><div class="slide-ppt-q ${isSub ? 'sub-q' : ''}">${q}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">${isMuted ? '<span class="slide-ppt-ans" style="color:var(--text-muted);">—</span>' : ans}</div></div>`;
@@ -7166,12 +7124,7 @@ ${item.comment || 'No notes provided.'}
       }
       /* Deck slide: rigid 16:9 */
       #deck-stage-card {
-        width: 100% !important;
-        max-width: 1000px !important;
-        height: auto !important;
-        aspect-ratio: 16 / 9 !important;
-        flex-shrink: 1 !important;
-        overflow: hidden;
+        aspect-ratio: 16 / 9 !important; width: 90%; max-width: 1150px; height: auto; overflow: hidden;
       }
       body.presentation-active #deck-stage-card {
         width: 94vw !important; max-height: 85vh !important; transform: scale(1.02);
