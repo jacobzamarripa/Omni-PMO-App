@@ -792,6 +792,17 @@ function runBennyDiagnostics(row, refDict, vendorDict) {
   let lightToCab = row[HISTORY_HEADERS.indexOf("Light to Cabinets")] === true;
   let targetDateRaw = row[HISTORY_HEADERS.indexOf("Target Completion Date")];
   let targetDate = (targetDateRaw instanceof Date) ? targetDateRaw : new Date(targetDateRaw);
+  const parseFdhList = (value) => String(value || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+  const isTruthyTransport = (value) => {
+      let normalized = String(value || "").trim().toLowerCase();
+      return normalized === "true" || normalized === "yes" || normalized === "1" || normalized === "y";
+  };
+  const refIsLit = (entry) => {
+      if (!entry) return false;
+      let refStatus = String(entry.status || "").toLowerCase();
+      let refStage = String(entry.stage || "").toLowerCase();
+      return refStatus.includes("complete") || refStage.includes("ofs");
+  };
   
   let origMatch = vendorComment.match(/\[Auto-Fixed FDH: (.*?)\]/);
   if (origMatch) { flags.push(`🪄 ID AUTO-CORRECTED`); flagColors.push(TEXT_COLORS.MAGIC); drafts.push(`Vendor submitted ${origMatch[1]}, auto-corrected to ${fdhId}.`); vendorComment = vendorComment.replace(/\[Auto-Fixed FDH: .*?\]\s*/, ""); }
@@ -855,6 +866,40 @@ function runBennyDiagnostics(row, refDict, vendorDict) {
   if (fdhId !== "" && !isFormatValid) { flags.push(`🖍️ FORMAT ERROR`); flagColors.push(TEXT_COLORS.WARN); hCols.warn.push("FDH Engineering ID"); } else if (fdhId !== "" && !refData) { flags.push(`🛑 NOT IN QB`); flagColors.push(TEXT_COLORS.WARN); hCols.warn.push("FDH Engineering ID"); }
   
   if (targetDate && !isNaN(targetDate.getTime()) && !lightToCab && rowState !== "COMPLETE") { let daysToTarget = Math.ceil((targetDate - new Date()) / (1000 * 60 * 60 * 24)); if (daysToTarget <= 14) { flags.push(`🚨 LIGHTING RISK`); flagColors.push(TEXT_COLORS.WARN); hCols.warn.push("Target Completion Date", "Light to Cabinets"); } }
+  if (refData) {
+      let howFed = parseFdhList((refData.qbRef && refData.qbRef.howFed) || refData.howFed);
+      let whatFeeds = parseFdhList((refData.qbRef && refData.qbRef.whatFeeds) || refData.whatFeeds);
+      let isTransportReady = isTruthyTransport((refData.qbRef && refData.qbRef.transport) || refData.transport);
+      let isLit = lightToCab || rowState === "COMPLETE" || rowState === "OFS";
+
+      if (howFed.length > 0 && !isTransportReady) {
+          let blockingUpstream = howFed.find(upstreamId => !refIsLit(refDict[upstreamId]));
+          if (blockingUpstream) {
+              flags.push("🚧 BLOCKED BY UPSTREAM");
+              flagColors.push(TEXT_COLORS.WARN);
+              drafts.push(`Waiting on light from upstream (${blockingUpstream}). Transport is not in place to override.`);
+          }
+      }
+
+      if (whatFeeds.length > 0 && !isLit) {
+          let delayedDownstream = whatFeeds.find(downstreamId => {
+              let downstreamRef = refDict[downstreamId];
+              let downstreamTransport = isTruthyTransport((downstreamRef && downstreamRef.qbRef && downstreamRef.qbRef.transport) || (downstreamRef && downstreamRef.transport));
+              return !downstreamTransport;
+          });
+          if (delayedDownstream) {
+              flags.push("🚨 DELAYING DOWNSTREAM");
+              flagColors.push(TEXT_COLORS.WARN);
+              drafts.push(`This FDH feeds ${delayedDownstream}, which does not have transport. Prioritize lighting.`);
+          }
+      }
+
+      if (howFed.length > 0 && isTransportReady && !isLit) {
+          flags.push("💡 TRANSPORT OVERRIDE");
+          flagColors.push(TEXT_COLORS.MAGIC);
+          drafts.push(`Transport is available. This FDH can be lit independently of ${howFed[0]}.`);
+      }
+  }
   
   if (dailyUG > 0 && drills === 0) { flags.push("🚩 GHOST UG"); flagColors.push(TEXT_COLORS.UG); hCols.ug.push("Daily UG Footage", "Drills"); adaePaletteIdx = "UG"; }
   if (drills > 0 && (dailyUG / drills) > 800) { flags.push(`⚠️ UG PACE ANOMALY`); flagColors.push(TEXT_COLORS.UG); drafts.push(`UG Pace is ${Math.round(dailyUG/drills)}ft/drill.`); hCols.ug.push("Daily UG Footage", "Drills"); adaePaletteIdx = "UG"; }

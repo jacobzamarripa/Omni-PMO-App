@@ -2536,6 +2536,7 @@ function cardHTML(item) {
   }
   var ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239, 246, 255, 0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--bg); border-color:var(--border);';
   var daysLeftText = daysLeft < 0 ? 'OVERDUE BY: ' + Math.abs(daysLeft) + ' DAYS' : 'DAYS LEFT: ' + daysLeft;
+  var miniSldHtml = renderMiniSldMobile(item);
   return '<div class="card-outer-container" style="height:100%; display:flex; flex-direction:column;">'+
     '<div class="card-header-sticky">'+
       '<div class="qb-module-header" style="background:transparent; border-bottom:1px solid var(--border); margin-bottom:12px; padding-bottom:6px;">PROJECT SCHEDULE</div>'+
@@ -2556,6 +2557,7 @@ function cardHTML(item) {
           (pct > 0 && pct < 100 ? '<div class="qb-time-bead" style="left:'+pct+'%; border-color:'+sColor+';"></div>' : '') +
         '</div>'+
         '<div class="qb-target-wrap'+(item.isXing ? ' xing' : '')+'"><div class="qb-target-inner"><div class="qb-target-label">TARGET DATE</div><div class="qb-target-date" style="color:'+sColor+'">'+formatDate(item.targetDate || item.cxEnd)+'</div></div></div>'+
+        miniSldHtml +
       '</div>'+
       '<div class="qb-module" style="margin-bottom:16px;">'+
         '<div class="qb-module-header" style="background:transparent; border-bottom:1px solid var(--border); margin-bottom:12px; padding-bottom:6px;">FIELD VELOCITY &amp; PRODUCTION</div>'+
@@ -2586,6 +2588,59 @@ function cardHTML(item) {
       (cdIntelText ? '<div class="cd-intel-card" style="margin-bottom:16px;"><div class="cd-intel-stripe"></div><div class="cd-intel-inner"><div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><span class="cd-badge">CD Intelligence</span></div><div class="cd-intel-text">'+esc(cdIntelText)+'</div></div></div>' : '')+
       '<div class="qb-module"><div class="qb-module-header" style="background:transparent; border-bottom:1px solid var(--border); margin-bottom:12px; padding-bottom:6px;">Historical Milestones</div><div class="detail-section-body" style="font-family:monospace; font-size:11px; background:var(--bg); padding:10px; border-radius:8px;">'+esc(item.bench || 'No history logged.').replace(/\n/g, '<br>')+'</div></div>'+
     '</div>'+
+  '</div>';
+}
+
+function parseMiniSldFdh(value) {
+  return String(value || '').split(',').map(function(v){ return v.trim(); }).filter(Boolean)[0] || '';
+}
+
+function isMiniSldTransportReady(value) {
+  var normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'true' || normalized === 'yes' || normalized === '1' || normalized === 'y';
+}
+
+function getMiniSldNodeTheme(node) {
+  if (!node) return { border: '1px dashed var(--border)', text: 'var(--text-muted)', bg: 'rgba(148,163,184,0.08)', dot: '#94a3b8' };
+  var stage = String(node.stage || '').toLowerCase();
+  var status = String(node.status || '').toLowerCase();
+  var isLit = !!node.isLight || stage.includes('ofs') || status.includes('complete');
+  if (isLit) return { border: '1px solid #22c55e', text: '#166534', bg: 'rgba(240,253,244,0.9)', dot: '#22c55e' };
+  return { border: '1px solid #f59e0b', text: '#b45309', bg: 'rgba(255,247,237,0.95)', dot: '#f59e0b' };
+}
+
+function miniSldNodeHtmlMobile(label, node, navFdh, isCurrent) {
+  var theme = isCurrent ? { border: '1px solid #111827', text: '#ffffff', bg: '#111827', dot: '#22c55e' } : getMiniSldNodeTheme(node);
+  var clickable = !!navFdh && !isCurrent;
+  var navArg = JSON.stringify(String(navFdh || ''));
+  var attrs = clickable ? " onclick='jumpTo(" + navArg + ")'" : '';
+  var cursor = clickable ? 'pointer' : 'default';
+  return '<div' + attrs + ' style="display:flex; align-items:center; gap:6px; min-width:0; max-width:180px; padding:7px 10px; border-radius:10px; border:' + theme.border + '; background:' + theme.bg + '; color:' + theme.text + '; box-shadow:' + (isCurrent ? '0 10px 20px rgba(15,23,42,0.16)' : 'none') + '; cursor:' + cursor + '; flex:0 1 auto;">' +
+    '<span style="width:7px; height:7px; border-radius:999px; background:' + theme.dot + '; flex:0 0 auto;"></span>' +
+    '<span style="font-size:9px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + esc(label || 'Unknown') + '</span>' +
+  '</div>';
+}
+
+function renderMiniSldMobile(item) {
+  var upstreamFdh = parseMiniSldFdh(item && item.qbRef && item.qbRef.howFed);
+  var downstreamFdh = parseMiniSldFdh(item && item.qbRef && item.qbRef.whatFeeds);
+  var upstreamNode = upstreamFdh ? state.all.find(function(entry) { return entry.fdh === upstreamFdh; }) : null;
+  var downstreamNode = downstreamFdh ? state.all.find(function(entry) { return entry.fdh === downstreamFdh; }) : null;
+  var transportReady = isMiniSldTransportReady(item && item.qbRef && item.qbRef.transport);
+  var leftNode = transportReady
+    ? '<div style="display:flex; align-items:center; gap:6px; min-width:0; max-width:180px; padding:7px 10px; border-radius:10px; border:1px solid #2563eb; background:rgba(239,246,255,0.95); color:#1d4ed8; flex:0 1 auto;">' +
+        '<span style="width:7px; height:7px; border-radius:999px; background:#2563eb; flex:0 0 auto;"></span>' +
+        '<span style="font-size:9px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">⚡ Transport Ready</span>' +
+      '</div>'
+    : miniSldNodeHtmlMobile(upstreamFdh || 'Upstream Unknown', upstreamNode, upstreamFdh, false);
+  var currentNode = miniSldNodeHtmlMobile(item && item.fdh, item, '', true);
+  var rightNode = miniSldNodeHtmlMobile(downstreamFdh || 'Downstream Unknown', downstreamNode, downstreamFdh, false);
+  return '<div style="display:flex; align-items:center; gap:8px; padding:10px 12px; margin-top:10px; background:var(--bg); border:1px solid var(--border); border-radius:12px; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none;">' +
+    leftNode +
+    '<div style="font-size:12px; color:var(--text-muted); flex:0 0 auto;">→</div>' +
+    currentNode +
+    '<div style="font-size:12px; color:var(--text-muted); flex:0 0 auto;">→</div>' +
+    rightNode +
   '</div>';
 }
 

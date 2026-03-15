@@ -1634,7 +1634,7 @@
             <div class="dock-zone collapsed" id="dock-deck-actions-zone">
                 <div class="dock-divider"></div>
                 <button class="btn hover-trigger" id="dock-btn-presentation" onclick="toggleDeckPresentationMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Theater Mode</button>
-                <button class="btn hover-trigger" id="dock-btn-slide-theme" onclick="toggleSlideSpecificTheme()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">☀️ Light Slide</button>
+                <button class="btn hover-trigger" id="dock-btn-slide-theme" onclick="toggleSlideSpecificTheme()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);"></button>
                 <button class="btn hover-trigger" id="dock-btn-skip" onclick="navDeck(1)" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Skip (Next)</button>
                 <button class="btn hover-trigger" id="dock-btn-edit-mode" onclick="toggleDeckEditMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Edit Answers</button>
                 <button class="btn hover-trigger" id="dock-btn-stage" onclick="toggleStageCurrentDeckItem()" style="background:#a855f7; color:#fff; border-color:#9333ea;">Stage Project</button>
@@ -2743,6 +2743,68 @@
       function selectItemForNav(fdh) {
           let item = (allActionItems || []).find(i => i.fdh === fdh);
           if (item) openPane(item, null);
+      }
+
+      function parseMiniSldFdh(value) {
+          return String(value || '').split(',').map(v => v.trim()).filter(Boolean)[0] || '';
+      }
+
+      function isMiniSldTransportReady(value) {
+          let normalized = String(value || '').trim().toLowerCase();
+          return normalized === 'true' || normalized === 'yes' || normalized === '1' || normalized === 'y';
+      }
+
+      function miniSldSafeText(value) {
+          return String(value || '')
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;');
+      }
+
+      function getMiniSldNodeTheme(node) {
+          if (!node) return { border: '1px dashed var(--border)', text: 'var(--text-muted)', bg: 'rgba(148,163,184,0.08)', dot: '#94a3b8' };
+          let stage = String(node.stage || '').toLowerCase();
+          let status = String(node.status || '').toLowerCase();
+          let isLit = !!node.isLight || stage.includes('ofs') || status.includes('complete');
+          if (isLit) return { border: '1px solid #22c55e', text: '#166534', bg: 'rgba(240,253,244,0.9)', dot: '#22c55e' };
+          return { border: '1px solid #f59e0b', text: '#b45309', bg: 'rgba(255,247,237,0.95)', dot: '#f59e0b' };
+      }
+
+      function miniSldNodeHtml(label, node, navFdh, isCurrent) {
+          let theme = isCurrent ? { border: '1px solid #111827', text: '#ffffff', bg: '#111827', dot: '#22c55e' } : getMiniSldNodeTheme(node);
+          let clickable = !!navFdh && !isCurrent;
+          let navArg = JSON.stringify(String(navFdh || ''));
+          let attrs = clickable ? ` class="hover-trigger" onclick='selectItemForNav(${navArg})'` : '';
+          let cursor = clickable ? 'pointer' : 'default';
+          return `<div${attrs} style="display:flex; align-items:center; gap:7px; min-width:0; max-width:220px; padding:8px 12px; border-radius:10px; border:${theme.border}; background:${theme.bg}; color:${theme.text}; box-shadow:${isCurrent ? '0 12px 24px rgba(15,23,42,0.18)' : 'none'}; cursor:${cursor}; flex:0 1 auto;">
+              <span style="width:8px; height:8px; border-radius:999px; background:${theme.dot}; flex:0 0 auto;"></span>
+              <span style="font-size:10px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${miniSldSafeText(label || 'Unknown')}</span>
+          </div>`;
+      }
+
+      function renderMiniSld(item) {
+          let upstreamFdh = parseMiniSldFdh(item && item.qbRef && item.qbRef.howFed);
+          let downstreamFdh = parseMiniSldFdh(item && item.qbRef && item.qbRef.whatFeeds);
+          let upstreamNode = upstreamFdh ? (allActionItems || []).find(i => i.fdh === upstreamFdh) : null;
+          let downstreamNode = downstreamFdh ? (allActionItems || []).find(i => i.fdh === downstreamFdh) : null;
+          let transportReady = isMiniSldTransportReady(item && item.qbRef && item.qbRef.transport);
+          let leftNode = transportReady
+              ? `<div style="display:flex; align-items:center; gap:7px; min-width:0; max-width:220px; padding:8px 12px; border-radius:10px; border:1px solid #2563eb; background:rgba(239,246,255,0.95); color:#1d4ed8; flex:0 1 auto;">
+                  <span style="width:8px; height:8px; border-radius:999px; background:#2563eb; flex:0 0 auto;"></span>
+                  <span style="font-size:10px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">⚡ Transport Ready</span>
+              </div>`
+              : miniSldNodeHtml(upstreamFdh || 'Upstream Unknown', upstreamNode, upstreamFdh, false);
+          let currentNode = miniSldNodeHtml(item && item.fdh, item, '', true);
+          let rightNode = miniSldNodeHtml(downstreamFdh || 'Downstream Unknown', downstreamNode, downstreamFdh, false);
+          return `<div style="display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--bg); border:1px solid var(--border); border-radius:12px; overflow-x:auto; scrollbar-width:none;">
+              ${leftNode}
+              <div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>
+              ${currentNode}
+              <div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>
+              ${rightNode}
+          </div>`;
       }
 
       function renderAdminPane(items) {
@@ -4077,6 +4139,9 @@
               let dGrid = getEl('p-deliverables-grid');
               if (dGrid) {
                   dGrid.innerHTML = `
+                   <div style='margin-bottom:12px;'>
+                      ${renderMiniSld(item)}
+                   </div>
                    <div style='display: flex; align-items: center; gap: 8px;'>
                       <div style='padding: 3px 10px; border-radius: 4px; font-size: 10px; font-weight: 900; background: rgba(240, 253, 244, 0.7); color: #166534; border: 1.5px solid #22c55e;'>DELIVERABLES</div>
                       <div style='display: flex; flex-wrap: wrap; gap: 4px;'>
@@ -4567,6 +4632,7 @@
           if (!item) return;
           let cardEl = getEl(`card-${item.fdh}`);
           openPane(item, cardEl);
+          if (cardEl && currentWorkspaceView === 'grid') cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           if (isDeckMode) {
               deckIndex = filteredItems.indexOf(item);
               renderDeckStage();
@@ -5061,7 +5127,12 @@
       });
 
       function navGlobal(dir, isVertical) {
-        if (currentWorkspaceView === 'deck') { navDeck(dir); return; }
+        if (currentWorkspaceView === 'deck') {
+          const len = filteredItems?.length || 1;
+          deckIndex = (deckIndex + dir + len) % len;
+          renderDeckStage();
+          return;
+        }
         const items = filteredItems || [];
         if (items.length === 0) return;
         let idx = items.findIndex(i => i.fdh === currentActiveItem?.fdh);
@@ -5098,13 +5169,16 @@
         isDeckPresentationMode = !isDeckPresentationMode;
         document.body.classList.toggle('deck-presentation-active', isDeckPresentationMode);
         const btn = document.getElementById('dock-btn-presentation');
+        const stage = getEl('deck-stage');
         if (btn) btn.innerHTML = isDeckPresentationMode ? 'Exit Cinema' : 'Theater Mode';
         if (isDeckPresentationMode) {
           showCinemaTooltip();
           resetDeckIdleTimer();
+          if (stage) stage.onclick = (e) => { if (e.target === stage) toggleDeckPresentationMode(); };
         } else {
           clearTimeout(deckIdleTimer);
           document.getElementById('filter-strip')?.classList.remove('dock-idle');
+          if (stage) stage.onclick = null;
         }
       }
 
@@ -5167,6 +5241,13 @@
           return;
         }
         currentActiveItem = item;
+
+        // Sync theme icon immediately (prevents flicker)
+        const tBtn = getEl('dock-btn-slide-theme');
+        if (tBtn) {
+          const isDark = stageCard.classList.contains('slide-dark-mode');
+          tBtn.innerHTML = isDark ? _SUN_SVG : _MOON_SVG;
+        }
 
         let pEnd = safeDate(item.cxEnd);
         let today = new Date(); today.setHours(0,0,0,0);
@@ -5667,21 +5748,22 @@ ${item.comment || 'No notes provided.'}
       /* ── CINEMA PRO: STEALTH THEATER ── */
       body.deck-presentation-active #deck-stage {
         position: fixed !important; inset: 0 !important; z-index: 999999 !important;
-        background: rgba(9, 9, 11, 0.98) !important;
-        backdrop-filter: blur(45px) saturate(180%);
-        -webkit-backdrop-filter: blur(45px) saturate(180%);
-        display: flex !important; justify-content: center; align-items: center;
+        background: rgba(9, 9, 11, 0.45) !important;
+        backdrop-filter: blur(40px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+        display: flex !important; align-items: center !important; justify-content: center !important;
         padding: 0 !important; margin: 0 !important;
+        cursor: pointer;
       }
       #deck-stage-card {
-        transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, color 0.3s ease;
-        transform-origin: center center;
-        aspect-ratio: 16 / 9 !important;
-        width: 90%; max-width: 1150px; height: auto; margin: 0 !important;
+        aspect-ratio: 16 / 9 !important; width: 90%; max-width: 1150px; height: auto;
+        margin: 0 !important; border-radius: 24px !important;
+        cursor: default;
+        transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
+        box-shadow: 0 80px 160px rgba(0,0,0,0.6);
       }
       body.deck-presentation-active #deck-stage-card {
-        width: 94vw !important; max-height: 85vh !important;
-        transform: scale(1.02); box-shadow: 0 80px 160px rgba(0,0,0,1);
+        width: 94vw !important; max-height: 85vh !important; transform: scale(1.02);
       }
       /* Dynamic Executive Typography Scaling */
       body.deck-presentation-active .slide-hdr-id { font-size: 32px !important; }
@@ -5698,8 +5780,13 @@ ${item.comment || 'No notes provided.'}
         opacity: 0.05; filter: blur(4px); pointer-events: none; transform: translateX(-50%) translateY(20px);
       }
       /* Hide redundant nav in Cinema */
-      body.deck-presentation-active .dock-arrow,
       body.deck-presentation-active #dock-btn-skip { display: none !important; }
+      body.deck-presentation-active .dock-arrow { display: inline-flex !important; color: #fff !important; opacity: 0.8; }
+      #dock-btn-presentation:hover {
+        background: var(--color-insight, #a855f7) !important;
+        color: #fff !important;
+        border-color: #9333ea !important;
+      }
       /* Slide theme: hidden by default, shown only in Cinema */
       #dock-btn-slide-theme { display: none !important; width: 44px; height: 44px; padding: 0 !important; border-radius: 50%; font-size: 0 !important; align-items: center; justify-content: center; }
       body.deck-presentation-active #dock-btn-slide-theme { display: inline-flex !important; }
