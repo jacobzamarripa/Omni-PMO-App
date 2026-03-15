@@ -639,28 +639,47 @@
           overflow-y: auto;
           z-index: 100000;
       }
-      /* ── ACTIVE FILTER PILLS ── */
+      /* ── 🧠 PREMIUM SPRING-ANIMATED FILTER TAGS ── */
       #active-filter-pills {
-          display: flex; flex-wrap: wrap; justify-content: center;
-          gap: 6px; margin-top: 12px; width: 100%; pointer-events: auto;
+          position: fixed !important;
+          bottom: calc(var(--safe-bottom, 20px) + 90px);
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 8px;
+          width: auto;
+          max-width: 85vw;
+          z-index: 2000000 !important;
+          pointer-events: none;
       }
       .filter-pill {
+          pointer-events: auto;
           display: inline-flex; align-items: center; gap: 6px;
-          padding: 4px 10px; background: var(--card-bg); border: 1px solid var(--border);
-          border-radius: 999px; font-size: 10px; font-weight: 800; color: var(--text-main);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-          animation: pill-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          padding: 5px 12px;
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid var(--border);
+          border-radius: 999px; font-size: 9px !important; font-weight: 800; color: var(--text-main);
+          box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15);
+          animation: pill-spring-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      }
+      body.dark-mode .filter-pill {
+          background: rgba(24, 24, 27, 0.9);
+          border-color: rgba(255, 255, 255, 0.1);
       }
       .filter-pill .remove-btn {
           display: flex; align-items: center; justify-content: center;
-          width: 14px; height: 14px; border-radius: 50%;
-          background: var(--bg); color: var(--text-muted);
-          font-size: 10px; cursor: pointer; transition: all 0.2s;
+          width: 16px; height: 16px; border-radius: 50%;
+          background: var(--surface-muted, #f1f5f9); color: var(--text-muted);
+          font-size: 8px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       }
-      .filter-pill .remove-btn:hover { background: #ef4444; color: #fff; }
-      @keyframes pill-pop {
-          from { transform: scale(0.8); opacity: 0; }
-          to   { transform: scale(1);   opacity: 1; }
+      .filter-pill .remove-btn:hover { background: #ef4444; color: #fff; transform: rotate(90deg) scale(1.1); }
+      @keyframes pill-spring-pop {
+          0%   { transform: scale(0.5) translateY(20px); opacity: 0; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
       }
       .log-grid-item {
           padding: 10px 12px;
@@ -2534,21 +2553,32 @@
           const container = getEl('active-filter-pills');
           if (!container) return;
           container.innerHTML = '';
-          const catLabels = { sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS' };
+          const categories = { sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS' };
           Object.keys(activeFilters).forEach(cat => {
               activeFilters[cat].forEach(val => {
-                  let label = val === '60_DAYS' ? '< 60 Days' : val === '90_DAYS' ? '< 90 Days' : val;
-                  let pill = document.createElement('div');
+                  const pill = document.createElement('div');
                   pill.className = 'filter-pill';
-                  pill.innerHTML = `<span style="color:var(--text-muted);">${catLabels[cat]}:</span><span>${esc(label)}</span><div class="remove-btn" onclick="toggleFilterValue('${cat}','${escJs(val)}')">✕</div>`;
+                  let label = val;
+                  if (val === '60_DAYS') label = '< 60 Days';
+                  if (val === '90_DAYS') label = '< 90 Days';
+                  pill.innerHTML = `
+                      <span style="color:var(--text-muted); opacity: 0.8; font-size: 8px; text-transform: uppercase;">${categories[cat]}</span>
+                      <span style="letter-spacing: 0.01em;">${esc(label)}</span>
+                      <div class="remove-btn" onclick="toggleFilterValue('${cat}', '${escJs(val)}')">✕</div>
+                  `;
                   container.appendChild(pill);
               });
           });
           if (activePieStageFilter) {
-              let pill = document.createElement('div');
+              const pill = document.createElement('div');
               pill.className = 'filter-pill';
-              pill.style.borderColor = getStageColor(activePieStageFilter);
-              pill.innerHTML = `<span style="color:var(--text-muted);">Stage:</span><span>${esc(activePieStageFilter)}</span><div class="remove-btn" onclick="togglePieStageFilter('${escJs(activePieStageFilter)}')">✕</div>`;
+              const color = getStageColor(activePieStageFilter);
+              pill.style.borderLeft = `3px solid ${color}`;
+              pill.innerHTML = `
+                  <span style="color:var(--text-muted); opacity: 0.8; font-size: 8px; text-transform: uppercase;">Stage</span>
+                  <span style="color:${color}; font-weight: 900;">${esc(activePieStageFilter)}</span>
+                  <div class="remove-btn" onclick="togglePieStageFilter(null)">✕</div>
+              `;
               container.appendChild(pill);
           }
       }
@@ -5597,13 +5627,13 @@
       function openPaneFromGrid(fdh) {
           let item = filteredItems.find(i => i.fdh === fdh);
           if (!item) return;
-          let cardEl = getEl(`grid-card-${item.fdh}`);
-          openPane(item, cardEl);
-          if (cardEl && currentWorkspaceView === 'grid') {
-              const gridContent = document.getElementById('grid-content');
-              if (gridContent) {
-                  const scrollTarget = cardEl.offsetTop + (cardEl.offsetHeight / 2) - (gridContent.clientHeight / 2);
-                  gridContent.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+          let gCard = getEl(`grid-card-${item.fdh}`);
+          openPane(item, null);
+          if (gCard && currentWorkspaceView === 'grid') {
+              const container = getEl('grid-content');
+              if (container) {
+                  const scrollPos = gCard.offsetTop - (container.clientHeight / 2) + (gCard.offsetHeight / 2);
+                  container.scrollTo({ top: scrollPos, behavior: 'smooth' });
               }
           }
           if (isDeckMode) {
