@@ -16,44 +16,111 @@
         --starGold: #fbbf24; --accent: #3b82f6; --gantt-panel-height: 34vh; --inbox-panel-width: 380px;
       }
 
-      /* 🧠 POLISHED LOADING SCREEN */
-      #loading-screen {
+      /* 🚀 EXECUTIVE BOOT SEQUENCE LOADER STYLES */
+      .obsidian-loader {
         position: fixed;
         inset: 0;
-        background: var(--bg);
+        background: #09090b;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        z-index: 999999;
-        gap: 20px;
-        transition: opacity 0.5s ease, visibility 0.5s ease;
+        z-index: 9999999;
+        transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.8s;
       }
-      #loading-screen.hidden {
+      .obsidian-loader.hidden {
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
       }
-      .loading-logo {
-        font-size: 14px;
-        font-weight: 900;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: var(--text-muted);
+      .loader-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: 320px;
       }
-      .loading-spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid color-mix(in srgb, var(--text-muted) 20%, transparent);
-        border-top-color: var(--accent);
+      .data-core {
+        position: relative;
+        width: 80px;
+        height: 80px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .core-ring {
+        position: absolute;
         border-radius: 50%;
-        animation: spin 0.8s linear infinite;
+        border: 2px solid transparent;
       }
+      .core-ring.outer {
+        width: 100%;
+        height: 100%;
+        border-top-color: #3b82f6;
+        border-bottom-color: #8b5cf6;
+        animation: spin-core 2s linear infinite;
+      }
+      .core-ring.middle {
+        width: 70%;
+        height: 70%;
+        border-left-color: #22c55e;
+        border-right-color: #10b981;
+        animation: spin-core-reverse 1.5s linear infinite;
+      }
+      .core-dot {
+        width: 12px;
+        height: 12px;
+        background: #ffffff;
+        border-radius: 50%;
+        box-shadow: 0 0 15px 4px rgba(59, 130, 246, 0.6);
+        animation: pulse-core 1s ease-in-out infinite alternate;
+      }
+      @keyframes spin-core { 100% { transform: rotate(360deg); } }
+      @keyframes spin-core-reverse { 100% { transform: rotate(-360deg); } }
       @keyframes spin { to { transform: rotate(360deg); } }
-      .loading-sub {
-        font-size: 12px;
-        color: var(--text-muted);
-        font-weight: 600;
+      @keyframes pulse-core {
+        0% { transform: scale(0.8); opacity: 0.8; }
+        100% { transform: scale(1.2); opacity: 1; }
+      }
+      .loader-brand {
+        font-size: 18px;
+        font-weight: 900;
+        letter-spacing: -0.5px;
+        color: #ffffff;
+        margin: 0 0 4px 0;
+      }
+      .loader-version {
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: #64748b;
+        margin-bottom: 32px;
+      }
+      .loader-progress-wrap {
+        width: 100%;
+        height: 4px;
+        background: #1e293b;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-bottom: 16px;
+      }
+      .loader-progress-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #3b82f6, #a855f7);
+        transition: width 0.1s linear;
+      }
+      .loader-terminal {
+        width: 100%;
+        font-family: monospace;
+        font-size: 11px;
+        color: #94a3b8;
+        text-align: left;
+        background: #0f172a;
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #1e293b;
       }
 
       /* ✨ FROSTED LOADER STYLES */
@@ -158,9 +225,10 @@
       .startup-card p { margin: 0; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
 
       /* 🧠 Phase 4 Ambient Glow States */
-      .glow-complete { box-shadow: 0 0 15px rgba(34, 197, 94, 0.25) !important; }
-      .glow-permit   { box-shadow: 0 0 15px rgba(168, 85, 247, 0.25) !important; }
-      .glow-overdue  { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4) !important; }
+      .glow-ofs      { box-shadow: 0 0 15px rgba(37, 99, 235, 0.25) !important; border-color: #bfdbfe !important; }
+      .glow-complete { box-shadow: 0 0 15px rgba(34, 197, 94, 0.25) !important; border-color: #bbf7d0 !important; }
+      .glow-permit   { box-shadow: 0 0 15px rgba(168, 85, 247, 0.25) !important; border-color: #e9d5ff !important; }
+      .glow-overdue  { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4) !important; border-color: #fca5a5 !important; }
       .glow-active   { box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important; }
 
       /* Target only the structural elements tied to the resize height */
@@ -733,19 +801,21 @@
       .em-fdh { font-size: 12px; font-weight: 900; color: var(--text-main); letter-spacing: -0.01em; line-height: 1;}
       .em-vendor { font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; line-height: 1;}
       
-      .glass-pill { font-size: 9px; font-weight: bold; padding: 3px 8px; border-radius: 6px; border: none; text-transform: uppercase; white-space: nowrap; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: inline-flex; }
-      .pill-default { color: #854d0e; background: rgba(253, 224, 71, 0.2); border-color: #facc15; }
-      .pill-ofs { color: #1d4ed8; background: rgba(59, 130, 246, 0.15); border-color: #3b82f6; }
-      .pill-permit { color: #7e22ce; background: rgba(168, 85, 247, 0.15); border-color: #a855f7; }
-      .pill-complete { color: #15803d; background: rgba(34, 197, 94, 0.15); border-color: #22c55e; }
-      .pill-hold { color: #475569; background: rgba(148, 163, 184, 0.15); border-color: #94a3b8; }
-      .pill-missing { color: #b91c1c; background: rgba(239, 68, 68, 0.15); border-color: #ef4444; }
-      body.dark-mode .pill-default { color: #fde047; background: rgba(253, 224, 71, 0.1); border-color: #ca8a04; }
-      body.dark-mode .pill-ofs { color: #93c5fd; background: rgba(59, 130, 246, 0.1); border-color: #2563eb; }
-      body.dark-mode .pill-permit { color: #d8b4fe; background: rgba(168, 85, 247, 0.1); border-color: #9333ea; }
-      body.dark-mode .pill-complete { color: #86efac; background: rgba(34, 197, 94, 0.1); border-color: #16a34a; }
-      body.dark-mode .pill-hold { color: #cbd5e1; background: rgba(148, 163, 184, 0.1); border-color: #64748b; }
-      body.dark-mode .pill-missing { color: #fca5a5; background: rgba(239, 68, 68, 0.15); border-color: #dc2626; }
+      .glass-pill { font-size: 9px; font-weight: bold; padding: 3px 10px; border-radius: 6px; border: 1.5px solid; text-transform: uppercase; white-space: nowrap; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: inline-flex; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+      .pill-active, .pill-default { color: #854d0e; background: rgba(254, 252, 232, 0.7); border-color: #facc15; }
+      .pill-ofs { color: #2563eb; background: rgba(239, 246, 255, 0.7); border-color: #2563eb; }
+      .pill-permit { color: #a855f7; background: rgba(243, 232, 255, 0.7); border-color: #a855f7; }
+      .pill-complete { color: #22c55e; background: rgba(240, 253, 244, 0.7); border-color: #22c55e; }
+      .pill-hold { color: #94a3b8; background: rgba(248, 250, 252, 0.7); border-color: #94a3b8; }
+      .pill-missing { color: #ef4444; background: rgba(254, 242, 242, 0.7); border-color: #ef4444; }
+      body.dark-mode .pill-active, body.dark-mode .pill-default { color: #fde047; background: rgba(133, 77, 14, 0.35); border-color: #facc15; }
+      body.dark-mode .pill-ofs { color: #93c5fd; background: rgba(30, 64, 175, 0.35); border-color: #60a5fa; }
+      body.dark-mode .pill-permit { color: #e9d5ff; background: rgba(107, 33, 168, 0.35); border-color: #c084fc; }
+      body.dark-mode .pill-complete { color: #86efac; background: rgba(21, 128, 61, 0.35); border-color: #4ade80; }
+      body.dark-mode .pill-hold { color: #e2e8f0; background: rgba(71, 85, 105, 0.35); border-color: #94a3b8; }
+      body.dark-mode .pill-missing { color: #fca5a5; background: rgba(153, 27, 27, 0.35); border-color: #f87171; }
+      .is-muted { opacity: 0.45; transition: opacity 0.3s ease; }
+      .grid-card:hover .is-muted { opacity: 0.8; }
 
       .em-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px;}
       .tag { display: inline-flex; padding: 2px 4px; border-radius: 3px; font-size: 8px; font-weight: 900; white-space: nowrap; border: 1px solid; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);}
@@ -1519,10 +1589,22 @@
       </div>
     </div>
 
-    <div id="loading-screen">
-      <div class="loading-logo">Dailies Command Center</div>
-      <div class="loading-spinner"></div>
-      <div class="loading-sub">Loading project data…</div>
+    <div id="loading-screen" class="obsidian-loader">
+      <div class="loader-content">
+        <div class="data-core">
+          <div class="core-ring outer"></div>
+          <div class="core-ring middle"></div>
+          <div class="core-dot"></div>
+        </div>
+        <h1 class="loader-brand">Dailies Command Center</h1>
+        <div class="loader-version">v4.2.0 // BENNY ENGINE ACTIVE</div>
+        <div class="loader-progress-wrap">
+          <div class="loader-progress-bar" id="boot-progress"></div>
+        </div>
+        <div class="loader-terminal">
+          <span style="color: #10b981;">>_</span> <span id="boot-text">Initializing runtime environment...</span>
+        </div>
+      </div>
     </div>
 
     <div id="startup-overlay" class="startup-overlay">
@@ -2022,6 +2104,48 @@
     </div>
 
     <script>
+      // 🚀 BOOT SEQUENCE CONTROLLER
+      let bootInterval;
+      function runBootSequence() {
+          const bootSteps = [
+              "Connecting to QuickBase API...",
+              "Authenticating Benny Diagnostics Engine...",
+              "Loading Master Archive records...",
+              "Cross-referencing vendor production data...",
+              "Calculating network topology & light paths...",
+              "Running AI heuristic models...",
+              "Compiling executive dashboard..."
+          ];
+          let stepIdx = 0;
+          let progress = 0;
+          const textEl = document.getElementById('boot-text');
+          const barEl = document.getElementById('boot-progress');
+          if (!textEl || !barEl) return;
+          bootInterval = setInterval(() => {
+              progress += Math.random() * 15;
+              if (progress >= 100) {
+                  progress = 99;
+              } else if (progress > (stepIdx + 1) * (100 / bootSteps.length) && stepIdx < bootSteps.length - 1) {
+                  stepIdx++;
+                  textEl.innerText = bootSteps[stepIdx];
+              }
+              barEl.style.width = `${progress}%`;
+          }, 150);
+      }
+      runBootSequence();
+
+      function hideSplash() {
+          clearInterval(bootInterval);
+          let barEl = document.getElementById('boot-progress');
+          let textEl = document.getElementById('boot-text');
+          if (barEl) barEl.style.width = '100%';
+          if (textEl) textEl.innerText = "Data loaded. Initializing UI...";
+          setTimeout(() => {
+              let ls = document.getElementById('loading-screen');
+              if (ls) ls.classList.add('hidden');
+          }, 300);
+      }
+
       // ── GLOBAL STATE VARIABLES (CRITICAL SCOPE) ──
       let isGridMode = false;
       let currentGridPivot = 'velocity';
@@ -2034,6 +2158,23 @@
       let deckPrevPivot = 'velocity';
       let isPresentationMode = false; // Controls Theater blackout
       let deckIdleTimer = null;
+      let activePieStageFilter = null;
+
+      function getStageColor(stage) {
+          let sLower = (stage || "").toLowerCase();
+          if (sLower.includes('permit')) return '#a855f7';
+          if (sLower.includes('field cx') || sLower.includes('active') || sLower.includes('progress')) return '#facc15';
+          if (sLower.includes('complete')) return '#22c55e';
+          if (sLower.includes('ofs')) return '#3b82f6';
+          if (sLower.includes('hold')) return '#64748b';
+          if (sLower.includes('pending') || sLower.includes('assignment')) return '#f97316';
+          return '#94a3b8';
+      }
+
+      function togglePieStageFilter(stage) {
+          activePieStageFilter = (activePieStageFilter === stage) ? null : stage;
+          applyFilters();
+      }
 
       const setHtml = (id, val) => { let el = document.getElementById(id); if(el) el.innerHTML = val; };
       const setTxt = (id, val) => { let el = document.getElementById(id); if(el) el.innerText = val; };
@@ -2361,7 +2502,7 @@
           if (isMissing) return 'pill-missing';
           let st = (stage || "").toLowerCase(), stat = (status || "").toLowerCase();
           if (st.includes('ofs')) return 'pill-ofs'; if (st.includes('permit')) return 'pill-permit'; if (stat.includes('complete')) return 'pill-complete'; if (stat.includes('hold') || stat.includes('assign')) return 'pill-hold';
-          return 'pill-default';
+          return 'pill-active';
       }
 
       function populateDropdown(id, values) {
@@ -3329,7 +3470,7 @@
           google.script.run
               .withSuccessHandler(initDashboard)
               .withFailureHandler(err => {
-                  let ls = getEl('loading-screen'); if (ls) ls.classList.add('hidden');
+                  hideSplash();
                   let ws = getEl('welcome-screen'); if (ws) ws.style.display = 'none';
                   let dl = getEl('detail-layout'); if (dl) dl.style.display = 'flex';
                   let pc = getEl('pane-content');
@@ -3473,8 +3614,7 @@
 
       function initDashboard(data) {
         safeExecute('initDashboard', () => {
-            let ls = getEl('loading-screen');
-            if (ls) ls.classList.add('hidden');
+            hideSplash();
             if (data && data.allFdhIds) {
                 globalAllFdhIds = data.allFdhIds;
                 let datalist = document.getElementById('fdh-list');
@@ -3658,17 +3798,20 @@
                 }
             });
 
-            setTxt('kpi-total-proj', filtered.length);
+            let displayFiltered = activePieStageFilter ? filtered.filter(i => {
+                let sName = i.stage || 'Unknown';
+                if ((i.status || '').toLowerCase().includes('complete')) sName = 'Complete';
+                return sName === activePieStageFilter;
+            }) : filtered;
+
+            setTxt('kpi-total-proj', displayFiltered.length);
             setTxt('kpi-active-bsls', activeBslsCount.toLocaleString());
             setTxt('kpi-active-crit', activeCritCount);
 
-            setHtml('kpi-projects-breakdown', `
-                <span class="ok">${activeProjCount} Active</span>
-                <span class="sep">•</span>
-                <span class="pending">${pendingProjCount} Pending</span>
-                <span class="sep">•</span>
-                <span class="overdue">${overdueProjCount} Overdue</span>
-            `);
+            let sortedStageKeys = Object.keys(currentFilterStats.stageCounts).sort((a, b) => currentFilterStats.stageCounts[b] - currentFilterStats.stageCounts[a]);
+            let top3Stages = sortedStageKeys.slice(0, 3);
+            let stageHtml = top3Stages.map(s => `<span style="color:${getStageColor(s)}; font-weight:800;">${currentFilterStats.stageCounts[s]} ${s}</span>`).join(' <span class="sep" style="color:var(--text-muted);">•</span> ');
+            setHtml('kpi-projects-breakdown', stageHtml || `<span style="color:var(--text-muted);">No Stages</span>`);
 
             let sortedMonths = Object.keys(currentFilterStats.bslByMonth)
                 .sort((a, b) => currentFilterStats.bslByMonth[b] - currentFilterStats.bslByMonth[a])
@@ -3713,9 +3856,9 @@
             if (clearBtn) clearBtn.classList.toggle('collapsed', !anyActive);
             let filtersBtn = getEl('btn-filters');
             if (filtersBtn) filtersBtn.classList.toggle('btn-filters-active', anyActive || !(getEl('filter-strip')?.classList.contains('hidden')));
-            filteredItems = filtered;
-            renderList(filtered);
-            renderGantt(filtered);
+            filteredItems = displayFiltered;
+            renderList(displayFiltered);
+            renderGantt(displayFiltered);
             if (currentWorkspaceView === 'grid') renderGrid();
             if (currentWorkspaceView === 'deck') {
                 renderGrid();
@@ -4202,25 +4345,39 @@
               }
 
               let st = (item.stage || "").toLowerCase(); let stat = (item.status || "").toLowerCase();
-              let isComplete = st.includes('ofs') || stat.includes('complete'); let isOnHold = stat.includes('hold'); let isPermit = st.includes('permit');
+              let isOFS = st.includes('ofs'); let isPermit = st.includes('permit'); let isComplete = stat.includes('complete'); let isOnHold = stat.includes('hold') || stat.includes('assign');
 
               let hasEnd = item.cxEnd && item.cxEnd !== ""; let isOverdue = false;
-              if (hasEnd) { let end = safeDate(item.cxEnd); let today = new Date(); today.setHours(0,0,0,0); if (end && today > end && !isComplete && !isOnHold && !isPermit) isOverdue = true; }
+              if (hasEnd) { let end = safeDate(item.cxEnd); let today = new Date(); today.setHours(0,0,0,0); if (end && today > end && !isOFS && !isComplete && !isOnHold && !isPermit) isOverdue = true; }
 
               let statusColor = "#facc15";
-              if (isComplete) statusColor = "#22c55e";
+              if (isOFS) statusColor = "#2563eb";
               else if (isPermit) statusColor = "#a855f7";
+              else if (isComplete) statusColor = "#22c55e";
               else if (isOnHold) statusColor = "#94a3b8";
               else if (isOverdue) statusColor = "#ef4444";
 
               let unifiedCard = getEl('main-qb-grid');
               if (unifiedCard) {
-                  unifiedCard.classList.remove('glow-complete', 'glow-permit', 'glow-overdue', 'glow-active');
+                  unifiedCard.classList.remove('glow-ofs', 'glow-complete', 'glow-permit', 'glow-overdue', 'glow-active');
                   unifiedCard.style.boxShadow = '';
-                  if (isComplete) unifiedCard.classList.add('glow-complete');
+                  if (isOFS) unifiedCard.classList.add('glow-ofs');
+                  else if (isComplete) unifiedCard.classList.add('glow-complete');
                   else if (isPermit) unifiedCard.classList.add('glow-permit');
                   else if (isOverdue) unifiedCard.classList.add('glow-overdue');
                   else unifiedCard.classList.add('glow-active');
+              }
+
+              let isMuted = isComplete || isOFS || isPermit;
+              let scheduleModule = getEl('project-schedule-card');
+              let velocityModule = getEl('velocity-production-card');
+              if (scheduleModule) {
+                  let timeBar = scheduleModule.querySelector('.qb-time-bar');
+                  if (timeBar) timeBar.classList.toggle('is-muted', isMuted);
+              }
+              if (velocityModule) {
+                  let velGrid = velocityModule.querySelector('.velocity-grid');
+                  if (velGrid) velGrid.classList.toggle('is-muted', isMuted);
               }
 
               let hasStart = item.cxStart && item.cxStart !== "";
@@ -4641,11 +4798,22 @@
               let pStart = safeDate(item.cxStart);
               let pEnd = safeDate(item.cxEnd);
               let daysLeft = pEnd ? Math.ceil((pEnd - new Date()) / 86400000) : 0;
-              let isComplete = (item.stage || "").toLowerCase().includes('ofs') || (item.status || "").toLowerCase().includes('complete');
-              let isPermit = (item.stage || "").toLowerCase().includes('permit');
-              let isOnHold = (item.status || "").toLowerCase().includes('hold');
+              let st = (item.stage || "").toLowerCase();
+              let stat = (item.status || "").toLowerCase();
+              let isOFS = st.includes('ofs');
+              let isComplete = stat.includes('complete');
+              let isPermit = st.includes('permit');
+              let isOnHold = stat.includes('hold') || stat.includes('assign');
               let today = new Date(); today.setHours(0,0,0,0);
-              let isOverdue = pEnd && today > pEnd && !isComplete && !isOnHold && !isPermit;
+              let isOverdue = pEnd && today > pEnd && !isOFS && !isComplete && !isOnHold && !isPermit;
+              let isMuted = isComplete || isOFS || isPermit;
+              let muteClass = isMuted ? 'is-muted' : '';
+
+              if (isOFS) glowCls = 'glow-ofs';
+              else if (isComplete) glowCls = 'glow-complete';
+              else if (isPermit) glowCls = 'glow-permit';
+              else if (isOverdue) glowCls = 'glow-overdue';
+              else glowCls = 'glow-active';
 
               if (currentGridPivot === 'schedule') {
                   let start = item.cxStart ? formatDate(item.cxStart) : 'TBD';
@@ -4657,7 +4825,7 @@
                       pct = Math.max(0, Math.min(100, (elap / total) * 100));
                   }
                   let sColor = "#facc15";
-                  if (isComplete) sColor = "#22c55e"; else if (isPermit) sColor = "#a855f7"; else if (isOnHold) sColor = "#94a3b8"; else if (isOverdue) sColor = "#ef4444";
+                  if (isOFS) sColor = "#2563eb"; else if (isPermit) sColor = "#a855f7"; else if (isComplete) sColor = "#22c55e"; else if (isOnHold) sColor = "#94a3b8"; else if (isOverdue) sColor = "#ef4444";
                   let xingCls = item.isXing ? 'xing' : '';
                   let xingBadge = item.isXing ? `<div style="position:absolute; bottom:4px; right:4px; display:flex; align-items:center; gap:4px; background:#171717; color:#facc15; padding:1px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #facc15;">X-ING</div>` : '';
                   let targetRadius = item.isXing ? "9px 9px 0 0" : "12px 12px 0 0";
@@ -4666,11 +4834,11 @@
                       glowCls = 'glow-danger';
                   }
                   bodyHtml = `
-                      <div class="qb-time-labels" style="margin-top:0;">
+                      <div class="qb-time-labels ${muteClass}" style="margin-top:0;">
                           <span>CX START: <span style="color:var(--text-main);">${start}</span></span>
                           <span>CX COMPLETE: <span style="color:var(--text-main);">${end}</span></span>
                       </div>
-                      <div class="qb-time-bar">
+                      <div class="qb-time-bar ${muteClass}">
                           <div class="qb-time-fill" style="width:${pct}%; background:${sColor};"></div>
                           ${pct > 0 && pct < 100 ? `<div class="qb-time-bead" style="left:calc(${pct}% - 7px); border-color:${sColor}; display:block;"></div>` : ''}
                       </div>
@@ -4698,7 +4866,7 @@
 
                   if (v) {
                       bodyHtml = `
-                          <div class="velocity-grid" style="align-content: flex-start; gap: 8px; margin-bottom: 8px; flex-grow: 0;">
+                          <div class="velocity-grid ${muteClass}" style="align-content: flex-start; gap: 8px; margin-bottom: 8px; flex-grow: 0;">
                               ${buildVelocityBar('UG', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft)}
                               ${buildVelocityBar('Aerial', v.ae.daily, v.ae.tot, v.ae.bom, 'AE', daysLeft)}
                               ${buildVelocityBar('Fiber', v.fib.daily, v.fib.tot, v.fib.bom, 'FIB', daysLeft)}
@@ -4883,15 +5051,7 @@
           let sortedStages = Object.keys(stageCounts).sort((a, b) => stageCounts[b] - stageCounts[a]);
 
           let slices = sortedStages.map((stage, idx) => {
-              let c = defaultColors[idx % defaultColors.length];
-              let sLower = stage.toLowerCase();
-              if (sLower.includes('permit')) c = '#a855f7';
-              else if (sLower.includes('field cx') || sLower.includes('active') || sLower.includes('progress')) c = '#facc15';
-              else if (sLower.includes('complete')) c = '#22c55e';
-              else if (sLower.includes('ofs')) c = '#3b82f6';
-              else if (sLower.includes('hold')) c = '#64748b';
-              else if (sLower.includes('pending') || sLower.includes('assignment')) c = '#f97316';
-              return { label: stage, count: stageCounts[stage], color: c };
+              return { label: stage, count: stageCounts[stage], color: getStageColor(stage) };
           });
 
           let conicStr = [];
@@ -4902,8 +5062,9 @@
               let pct = (s.count / total) * 100;
               conicStr.push(`${s.color} ${currentPct}% ${currentPct + pct}%`);
               currentPct += pct;
+              let isActive = activePieStageFilter === s.label;
               legendHtml += `
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:8px;">
+              <div onclick="togglePieStageFilter('${s.label.replace(/'/g, "\\'")}')" style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:8px; cursor:pointer; padding:4px 6px; border-radius:8px; border: 1.5px solid ${isActive ? s.color : 'transparent'}; background:${isActive ? s.color + '22' : 'transparent'}; transition: border 0.15s, background 0.15s;">
                   <div style="display:flex; align-items:center; gap:8px;">
                       <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${s.color};"></span>
                       <span style="color:#fafafa; font-weight:800;">${s.label}</span>
@@ -4913,10 +5074,12 @@
           });
 
           let pieStyle = `background: conic-gradient(${conicStr.join(', ')}); border-radius: 50%; width: 130px; height: 130px; box-shadow: 0 8px 16px rgba(0,0,0,0.5);`;
+          let clearFilterBtn = activePieStageFilter ? `<button onclick="togglePieStageFilter('${activePieStageFilter.replace(/'/g, "\\'")}')" style="background:#3f3f46; border:none; color:#fafafa; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; cursor:pointer;">✕ ${activePieStageFilter}</button>` : '';
 
           hud.innerHTML = `
-              <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:#fde68a; letter-spacing:0.5px; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:16px;">
-                  Projects by Stage
+              <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:#fde68a; letter-spacing:0.5px; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+                  <span>Projects by Stage</span>
+                  ${clearFilterBtn}
               </div>
               <div style="display:flex; gap:24px; align-items:center;">
                   <div style="${pieStyle} flex-shrink:0;"></div>
