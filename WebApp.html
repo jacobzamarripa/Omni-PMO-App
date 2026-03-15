@@ -4285,9 +4285,21 @@
               setVvh();
               window.visualViewport.addEventListener('resize', setVvh);
           }
+          let bootTimeoutId = setTimeout(() => {
+              bootTimeoutId = null;
+              hideSplash();
+              let dl = getEl('detail-layout'); if (dl) dl.style.display = 'flex';
+              let pc = getEl('pane-content');
+              if (pc) {
+                  pc.innerHTML = `<div class="error-msg" style="color:#ef4444; padding:24px; font-family:monospace; text-align:center;"><b>Connection timeout.</b><br/><span style="font-size:11px; color:#94a3b8;">Apps Script did not respond. Please refresh the page.</span></div>`;
+                  pc.style.display = 'flex';
+              }
+          }, 20000);
+
           google.script.run
-              .withSuccessHandler(initDashboard)
+              .withSuccessHandler(data => { clearTimeout(bootTimeoutId); initDashboard(data); })
               .withFailureHandler(err => {
+                  clearTimeout(bootTimeoutId);
                   hideSplash();
                   let ws = getEl('welcome-screen'); if (ws) ws.style.display = 'none';
                   let dl = getEl('detail-layout'); if (dl) dl.style.display = 'flex';
