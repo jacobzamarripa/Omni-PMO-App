@@ -2404,6 +2404,10 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function escJs(s) {
+  return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 function fmt(n) { return n ? Number(n).toLocaleString() : '—'; }
 
 function formatDate(val) {
@@ -2715,7 +2719,8 @@ function cardHTML(item) {
         '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">'+
           '<div style="display:flex; align-items:center; gap:8px;">'+
             '<div class="section-label" style="color:var(--color-insight); margin:0;">PM NOTE</div>'+
-            '<button class="btn-ai" id="btn-dictate-'+item.fdh+'" onclick="startVoiceDictation(this)" style="background:var(--card-bg); color:#10b981; border:1px solid #10b981; animation:none; padding:6px 10px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center;">'+
+            '<input type="file" id="audio-capture-'+item.fdh+'" accept="audio/*" capture style="display:none;" onchange="handleAudioUpload(event, \''+escJs(item.fdh)+'\')">'+
+            '<button class="btn-ai" id="btn-dictate-'+item.fdh+'" onclick="document.getElementById(\'audio-capture-'+escJs(item.fdh)+'\').click()" style="background:var(--card-bg); color:#10b981; border:1px solid #10b981; animation:none; padding:6px 10px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center;">'+
               '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>'+
             '</button>'+
             '<button class="btn-ai" onclick="askGeminiForDraftMobile(this)">DRAFT W/GEMINI</button>'+
@@ -2773,17 +2778,15 @@ function renderMiniSldMobile(item) {
     : miniSldNodeHtmlMobile(upstreamFdh || 'Upstream Unknown', upstreamNode, upstreamFdh, false);
   var currentNode = miniSldNodeHtmlMobile(item && item.fdh, item, '', true);
   var rightNode = miniSldNodeHtmlMobile(downstreamFdh || 'Downstream Unknown', downstreamNode, downstreamFdh, false);
-  var labelNode = '<div style="display:flex; align-items:center; padding-right:10px; margin-right:4px; border-right:1px solid var(--border); flex-shrink:0;">' +
-      '<span style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Network Path</span>' +
-    '</div>';
-  return '<div style="display:flex; align-items:center; gap:8px; padding:10px 12px; margin:0 0 16px 0; background:var(--bg); border:1px solid var(--border); border-radius:12px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; -ms-overflow-style:none;">' +
-    labelNode +
+  var labelNode = '<div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; margin-left:4px;">Network Path</div>';
+  var pathContainer = '<div style="display:flex; align-items:center; gap:8px; padding:10px 12px; margin:0; background:var(--bg); border:1px solid var(--border); border-radius:12px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; -ms-overflow-style:none;">' +
     leftNode +
     '<div style="font-size:12px; color:var(--text-muted); flex:0 0 auto;">→</div>' +
     currentNode +
     '<div style="font-size:12px; color:var(--text-muted); flex:0 0 auto;">→</div>' +
     rightNode +
   '</div>';
+  return '<div style="margin-bottom:16px;">' + labelNode + pathContainer + '</div>';
 }
 
 function commentFieldId(item) {
@@ -3684,7 +3687,8 @@ function populateDetail(item) {
     '<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">' +
       '<div class="detail-section-title" style="margin-bottom:0;">Decision: OMNI Manager Note</div>' +
       '<div style="display:flex; align-items:center; gap:8px;">' +
-        '<button class="btn-ai" id="btn-dictate-' + item.fdh + '" onclick="startVoiceDictation(this)" style="background:var(--card-bg); color:#10b981; border:1px solid #10b981; animation:none; padding:6px 10px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center;">' +
+        '<input type="file" id="audio-capture-detail-' + esc(item.fdh) + '" accept="audio/*" capture style="display:none;" onchange="handleAudioUpload(event, \'' + escJs(item.fdh) + '\')">' +
+        '<button class="btn-ai" id="btn-dictate-' + item.fdh + '" onclick="document.getElementById(\'audio-capture-detail-' + escJs(item.fdh) + '\').click()" style="background:var(--card-bg); color:#10b981; border:1px solid #10b981; animation:none; padding:6px 10px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center;">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>' +
         '</button>' +
         '<button class="btn-ai" onclick="askGeminiForDraftMobile(this)">Draft w/ Gemini</button>' +
@@ -3763,69 +3767,87 @@ function commitFromDetail() {
   showReviewQueue(item.fdh);
 }
 
-function startVoiceDictation(btn) {
-    var item = state.deck[state.idx];
-    if (!item) return;
+function getItemByFdh(fdh) {
+  var target = String(fdh || '').toUpperCase();
+  if (!target) return null;
+  if (state.activeItem && String(state.activeItem.fdh || '').toUpperCase() === target) return state.activeItem;
+  if (state.deck && state.deck.length) {
+    for (var i = 0; i < state.deck.length; i++) {
+      if (String(state.deck[i].fdh || '').toUpperCase() === target) return state.deck[i];
+    }
+  }
+  if (state.all && state.all.length) {
+    for (var j = 0; j < state.all.length; j++) {
+      if (String(state.all[j].fdh || '').toUpperCase() === target) return state.all[j];
+    }
+  }
+  return null;
+}
 
-    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        alert("Your browser does not support voice dictation. Use your keyboard mic instead.");
-        return;
+function buildVoicePayload(item) {
+  return {
+    fdh: item.fdh,
+    vendor: item.vendor,
+    status: (item.stage || '') + ' | ' + (item.status || ''),
+    targetDate: item.targetDate,
+    flags: item.flags,
+    vendorComment: item.vendorComment,
+    history: item.bench,
+    productionToday: item.summary
+  };
+}
+
+function handleAudioUpload(event, fdh) {
+  var input = event && event.target;
+  var file = input && input.files ? input.files[0] : null;
+  if (!file) return;
+
+  var item = getItemByFdh(fdh);
+  if (!item) {
+    if (input) input.value = '';
+    toast('Unable to match this recording to a project.');
+    return;
+  }
+
+  toast('Processing audio note...', 3000);
+  haptic('light');
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var result = e && e.target ? e.target.result : '';
+    var base64Data = String(result || '').split(',')[1];
+    if (!base64Data) {
+      if (input) input.value = '';
+      alert('Dictation Error: Unable to read the selected audio file.');
+      return;
     }
 
-    var recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        var cardTa = document.getElementById(commentFieldId(item));
+        var detailTa = document.getElementById('p-comment');
+        if (cardTa) cardTa.value = res.text;
+        if (detailTa) detailTa.value = res.text;
+        item.comment = res.text;
+        item.geminiInsight = res.text;
+        item.geminiDate = res.date;
+        haptic('medium');
+        toast('Voice note formatted!');
+      })
+      .withFailureHandler(function(err) {
+        alert('Dictation Error: ' + ((err && err.message) || err || 'Unknown error'));
+      })
+      .processAudioDictation(buildVoicePayload(item), base64Data, file.type || 'audio/webm');
 
-    recognition.onstart = function() {
-        haptic('light');
-        toast('Listening... Speak now.', 4000);
-        btn.classList.add('pulsing-mic');
-    };
+    if (input) input.value = '';
+  };
 
-    recognition.onresult = function(event) {
-        btn.classList.remove('pulsing-mic');
-        var transcript = event.results[0][0].transcript;
-        toast('Processing voice note...', 3000);
+  reader.onerror = function() {
+    if (input) input.value = '';
+    alert('Dictation Error: Failed to load the selected audio file.');
+  };
 
-        var payload = {
-            fdh: item.fdh,
-            vendor: item.vendor,
-            status: (item.stage || '') + ' | ' + (item.status || ''),
-            targetDate: item.targetDate,
-            flags: item.flags,
-            vendorComment: item.vendorComment,
-            history: item.bench,
-            productionToday: item.summary
-        };
-
-        google.script.run
-            .withSuccessHandler(function(res) {
-                var ta = document.getElementById(commentFieldId(item));
-                if (ta) ta.value = res.text;
-                item.comment = res.text;
-                item.geminiInsight = res.text;
-                item.geminiDate = res.date;
-                haptic('medium');
-                toast('Voice note formatted!');
-            })
-            .withFailureHandler(function(err) {
-                alert("Dictation Error: " + err.message);
-            })
-            .processVoiceDictation(payload, transcript);
-    };
-
-    recognition.onerror = function(event) {
-        btn.classList.remove('pulsing-mic');
-        toast('Microphone error: ' + event.error);
-    };
-
-    recognition.onend = function() {
-        btn.classList.remove('pulsing-mic');
-    };
-
-    recognition.start();
+  reader.readAsDataURL(file);
 }
 
 function askGeminiForDraftMobile(btn) {

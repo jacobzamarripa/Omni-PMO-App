@@ -417,3 +417,69 @@ function generateAndSaveFDHNarrative(payload) {
   CacheService.getScriptCache().remove('dashboard_data_cache');
   return { text: insightText, date: dateStr };
 }
+
+function processAudioDictation(payload, base64Audio, mimeType) {
+  const apiKey = CD_CONFIG.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("API Key not found.");
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+  const prompt = `Act as an Outside Plant (OSP) Project Manager. I have provided the current data for a fiber project, and attached an audio recording of a raw voice note from the field superintendent.
+
+Listen to the audio and translate their messy, rambling voice note into a clean, professional, and concise 2-3 sentence status update.
+
+Rules:
+1. Fix any obvious speech-to-text typos (e.g., if they say "boring under the highway", make sure it makes sense in an OSP context).
+2. Incorporate the project data if it adds necessary context.
+3. Do not include conversational filler like "The superintendent says". Write it strictly as a formal PM note.
+
+Project Data:
+${JSON.stringify(payload, null, 2)}`;
+
+  const data = {
+    contents: [{
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType, data: base64Audio } }
+      ]
+    }],
+    generationConfig: { temperature: 0.2 }
+  };
+
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(data),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(url, options);
+  if (response.getResponseCode() !== 200) throw new Error("Gemini API Error: " + response.getContentText());
+
+  const json = JSON.parse(response.getContentText());
+  const insightText = json.candidates[0].content.parts[0].text.trim();
+  let dateStr = Utilities.formatDate(new Date(), "GMT-5", "MM/dd/yyyy hh:mm a");
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let adminSheet = ss.getSheetByName("Admin_Logs");
+  if (adminSheet) {
+    let headers = adminSheet.getRange(1, 1, 1, adminSheet.getMaxColumns()).getValues()[0];
+    let fdhIdx = headers.indexOf("FDH Engineering ID");
+    let insightIdx = headers.indexOf("Gemini Insight");
+    let dateIdx = headers.indexOf("Gemini Insight Date");
+    if (fdhIdx > -1 && insightIdx > -1 && dateIdx > -1) {
+      let adminData = adminSheet.getDataRange().getValues();
+      for (let i = 1; i < adminData.length; i++) {
+        if (adminData[i][fdhIdx].toString().toUpperCase() === payload.fdh.toUpperCase()) {
+          adminSheet.getRange(i + 1, insightIdx + 1).setValue(insightText);
+          adminSheet.getRange(i + 1, dateIdx + 1).setValue(dateStr);
+          break;
+        }
+      }
+    }
+  }
+
+  CacheService.getScriptCache().remove('dashboard_data_cache_v6');
+  CacheService.getScriptCache().remove('dashboard_data_cache');
+  return { text: insightText, date: dateStr };
+}
