@@ -584,6 +584,83 @@
           color: #93c5fd !important;
           background: rgba(59, 130, 246, 0.2) !important;
       }
+      .ms-wrap { position: relative; display: inline-block; }
+      .ms-display {
+          border-radius: 20px !important;
+          background: rgba(255, 255, 255, 0.6) !important;
+          border: 1px solid var(--border) !important;
+          padding: 8px 16px !important;
+          height: 38px !important;
+          font-size: 11px !important;
+          font-weight: 800 !important;
+          color: var(--text-main) !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.04) !important;
+          transition: all 0.15s ease !important;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          min-width: 120px;
+          white-space: nowrap;
+          user-select: none;
+          box-sizing: border-box;
+      }
+      body.dark-mode .ms-display { background: rgba(0, 0, 0, 0.4) !important; }
+      .ms-display:hover {
+          background: rgba(255, 255, 255, 0.9) !important;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.06) !important;
+          border-color: var(--text-muted) !important;
+      }
+      .ms-display.is-active {
+          background: rgba(59, 130, 246, 0.12) !important;
+          border-color: #3b82f6 !important;
+          color: #1d4ed8 !important;
+          box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2) !important;
+      }
+      body.dark-mode .ms-display.is-active {
+          color: #93c5fd !important;
+          background: rgba(59, 130, 246, 0.2) !important;
+      }
+      .ms-dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 0;
+          background: var(--card-bg);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 8px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+          display: none;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 100%;
+          max-height: 250px;
+          overflow-y: auto;
+          z-index: 100000;
+      }
+      .ms-wrap.open .ms-dropdown { display: flex; }
+      .ms-opt {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+          padding: 6px 10px;
+          border-radius: 6px;
+          transition: background 0.15s;
+          white-space: nowrap;
+          color: var(--text-main);
+      }
+      .ms-opt:hover { background: var(--bg); }
+      .ms-opt input[type="checkbox"] {
+          accent-color: #3b82f6;
+          cursor: pointer;
+          width: 14px;
+          height: 14px;
+          margin: 0;
+      }
       .filter-strip .filter-tools {
           display: inline-flex;
           align-items: center;
@@ -1503,7 +1580,7 @@
               border-radius: 28px !important;
           }
           .filter-strip input[type="text"],
-          .filter-strip select {
+          .ms-display {
               height: 30px !important;
               padding: 0 12px !important;
               font-size: 10px !important;
@@ -1855,15 +1932,10 @@
             </div>
 
             <div class="dock-zone dock-filters" id="dock-filters-zone">
-                <select id="filter-severity" onchange="applyFilters()">
-                    <option value="ALL">All Health</option>
-                    <option value="crit">Critical</option>
-                    <option value="warn">Warnings</option>
-                    <option value="info">Clear</option>
-                </select>
-                <select id="filter-vendor" onchange="updateCityDropdown(); applyFilters()"><option value="ALL">All Vendors</option></select>
-                <select id="filter-city" onchange="applyFilters()"><option value="ALL">All Cities</option></select>
-                <select id="filter-ofs" onchange="applyFilters()"><option value="ALL">All OFS Dates</option></select>
+                <div class="ms-wrap" id="wrap-filter-severity"></div>
+                <div class="ms-wrap" id="wrap-filter-vendor"></div>
+                <div class="ms-wrap" id="wrap-filter-city"></div>
+                <div class="ms-wrap" id="wrap-filter-ofs"></div>
             </div>
 
             <div class="dock-zone collapsed" id="dock-pivot-zone">
@@ -2244,6 +2316,8 @@
       let isPresentationMode = false; // Controls Theater blackout
       let deckIdleTimer = null;
       let activePieStageFilter = null;
+      let activeFilters = { sev: [], vendor: [], city: [], ofs: [] };
+      let openDropdownId = null;
 
       function getStageColor(stage) {
           let sLower = (stage || "").toLowerCase();
@@ -2259,6 +2333,78 @@
       function togglePieStageFilter(stage) {
           activePieStageFilter = (activePieStageFilter === stage) ? null : stage;
           applyFilters();
+      }
+
+      function toggleDropdown(id, event) {
+          if (event) event.stopPropagation();
+          if (openDropdownId && openDropdownId !== id) {
+              let oldEl = getEl(openDropdownId);
+              if (oldEl) oldEl.classList.remove('open');
+          }
+          let el = getEl(id);
+          if (el) {
+              el.classList.toggle('open');
+              openDropdownId = el.classList.contains('open') ? id : null;
+          }
+      }
+
+      document.addEventListener('click', (e) => {
+          if (openDropdownId) {
+              let el = getEl(openDropdownId);
+              if (el && !el.contains(e.target)) {
+                  el.classList.remove('open');
+                  openDropdownId = null;
+              }
+          }
+      });
+
+      function handleFilterCheck(category, value, isChecked) {
+          if (isChecked) {
+              if (!activeFilters[category].includes(value)) activeFilters[category].push(value);
+          } else {
+              activeFilters[category] = activeFilters[category].filter(v => v !== value);
+          }
+          applyFilters();
+      }
+
+      function renderMultiSelect(id, category, defaultLabel, optionsArr) {
+          let wrap = getEl(id);
+          if (!wrap) return;
+          let selected = activeFilters[category];
+          let optionLabelMap = {};
+          optionsArr.forEach(opt => { optionLabelMap[opt.val] = opt.label; });
+          let displayText = selected.length === 0
+              ? defaultLabel
+              : (selected.length === 1 ? (optionLabelMap[selected[0]] || selected[0]) : `${selected.length} Selected`);
+          let isActive = selected.length > 0;
+          let displayHtml = `<div class="ms-display ${isActive ? 'is-active' : ''}" onclick="toggleDropdown('${id}', event)"><span>${esc(displayText)}</span><span style="font-size:8px;">▼</span></div>`;
+          let optionsHtml = `<div class="ms-dropdown" onclick="event.stopPropagation()">`;
+          optionsArr.forEach(opt => {
+              let checked = selected.includes(opt.val) ? 'checked' : '';
+              optionsHtml += `<label class="ms-opt"><input type="checkbox" value="${esc(opt.val)}" ${checked} onchange="handleFilterCheck('${category}', this.value, this.checked)"> ${esc(opt.label)}</label>`;
+          });
+          optionsHtml += `</div>`;
+          wrap.innerHTML = displayHtml + optionsHtml;
+          wrap.classList.toggle('open', openDropdownId === id);
+      }
+
+      function getOfsFilterBuckets(item, today) {
+          let buckets = [];
+          if (!item || !item.ofsDate || item.ofsDate === "-" || item.ofsDate === "Unknown") return buckets;
+          let d = safeDate(item.ofsDate);
+          if (!d || isNaN(d.getTime())) return buckets;
+          buckets.push(d.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase());
+          let diffDays = (d - today) / 86400000;
+          if (diffDays >= 0 && diffDays <= 90) buckets.push('90_DAYS');
+          if (diffDays >= 0 && diffDays <= 60) buckets.push('60_DAYS');
+          return buckets;
+      }
+
+      function itemMatchesSearch(item, searchTerm) {
+          return searchTerm === '' ||
+              item.fdh.toLowerCase().includes(searchTerm) ||
+              (item.city && item.city.toLowerCase().includes(searchTerm)) ||
+              (item.vendor && item.vendor.toLowerCase().includes(searchTerm));
       }
 
       function getProjectsPieSliceLabel(item) {
@@ -2755,7 +2901,14 @@
           let minBtn = getEl('btn-minimize');
           if (minBtn) minBtn.innerText = isMin ? 'Expand' : 'Minimize';
       }
-      function toggleCriticalFilter() { let sevDropdown = getEl('filter-severity'); if (sevDropdown) { sevDropdown.value = (sevDropdown.value === 'crit') ? 'ALL' : 'crit'; applyFilters(); } }
+      function toggleCriticalFilter() {
+          if (activeFilters.sev.includes('crit')) {
+              activeFilters.sev = activeFilters.sev.filter(v => v !== 'crit');
+          } else {
+              activeFilters.sev.push('crit');
+          }
+          applyFilters();
+      }
       function toggleAdminFilter(type) {
           activeAdminFilter = (activeAdminFilter === type) ? null : type;
           let kpiC = getEl('kpi-admin-crossings'), kpiS = getEl('kpi-admin-status'), kpiB = getEl('kpi-admin-boms');
@@ -3855,36 +4008,66 @@
 
       function applyFilters() {
         safeExecute('applyFilters', () => {
-            const vVen = getEl('filter-vendor')?.value || 'ALL'; const vCit = getEl('filter-city')?.value || 'ALL'; const vOfs = getEl('filter-ofs')?.value || 'ALL'; const vSev = getEl('filter-severity')?.value || 'ALL';
-            const sortVal = getEl('sort-queue')?.value || 'default'; const searchTerm = (getEl('search-input')?.value || '').toLowerCase();
-
-            ['filter-severity','filter-vendor','filter-city','filter-ofs'].forEach(id => {
-                let el = getEl(id); if (el) el.classList.toggle('is-active', el.value !== 'ALL');
-            });
+            const sortVal = getEl('sort-queue')?.value || 'default';
+            const searchTerm = (getEl('search-input')?.value || '').toLowerCase();
             let searchEl = getEl('search-input');
             if (searchEl) searchEl.classList.toggle('is-active', searchEl.value.trim() !== '');
 
             let today = new Date(); today.setHours(0,0,0,0);
 
+            let filterMatch = (item, skipCategory) => {
+                let ofsBuckets = getOfsFilterBuckets(item, today);
+                let mSev = skipCategory === 'sev' || activeFilters.sev.length === 0 || activeFilters.sev.includes(getSeverity(item.flags));
+                let mVen = skipCategory === 'vendor' || activeFilters.vendor.length === 0 || activeFilters.vendor.includes(item.vendor);
+                let mCit = skipCategory === 'city' || activeFilters.city.length === 0 || activeFilters.city.includes(item.city);
+                let mOfs = skipCategory === 'ofs' || activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
+                let mSearch = itemMatchesSearch(item, searchTerm);
+                return mSev && mVen && mCit && mOfs && mSearch;
+            };
+
+            let validSev = [...new Set(allActionItems.filter(i => filterMatch(i, 'sev')).map(i => getSeverity(i.flags)))];
+            let validVen = [...new Set(allActionItems.filter(i => filterMatch(i, 'vendor')).map(i => i.vendor).filter(Boolean))].sort();
+            let validCit = [...new Set(allActionItems.filter(i => filterMatch(i, 'city')).map(i => i.city).filter(Boolean))].sort();
+            let validOfsSet = new Set();
+            allActionItems.filter(i => filterMatch(i, 'ofs')).forEach(i => {
+                getOfsFilterBuckets(i, today).forEach(bucket => validOfsSet.add(bucket));
+            });
+            let validOfsMonths = [...validOfsSet].filter(v => v !== '60_DAYS' && v !== '90_DAYS').sort();
+            let validOfs = [];
+            if (validOfsSet.has('60_DAYS')) validOfs.push('60_DAYS');
+            if (validOfsSet.has('90_DAYS')) validOfs.push('90_DAYS');
+            validOfs.push(...validOfsMonths);
+
+            activeFilters.sev = activeFilters.sev.filter(v => validSev.includes(v));
+            activeFilters.vendor = activeFilters.vendor.filter(v => validVen.includes(v));
+            activeFilters.city = activeFilters.city.filter(v => validCit.includes(v));
+            activeFilters.ofs = activeFilters.ofs.filter(v => validOfs.includes(v));
+
+            let sevOpts = [
+                { val: 'crit', label: 'Critical' },
+                { val: 'warn', label: 'Warnings' },
+                { val: 'info', label: 'Clear' }
+            ].filter(o => validSev.includes(o.val));
+            let ofsOpts = validOfs.map(v => ({
+                val: v,
+                label: v === '60_DAYS' ? '< 60 Days' : v === '90_DAYS' ? '< 90 Days' : v
+            }));
+
+            renderMultiSelect('wrap-filter-severity', 'sev', 'All Health', sevOpts);
+            renderMultiSelect('wrap-filter-vendor', 'vendor', 'All Vendors', validVen.map(v => ({ val: v, label: v })));
+            renderMultiSelect('wrap-filter-city', 'city', 'All Cities', validCit.map(v => ({ val: v, label: v })));
+            renderMultiSelect('wrap-filter-ofs', 'ofs', 'All OFS Dates', ofsOpts);
+
             // Base filter: vendor/city/OFS/severity/search — NO admin filter
             // Used for badge counts so Crossings & QB Status always show correct totals
             let baseFiltered = allActionItems.filter(i => {
-                let matchOfs = true;
-                if (vOfs !== 'ALL') {
-                    if (vOfs === '60_DAYS' || vOfs === '90_DAYS') {
-                        let daysLimit = vOfs === '60_DAYS' ? 60 : 90;
-                        let target = safeDate(i.ofsDate);
-                        if (target && !isNaN(target.getTime())) {
-                            let diffDays = (target - today) / 86400000;
-                            matchOfs = diffDays >= 0 && diffDays <= daysLimit;
-                        } else { matchOfs = false; }
-                    } else {
-                        try { let d = safeDate(i.ofsDate); let mStr = d ? d.toLocaleDateString('en-US', {month:'short', timeZone:'UTC'}).toUpperCase() : ""; matchOfs = (mStr === vOfs); } catch(e) { matchOfs = false; }
-                    }
-                }
-                let matchSearch = true; if (searchTerm !== '') matchSearch = i.fdh.toLowerCase().includes(searchTerm);
-                let matchSev = true; if (vSev !== 'ALL') matchSev = (getSeverity(i.flags) === vSev);
-                return (vVen==='ALL' || i.vendor===vVen) && (vCit==='ALL' || i.city===vCit) && matchOfs && matchSearch && matchSev;
+                let ofsBuckets = getOfsFilterBuckets(i, today);
+                let mSev = activeFilters.sev.length === 0 || activeFilters.sev.includes(getSeverity(i.flags));
+                let mVen = activeFilters.vendor.length === 0 || activeFilters.vendor.includes(i.vendor);
+                let mCit = activeFilters.city.length === 0 || activeFilters.city.includes(i.city);
+                let mOfs = activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
+                let mSearch = itemMatchesSearch(i, searchTerm);
+                return mSev && mVen && mCit && mOfs && mSearch;
             });
             setTxt('kpi-crossings-val', baseFiltered.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS")).length);
             setTxt('kpi-status-val', baseFiltered.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS")).length);
@@ -4000,7 +4183,7 @@
                 });
             } else { displayFiltered.sort((a, b) => a.rowNum - b.rowNum); }
             
-            let anyActive = vVen !== 'ALL' || vCit !== 'ALL' || vOfs !== 'ALL' || vSev !== 'ALL' || searchTerm !== '' || activeAdminFilter !== null;
+            let anyActive = activeFilters.sev.length > 0 || activeFilters.vendor.length > 0 || activeFilters.city.length > 0 || activeFilters.ofs.length > 0 || searchTerm !== '' || activeAdminFilter !== null || activePieStageFilter !== null;
             let clearBtn = getEl('btn-clear-filters');
             if (clearBtn) clearBtn.classList.toggle('collapsed', !anyActive);
             let filtersBtn = getEl('btn-filters');
@@ -4018,9 +4201,16 @@
 
       function clearAllFilters() {
           let s = getEl('search-input'); if (s) s.value = '';
-          ['filter-severity','filter-vendor','filter-city','filter-ofs'].forEach(id => { let el = getEl(id); if (el) el.value = 'ALL'; });
+          activeFilters = { sev: [], vendor: [], city: [], ofs: [] };
           activeAdminFilter = null;
+          activePieStageFilter = null;
+          if (openDropdownId) {
+              let el = getEl(openDropdownId);
+              if (el) el.classList.remove('open');
+              openDropdownId = null;
+          }
           applyFilters();
+          hidePieHUD('projects');
           let clearBtn = getEl('btn-clear-filters');
           if (clearBtn) clearBtn.classList.add('collapsed');
           let strip = getEl('filter-strip');
