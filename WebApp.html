@@ -1393,12 +1393,12 @@
 
       /* Admin/Reviewed panel — overlay slide-in (FAB-triggered, works on all screen sizes) */
       .ob-header { padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s;}
-      .ob-tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; padding: 0 6px; line-height: 1; }
+      .ob-tab-badge { position: absolute; top: -8px; right: -6px; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 900; padding: 0 5px; line-height: 1; box-shadow: 0 4px 8px rgba(0,0,0,0.15); border: 2px solid var(--card-bg); z-index: 10; pointer-events: none; }
       .ob-tab-badge-crit { background: var(--color-critical); color: #fff; }
       /* Panel tab bar */
       .panel-tab-bar { display: flex; align-items: center; padding: 8px 12px; background: color-mix(in srgb, var(--card-bg) 94%, transparent); border-bottom: 1px solid var(--border); gap: 6px; height: auto; min-height: 54px; flex-shrink: 0; flex-wrap: wrap; }
       .panel-title { display: none; }
-      .panel-tab { flex: 1; min-width: 60px; height: 32px; border-radius: 6px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; border: none; background: transparent; color: var(--text-muted); transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+      .panel-tab { flex: 1; min-width: 60px; height: 32px; border-radius: 6px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; border: none; background: transparent; color: var(--text-muted); transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; position: relative; overflow: visible; }
       .panel-tab.active { background: var(--card-bg); color: var(--text-main); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
       @keyframes pulse-dot {
         0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
@@ -2181,18 +2181,20 @@
             </div>
 
                 <div class="outbox-pane" id="outbox-pane">
-                   <div class="panel-tab-bar">
-                    <div class="panel-title">Review Hub</div>
+                   <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 16px 12px; border-bottom:1px solid var(--border); flex-shrink:0;">
+                      <div style="font-size:16px; font-weight:900; color:var(--text-main); letter-spacing:-0.5px;">Review Hub</div>
+                      <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel">✕</button>
+                   </div>
+                   <div class="panel-tab-bar" style="border-bottom: 1px solid var(--border); padding: 10px 16px; background: color-mix(in srgb, var(--card-bg) 96%, transparent);">
                     <button class="panel-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">
                         Admin <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span>
                     </button>
                     <button class="panel-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">
-                        Reviewed <span id="ob-count">0</span>
+                        Reviewed <span id="ob-count" class="ob-tab-badge" style="background:#3b82f6; display:none;">0</span>
                     </button>
                     <button class="panel-tab" id="panel-tab-changelog" onclick="switchPanelTab('changelog')">
-                        Activity <span id="changelog-pulse" class="tab-pulse" style="display:none;"></span>
+                        Activity <span id="changelog-badge" class="ob-tab-badge" style="background:#a855f7; display:none;">0</span>
                     </button>
-                    <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel">✕</button>
                   </div>
 
                    <div id="deck-action-panel" style="display:none; flex-direction:column; flex-grow:1; overflow-y:auto; padding:20px; gap:16px;"></div>
@@ -2219,7 +2221,6 @@
                       <div class="ob-header" style="flex-shrink:0;">
                          <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
                             Reviewed
-                            <span id="ob-tab-count" style="display:none;"></span>
                          </div>
                          <button class="btn" style="font-size:10px; padding:3px 8px;" onclick="promptEmailExport()">↑ Export</button>
                       </div>
@@ -3109,11 +3110,6 @@
           let isOpen = pane && pane.classList.contains('open');
           setAdminPanelOpen(!isOpen);
       }
-      function setChangelogPulse(show) {
-          let pulse = getEl('changelog-pulse');
-          if (!pulse) return;
-          pulse.style.display = show ? 'inline-block' : 'none';
-      }
       function switchPanelTab(tab) {
           currentPanelTab = tab;
           let adminPanel = getEl('ob-panel-admin'), reviewedPanel = getEl('ob-panel-reviewed'), changelogPanel = getEl('ob-panel-changelog');
@@ -3129,7 +3125,8 @@
 
           if (tab === 'changelog') {
               try { sessionStorage.setItem(CHANGELOG_PULSE_SESSION_KEY, '1'); } catch (e) {}
-              setChangelogPulse(false);
+              let clBadge = getEl('changelog-badge');
+              if (clBadge) clBadge.style.display = 'none';
               renderChangeLog();
           }
       }
@@ -4184,12 +4181,23 @@
                 logUserFilter.style.display = (currentGridPivot === 'changelog' || currentGridPivot === 'global-log') ? 'inline-flex' : 'none';
             }
             renderChangeLog();
-            if (data && data.hasRecentChanges) {
+            let recentActivityCount = 0;
+            let yesterdayTime = Date.now() - (24 * 60 * 60 * 1000);
+            allGlobalLogs.forEach(log => {
+                if (Number(log.timestampObj || 0) >= yesterdayTime) recentActivityCount++;
+            });
+
+            const changelogBadge = getEl('changelog-badge');
+            if (changelogBadge) {
                 let pulseSeen = false;
                 try { pulseSeen = sessionStorage.getItem(CHANGELOG_PULSE_SESSION_KEY) === '1'; } catch (e) {}
-                if (!pulseSeen) setChangelogPulse(true);
-            } else {
-                setChangelogPulse(false);
+
+                if (recentActivityCount > 0 && !pulseSeen) {
+                    changelogBadge.innerText = recentActivityCount;
+                    changelogBadge.style.display = 'inline-flex';
+                } else {
+                    changelogBadge.style.display = 'none';
+                }
             }
             if (!data || !data.actionItems || data.actionItems.length === 0) {
                 setHtml('gantt-container', `<div class="empty-msg">All Clear ✓</div>`);
@@ -5273,7 +5281,7 @@
 
       function renderOutbox() {
           const list = getEl('outbox-list'); if(!list) return; setTxt('ob-count', committedItems.length);
-          let tabBadge = getEl('ob-tab-count'); if(tabBadge) { tabBadge.innerText = committedItems.length; tabBadge.style.display = committedItems.length > 0 ? 'inline' : 'none'; }
+          let tabBadge = getEl('ob-count'); if(tabBadge) { tabBadge.innerText = committedItems.length; tabBadge.style.display = committedItems.length > 0 ? 'inline-flex' : 'none'; }
           list.innerHTML = '';
           if(committedItems.length === 0) { list.innerHTML = `<div class="empty-msg">No items reviewed.</div>`; return; }
           committedItems.forEach(item => {
