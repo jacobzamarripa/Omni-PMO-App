@@ -3368,7 +3368,7 @@
               <div class="log-card">
                   <div class="log-header">
                       <div style="font-size:12px; font-weight:900; color:var(--text-main);">${esc(log.fdh)}</div>
-                      <div style="font-size:9px; font-weight:700; color:var(--text-muted);">${esc(log.time)}</div>
+                      <div style="font-size:9px; font-weight:700; color:var(--text-muted);">${formatDate(log.timestampObj ? new Date(Number(log.timestampObj)) : log.time, true)}</div>
                   </div>
                   <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:2px;">
                       <span class="log-type">${esc(log.type)}</span>
@@ -5492,7 +5492,7 @@
               let chkMatch = (item.gaps || "").match(/\[Chk:\s*([^\]]+)\]/); let lastCheckedStr = chkMatch ? chkMatch[1] : "NEVER";
               let d = new Date(); let dateStr = (d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear().toString().slice(-2);
               
-              setTxt('p-date', `REPORT DATE: ${item.reportDate ? formatDate(item.reportDate) : dateStr}`); setTxt('p-last-check', `LAST CHECKED: ${lastCheckedStr}`);
+              setTxt('p-date', `REPORT DATE: ${item.reportDate ? formatDate(item.reportDate) : dateStr}`); setTxt('p-last-check', `LAST CHECKED: ${lastCheckedStr === 'NEVER' ? 'NEVER' : formatDate(lastCheckedStr)}`);
               updateRefDataIndicator(); 
               
               // 🧠 CRASH FIX RESTORED
