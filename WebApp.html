@@ -1198,7 +1198,8 @@
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
-          overflow: hidden !important;
+          overflow-y: auto !important;
+          overflow-x: hidden !important;
       }
       body.deck-mode-active .inbox-sidebar {
           display: flex !important;
@@ -1233,12 +1234,11 @@
             flex-direction: column !important;
             gap: 0 !important;
             width: 100% !important;
-            max-width: 1000px !important;
+            max-width: 1100px !important;
+            max-height: calc(100vh - 200px) !important;
             margin: 0 auto !important;
-
-            /* PREVENT SQUISHING: Force the card to stay solid and scroll instead */
-            flex-shrink: 0 !important;
-            min-height: min-content !important;
+            flex-shrink: 1 !important;
+            min-height: 0 !important;
 
             background: var(--card-bg);
             border-radius: 20px !important;
@@ -1246,7 +1246,7 @@
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
             overflow: hidden;
             transition: outline 0.2s, background 0.3s, border-color 0.3s, box-shadow 0.3s;
-        }
+      }
 
       .qb-top-row {
             display: flex !important;
@@ -1854,7 +1854,7 @@
       }
       .qb-grid {
           width: 100% !important;
-          max-width: 1000px !important;
+          max-width: 1100px !important;
           margin: 0 auto !important;
       }
       #grid-content, #welcome-screen {
@@ -2253,8 +2253,8 @@
                </div>
                  </div>
               </div>
-            <div id="deck-stage" style="display:none; flex:1; flex-direction:column; padding:40px 40px 20px; overflow-y:auto; align-items:center; box-sizing:border-box;">
-                <div id="deck-stage-card" style="width:100%; max-width:1000px; aspect-ratio:16/9; height:auto; flex-shrink:0; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;"></div>
+            <div id="deck-stage" style="display:none; flex:1; min-width:0; flex-direction:column; padding:20px; overflow-y:auto; align-items:center; justify-content:center; box-sizing:border-box;">
+                <div id="deck-stage-card" style="width:100%; max-width:1100px; max-height:calc(100vh - 200px); aspect-ratio:16/9; height:auto; flex-shrink:1; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;"></div>
 
             </div>
             </div>
@@ -6431,16 +6431,17 @@
                 if (paneContent) paneContent.style.display = 'none';
                 renderGrid();
             } else if (mode === 'deck') {
-                setAdminPanelOpen(false);
                 if (welcome) welcome.style.display = 'none';
                 if (paneContent) paneContent.style.display = 'none';
+                const deckStage = getEl('deck-stage');
+                if (deckStage) deckStage.style.display = 'flex';
+                setAdminPanelOpen(true);
                 applyFilters();
                 if (currentActiveItem) {
                     deckIndex = Math.max(0, filteredItems.findIndex(i => i.fdh === currentActiveItem.fdh));
                 }
                 const activeItem = ensureDeckIndex();
                 if (activeItem) openPane(activeItem, getEl(`card-${activeItem.fdh}`));
-                setAdminPanelOpen(true);
                 renderDeckStage();
             } else if (mode === 'digest') {
                 setAdminPanelOpen(false);
@@ -7157,6 +7158,9 @@ ${item.comment || 'No notes provided.'}
       }
       /* Shared focus properties */
       #deck-stage-card, .qb-grid {
+        width: 100% !important;
+        max-width: 1100px !important;
+        max-height: calc(100vh - 200px) !important;
         margin: 0 !important; border-radius: 24px !important;
         cursor: default;
         transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
@@ -7165,7 +7169,7 @@ ${item.comment || 'No notes provided.'}
       /* Deck slide: rigid 16:9 */
       #deck-stage-card {
         width: 100% !important;
-        max-width: 1000px !important;
+        max-width: 1100px !important;
         height: auto !important;
         aspect-ratio: 16 / 9 !important;
         flex-shrink: 1 !important;
@@ -7176,7 +7180,7 @@ ${item.comment || 'No notes provided.'}
       }
       /* Detail card: flexible vertical */
       .qb-grid {
-        aspect-ratio: auto !important; width: 100%; max-width: 1000px;
+        aspect-ratio: auto !important; width: 100%; max-width: 1100px;
         max-height: 92vh; overflow-y: auto !important;
       }
       body.presentation-active .qb-grid { transform: scale(1.02); }
