@@ -1245,6 +1245,7 @@
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
             overflow: hidden;
             transition: outline 0.2s, background 0.3s, border-color 0.3s, box-shadow 0.3s;
+            align-self: center !important;
       }
 
       .qb-top-row {
@@ -2374,21 +2375,21 @@
             </div>
             </div>
                 <div class="outbox-pane" id="outbox-pane">
-                   <div id="review-hub-main-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px 16px 12px; border-bottom:1px solid var(--border); flex-shrink:0;">
-                      <div style="font-size:16px; font-weight:900; color:var(--text-main); letter-spacing:-0.5px;">Review Hub</div>
-                      <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel">✕</button>
+                   <div id="review-hub-main-header" class="inbox-header" style="padding-top:14px; padding-bottom:14px; gap:12px;">
+                      <div class="inbox-title inbox-title-stack" style="margin-right:4px;"><span>Review</span><span>Hub</span></div>
+                      <div class="panel-tab-bar" style="flex-grow:1; border:none; padding:0; background:transparent; min-height:0;">
+                        <button class="panel-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">
+                            Admin <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span>
+                        </button>
+                        <button class="panel-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">
+                            Reviewed <span id="ob-count" class="ob-tab-badge" style="background:#3b82f6; display:none;">0</span>
+                        </button>
+                        <button class="panel-tab" id="panel-tab-changelog" onclick="switchPanelTab('changelog')">
+                            Activity <span id="changelog-badge" class="ob-tab-badge" style="background:#a855f7; display:none;">0</span>
+                        </button>
+                      </div>
+                      <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel" style="flex-shrink:0;">✕</button>
                    </div>
-                   <div class="panel-tab-bar" style="border-bottom: 1px solid var(--border); padding: 10px 16px; background: color-mix(in srgb, var(--card-bg) 96%, transparent);">
-                    <button class="panel-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">
-                        Admin <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span>
-                    </button>
-                    <button class="panel-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">
-                        Reviewed <span id="ob-count" class="ob-tab-badge" style="background:#3b82f6; display:none;">0</span>
-                    </button>
-                    <button class="panel-tab" id="panel-tab-changelog" onclick="switchPanelTab('changelog')">
-                        Activity <span id="changelog-badge" class="ob-tab-badge" style="background:#a855f7; display:none;">0</span>
-                    </button>
-                  </div>
 
                    <div id="deck-action-panel" style="display:none; flex-direction:column; flex-grow:1; overflow-y:auto; padding:20px; gap:16px;"></div>
 
