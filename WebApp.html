@@ -420,15 +420,11 @@
           transform: translateX(-50%) !important;
           box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18), inset 0 1px 1px rgba(255,255,255,1) !important;
       }
-      body.deck-mode-active .filter-strip {
-          position: fixed !important;
+      body.deck-mode-active:not(.presentation-active) .filter-strip {
+          position: absolute !important;
           top: auto !important;
-          bottom: 40px !important;
-          left: 50% !important;
-          transform: translateX(-50%) !important;
-          margin: 0 !important;
+          bottom: 30px !important;
           z-index: 2000005 !important;
-          display: flex !important;
           box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.15), inset 0 1px 1px rgba(255,255,255,0.8) !important;
       }
       body.dark-mode.deck-mode-active .filter-strip {
@@ -1856,7 +1852,6 @@
       }
       body.deck-mode-active .detail-main,
       body.presentation-active .detail-main {
-          overflow: visible !important;
           z-index: 2000000 !important;
       }
       .pane-content {
@@ -1901,6 +1896,9 @@
     .tool-widget.open {
         display: flex;
         animation: widget-spring-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    body.presentation-active .tool-widget {
+        z-index: 2000010 !important;
     }
     @keyframes widget-spring-pop {
         0%   { opacity: 0; transform: scale(0.5) translate(-40px, -30px); }
@@ -6663,13 +6661,17 @@
       }
 
       function toggleSlideSpecificTheme() {
-        const deckCard = document.getElementById('deck-stage-card');
-        const detailCard = document.querySelector('.qb-grid');
-        var isDark = false;
-        if (isDeckMode && deckCard) {
-          isDark = deckCard.classList.toggle('slide-dark-mode');
-        } else if (!isDeckMode && detailCard) {
-          isDark = detailCard.classList.toggle('slide-dark-mode');
+        const card = isDeckMode ? document.getElementById('deck-stage-card') : document.querySelector('.qb-grid');
+        if (!card) return;
+        var isDark = card.classList.contains('slide-dark-mode');
+        if (isDark) {
+          card.classList.remove('slide-dark-mode');
+          card.classList.add('slide-light-mode');
+          isDark = false;
+        } else {
+          card.classList.remove('slide-light-mode');
+          card.classList.add('slide-dark-mode');
+          isDark = true;
         }
         const btn = document.getElementById('dock-btn-slide-theme');
         if (btn) btn.innerHTML = isDark ? _SUN_SVG : _MOON_SVG;
@@ -6752,17 +6754,30 @@
         showToast('⌨️ SPACE / ARROWS to navigate · ESC to exit', 'info');
       }
 
+      var preTheaterThemeWasDark = false;
       function togglePresentationMode() {
         isPresentationMode = !isPresentationMode;
-        document.body.classList.toggle('presentation-active', isPresentationMode);
+        const body = document.body;
         const btn = document.getElementById('dock-btn-presentation');
-        if (btn) btn.innerHTML = isPresentationMode ? 'Exit Cinema' : 'Theater Mode';
+        const activeContainer = isDeckMode ? document.getElementById('deck-stage') : document.getElementById('pane-content');
+        const card = isDeckMode ? document.getElementById('deck-stage-card') : document.querySelector('.qb-grid');
         if (isPresentationMode) {
+          preTheaterThemeWasDark = body.classList.contains('dark-mode');
+          if (card) card.classList.add(preTheaterThemeWasDark ? 'slide-dark-mode' : 'slide-light-mode');
+          body.classList.add('presentation-active');
+          applyTheme(true);
+          if (btn) btn.innerHTML = 'Exit Cinema';
           showCinemaTooltip();
           resetDeckIdleTimer();
+          if (activeContainer) activeContainer.onclick = (e) => { if (e.target === activeContainer) togglePresentationMode(); };
         } else {
+          body.classList.remove('presentation-active');
+          if (btn) btn.innerHTML = 'Theater Mode';
+          applyTheme(preTheaterThemeWasDark);
+          if (card) card.classList.remove('slide-light-mode', 'slide-dark-mode');
           clearTimeout(deckIdleTimer);
           document.getElementById('filter-strip')?.classList.remove('dock-idle');
+          if (activeContainer) activeContainer.onclick = null;
         }
         syncGanttIslandState();
       }
@@ -7559,6 +7574,20 @@ ${item.comment || 'No notes provided.'}
       #deck-stage-card.slide-dark-mode .slide-ppt-ans.gap { color: #f87171 !important; }
       .qb-grid.slide-dark-mode .qb-top-row,
       .qb-grid.slide-dark-mode .qb-section-header { background: #09090b !important; border-color: #27272a !important; color: #f4f4f5 !important; }
+      /* Lock Card to Light Mode */
+      .qb-grid.slide-light-mode,
+      #deck-stage-card.slide-light-mode {
+          --bg: #f1f5f9; --card-bg: #ffffff; --border: #e2e8f0; --text-main: #0f172a; --text-muted: #64748b;
+          background: var(--card-bg) !important; border-color: var(--border) !important; color: var(--text-main) !important;
+      }
+      .qb-grid.slide-light-mode .chat-bubble, .qb-grid.slide-light-mode .slide-input,
+      #deck-stage-card.slide-light-mode .chat-bubble, #deck-stage-card.slide-light-mode .slide-input {
+          background: #faf5ff !important; color: #4c1d95 !important; border-color: #d8b4fe !important;
+      }
+      #deck-stage-card.slide-light-mode .slide-header,
+      #deck-stage-card.slide-light-mode .slide-footer {
+          background: var(--bg) !important; border-color: var(--border) !important;
+      }
       /* Field change glow */
       .field-was-changed { box-shadow: 0 0 8px rgba(168, 85, 247, 0.4) !important; border-color: #a855f7 !important; }
       /* Cinema History Overlay */
