@@ -6702,9 +6702,8 @@
           let v = mismatch ? mVal : refVal;
           let stagedBadge = mismatch ? `<span class="badge-staged" title="Staged locally.">STAGED 🔄</span>` : '';
           if (v === undefined || v === '' || v === null || v === '-') return `<span class="slide-ppt-ans gap">Pending</span>`;
-          if (type === 'date') { var _dateCheck = 1; }
           if (type === 'bool') return `<span class="slide-ppt-ans">${(v === true || String(v).toLowerCase() === 'true') ? 'YES' : 'NO'}</span>${stagedBadge}`;
-          return `<span class="slide-ppt-ans">${v}</span>${stagedBadge}`;
+          return `<span class="slide-ppt-ans">${type === 'date' ? formatDate(v) : esc(v)}</span>${stagedBadge}`;
         };
 
         const pptRow = (q, ans, isMuted=false, isSub=false, extraClass='') => `<div class="slide-ppt-row ${isMuted ? 'muted-row' : ''} ${extraClass}"><div class="slide-ppt-q ${isSub ? 'sub-q' : ''}">${q}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">${isMuted ? '<span class="slide-ppt-ans" style="color:var(--text-muted);">—</span>' : ans}</div></div>`;
