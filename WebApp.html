@@ -6744,8 +6744,8 @@
                 <div style="font-size:12px; font-weight:700; color:var(--text-muted);">${item.city} &bull; ${item.vendor}</div>
               </div>
               <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
-                ${item.rid ? `<button class="btn hover-trigger" onclick="window.open('https://omnifiber.quickbase.com/db/bts3c49e9?a=dr&rid=${item.rid}', '_blank')" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border); width:100%;">VIEW RECORD</button>` : ''}
-                <button class="btn hover-trigger" onclick="toggleDeckEditMode()" style="padding:5px 12px; font-size:10px; width:100%; transition:all 0.2s; ${isDeckEditing ? 'background:#3b82f6; color:#fff; border-color:#2563eb;' : 'background:var(--bg); color:var(--text-main); border-color:var(--border);'}">${isDeckEditing ? 'VIEW SLIDE' : 'EDIT ANSWERS'}</button>
+                ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=dr&rid=${item.rid}" target="_blank" class="hover-trigger" style="text-decoration:none; font-size:10px; font-weight:900; color:var(--text-muted); background:var(--card-bg); padding:8px 14px; border-radius:12px; border:1px solid var(--border); box-shadow:0 2px 6px rgba(15,23,42,0.06); display:inline-flex; align-items:center; justify-content:center; width:100%; box-sizing:border-box; transition:all 0.2s;">VIEW RECORD</a>` : ''}
+                <button class="btn hover-trigger" onclick="toggleDeckEditMode()" style="padding:6px 14px; font-size:10px; font-weight:900; border-radius:12px; width:100%; box-sizing:border-box; transition: all 0.2s; ${isDeckEditing ? 'background:#3b82f6; color:#fff; border-color:#2563eb;' : 'background:var(--bg); color:var(--text-main); border-color:var(--border);'}">${isDeckEditing ? 'VIEW SLIDE' : 'EDIT ANSWERS'}</button>
               </div>
             </div>
 
