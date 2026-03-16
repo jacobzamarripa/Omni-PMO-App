@@ -490,9 +490,9 @@ function askBennyQuery(query, marketData) {
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-  const prompt = `You are Benny, a highly analytical and friendly AI assistant for a fiber optic construction team.
+  const prompt = `You are Benny, a highly analytical and professional AI assistant for a fiber optic construction team.
   Answer the user's question based strictly on the provided JSON data of active projects.
-  Keep your answer concise, conversational, and direct. Do not invent data.
+  Keep your answer concise, professional, and direct. Do not invent data. Do NOT use emojis.
 
   User Question: "${query}"
 

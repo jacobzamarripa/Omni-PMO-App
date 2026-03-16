@@ -1992,7 +1992,7 @@
           <div style="display:flex; align-items:center; gap:10px;">
             <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px;">Diagnostics Queue</div>
             <div id="scene-count-label" style="background:var(--card-bg); padding:2px 8px; border-radius:999px; font-size:11px; font-weight:900; border:1px solid var(--border);">0</div>
-            <button onclick="triggerSmartSweep()" style="background:rgba(34, 197, 94, 0.15); color:#16a34a; border:1px solid rgba(34, 197, 94, 0.3); border-radius:10px; padding:4px 8px; font-size:9px; font-weight:900; text-transform:uppercase;">🧹 Sweep</button>
+            <button onclick="triggerBatchClear()" style="background:rgba(100, 116, 139, 0.15); color:#475569; border:1px solid rgba(100, 116, 139, 0.3); border-radius:10px; padding:4px 8px; font-size:9px; font-weight:900; text-transform:uppercase;">BATCH CLEAR</button>
           </div>
           <select id="sort-queue" onchange="applyFilters()" style="font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--card-bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto;">
             <option value="default">Default</option>
@@ -4613,26 +4613,54 @@ function uncommitFromList(fdh) {
   toast('Uncommitted · ' + fdh);
 }
 
-    function triggerSmartSweep() {
+    function triggerBatchClear() {
         let healthyItems = state.all.filter(i => {
             return getSeverity(i.flags) === 'info' && !i._committed && !i._skipped;
         });
 
         if (healthyItems.length === 0) {
-            alert("No perfectly healthy projects available to sweep!");
+            alert("No perfectly healthy projects available to clear.");
             return;
         }
 
-        let msg = `🧹 SMART SWEEP\n\nFound ${healthyItems.length} healthy projects with no warnings or anomalies.\n\nBatch commit all as "No Action Required"?`;
+        let msg = "BATCH CLEAR\n\nFound " + healthyItems.length + " healthy projects with no warnings or anomalies.\n\nBatch commit all as 'No Action Required'?";
         if (confirm(msg)) {
+            let revsToLog = [];
+
             healthyItems.forEach(item => {
                 item.comment = "Reviewed - No Action Required.";
-                logCommit(item);
                 item._committed = true;
+
+                revsToLog.push({
+                    fdh: item.fdh || '',
+                    vendor: item.vendor || '',
+                    flags: item.flags || '',
+                    comment: item.comment
+                });
+
+                state.committed.push({
+                    fdh: item.fdh || '',
+                    vendor: item.vendor || '',
+                    city: item.city || '',
+                    stage: item.stage || '',
+                    status: item.status || '',
+                    flags: item.flags || '',
+                    comment: item.comment
+                });
+                state.count++;
             });
+
+            updatePill();
             applyFilters();
+            renderHub();
+            renderAdminSheet();
+
+            if (typeof google !== 'undefined' && google.script) {
+                google.script.run.commitBatchReviewsToLog(revsToLog);
+            }
+
             haptic('medium');
-            toast(`✅ Swept ${healthyItems.length} projects!`);
+            toast("Cleared " + healthyItems.length + " projects successfully.");
         }
     }
 
@@ -4698,7 +4726,7 @@ function uncommitFromList(fdh) {
                 haptic('light');
             })
             .withFailureHandler(function(err) {
-                appendBennyMessage("Sorry, I had an error processing that: " + err.message, false);
+                appendBennyMessage("System Error: Unable to process request. " + err.message, false);
                 btn.style.opacity = '1';
                 btn.disabled = false;
             })
@@ -4706,11 +4734,11 @@ function uncommitFromList(fdh) {
     }
 </script>
 
-  <button id="benny-fab" onclick="toggleBennyChat()" style="position:fixed; bottom:90px; right:20px; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg, #a855f7, #6366f1); color:white; border:none; box-shadow:0 10px 25px rgba(99,102,241,0.4); z-index:4000; display:flex; align-items:center; justify-content:center; transition:transform 0.2s;">
+  <button id="benny-fab" onclick="toggleBennyChat()" style="position:fixed; bottom:90px; right:20px; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg, #a855f7, #6366f1); color:white; border:none; box-shadow:0 10px 25px rgba(99,102,241,0.4); z-index:10001; display:flex; align-items:center; justify-content:center; transition:transform 0.2s;">
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7v1a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-1a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v1a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1v-1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"></path><circle cx="9" cy="13" r="1"></circle><circle cx="15" cy="13" r="1"></circle></svg>
   </button>
 
-  <div id="benny-sheet" style="position:fixed; inset:0; top:40px; background:var(--bg); z-index:5000; transform:translateY(100%); transition:transform 0.4s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column; border-radius:24px 24px 0 0; box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+  <div id="benny-sheet" style="position:fixed; inset:0; top:40px; background:var(--bg); z-index:10005; transform:translateY(100%); transition:transform 0.4s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column; border-radius:24px 24px 0 0; box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
      <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:var(--card-bg); border-radius:24px 24px 0 0;">
         <div style="font-weight:900; font-size:16px; color:#4f46e5; display:flex; align-items:center; gap:8px;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7v1a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-1a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v1a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1v-1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"></path></svg>
