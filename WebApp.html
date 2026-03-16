@@ -3324,7 +3324,10 @@
           let d = new Date();
           subtitle.innerText = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
-          let cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 1); cutoff.setHours(0, 0, 0, 0);
+          let now = new Date();
+          let lookbackHours = 48;
+          if (now.getDay() === 1 && now.getHours() < 11) { lookbackHours = 80; }
+          let cutoff = new Date(now.getTime() - (lookbackHours * 60 * 60 * 1000));
           let recentLogs = allGlobalLogs.filter(l => Number(l.timestampObj || 0) >= cutoff.getTime());
 
           let shifts = { ofs: 0, cx: 0, permit: 0, totalChanges: recentLogs.length };
@@ -3896,7 +3899,10 @@
           const ws = getEl('digest-workspace');
           if (!ws) return;
 
-          let cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 1); cutoff.setHours(0, 0, 0, 0);
+          let now = new Date();
+          let lookbackHours = 48;
+          if (now.getDay() === 1 && now.getHours() < 11) { lookbackHours = 80; }
+          let cutoff = new Date(now.getTime() - (lookbackHours * 60 * 60 * 1000));
           let recentLogs = allGlobalLogs.filter(l => Number(l.timestampObj || 0) >= cutoff.getTime());
 
           let movedToOfs = [];
@@ -3949,23 +3955,23 @@
           };
 
           ws.innerHTML = `
-        <div class="digest-ws-header">Daily Pipeline Digest</div>
+        <div class="digest-ws-header">Daily Pipeline Digest <span style="font-size:12px; color:var(--text-muted); font-weight:normal; margin-left:12px;">(Lookback: ${lookbackHours}h)</span></div>
         <div class="digest-ws-grid">
             <div class="digest-ws-card">
-                <div class="digest-ws-card-hdr"><span>Reached OFS</span> <span style="color:#22c55e;">${movedToOfs.length}</span></div>
-                <div class="digest-ws-list" style="padding:0;">${makeList(movedToOfs, "No projects reached OFS today.")}</div>
+                <div class="digest-ws-card-hdr"><span>Permits Approved</span> <span style="color:#a855f7;">${permitAppr.length}</span></div>
+                <div class="digest-ws-list" style="padding:0;">${makeList(permitAppr, "No permits approved.")}</div>
             </div>
             <div class="digest-ws-card">
                 <div class="digest-ws-card-hdr"><span>Moved to Construction</span> <span style="color:#facc15;">${movedToCx.length}</span></div>
                 <div class="digest-ws-list" style="padding:0;">${makeList(movedToCx, "No projects moved to construction.")}</div>
             </div>
             <div class="digest-ws-card">
-                <div class="digest-ws-card-hdr"><span>Permits Approved</span> <span style="color:#a855f7;">${permitAppr.length}</span></div>
-                <div class="digest-ws-list" style="padding:0;">${makeList(permitAppr, "No permits approved today.")}</div>
+                <div class="digest-ws-card-hdr"><span>Other Status Shifts</span> <span style="color:#3b82f6;">${otherChanges.length}</span></div>
+                <div class="digest-ws-list" style="padding:0;">${makeList(otherChanges, "No other status shifts.")}</div>
             </div>
             <div class="digest-ws-card">
-                <div class="digest-ws-card-hdr"><span>Other Status Shifts</span> <span style="color:#3b82f6;">${otherChanges.length}</span></div>
-                <div class="digest-ws-list" style="padding:0;">${makeList(otherChanges, "No other stage/status changes logged.")}</div>
+                <div class="digest-ws-card-hdr"><span>Reached OFS</span> <span style="color:#22c55e;">${movedToOfs.length}</span></div>
+                <div class="digest-ws-list" style="padding:0;">${makeList(movedToOfs, "No projects reached OFS.")}</div>
             </div>
         </div>
     `;
