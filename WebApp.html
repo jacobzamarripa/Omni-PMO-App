@@ -1581,10 +1581,10 @@
       
       /* The Header Bar (Sticky Top) */
       .tl-header-bar { position: sticky; top: 0; display: flex; z-index: 60; height: 30px; border-bottom: none !important; }
-      .tl-header-corner { position: sticky; left: 0; width: 140px; height: 100%; flex-shrink: 0; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 65; border-right: 1px solid rgba(148,163,184,0.08); border-bottom: none; box-sizing: border-box; }
-      body.dark-mode .tl-header-corner { background: rgba(30, 30, 36, 0.95); }
-      .tl-header-dates { position: relative; height: 100%; flex-grow: 1; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: none; box-sizing: border-box; }
-      body.dark-mode .tl-header-dates { background: rgba(30, 30, 36, 0.9); }
+      .tl-header-corner { position: sticky; left: 0; width: 140px; height: 100%; flex-shrink: 0; background: var(--card-bg); z-index: 65; border-right: 1px solid rgba(148,163,184,0.08); border-bottom: none; box-sizing: border-box; }
+      body.dark-mode .tl-header-corner { background: #1e1e24; }
+      .tl-header-dates { position: relative; height: 100%; flex-grow: 1; background: var(--card-bg); border-bottom: none; box-sizing: border-box; }
+      body.dark-mode .tl-header-dates { background: #1e1e24; }
 
       /* The Grid Lines Container */
       .gantt-grid-container { position: absolute; left: 140px; top: 0; bottom: 0; pointer-events: none; z-index: 5; background-image: repeating-linear-gradient(to right, transparent, transparent calc(700% / var(--gantt-total-days, 365) - 1px), var(--border) calc(700% / var(--gantt-total-days, 365) - 1px), var(--border) calc(700% / var(--gantt-total-days, 365))); opacity: 0.5; }
@@ -1610,8 +1610,8 @@
       .gantt-row.is-active .gantt-label-fdh { color: var(--bg) !important; }
       .gantt-row.is-active .gantt-label-ven { color: var(--bg) !important; opacity: 0.8; }
 
-      .gantt-label { position: sticky; left: 0; width: 140px; height: 100%; flex-shrink: 0; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 30; padding: 0 12px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--bg); border-left: 4px solid transparent; display: flex; flex-direction: column; justify-content: center; transition: background 0.1s, border-color 0.3s; box-sizing: border-box; }
-      body.dark-mode .gantt-label { background: rgba(30, 30, 36, 0.95); }
+      .gantt-label { position: sticky; left: 0; width: 140px; height: 100%; flex-shrink: 0; background: var(--card-bg); z-index: 30; padding: 0 12px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--bg); border-left: 4px solid transparent; display: flex; flex-direction: column; justify-content: center; transition: background 0.1s, border-color 0.3s; box-sizing: border-box; }
+      body.dark-mode .gantt-label { background: #1e1e24; }
       .gantt-label:hover { background: var(--bg); }
       .gantt-label.crit { border-left-color: var(--color-critical); }
       .gantt-label.warn { border-left-color: var(--color-review); }
@@ -3008,6 +3008,8 @@
               if (stageCard) cardsH = 20 + stageCard.offsetHeight + 40;
           } else if (typeof isGridMode !== 'undefined' && isGridMode) {
               return Math.floor(vh * 0.35);
+          } else if (currentWorkspaceView === 'digest') {
+              return 0;
           } else {
               let pane = document.getElementById('pane-content');
               if (pane && pane.style.display !== 'none') {
@@ -4897,6 +4899,7 @@
           gridLines += `<div class="gantt-today-line" style="left:${todayPct}%;"></div></div>`;
 
           let html = `<div class="gantt-area" id="gantt-area-main" style="width:${chartWidth + 140}px; min-width:${chartWidth + 140}px;">${gridLines}${dateHtml}<div style="height: 15px;"></div>`;
+          let rowsArray = [];
 
           const makeBead = (dateStr, icon, title, bgColor, borderColor, start, end, itemFdh) => {
               let d = new Date(dateStr); if(isNaN(d)) return ""; let pct = ((d - start) / (end - start)) * 100;
@@ -4931,7 +4934,7 @@
                              if (starPct >= 0 && starPct <= 100) {
                                  let sCol = QB_STYLES[phase] ? QB_STYLES[phase].border : "#94a3b8"; let sShadow = "0 1px 3px rgba(0,0,0,0.3)";
                                  if (phase === 'FIB') sShadow = `0 0 10px ${sCol}`; if (phase === 'NAP') sShadow = `0 0 8px rgba(99, 102, 241, 0.6)`;
-                                 beadHtml += `<div class="gantt-bead has-tooltip" data-tooltip="${phase} 100% Complete (${dateExtract[1]})" style="left:${starPct}%; background:rgba(255,255,255,0.85); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); border-color:${sCol}; color:${sCol}; box-shadow:${sShadow}; font-size:9px;" onclick="handleGanttClick('${item.fdh}')">★</div>`;
+                                 beadHtml += `<div class="gantt-bead has-tooltip" data-tooltip="${phase} 100% Complete (${dateExtract[1]})" style="left:${starPct}%; background:var(--card-bg); border-color:${sCol}; color:${sCol}; box-shadow:${sShadow}; font-size:9px;" onclick="handleGanttClick('${item.fdh}')">★</div>`;
                              }
                          }
                      }
@@ -4939,7 +4942,7 @@
               }
 
               let barLeft = 140 + leftPx;
-              html += `
+              rowsArray.push(`
               <div class="gantt-row" id="gantt-row-${item.fdh}" style="width:${chartWidth + 140}px;">
                  <div class="gantt-label ${highestSev}" onclick="handleGanttClick('${item.fdh}')">
                      <div class="gantt-label-fdh">${item.fdh}</div><div class="gantt-label-ven">${item.vendor || "UNKNOWN"}</div>
@@ -4948,9 +4951,9 @@
                      <span class="gantt-bar-text">${item.fdh} • ${pillStage} | ${pillStatus}</span>
                  </div>
                  <div style="position:absolute; left:${barLeft}px; width:${widthPx}px; top:0; height:100%; pointer-events:none; z-index:8;">${beadHtml}</div>
-              </div>`;
+              </div>`);
           });
-          html += `</div>`; container.innerHTML = html;
+          html += rowsArray.join('') + `</div>`; container.innerHTML = html;
 
           applySmartGanttDocking();
 
