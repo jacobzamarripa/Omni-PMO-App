@@ -598,7 +598,7 @@
       #grid-pivot-select {
           width: 190px !important;
           min-width: 190px !important;
-          padding-right: 30px !important;
+          padding-right: 32px !important;
           font-size: 10px !important;
       }
       #filter-log-user {
@@ -1193,17 +1193,12 @@
       body.deck-mode-active #welcome-screen,
       body.deck-mode-active #pane-content { display: none !important; }
       body.deck-mode-active #deck-stage {
-          display: flex !important;
-          flex: 1;
-          flex-direction: row !important;
-          align-items: flex-start !important;
-          justify-content: flex-start !important;
-          gap: 40px !important;
-          padding: 40px 60px !important;
-          overflow: hidden !important;
-          position: relative !important;
-          box-sizing: border-box;
+          flex: 1 1 0% !important;
           min-width: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          overflow: hidden !important;
       }
       body.deck-mode-active .inbox-sidebar {
           display: flex !important;
@@ -4191,17 +4186,16 @@
       // UTC-locked date parser — prevents browser local-time shifting across timezones.
       function safeDate(str) {
           if (!str || str === '' || str === '-' || str === 'Unknown') return null;
-          let m;
-          // MM-dd-yyyy or M-d-yyyy (backend Utilities.formatDate output)
-          m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-          if (m) return new Date(Date.UTC(+m[3], +m[1]-1, +m[2]));
-          // MM/dd/yyyy or M/d/yyyy
-          m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-          if (m) return new Date(Date.UTC(+m[3], +m[1]-1, +m[2]));
-          // yyyy-MM-dd (ISO 8601)
-          m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
-          if (m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
-          // Last resort
+          let s = String(str);
+          // yyyy-MM-dd or yyyy/MM/dd (ISO-style)
+          let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+          if (m) return new Date(Date.UTC(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10)));
+          // MM-dd-yyyy or MM/dd/yyyy or MM-dd-yy
+          m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+          if (m) {
+              let yr = m[3].length === 2 ? parseInt('20'+m[3],10) : parseInt(m[3],10);
+              return new Date(Date.UTC(yr, parseInt(m[1],10)-1, parseInt(m[2],10)));
+          }
           let d = new Date(str);
           return isNaN(d.getTime()) ? null : d;
       }
@@ -4213,12 +4207,9 @@
           if (val instanceof Date) {
               d = val;
           } else {
-              // Strip trailing GMT/timezone metadata from raw JS Date strings
-              let raw = String(val).split('GMT')[0].trim();
+              let raw = String(val).split('GMT')[0].split('(')[0].trim();
               d = new Date(raw);
-              if (isNaN(d.getTime())) {
-                  d = safeDate(val);
-              }
+              if (isNaN(d.getTime())) d = safeDate(val);
           }
 
           if (!d || isNaN(d.getTime())) return String(val);
@@ -7173,7 +7164,12 @@ ${item.comment || 'No notes provided.'}
       }
       /* Deck slide: rigid 16:9 */
       #deck-stage-card {
-        aspect-ratio: 16 / 9 !important; width: 90%; max-width: 1150px; height: auto; overflow: hidden;
+        width: 100% !important;
+        max-width: 1000px !important;
+        height: auto !important;
+        aspect-ratio: 16 / 9 !important;
+        flex-shrink: 1 !important;
+        overflow: hidden;
       }
       body.presentation-active #deck-stage-card {
         width: 94vw !important; max-height: 85vh !important; transform: scale(1.02);
