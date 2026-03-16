@@ -1870,45 +1870,53 @@
           display: none !important;
       }
 
-    /* NATIVE UTILITY WIDGETS */
+    /* iOS STYLE UTILITY WIDGETS */
     .tool-widget {
-        position: absolute; top: 58px; right: 20px; width: 290px;
-        background: color-mix(in srgb, var(--card-bg) 92%, transparent);
-        backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
-        border: 1px solid var(--border); border-radius: 20px;
-        box-shadow: 0 30px 60px rgba(15, 23, 42, 0.2);
+        position: absolute; top: 58px; right: 20px; width: 300px;
+        background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+        backdrop-filter: blur(32px) saturate(200%); -webkit-backdrop-filter: blur(32px) saturate(200%);
+        border: 1px solid var(--border); border-radius: 28px;
+        box-shadow: 0 30px 60px rgba(15, 23, 42, 0.25);
         z-index: 100005; display: none; flex-direction: column; overflow: hidden;
     }
     .tool-widget.open { display: flex; }
     .tool-header {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 14px 18px; border-bottom: 1px solid var(--border);
-        font-weight: 900; font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px;
+        position: relative; display: flex; justify-content: center; align-items: center;
+        padding: 16px 18px 12px;
+        font-weight: 700; font-size: 13px; color: var(--text-main); letter-spacing: -0.3px;
     }
-    .tool-close { background: transparent; border: none; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: color 0.2s; padding: 0; }
-    .tool-close:hover { color: var(--color-critical); }
-    .tool-close svg { width: 14px; height: 14px; stroke-width: 3; }
+    .tool-close {
+        position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+        background: rgba(120,120,128,0.16); border: none; cursor: pointer;
+        color: var(--text-muted); display: flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px; border-radius: 50%; transition: background 0.2s; padding: 0;
+    }
+    .tool-close:hover { background: rgba(120,120,128,0.3); }
+    .tool-close svg { width: 12px; height: 12px; stroke-width: 2.5; }
 
     /* Calendar */
-    .cal-nav { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px 8px; font-weight: 900; font-size: 12px; color: var(--text-main); }
-    .cal-nav button { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; padding: 4px 12px; color: var(--text-main); font-weight: 900; transition: 0.2s; }
-    .cal-nav button:hover { background: var(--border); }
-    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 0 16px 16px; text-align: center; }
-    .cal-day-header { font-size: 9px; font-weight: 900; color: var(--text-muted); padding-bottom: 6px; text-transform: uppercase; }
-    .cal-cell { padding: 6px 0; font-size: 11px; font-weight: 800; border-radius: 8px; color: var(--text-main); }
-    .cal-cell.today { background: var(--accent, #3b82f6); color: #fff; box-shadow: 0 4px 10px rgba(59,130,246,0.3); }
+    .cal-nav { display: flex; justify-content: space-between; align-items: center; padding: 4px 16px 10px; font-weight: 600; font-size: 13px; color: var(--text-main); }
+    .cal-nav button { background: transparent; border: none; cursor: pointer; padding: 4px 8px; color: #007aff; font-size: 20px; font-weight: 300; line-height: 1; transition: opacity 0.2s; }
+    .cal-nav button:hover { opacity: 0.7; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 0 12px 16px; text-align: center; }
+    .cal-day-header { font-size: 9px; font-weight: 600; color: var(--text-muted); padding-bottom: 6px; text-transform: uppercase; }
+    .cal-cell { aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; border-radius: 50%; color: var(--text-main); }
+    .cal-cell.today { background: #ff3b30; color: #fff; font-weight: 700; }
 
     /* Calculator */
-    #calc-display { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px solid var(--border); background: transparent; padding: 24px 18px 12px; font-size: 28px; font-family: monospace; font-weight: 900; text-align: right; color: var(--text-main); outline: none; }
+    #calc-display { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px solid var(--border); background: transparent; padding: 16px 20px 12px; font-size: 46px; font-family: -apple-system, "SF Pro Display", sans-serif; font-weight: 200; text-align: right; color: var(--text-main); outline: none; }
     .calc-sub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
-    .calc-sub-btn { background: color-mix(in srgb, var(--card-bg) 60%, transparent); border: none; padding: 10px 0; font-size: 9px; font-weight: 900; color: var(--color-insight); text-transform: uppercase; cursor: pointer; transition: background 0.1s; }
+    .calc-sub-btn { background: color-mix(in srgb, var(--card-bg) 60%, transparent); border: none; padding: 9px 0; font-size: 8px; font-weight: 700; color: #007aff; text-transform: uppercase; cursor: pointer; transition: background 0.1s; letter-spacing: 0.3px; }
     .calc-sub-btn:hover { background: var(--bg); }
-    body.dark-mode .calc-sub-btn { color: #d8b4fe; }
-    .calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); }
-    .calc-btn { background: transparent; border: none; padding: 14px 0; font-size: 14px; font-weight: 900; color: var(--text-main); cursor: pointer; transition: background 0.1s; }
-    .calc-btn:hover { background: var(--bg); }
-    .calc-btn.op { background: rgba(59, 130, 246, 0.05); color: #2563eb; font-size: 16px; }
-    body.dark-mode .calc-btn.op { color: #93c5fd; background: rgba(59, 130, 246, 0.1); }
+    body.dark-mode .calc-sub-btn { color: #0a84ff; }
+    .calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px; }
+    .calc-btn { background: rgba(120,120,128,0.12); border: none; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 400; color: var(--text-main); cursor: pointer; border-radius: 50%; transition: opacity 0.15s; }
+    .calc-btn:active { opacity: 0.6; }
+    .calc-btn.op { background: #007aff; color: #fff; font-size: 22px; }
+    .calc-btn.top-op { background: rgba(120,120,128,0.24); color: var(--text-main); font-size: 16px; font-weight: 500; }
+    .calc-btn.zero { grid-column: span 2; border-radius: 999px; aspect-ratio: auto; padding: 0 28px; justify-content: flex-start; }
+    body.dark-mode .calc-btn { background: rgba(255,255,255,0.1); }
+    body.dark-mode .calc-btn.top-op { background: rgba(255,255,255,0.18); }
     </style>
   </head>
   <body>
@@ -2064,6 +2072,14 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="15" y2="12"></line><line x1="3" y1="18" x2="18" y2="18"></line></svg>
           </button>
       </div>
+      <div class="view-segment-group" style="margin-left: 8px;">
+          <button class="view-segment-btn" onclick="toggleWidget('calc-widget')" title="Benny Calculator">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="14"></line><line x1="16" y1="18" x2="16" y2="18"></line><line x1="8" y1="14" x2="8" y2="14"></line><line x1="8" y1="18" x2="8" y2="18"></line><line x1="12" y1="14" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>
+          </button>
+          <button class="view-segment-btn" onclick="toggleWidget('cal-widget')" title="Project Calendar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          </button>
+      </div>
 
       <div class="nav-actions">
         <span id="nav-ref-age" class="ref-age-badge" style="display:none;"></span>
@@ -2072,40 +2088,37 @@
         <button class="btn-nav" onclick="triggerRunReview()" id="btn-run-review">▶ Run Review</button>
         <button class="btn-nav" onclick="triggerUIRefresh()" id="btn-refresh">↻ Refresh</button>
         <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme" title="Toggle dark mode"></button>
-        <button class="btn-nav" onclick="toggleWidget('calc-widget')" title="Benny Calculator">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="14"></line><line x1="16" y1="18" x2="16" y2="18"></line><line x1="8" y1="14" x2="8" y2="14"></line><line x1="8" y1="18" x2="8" y2="18"></line><line x1="12" y1="14" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>
-        </button>
-        <button class="btn-nav" onclick="toggleWidget('cal-widget')" title="Project Calendar">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-        </button>
         <button class="btn-nav" onclick="toggleHelpPanel()" id="btn-help">?</button>
         <button class="btn-icon mobile-menu-toggle" id="btn-hamburger" onclick="toggleMobileMenu()" title="Menu" style="font-size:18px;">☰</button>
       </div>
     </div>
 
     <div id="cal-widget" class="tool-widget">
-        <div class="tool-header"><span>Project Calendar</span><button class="tool-close" onclick="toggleWidget('cal-widget')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div>
+        <div class="tool-header">Project Calendar<button class="tool-close" onclick="toggleWidget('cal-widget')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div>
         <div class="cal-nav">
-            <button onclick="changeMonth(-1)">&lsaquo;</button>
+            <button onclick="changeMonth(-1)">&#8249;</button>
             <span id="cal-month-year">Month</span>
-            <button onclick="changeMonth(1)">&rsaquo;</button>
+            <button onclick="changeMonth(1)">&#8250;</button>
         </div>
         <div class="cal-grid" id="cal-grid"></div>
     </div>
 
     <div id="calc-widget" class="tool-widget">
-        <div class="tool-header"><span>Benny OSP Calculator</span><button class="tool-close" onclick="toggleWidget('calc-widget')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div>
+        <div class="tool-header">Benny OSP Calculator<button class="tool-close" onclick="toggleWidget('calc-widget')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div>
         <input type="text" id="calc-display" readonly value="0">
         <div class="calc-sub-grid">
-            <button class="calc-sub-btn" onclick="calcOp('drill-days')" title="Calculate days based on 450ft/day (Drilling)">DRILL DAYS</button>
-            <button class="calc-sub-btn" onclick="calcOp('jet-days')" title="Calculate days based on 5000ft/day (Jetting)">JET DAYS</button>
-            <button class="calc-sub-btn" onclick="calcOp('ae-days')" title="Calculate days based on 5000ft/day (Aerial)">AE DAYS</button>
-            <button class="calc-sub-btn" style="grid-column: span 3;" onclick="calcOp('splice-days')" title="Calculate days based on 5 cans/day (Splicing)">SPLICE DAYS (5 CANS/DAY)</button>
+            <button class="calc-sub-btn" onclick="calcOp('ft-mi')" title="Feet to Miles">FT&#8594;MI</button>
+            <button class="calc-sub-btn" onclick="calcOp('mi-ft')" title="Miles to Feet">MI&#8594;FT</button>
+            <button class="calc-sub-btn" onclick="calcOp('+5%')" title="Add 5% Overage">+5% OVR</button>
+            <button class="calc-sub-btn" onclick="calcOp('drill-days')" title="450 ft/day">DRILL DYS</button>
+            <button class="calc-sub-btn" onclick="calcOp('jet-days')" title="5000 ft/day">JET DYS</button>
+            <button class="calc-sub-btn" onclick="calcOp('ae-days')" title="5000 ft/day">AE DYS</button>
+            <button class="calc-sub-btn" style="grid-column: span 3;" onclick="calcOp('splice-days')" title="5 cans/day">SPLICE DAYS (5 CANS/DAY)</button>
         </div>
         <div class="calc-keys">
-            <button class="calc-btn" style="color:var(--color-critical);" onclick="calcOp('clr')">AC</button>
-            <button class="calc-btn op" onclick="calcOp('(')">(</button>
-            <button class="calc-btn op" onclick="calcOp(')')">)</button>
+            <button class="calc-btn top-op" onclick="calcOp('clr')">AC</button>
+            <button class="calc-btn top-op" onclick="calcOp('(')">(</button>
+            <button class="calc-btn top-op" onclick="calcOp(')')">)</button>
             <button class="calc-btn op" onclick="calcOp('/')">&divide;</button>
 
             <button class="calc-btn" onclick="calcNum('7')">7</button>
@@ -2123,9 +2136,9 @@
             <button class="calc-btn" onclick="calcNum('3')">3</button>
             <button class="calc-btn op" onclick="calcOp('+')">+</button>
 
-            <button class="calc-btn" style="grid-column: span 2;" onclick="calcNum('0')">0</button>
+            <button class="calc-btn zero" onclick="calcNum('0')">0</button>
             <button class="calc-btn" onclick="calcNum('.')">.</button>
-            <button class="calc-btn op" style="background:var(--accent,#3b82f6); color:#fff;" onclick="calcOp('=')">=</button>
+            <button class="calc-btn op" onclick="calcOp('=')">=</button>
         </div>
     </div>
 
@@ -7211,9 +7224,12 @@ ${item.comment || 'No notes provided.'}
                   calcState = String(Math.round(result * 100) / 100);
               } catch(e) { calcState = 'Err'; }
           }
-          else if (['drill-days', 'jet-days', 'ae-days', 'splice-days'].includes(op)) {
+          else if (['ft-mi', 'mi-ft', '+5%', 'drill-days', 'jet-days', 'ae-days', 'splice-days'].includes(op)) {
               try {
                   var val = Number(new Function('return ' + calcState.replace(/×/g, '*').replace(/÷/g, '/'))());
+                  if (op === 'ft-mi')       calcState = String((val / 5280).toFixed(2));
+                  if (op === 'mi-ft')       calcState = String(Math.round(val * 5280));
+                  if (op === '+5%')         calcState = String(Math.round(val * 1.05));
                   if (op === 'drill-days')  calcState = String(Math.ceil(val / 450));
                   if (op === 'jet-days')    calcState = String(Math.ceil(val / 5000));
                   if (op === 'ae-days')     calcState = String(Math.ceil(val / 5000));
