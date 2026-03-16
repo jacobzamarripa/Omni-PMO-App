@@ -6702,7 +6702,7 @@
           let v = mismatch ? mVal : refVal;
           let stagedBadge = mismatch ? `<span class="badge-staged" title="Staged locally.">STAGED 🔄</span>` : '';
           if (v === undefined || v === '' || v === null || v === '-') return `<span class="slide-ppt-ans gap">Pending</span>`;
-          var _noop = 1;
+          if (type === 'date') return `<span class="slide-ppt-ans">${v}</span>${stagedBadge}`;
           if (type === 'bool') return `<span class="slide-ppt-ans">${(v === true || String(v).toLowerCase() === 'true') ? 'YES' : 'NO'}</span>${stagedBadge}`;
           return `<span class="slide-ppt-ans">${v}</span>${stagedBadge}`;
         };
