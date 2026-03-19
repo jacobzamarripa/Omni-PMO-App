@@ -37,10 +37,10 @@
   - **Acceptance:** Card is visibly larger but retains comfortable margins (not edge-to-edge).
   - **Task 7.1:** Gantt Fullscreen view-switching and dock filters completed.
   - **Follow-up:** Task 7.2 addresses post-fix layout bleed and fullscreen dock regressions.
-- [ ] **Diagnostics Queue: Simplify view modes**
-  - **Expected:** Remove "Relaxed mode". Standardize on Grid, List, and Inbox modes across Detail and Deck views.
+- [x] **Diagnostics Queue: Simplify view modes**
+  - **Expected:** Remove "Relaxed mode". Standardize on Grid, List, and Inbox modes across Detail and Slide views.
   - **Acceptance:** Relaxed mode code is removed; UI layout matches current intent for remaining modes.
-  - **Current focus:** Replacing the old density toggle with Inbox / List / Grid queue modes.
+  - **Completed:** Queue modes now use one Inbox / List / Grid system with matching behavior across Detail and Slide.
 - [ ] **Admin badges workflow: Diagnostics Queue → Reviewed**
   - **Expected:** Clearing an item removes it from the active queue and moves it to the Admin panel's Reviewed list.
   - **Acceptance:** Exports from the Reviewed tab produce correct groupings without duplicates.

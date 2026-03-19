@@ -2648,7 +2648,7 @@
           <div class="help-row"><span class="hbadge hbadge-gray">Detail View</span><div class="hdesc">The standard QA view. Focuses on one project at a time, providing full schedule, velocity, and AI diagnostic breakdowns.</div></div>
           <div class="help-row"><span class="hbadge hbadge-gray">Grid View</span><div class="hdesc">High-density overview. Displays multiple projects at once. Use the <b>Pivot Selector</b> in the dock to switch between Schedule, Velocity, Notes, or Deliverables data.</div></div>
           <div class="help-row"><span class="hbadge hbadge-gray">Deck Mode</span><div class="hdesc">Presentation mode. Formats projects into 16:9 slides. Ideal for morning meetings. Allows you to "Stage" multiple projects for batch email exports.</div></div>
-          <div class="help-row"><span class="hbadge hbadge-purple">Theater Mode</span><div class="hdesc">Available in Deck mode. Blacks out the surrounding UI for distraction-free presentations. Use Arrow Keys or Spacebar to navigate slides.</div></div>
+          <div class="help-row"><span class="hbadge hbadge-purple">Theater Mode</span><div class="hdesc">Available in Slide View. Blacks out the surrounding UI for distraction-free presentations. Use Arrow Keys or Spacebar to navigate slides.</div></div>
         </div>
 
         <div class="help-sec">
@@ -5564,7 +5564,7 @@
           let pivot = getEl('sidebar-pivot-select')?.value || 'schedule';
           let today = new Date(); today.setHours(0,0,0,0);
 
-          items.forEach((item, idx) => {
+          items.forEach((item) => {
               let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
               let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
               let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
@@ -5620,15 +5620,7 @@
               let card = document.createElement('div');
               card.className = `grid-card ${isSelected}`;
               card.id = `card-${item.fdh}`;
-              card.onclick = () => {
-                  if (isDeckMode) {
-                      deckIndex = idx;
-                      openPane(item, card);
-                      renderDeckStage();
-                  } else {
-                      openPane(item, card);
-                  }
-              };
+              card.onclick = () => { openPane(item, card); };
               card.innerHTML = `
                   <div class="grid-card-header" style="padding-bottom:6px;">
                       <div>
