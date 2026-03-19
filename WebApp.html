@@ -1230,13 +1230,13 @@
       .em-fdh { font-size: 12px; font-weight: 900; color: var(--text-main); letter-spacing: -0.01em; line-height: 1;}
       .em-vendor { font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; line-height: 1;}
       
-      .glass-pill { font-size: 9px; font-weight: bold; padding: 3px 10px; border-radius: 6px; border: 1.5px solid; text-transform: uppercase; white-space: nowrap; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: inline-flex; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-      .pill-active, .pill-default { color: var(--pill-active-txt); background: var(--pill-active-bg); border-color: var(--pill-active-bdr); }
-      .pill-ofs     { color: var(--pill-ofs-txt);     background: var(--pill-ofs-bg);     border-color: var(--pill-ofs-bdr); }
-      .pill-permit  { color: var(--pill-permit-txt);  background: var(--pill-permit-bg);  border-color: var(--pill-permit-bdr); }
-      .pill-complete{ color: var(--pill-complete-txt);background: var(--pill-complete-bg);border-color: var(--pill-complete-bdr); }
-      .pill-hold    { color: var(--pill-hold-txt);    background: var(--pill-hold-bg);    border-color: var(--pill-hold-bdr); }
-      .pill-missing { color: var(--pill-missing-txt); background: var(--pill-missing-bg); border-color: var(--pill-missing-bdr); }
+      .glass-pill { font-size: 9px; font-weight: 800; padding: 3px 10px; border-radius: 8px; border: 1.5px solid; text-transform: uppercase; white-space: nowrap; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: inline-flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+      .chip-active, .pill-active, .pill-default { color: var(--pill-active-txt); background: var(--pill-active-bg); border-color: var(--pill-active-bdr); }
+      .chip-ofs, .pill-ofs { color: var(--pill-ofs-txt); background: var(--pill-ofs-bg); border-color: var(--pill-ofs-bdr); }
+      .chip-permit, .pill-permit { color: var(--pill-permit-txt); background: var(--pill-permit-bg); border-color: var(--pill-permit-bdr); }
+      .chip-complete, .pill-complete { color: var(--pill-complete-txt); background: var(--pill-complete-bg); border-color: var(--pill-complete-bdr); }
+      .chip-hold, .pill-hold { color: var(--pill-hold-txt); background: var(--pill-hold-bg); border-color: var(--pill-hold-bdr); }
+      .chip-missing, .pill-missing { color: var(--pill-missing-txt); background: var(--pill-missing-bg); border-color: var(--pill-missing-bdr); }
       body.dark-mode {
           --pill-active-txt: #fde047;   --pill-active-bg: rgba(133,77,14,0.35);   --pill-active-bdr: #facc15;
           --pill-ofs-txt: #93c5fd;      --pill-ofs-bg: rgba(30,64,175,0.35);      --pill-ofs-bdr: #60a5fa;
@@ -1249,17 +1249,16 @@
       .grid-card:hover .is-muted { opacity: 0.8; }
 
       .em-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px;}
-      .tag { display: inline-flex; padding: 2px 4px; border-radius: 3px; font-size: 8px; font-weight: 900; white-space: nowrap; border: 1px solid; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);}
-      .tag-red { background: rgba(254, 226, 226, 0.5); color: #991b1b; border-color: #fca5a5; }
-      .tag-yellow { background: rgba(254, 252, 232, 0.5); color: #854d0e; border-color: #fde047; }
-      .tag-purple { background: rgba(250, 245, 255, 0.7); color: #6b21a8; border-color: #d8b4fe; }
-      .tag-muted { background: #27272a; color: #a1a1aa; border: 1px solid #3f3f46; }
-      .tag-admin { background: #171717; color: #facc15; border-color: #facc15; }
-      body.dark-mode .tag-red { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border-color: #ef4444;}
-      body.dark-mode .tag-yellow { background: rgba(234, 179, 8, 0.15); color: #fde047; border-color: #eab308;}
-      body.dark-mode .tag-purple { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border-color: #9333ea; }
-      body.dark-mode .tag-muted { background: #27272a; color: #a1a1aa; border-color: #3f3f46; }
-      body.dark-mode .tag-admin { background: rgba(250, 204, 21, 0.1); color: #fde047; border-color: #facc15; }
+      .tag { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 8px; font-size: 8px; font-weight: 900; white-space: nowrap; border: 1px solid; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); letter-spacing: 0.01em; }
+      .chip-admin, .tag-admin, .chip-warn, .tag-yellow { background: rgba(254, 252, 232, 0.72); color: #854d0e; border-color: #facc15; }
+      .chip-magic, .tag-purple { background: rgba(250, 245, 255, 0.78); color: #6b21a8; border-color: #d8b4fe; }
+      .chip-muted, .tag-muted { background: #f8fafc; color: #64748b; border-color: #cbd5e1; }
+      .chip-ghost, .tag-ghost { background: #f1f5f9; color: #64748b; border-color: #cbd5e1; }
+      .tag-red { background: rgba(254, 226, 226, 0.72); color: #991b1b; border-color: #fca5a5; }
+      body.dark-mode .chip-admin, body.dark-mode .tag-admin, body.dark-mode .chip-warn, body.dark-mode .tag-yellow { background: rgba(234, 179, 8, 0.15); color: #fde047; border-color: #eab308; }
+      body.dark-mode .chip-magic, body.dark-mode .tag-purple { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border-color: #9333ea; }
+      body.dark-mode .chip-muted, body.dark-mode .tag-muted, body.dark-mode .chip-ghost, body.dark-mode .tag-ghost { background: #27272a; color: #a1a1aa; border-color: #3f3f46; }
+      body.dark-mode .tag-red { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border-color: #ef4444; }
 
       .reading-pane { flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; min-width: 0; min-height: 0 !important; margin-left: 0; }
       .upper-workspace { flex: 1; min-height: 0; display: flex; overflow: hidden; position: relative; }
@@ -3318,11 +3317,8 @@
 
           const rawFlags = (item.flags || '').split('\n').map(f => f.trim()).filter(f => f !== '');
           const tagsHtml = rawFlags.map(f => {
-              const clean = f.replace(/[🚨🛑🚩⚠️🖍️🚧🪄🟣]/g, '').trim();
-              let tagCls = 'tag-muted';
-              if (f.includes('ADMIN')) tagCls = 'tag-admin';
-              else if (f.includes('🚨') || f.includes('🛑') || f.includes('🚩') || f.includes('STATUS') || f.includes('MISSING')) tagCls = 'tag-red';
-              else if (f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧')) tagCls = 'tag-yellow';
+              const clean = cleanDiagnosticFlagText(f);
+              let tagCls = getDiagnosticTagClass(f);
               return `<span class="tag ${tagCls}" style="font-size:9px; padding:3px 7px;">${clean}</span>`;
           }).join('') || '<span style="color:var(--text-muted);">No anomalies.</span>';
 
@@ -3464,7 +3460,8 @@
       function getSeverity(flagsStr) {
           let rawFlags = (flagsStr || "").split('\n').map(f => f.trim()).filter(f => f !== ""); let highestSev = "info";
           rawFlags.forEach(f => {
-              if (f.includes("ADMIN: CHECK CROSSINGS") || f.includes("ADMIN: REFRESH REF DATA") || f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS") || f.includes("🚨") || f.includes("🛑") || f.includes("🚩")) { highestSev = "crit"; }
+              if (f.includes("🚨") || f.includes("🛑") || f.includes("🚩")) { highestSev = "crit"; }
+              else if (f.includes("ADMIN: CHECK CROSSINGS") || f.includes("ADMIN: REFRESH REF DATA") || f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) { if (highestSev !== "crit") highestSev = "warn"; }
               else if (f.includes("⚠️") || f.includes("🖍️") || f.includes("🚧")) { if(highestSev !== "crit") highestSev = "warn"; }
           });
           if (highestSev === "info" && rawFlags.some(f => f === "MISSING DAILY REPORT")) highestSev = "ghost";
@@ -3472,20 +3469,29 @@
       }
       
       function getQBStatusClass(stage, status, isMissing) {
-          if (isMissing) return 'pill-missing';
+          if (isMissing) return 'chip-missing';
           let st = (stage || "").toLowerCase(), stat = (status || "").toLowerCase();
-          if (st.includes('ofs')) return 'pill-ofs'; if (st.includes('permit')) return 'pill-permit'; if (stat.includes('complete')) return 'pill-complete'; if (stat.includes('hold') || stat.includes('assign')) return 'pill-hold';
-          return 'pill-active';
+          if (st.includes('ofs')) return 'chip-ofs';
+          if (st.includes('permit')) return 'chip-permit';
+          if (stat.includes('complete')) return 'chip-complete';
+          if (stat.includes('hold') || stat.includes('assign')) return 'chip-hold';
+          return 'chip-active';
       }
 
       function getDiagnosticTagClass(flag) {
           let f = String(flag || '').toUpperCase();
-          if (f.includes('ADMIN: CHECK CROSSINGS') || f.includes('ADMIN: REFRESH REF DATA')) return 'tag-admin';
-          if (f.includes('STATUS MISMATCH') || f.includes('MISSING QB STATUS') || f.includes('🚨') || f.includes('🛑') || f.includes('🚩')) return 'tag-red';
-          if (f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧')) return 'tag-yellow';
-          if (f.includes('🪄') || f.includes('🟣')) return 'tag-purple';
-          if (f === 'MISSING DAILY REPORT') return 'tag-ghost';
-          return 'tag-muted';
+          if (f.includes('COMPLETE')) return 'chip-complete';
+          if (f.includes('ADMIN: CHECK CROSSINGS') || f.includes('ADMIN: REFRESH REF DATA')) return 'chip-admin';
+          if (f.includes('STATUS MISMATCH') || f.includes('MISSING QB STATUS')) return 'chip-warn';
+          if (f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧')) return 'chip-warn';
+          if (f.includes('🪄') || f.includes('🟣')) return 'chip-magic';
+          if (f === 'MISSING DAILY REPORT') return 'chip-ghost';
+          if (f.includes('🚨') || f.includes('🛑') || f.includes('🚩')) return 'tag-red';
+          return 'chip-muted';
+      }
+
+      function cleanDiagnosticFlagText(flag) {
+          return String(flag || '').replace(/[🚨🛑🚩⚠️🖍️🚧🪄🟣]/g, '').trim();
       }
 
       function populateDropdown(id, values) {
@@ -4617,10 +4623,10 @@
           let btn = getEl('btn-qb-update'); if(btn) { btn.innerText = "SAVING..."; btn.disabled = true; }
           google.script.run.withSuccessHandler((dateStr) => {
               if(btn) btn.remove();
-              let paneTags = document.querySelectorAll('#p-action .tag-red');
-              paneTags.forEach(t => { if(t.innerText.includes("STATUS MISMATCH") || t.innerText.includes("MISSING QB STATUS")) { t.className = "tag tag-yellow admin-flag-tag"; t.innerText = "ADMIN: REFRESH REF DATA"; } });
+              let paneTags = document.querySelectorAll('#p-action .chip-warn, #p-action .tag-red');
+              paneTags.forEach(t => { if(t.innerText.includes("STATUS MISMATCH") || t.innerText.includes("MISSING QB STATUS")) { t.className = "tag chip-admin admin-flag-tag"; t.innerText = "ADMIN: REFRESH REF DATA"; } });
               let qCard = getEl(`card-${fdhId}`);
-              if(qCard) { let qTags = qCard.querySelectorAll('.tag-red'); qTags.forEach(t => { if(t.innerText.includes("STATUS MISMATCH") || t.innerText.includes("MISSING QB STATUS")) { t.className = "tag tag-yellow"; t.innerText = "ADMIN: REFRESH REF DATA"; } }); }
+              if(qCard) { let qTags = qCard.querySelectorAll('.chip-warn, .tag-red'); qTags.forEach(t => { if(t.innerText.includes("STATUS MISMATCH") || t.innerText.includes("MISSING QB STATUS")) { t.className = "tag chip-admin"; t.innerText = "ADMIN: REFRESH REF DATA"; } }); }
               if(currentActiveItem) currentActiveItem.flags = currentActiveItem.flags.replace("🚩 STATUS MISMATCH", "⚠️ ADMIN: REFRESH REF DATA").replace("🚩 MISSING QB STATUS", "⚠️ ADMIN: REFRESH REF DATA").trim();
           }).withFailureHandler(err => {
               alert("Failed to save: " + err.message); if(btn) { btn.innerText = "🛠️ MARK QB UPDATED"; btn.disabled = false; }
@@ -4659,7 +4665,15 @@
           let flags = (item.flags || "").split('\n').filter(f => f.trim()!=="").slice(0,3); 
           if(flags.length > 0 && flags[0] !== "✅ No Anomalies") {
               html += `<div style="display:flex; flex-direction:column; gap:4px; margin-top:6px; border-top:1px solid #333338; padding-top:6px;">`;
-              flags.forEach(f => { let cleanText = f.replace(/[🚨🛑🚩⚠️🖍️🚧]/g, '').trim(); let color = (f.includes("🚨") || f.includes("🚩") || f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) ? "#fca5a5" : "#fde047"; html += `<span style="font-size:9px; font-weight:bold; color:${color};">⚠️ ${cleanText}</span>`; });
+              flags.forEach(f => {
+                  let cleanText = cleanDiagnosticFlagText(f);
+                  let tagCls = getDiagnosticTagClass(f);
+                  let color = tagCls === 'chip-complete' ? 'var(--pill-complete-txt)' :
+                              tagCls === 'chip-magic' ? '#a855f7' :
+                              tagCls === 'tag-red' ? '#fca5a5' :
+                              'var(--color-review)';
+                  html += `<span style="font-size:9px; font-weight:bold; color:${color};">⚠️ ${cleanText}</span>`;
+              });
               html += `</div>`;
           }
           hud.dataset.mode = 'project';
@@ -5512,15 +5526,14 @@
               let rawFlags = (item.flags || "").split('\n').map(f => f.trim()).filter(f => f !== ""); let highestSev = "info", tagsHtml = '';
 
               rawFlags.slice(0, 3).forEach(f => {
-                  let cleanText = f.replace(/[🚨🛑🚩⚠️🖍️🚧🪄🟣]/g, '').trim();
+                  let cleanText = cleanDiagnosticFlagText(f);
                   let tagCls = getDiagnosticTagClass(f);
-                  if (tagCls === 'tag-admin') highestSev = f.includes("REFRESH") ? "warn" : "crit";
+                  if (tagCls === 'chip-admin' || tagCls === 'chip-warn') highestSev = "warn";
                   else if (tagCls === 'tag-red') highestSev = "crit";
-                  else if (tagCls === 'tag-yellow' && highestSev !== "crit") highestSev = "warn";
-                  else if (tagCls === 'tag-ghost' && highestSev !== "crit" && highestSev !== "warn") highestSev = "ghost";
+                  else if (tagCls === 'chip-ghost' && highestSev !== "crit" && highestSev !== "warn") highestSev = "ghost";
                   tagsHtml += `<span class="tag ${tagCls}">${cleanText}</span>`;
               });
-              if(rawFlags.length > 3) tagsHtml += `<span class="tag tag-muted">+${rawFlags.length-3}</span>`;
+              if(rawFlags.length > 3) tagsHtml += `<span class="tag chip-muted">+${rawFlags.length-3}</span>`;
 
               let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
               let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
@@ -5903,11 +5916,11 @@
               let tagsHtml = '', isCritical = false, isWarn = false; let needsAdminCheck = false; let needsQbSync = false;
               
               rawFlags.forEach(f => {
-                  let cleanText = f.replace(/[🚨🛑🚩⚠️🖍️🚧🪄🟣]/g, '').trim();
+                  let cleanText = cleanDiagnosticFlagText(f);
                   let tagCls = getDiagnosticTagClass(f);
-                  if (tagCls === "tag-admin") { isCritical = !f.includes("REFRESH"); if(isCritical) isWarn = false; else if(!isCritical) isWarn = true; if(f.includes("CHECK CROSSINGS")) needsAdminCheck = true; tagsHtml += `<span class="tag ${tagCls} admin-flag-tag">${cleanText}</span>`; }
-                  else if (tagCls === "tag-red") { isCritical = true; if (f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) needsQbSync = true; tagsHtml += `<span class="tag ${tagCls} status-flag-tag">${cleanText}</span>`; }
-                  else if (tagCls === "tag-yellow") { isWarn = true; tagsHtml += `<span class="tag ${tagCls}">${cleanText}</span>`; }
+                  if (tagCls === "chip-admin") { isWarn = true; if(f.includes("CHECK CROSSINGS")) needsAdminCheck = true; tagsHtml += `<span class="tag ${tagCls} admin-flag-tag">${cleanText}</span>`; }
+                  else if (tagCls === "chip-warn") { isWarn = true; if (f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) needsQbSync = true; tagsHtml += `<span class="tag ${tagCls} status-flag-tag">${cleanText}</span>`; }
+                  else if (tagCls === "tag-red") { isCritical = true; tagsHtml += `<span class="tag ${tagCls}">${cleanText}</span>`; }
                   else { tagsHtml += `<span class="tag ${tagCls}">${cleanText}</span>`; }
               });
               
@@ -7387,7 +7400,7 @@
           const rawFlags = (item.flags || '').split('\n').map(f => f.trim()).filter(f => f !== '');
           let tagsHtml = '';
           rawFlags.forEach(f => {
-            const cleanText = f.replace(/[🚨🛑🚩⚠️🖍️🚧🪄🟣]/g, '').trim();
+            const cleanText = cleanDiagnosticFlagText(f);
             tagsHtml += `<span class="tag ${getDiagnosticTagClass(f)}" style="font-size:10px; padding:4px 8px;">${cleanText}</span>`;
           });
           syncDockStagingButton();
