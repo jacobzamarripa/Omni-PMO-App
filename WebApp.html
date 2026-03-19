@@ -1227,6 +1227,8 @@
       body.deck-mode-active #pane-content { display: none !important; }
       body.deck-mode-active #detail-layout {
           display: block !important;
+          padding-right: 400px !important;
+          box-sizing: border-box !important;
       }
       body.deck-mode-active .detail-main {
           position: absolute !important;
@@ -1242,7 +1244,7 @@
           align-items: center !important;
           justify-content: center !important;
           padding-top: 40px !important;
-          padding-right: 420px !important;
+          padding-right: 40px !important;
           padding-bottom: 120px !important;
           overflow: auto !important;
           box-sizing: border-box !important;
@@ -1257,6 +1259,7 @@
           bottom: 0 !important;
           height: 100% !important;
           z-index: 1005 !important;
+          pointer-events: auto !important;
           box-shadow: -15px 0 40px rgba(0,0,0,0.2) !important;
       }
       body.deck-mode-active .inbox-list {
