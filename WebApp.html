@@ -14,6 +14,13 @@
         --qb-nap-bg: linear-gradient(90deg, #4338ca 0%, #6366f1 70%, #22d3ee 100%);
         --qb-fib-border: #ef4444; --qb-nap-border: #6366f1;
         --starGold: #fbbf24; --accent: #3b82f6; --gantt-panel-height: 34vh; --inbox-panel-width: 380px;
+        /* Status Pill Colors */
+        --pill-active-txt: #b45309;   --pill-active-bg: rgba(253,224,71,0.25);   --pill-active-bdr: #facc15;
+        --pill-ofs-txt: #1d4ed8;      --pill-ofs-bg: rgba(59,130,246,0.15);      --pill-ofs-bdr: #3b82f6;
+        --pill-permit-txt: #7e22ce;   --pill-permit-bg: rgba(168,85,247,0.15);   --pill-permit-bdr: #a855f7;
+        --pill-complete-txt: #15803d; --pill-complete-bg: rgba(34,197,94,0.15);  --pill-complete-bdr: #22c55e;
+        --pill-hold-txt: #475569;     --pill-hold-bg: rgba(148,163,184,0.15);    --pill-hold-bdr: #94a3b8;
+        --pill-missing-txt: #b91c1c;  --pill-missing-bg: rgba(239,68,68,0.15);   --pill-missing-bdr: #ef4444;
       }
 
       /* 🚀 EXECUTIVE BOOT SEQUENCE LOADER STYLES */
@@ -424,7 +431,7 @@
           position: absolute !important;
           top: auto !important;
           bottom: 30px !important;
-          z-index: 2000005 !important;
+          z-index: 2000 !important;
           box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.15), inset 0 1px 1px rgba(255,255,255,0.8) !important;
       }
       body.dark-mode.deck-mode-active .filter-strip {
@@ -702,7 +709,7 @@
       /* ── 🧠 DYNAMIC ANCHORED FILTER TAGS ── */
       #active-filter-pills {
           position: fixed !important;
-          top: 54px;
+          top: 70px;
           bottom: auto;
           left: 50%;
           transform: translateX(-50%);
@@ -718,7 +725,7 @@
       }
       body.deck-mode-active #active-filter-pills {
           top: auto;
-          bottom: 78px;
+          bottom: 90px;
       }
       .filter-pill {
           pointer-events: auto;
@@ -1086,18 +1093,20 @@
       .em-vendor { font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; line-height: 1;}
       
       .glass-pill { font-size: 9px; font-weight: bold; padding: 3px 10px; border-radius: 6px; border: 1.5px solid; text-transform: uppercase; white-space: nowrap; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: inline-flex; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-      .pill-active, .pill-default { color: #854d0e; background: rgba(254, 252, 232, 0.7); border-color: #facc15; }
-      .pill-ofs { color: #2563eb; background: rgba(239, 246, 255, 0.7); border-color: #2563eb; }
-      .pill-permit { color: #a855f7; background: rgba(243, 232, 255, 0.7); border-color: #a855f7; }
-      .pill-complete { color: #22c55e; background: rgba(240, 253, 244, 0.7); border-color: #22c55e; }
-      .pill-hold { color: #94a3b8; background: rgba(248, 250, 252, 0.7); border-color: #94a3b8; }
-      .pill-missing { color: #ef4444; background: rgba(254, 242, 242, 0.7); border-color: #ef4444; }
-      body.dark-mode .pill-active, body.dark-mode .pill-default { color: #fde047; background: rgba(133, 77, 14, 0.35); border-color: #facc15; }
-      body.dark-mode .pill-ofs { color: #93c5fd; background: rgba(30, 64, 175, 0.35); border-color: #60a5fa; }
-      body.dark-mode .pill-permit { color: #e9d5ff; background: rgba(107, 33, 168, 0.35); border-color: #c084fc; }
-      body.dark-mode .pill-complete { color: #86efac; background: rgba(21, 128, 61, 0.35); border-color: #4ade80; }
-      body.dark-mode .pill-hold { color: #e2e8f0; background: rgba(71, 85, 105, 0.35); border-color: #94a3b8; }
-      body.dark-mode .pill-missing { color: #fca5a5; background: rgba(153, 27, 27, 0.35); border-color: #f87171; }
+      .pill-active, .pill-default { color: var(--pill-active-txt); background: var(--pill-active-bg); border-color: var(--pill-active-bdr); }
+      .pill-ofs     { color: var(--pill-ofs-txt);     background: var(--pill-ofs-bg);     border-color: var(--pill-ofs-bdr); }
+      .pill-permit  { color: var(--pill-permit-txt);  background: var(--pill-permit-bg);  border-color: var(--pill-permit-bdr); }
+      .pill-complete{ color: var(--pill-complete-txt);background: var(--pill-complete-bg);border-color: var(--pill-complete-bdr); }
+      .pill-hold    { color: var(--pill-hold-txt);    background: var(--pill-hold-bg);    border-color: var(--pill-hold-bdr); }
+      .pill-missing { color: var(--pill-missing-txt); background: var(--pill-missing-bg); border-color: var(--pill-missing-bdr); }
+      body.dark-mode {
+          --pill-active-txt: #fde047;   --pill-active-bg: rgba(133,77,14,0.35);   --pill-active-bdr: #facc15;
+          --pill-ofs-txt: #93c5fd;      --pill-ofs-bg: rgba(30,64,175,0.35);      --pill-ofs-bdr: #60a5fa;
+          --pill-permit-txt: #e9d5ff;   --pill-permit-bg: rgba(107,33,168,0.35);  --pill-permit-bdr: #c084fc;
+          --pill-complete-txt: #86efac; --pill-complete-bg: rgba(21,128,61,0.35); --pill-complete-bdr: #4ade80;
+          --pill-hold-txt: #e2e8f0;     --pill-hold-bg: rgba(71,85,105,0.35);     --pill-hold-bdr: #94a3b8;
+          --pill-missing-txt: #fca5a5;  --pill-missing-bg: rgba(153,27,27,0.35);  --pill-missing-bdr: #f87171;
+      }
       .is-muted { opacity: 0.45; transition: opacity 0.3s ease; }
       .grid-card:hover .is-muted { opacity: 0.8; }
 
@@ -1458,6 +1467,8 @@
       .ob-header { padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s;}
       .ob-tab-badge { position: absolute; top: -8px; right: -6px; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 900; padding: 0 5px; line-height: 1; box-shadow: 0 4px 8px rgba(0,0,0,0.15); border: 2px solid var(--card-bg); z-index: 10; pointer-events: none; }
       .ob-tab-badge-crit { background: var(--color-critical); color: #fff; }
+      .ob-tab-badge-purple { background: #a855f7; color: #fff; }
+      .ob-tab-badge-green { background: #16a34a; color: #fff; }
       /* Panel tab bar */
       .panel-tab-bar { display: flex; align-items: center; padding: 8px 12px; background: color-mix(in srgb, var(--card-bg) 94%, transparent); border-bottom: 1px solid var(--border); gap: 6px; height: auto; min-height: 54px; flex-shrink: 0; flex-wrap: wrap; }
       .panel-title { display: none; }
@@ -1897,6 +1908,7 @@
         display: flex;
         animation: widget-spring-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     }
+    body.deck-mode-active .tool-widget,
     body.presentation-active .tool-widget {
         z-index: 2000010 !important;
     }
@@ -2260,9 +2272,8 @@
                 <button class="btn collapsed hover-trigger" id="dock-btn-exit-fs" onclick="toggleFullscreen()" style="background:var(--text-main); color:var(--bg); border-color:var(--text-main); padding: 0 14px;">Exit Fullscreen</button>
             </div>
 
-            <div class="dock-zone">
-                <div class="dock-divider"></div>
-                <button class="btn collapsed hover-trigger" id="btn-clear-filters" onclick="clearAllFilters()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border); padding:0 12px;">Clear</button>
+            <div class="dock-zone collapsed" id="dock-clear-zone">
+                <button class="btn hover-trigger" id="btn-clear-filters" onclick="clearAllFilters()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border); padding:0 12px;">Clear</button>
             </div>
             <button class="dock-arrow next collapsed" id="dock-nav-next" onclick="navDeck(1)">&#8250;</button>
         </div>
@@ -2396,10 +2407,10 @@
                             Admin <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span>
                         </button>
                         <button class="panel-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">
-                            Reviewed <span id="ob-count" class="ob-tab-badge" style="background:#3b82f6; display:none;">0</span>
+                            Reviewed <span id="ob-count" class="ob-tab-badge ob-tab-badge-green" style="display:none;">0</span>
                         </button>
                         <button class="panel-tab" id="panel-tab-changelog" onclick="switchPanelTab('changelog')">
-                            Activity <span id="changelog-badge" class="ob-tab-badge" style="background:#a855f7; display:none;">0</span>
+                            Activity <span id="changelog-badge" class="ob-tab-badge ob-tab-badge-purple" style="display:none;">0</span>
                         </button>
                       </div>
                       <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel" style="flex-shrink:0;">✕</button>
@@ -2859,9 +2870,15 @@
           const ganttZone   = getEl('dock-gantt-actions-zone');
           const filtersZone = getEl('dock-filters-zone');
           const pivotZone   = getEl('dock-pivot-zone');
+          const focusZone   = getEl('dock-focus-zone');
           const deckZone    = getEl('dock-deck-actions-zone');
+          const clearZone   = getEl('dock-clear-zone');
           const navPrev     = getEl('dock-nav-prev');
           const navNext     = getEl('dock-nav-next');
+          const isGrid      = currentWorkspaceView === 'grid';
+          const isDeck      = currentWorkspaceView === 'deck';
+          const isDetail    = currentWorkspaceView === 'detail';
+          const showFocusZone = isDetail || isDeck;
 
           if (btnFs) btnFs.classList.toggle('collapsed', !isFs);
           if (btnFocus) btnFocus.classList.toggle('collapsed', !(isFs && hasFocus));
@@ -2873,35 +2890,36 @@
           if (isFs) {
               if (filtersZone) filtersZone.classList.add('collapsed');
               if (pivotZone) pivotZone.classList.add('collapsed');
+              if (focusZone) focusZone.classList.add('collapsed');
               if (deckZone) deckZone.classList.add('collapsed');
+              if (clearZone) clearZone.classList.add('collapsed');
               if (navPrev) navPrev.classList.add('collapsed');
               if (navNext) navNext.classList.add('collapsed');
           } else if (isPresentationMode) {
               if (filtersZone) filtersZone.classList.add('collapsed');
               if (pivotZone) pivotZone.classList.add('collapsed');
-              const focusZone = getEl('dock-focus-zone');
-              if (focusZone) focusZone.classList.remove('collapsed');
-              if (deckZone) deckZone.classList.remove('collapsed');
-              if (navPrev) navPrev.classList.toggle('collapsed', !isDeckMode);
-              if (navNext) navNext.classList.toggle('collapsed', !isDeckMode);
-              const tBtn = getEl('dock-btn-slide-theme');
-              if (tBtn) {
-                  tBtn.style.display = 'inline-flex';
-                  const isDark = (isDeckMode && getEl('deck-stage-card')?.classList.contains('slide-dark-mode')) ||
-                                 (!isDeckMode && document.querySelector('.qb-grid')?.classList.contains('slide-dark-mode'));
-                  tBtn.innerHTML = isDark ? _SUN_SVG : _MOON_SVG;
-              }
-          } else {
-              const isGrid = currentWorkspaceView === 'grid';
-              const isDeck = currentWorkspaceView === 'deck';
-
-              if (filtersZone) filtersZone.classList.remove('collapsed');
-              if (pivotZone) pivotZone.classList.toggle('collapsed', !isGrid);
+              if (focusZone) focusZone.classList.toggle('collapsed', !showFocusZone);
               if (deckZone) deckZone.classList.toggle('collapsed', !isDeck);
+              if (clearZone) clearZone.classList.add('collapsed');
               if (navPrev) navPrev.classList.toggle('collapsed', !isDeck);
               if (navNext) navNext.classList.toggle('collapsed', !isDeck);
               const tBtn = getEl('dock-btn-slide-theme');
-              if (tBtn) tBtn.style.display = '';
+              if (tBtn) {
+                  tBtn.style.display = isDeck ? 'inline-flex' : 'none';
+                  const isDark = (isDeck && getEl('deck-stage-card')?.classList.contains('slide-dark-mode')) ||
+                                 (!isDeck && document.querySelector('.qb-grid')?.classList.contains('slide-dark-mode'));
+                  tBtn.innerHTML = isDark ? _SUN_SVG : _MOON_SVG;
+              }
+          } else {
+              if (filtersZone) filtersZone.classList.remove('collapsed');
+              if (pivotZone) pivotZone.classList.toggle('collapsed', !isGrid);
+              if (focusZone) focusZone.classList.toggle('collapsed', !showFocusZone);
+              if (deckZone) deckZone.classList.toggle('collapsed', !isDeck);
+              if (navPrev) navPrev.classList.toggle('collapsed', !isDeck);
+              if (navNext) navNext.classList.toggle('collapsed', !isDeck);
+              if (clearZone) clearZone.classList.toggle('collapsed', getEl('btn-clear-filters')?.classList.contains('collapsed') !== false);
+              const tBtn = getEl('dock-btn-slide-theme');
+              if (tBtn) tBtn.style.display = isDeck ? 'inline-flex' : 'none';
           }
       }
 
@@ -3494,6 +3512,7 @@
           let html = '';
           logsToRender.forEach(log => {
               let navArg = JSON.stringify(String(log.fdh || ''));
+              let cleanVal = String(log.val ?? '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
               html += `
               <div class="log-card">
                   <div class="log-header">
@@ -3505,7 +3524,7 @@
                       <span style="font-size:10px; font-weight:800; color:var(--text-muted);">By: <span style="color:var(--text-main);">${esc(log.user)}</span></span>
                   </div>
                   <div style="font-size:11px; color:var(--text-main); font-weight:600; margin-top:4px; padding:6px; background:var(--bg); border-radius:6px; border:1px solid var(--border);">
-                      &#8594; ${esc(log.val)}
+                      &#8594; ${esc(cleanVal)}
                   </div>
                   <button class="btn" style="margin-top:6px; align-self:flex-start; padding:4px 10px;" onclick='selectItemForNav(${navArg})'>Go to Project</button>
               </div>`;
@@ -3975,6 +3994,7 @@
                   let combinedPill = item ? `${item.stage || '-'} | ${item.status || '-'}` : '';
                   let pillCls = item ? getQBStatusClass(item.stage, item.status, false) : 'pill-default';
                   let dateStr = formatDate(log.timestampObj ? new Date(Number(log.timestampObj)) : log.time, true);
+                  let cleanVal = String(log.val ?? '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
                   return `
                   <div class="grid-card glow-active" style="margin:0; cursor:pointer;" onclick="switchWorkspaceView('detail'); selectItemForNav('${escJs(log.fdh)}')">
                       <div class="grid-card-header" style="padding-bottom:8px;">
@@ -3989,7 +4009,7 @@
                               <span style="font-weight:900; font-size:10px; color:var(--color-insight); text-transform:uppercase;">${esc(log.type)}</span>
                               <span style="color:var(--text-muted); font-size:9px; font-weight:700;">${esc(dateStr)}</span>
                           </div>
-                          <div style="color:var(--text-main); font-size:12px; font-weight:600; line-height:1.4; margin:6px 0;">&#8594; ${esc(log.val)}</div>
+                          <div style="color:var(--text-main); font-size:12px; font-weight:600; line-height:1.4; margin:6px 0;">&#8594; ${esc(cleanVal)}</div>
                           <div style="font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">By: ${esc(log.user)}</div>
                       </div>
                   </div>`;
@@ -4378,8 +4398,10 @@
 
           if (!d || isNaN(d.getTime())) return String(val);
 
+          // QB date-only fields are normalized to UTC midnight upstream; suppress time for those.
+          const isMidnightUTC = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
           const options = { month: '2-digit', day: '2-digit', year: '2-digit', timeZone: 'UTC' };
-          if (includeTime) {
+          if (includeTime && !isMidnightUTC) {
               options.hour = '2-digit';
               options.minute = '2-digit';
           }
@@ -4949,7 +4971,9 @@
             
             let anyActive = activeFilters.sev.length > 0 || activeFilters.vendor.length > 0 || activeFilters.city.length > 0 || activeFilters.ofs.length > 0 || searchTerm !== '' || activeAdminFilter !== null || activePieStageFilter !== null;
             let clearBtn = getEl('btn-clear-filters');
+            let clearZone = getEl('dock-clear-zone');
             if (clearBtn) clearBtn.classList.toggle('collapsed', !anyActive);
+            if (clearZone) clearZone.classList.toggle('collapsed', !anyActive);
             let filtersBtn = getEl('btn-filters');
             if (filtersBtn) filtersBtn.classList.toggle('btn-filters-active', anyActive || !(getEl('filter-strip')?.classList.contains('hidden')));
             filteredItems = displayFiltered;
@@ -4977,7 +5001,9 @@
           applyFilters();
           hidePieHUD('projects');
           let clearBtn = getEl('btn-clear-filters');
+          let clearZone = getEl('dock-clear-zone');
           if (clearBtn) clearBtn.classList.add('collapsed');
+          if (clearZone) clearZone.classList.add('collapsed');
           let strip = getEl('filter-strip');
           let btn = getEl('btn-filters');
           if (strip && !strip.classList.contains('hidden')) {
@@ -5911,6 +5937,7 @@
                   let pillCls = item ? getQBStatusClass(item.stage, item.status, false) : "pill-default";
                   let dateObj = new Date(log.timestampObj);
                   let dateStr = !isNaN(dateObj.getTime()) ? formatDate(dateObj, true) : log.time;
+                  let cleanVal = String(log.val ?? '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
 
                   return `
                   <div class="grid-card" onclick="openPaneFromGrid('${esc(String(log.fdh || '')).replace(/&#39;/g, "\\'")}')">
@@ -5927,7 +5954,7 @@
                                   <span style="font-weight:900; font-size:10px; color:var(--color-insight); text-transform:uppercase;">${esc(log.type)}</span>
                                   <span style="color:var(--text-muted); font-size:9px; font-weight:700;">${esc(dateStr)}</span>
                               </div>
-                              <div style="color:var(--text-main); font-size:12px; font-weight:600; line-height:1.4; margin:6px 0;">&#8594; ${esc(log.val)}</div>
+                              <div style="color:var(--text-main); font-size:12px; font-weight:600; line-height:1.4; margin:6px 0;">&#8594; ${esc(cleanVal)}</div>
                               <div style="font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">By: ${esc(log.user)}</div>
                           </div>
                       </div>
@@ -6093,13 +6120,14 @@
                       logHtml = '<div style="display:flex; flex-direction:column; gap:8px;">' + projectLogs.map(log => {
                           let dateObj = new Date(log.timestampObj);
                           let dateStr = !isNaN(dateObj.getTime()) ? formatDate(dateObj, true) : log.time;
+                          let cleanVal = String(log.val ?? '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
                           return `
                           <div class="log-grid-item">
                               <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
                                   <span style="font-weight:900; font-size:10px; color:var(--color-insight); text-transform:uppercase;">${esc(log.type)}</span>
                                   <span style="color:var(--text-muted); font-size:9px; font-weight:700;">${esc(dateStr)}</span>
                               </div>
-                              <div style="color:var(--text-main); font-size:11px; font-weight:600; line-height:1.4; margin-bottom:4px;">&#8594; ${esc(log.val)}</div>
+                              <div style="color:var(--text-main); font-size:11px; font-weight:600; line-height:1.4; margin-bottom:4px;">&#8594; ${esc(cleanVal)}</div>
                               <div style="font-size:8px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">By: ${esc(log.user)}</div>
                           </div>`;
                       }).join('') + '</div>';
@@ -6560,19 +6588,25 @@
             if (btn) btn.classList.toggle('active', v === mode);
         });
 
+        const isDetailMode = mode === 'detail';
+        const isGridModeView = mode === 'grid';
+        const isDeckModeView = mode === 'deck';
+
         const pivotZone = getEl('dock-pivot-zone');
-        if (pivotZone) pivotZone.classList.toggle('collapsed', !isGridMode);
         const filtersZone = getEl('dock-filters-zone');
-        if (filtersZone) filtersZone.classList.remove('collapsed');
-        const deckActionsZone = getEl('dock-deck-actions-zone');
         const focusZone = getEl('dock-focus-zone');
+        const deckActionsZone = getEl('dock-deck-actions-zone');
+        const clearZone = getEl('dock-clear-zone');
         document.body.classList.toggle('deck-mode-active', isDeckMode);
-        if (focusZone) focusZone.classList.toggle('collapsed', !isDeckMode && currentWorkspaceView !== 'detail');
-        if (deckActionsZone) deckActionsZone.classList.toggle('collapsed', !isDeckMode);
         const navPrev = getEl('dock-nav-prev');
         const navNext = getEl('dock-nav-next');
-        if (navPrev) navPrev.classList.toggle('collapsed', !isDeckMode);
-        if (navNext) navNext.classList.toggle('collapsed', !isDeckMode);
+        if (filtersZone) filtersZone.classList.remove('collapsed');
+        if (pivotZone) pivotZone.classList.toggle('collapsed', !isGridModeView);
+        if (focusZone) focusZone.classList.toggle('collapsed', !(isDetailMode || isDeckModeView));
+        if (deckActionsZone) deckActionsZone.classList.toggle('collapsed', !isDeckModeView);
+        if (navPrev) navPrev.classList.toggle('collapsed', !isDeckModeView);
+        if (navNext) navNext.classList.toggle('collapsed', !isDeckModeView);
+        if (clearZone) clearZone.classList.toggle('collapsed', getEl('btn-clear-filters')?.classList.contains('collapsed') !== false);
 
         const sortQueue = getEl('sort-queue');
         if (sortQueue) sortQueue.style.display = isDeckMode ? 'none' : '';
@@ -7362,12 +7396,13 @@ ${item.comment || 'No notes provided.'}
                   content.innerHTML = '<div style="font-size:11px; font-weight:900; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px; margin-bottom:20px;">Recent Activity &mdash; ' + esc(item.fdh) + '</div>' +
                   changes.slice(0, 5).map(function(log) {
                       var dateStr = formatDate(log.timestampObj ? new Date(Number(log.timestampObj)) : log.time, true);
+                      var cleanVal = String(log.val ?? '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
                       return '<div style="border-bottom:1px solid rgba(255,255,255,0.08); padding:14px 0;">' +
                           '<div style="display:flex; justify-content:space-between; margin-bottom:6px;">' +
                           '<span style="font-size:10px; font-weight:900; color:#a855f7; text-transform:uppercase;">' + esc(log.type) + '</span>' +
                           '<span style="font-size:9px; color:rgba(255,255,255,0.4);">' + esc(dateStr) + '</span>' +
                           '</div>' +
-                          '<div style="font-size:14px; font-weight:600; color:#f4f4f5; margin-bottom:4px;">&#8594; ' + esc(log.val) + '</div>' +
+                          '<div style="font-size:14px; font-weight:600; color:#f4f4f5; margin-bottom:4px;">&#8594; ' + esc(cleanVal) + '</div>' +
                           '<div style="font-size:9px; color:rgba(255,255,255,0.4); text-transform:uppercase;">By: ' + esc(log.user) + '</div>' +
                           '</div>';
                   }).join('');

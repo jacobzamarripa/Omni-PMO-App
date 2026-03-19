@@ -2,23 +2,24 @@
 
 ## 🔴 NOW (Bugs & Quick Wins)
 *Focus: UI Layout, Z-Index issues, and Data Formatting.*
+**Status:** All `NOW` backlog items are complete.
 
-- [ ] **Deck view: Calendar + calculator widgets z-index**
+- [x] **Deck view: Calendar + calculator widgets z-index**
   - **Expected:** Widgets always float on top of all deck content.
   - **Acceptance:** Opening calendar/calculator renders above the slide across all interactions (open/close, resize).
-- [ ] **Diagnostics / action pills: Incorrect color mapping**
+- [x] **Diagnostics / action pills: Incorrect color mapping**
   - **Expected:** "OFS" and "Complete" pills consistently use the intended CSS variables.
   - **Acceptance:** No fallback to default/incorrect colors; matches design spec in all views.
-- [ ] **Dates/times: Normalize formatting**
+- [x] **Dates/times: Normalize formatting**
   - **Expected:** Ignore "midnight timestamp" noise (00:00:00) in change log and across app.
   - **Acceptance:** Change log displays date-only changes without time. Formatting is consistent.
-- [ ] **Dock + filter pills: Offset positioning + layering rules**
+- [x] **Dock + filter pills: Offset positioning + layering rules**
   - **Expected:** Filter pills float a few pixels above/below the dock depending on dock position.
   - **Acceptance:** No overlap with dock. Pills do not block widget interactions.
-- [ ] **Deck view: Polymorphic dock not switching cleanly**
+- [x] **Deck view: Polymorphic dock not switching cleanly**
   - **Expected:** Dock renders correct controls for active view only; no redundant spacers.
   - **Acceptance:** Switching views swaps dock contents correctly with no dead space.
-- [ ] **Review Hub/Admin panel: Add tab pill counter badges**
+- [x] **Review Hub/Admin panel: Add tab pill counter badges**
   - **Expected:** Purple badge for Activity, Green for Reviewed.
   - **Acceptance:** Badges update dynamically and match Admin counter badge styling.
 

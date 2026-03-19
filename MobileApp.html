@@ -77,6 +77,13 @@
       --pill-active-txt: #fb923c;
       --pill-default-bg: rgba(148,163,184,0.16);
       --pill-default-txt: #475569;
+      --pill-active-bdr: #facc15;
+      --pill-ofs-bdr: #3b82f6;
+      --pill-permitting-bdr: #a855f7;
+      --pill-complete-bdr: #22c55e;
+      --pill-hold-bdr: #94a3b8;
+      --pill-missing-txt: #b91c1c;
+      --pill-missing-bdr: #ef4444;
 
       --vel-ug: var(--qb-ug);
       --vel-ae: var(--qb-ae-bg);
@@ -508,19 +515,19 @@
       padding: 4px 8px;
       border-radius: 6px;
     }
-    .pill-active { color: #b45309; background: rgba(253, 224, 71, 0.25); border-color: #facc15; }
-    .pill-ofs { color: #1d4ed8; background: rgba(59, 130, 246, 0.15); border-color: #3b82f6; }
-    .pill-permit { color: #7e22ce; background: rgba(168, 85, 247, 0.15); border-color: #a855f7; }
-    .pill-complete { color: #15803d; background: rgba(34, 197, 94, 0.15); border-color: #22c55e; }
-    .pill-hold { color: #475569; background: rgba(148, 163, 184, 0.15); border-color: #94a3b8; }
-    .pill-missing { color: #b91c1c; background: rgba(239, 68, 68, 0.15); border-color: #ef4444; }
+    .pill-active  { color: var(--pill-active-txt);     background: var(--pill-active-bg);     border-color: var(--pill-active-bdr); }
+    .pill-ofs     { color: var(--pill-ofs-txt);         background: var(--pill-ofs-bg);         border-color: var(--pill-ofs-bdr); }
+    .pill-permit  { color: var(--pill-permitting-txt);  background: var(--pill-permitting-bg);  border-color: var(--pill-permitting-bdr); }
+    .pill-complete{ color: var(--pill-complete-txt);    background: var(--pill-complete-bg);    border-color: var(--pill-complete-bdr); }
+    .pill-hold    { color: var(--pill-hold-txt);        background: var(--pill-hold-bg);        border-color: var(--pill-hold-bdr); }
+    .pill-missing { color: var(--pill-missing-txt);     background: rgba(239,68,68,0.15);       border-color: var(--pill-missing-bdr); }
 
-    body.dark-mode .pill-active { color: #fde047; background: rgba(253, 224, 71, 0.15); border-color: #ca8a04; }
-    body.dark-mode .pill-ofs { color: #93c5fd; background: rgba(59, 130, 246, 0.15); border-color: #2563eb; }
-    body.dark-mode .pill-permit { color: #d8b4fe; background: rgba(168, 85, 247, 0.15); border-color: #9333ea; }
-    body.dark-mode .pill-complete { color: #86efac; background: rgba(34, 197, 94, 0.15); border-color: #16a34a; }
-    body.dark-mode .pill-hold { color: #cbd5e1; background: rgba(148, 163, 184, 0.15); border-color: #64748b; }
-    body.dark-mode .pill-missing { color: #fca5a5; background: rgba(239, 68, 68, 0.15); border-color: #dc2626; }
+    body.dark-mode .pill-active  { color: #fde047;  background: rgba(253,224,71,0.15);  border-color: #ca8a04; }
+    body.dark-mode .pill-ofs     { color: #93c5fd;  background: rgba(59,130,246,0.15);  border-color: #2563eb; }
+    body.dark-mode .pill-permit  { color: #d8b4fe;  background: rgba(168,85,247,0.15);  border-color: #9333ea; }
+    body.dark-mode .pill-complete{ color: #86efac;  background: rgba(34,197,94,0.15);   border-color: #16a34a; }
+    body.dark-mode .pill-hold    { color: #cbd5e1;  background: rgba(148,163,184,0.15); border-color: #64748b; }
+    body.dark-mode .pill-missing { color: #fca5a5;  background: rgba(239,68,68,0.15);   border-color: #dc2626; }
 
     .card-sub {
       font-size: 12px;
@@ -743,6 +750,18 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+    }
+    .ob-tab-badge-admin {
+      background: rgba(239, 68, 68, 0.14);
+      color: #b91c1c;
+    }
+    .ob-tab-badge-purple {
+      background: rgba(168, 85, 247, 0.14);
+      color: #7c3aed;
+    }
+    .ob-tab-badge-green {
+      background: rgba(34, 197, 94, 0.14);
+      color: #15803d;
     }
     .panel-tab.active .ob-tab-badge {
       background: rgba(59, 130, 246, 0.12);
@@ -2133,8 +2152,8 @@
       </div>
       <button onclick="toggleDigest(true); closeAdminSheet();" style="margin:8px 16px 0; padding:10px 14px; background:rgba(59,130,246,0.1); color:#3b82f6; border:1px solid rgba(59,130,246,0.2); border-radius:12px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.5px; width:calc(100% - 32px); text-align:left;">Morning Briefing</button>
       <div class="review-hub-tabs">
-        <button class="panel-tab active" id="tab-admin" onclick="switchMobileTab('admin')">Admin <span class="ob-tab-badge" id="badge-admin">0</span></button>
-        <button class="panel-tab" id="tab-reviewed" onclick="switchMobileTab('reviewed')">Activity <span class="ob-tab-badge" id="badge-reviewed">0</span></button>
+        <button class="panel-tab active" id="tab-admin" onclick="switchMobileTab('admin')">Admin <span class="ob-tab-badge ob-tab-badge-admin" id="badge-admin">0</span></button>
+        <button class="panel-tab" id="tab-reviewed" onclick="switchMobileTab('reviewed')">Activity <span class="ob-tab-badge ob-tab-badge-purple" id="badge-reviewed">0</span></button>
       </div>
       <div id="ob-panel-admin" class="review-hub-panel active">
         <div class="admin-strip" id="admin-strip"></div>
@@ -2461,8 +2480,15 @@ function fmt(n) { return n ? Number(n).toLocaleString() : '—'; }
 
 function formatDate(val) {
   if (!val) return 'TBD';
-  var d = new Date(val);
-  if (isNaN(d.getTime())) return String(val);
+  var d;
+  if (val instanceof Date) {
+    d = val;
+  } else {
+    var raw = String(val).split('GMT')[0].split('(')[0].trim();
+    d = new Date(raw);
+    if (isNaN(d.getTime())) d = new Date(val);
+  }
+  if (!d || isNaN(d.getTime())) return String(val);
   return d.toLocaleDateString('en-US', { month:'numeric', day:'numeric', year:'2-digit', timeZone:'UTC' });
 }
 
