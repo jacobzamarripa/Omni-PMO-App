@@ -604,6 +604,70 @@
       .dock-zone.collapsed > * {
           transform: scale(0.85);
       }
+      .slide-action-deck {
+          position: absolute;
+          left: 50%;
+          bottom: 30px;
+          transform: translateX(-50%) translateY(18px) scale(0.985);
+          display: none;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 10px 14px;
+          border-radius: 34px;
+          background: rgba(255, 255, 255, 0.72);
+          backdrop-filter: blur(32px) saturate(200%);
+          -webkit-backdrop-filter: blur(32px) saturate(200%);
+          border: 1px solid rgba(255, 255, 255, 0.82);
+          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14), inset 0 1px 1px rgba(255,255,255,1);
+          z-index: 2001;
+          opacity: 0;
+          pointer-events: none;
+          transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease, filter 0.8s ease;
+      }
+      .slide-action-deck.visible {
+          display: inline-flex;
+          opacity: 1;
+          pointer-events: auto;
+          transform: translateX(-50%) translateY(0) scale(1);
+      }
+      .slide-action-deck.dock-idle {
+          opacity: 0.05;
+          filter: blur(6px);
+          pointer-events: none;
+          transform: translateX(-50%) translateY(20px);
+      }
+      .slide-action-cluster {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+      }
+      .slide-action-primary {
+          padding: 0 2px;
+      }
+      .slide-action-deck .dock-arrow {
+          position: static !important;
+          left: auto !important;
+          right: auto !important;
+          top: auto !important;
+          bottom: auto !important;
+          transform: none !important;
+      }
+      .slide-action-deck #dock-btn-slide-theme {
+          width: 44px;
+          height: 44px;
+          padding: 0 !important;
+          border-radius: 50%;
+          font-size: 0 !important;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+      }
+      body.dark-mode .slide-action-deck {
+          background: rgba(24, 24, 27, 0.72);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42), inset 0 1px 1px rgba(255,255,255,0.05);
+      }
       /* Segmented View Switcher */
       .view-segment-group {
           display: flex;
@@ -2288,7 +2352,6 @@
           <div class="detail-layout" id="detail-layout" style="display:flex;">
             <div class="detail-main">
                  <div class="filter-strip smart-dock" id="filter-strip">
-            <button class="dock-arrow prev collapsed" id="dock-nav-prev" onclick="navDeck(-1)">&#8249;</button>
             <div class="dock-zone collapsed" id="dock-system-zone" style="justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
                 <span id="dock-sys-spinner" class="dock-spinner" style="display:none;"></span>
                 <span id="dock-sys-msg"></span>
@@ -2325,16 +2388,6 @@
                 <button class="btn hover-trigger" id="dock-btn-presentation" onclick="togglePresentationMode()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Theater Mode</button>
             </div>
 
-            <div class="dock-zone collapsed" id="dock-deck-actions-zone">
-                <div class="dock-divider"></div>
-                <button class="btn hover-trigger" id="dock-btn-slide-theme" onclick="toggleSlideSpecificTheme()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);"></button>
-                <button class="btn hover-trigger" id="dock-btn-skip" onclick="navDeck(1)" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Skip (Next)</button>
-
-                <button class="btn hover-trigger" id="dock-btn-stage" onclick="toggleStageCurrentDeckItem()" style="background:#a855f7; color:#fff; border-color:#9333ea;">Stage Project</button>
-                <button class="btn hover-trigger" onclick="exportDeckReport()" id="btn-export-deck" style="background:#16a34a; color:#fff; border-color:#15803d;">Copy Report</button>
-                <button class="btn collapsed hover-trigger" id="dock-btn-save" onclick="saveDeckToSheet(this)" style="background:#3b82f6; color:#fff; border-color:#2563eb;">Save to Sheet</button>
-            </div>
-
             <div class="dock-zone collapsed" id="dock-gantt-actions-zone">
                 <div class="dock-divider"></div>
                 <button class="btn collapsed hover-trigger" id="dock-btn-exit-theater" onclick="exitTheaterMode()" style="background:#a855f7; color:#fff; border-color:#9333ea; padding: 0 14px;">Exit Focus</button>
@@ -2344,7 +2397,21 @@
             <div class="dock-zone collapsed" id="dock-clear-zone">
                 <button class="btn hover-trigger" id="btn-clear-filters" onclick="clearAllFilters()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border); padding:0 12px;">Clear</button>
             </div>
-            <button class="dock-arrow next collapsed" id="dock-nav-next" onclick="navDeck(1)">&#8250;</button>
+        </div>
+        <div class="slide-action-deck" id="slide-action-deck">
+            <div class="slide-action-cluster">
+                <button class="dock-arrow prev" id="dock-nav-prev" onclick="navDeck(-1)">&#8249;</button>
+                <button class="dock-arrow next" id="dock-nav-next" onclick="navDeck(1)">&#8250;</button>
+                <button class="btn hover-trigger" id="dock-btn-skip" onclick="navDeck(1)" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);">Skip (Next)</button>
+            </div>
+            <div class="slide-action-cluster slide-action-primary">
+                <button class="btn hover-trigger" id="dock-btn-stage" onclick="toggleStageCurrentDeckItem()" style="background:#a855f7; color:#fff; border-color:#9333ea;">Stage Project</button>
+                <button class="btn hover-trigger" onclick="exportDeckReport()" id="btn-export-deck" style="background:#16a34a; color:#fff; border-color:#15803d;">Copy Report</button>
+                <button class="btn collapsed hover-trigger" id="dock-btn-save" onclick="saveDeckToSheet(this)" style="background:#3b82f6; color:#fff; border-color:#2563eb;">Save to Sheet</button>
+            </div>
+            <div class="slide-action-cluster">
+                <button class="btn hover-trigger" id="dock-btn-slide-theme" onclick="toggleSlideSpecificTheme()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border);"></button>
+            </div>
         </div>
         <div id="active-filter-pills"></div>
                  <div id="welcome-screen" class="empty-msg"><div style="font-size:32px; margin-bottom:12px;">Select a Project</div></div>
@@ -2723,9 +2790,13 @@
       let pendingFaceAnimation = null;
       let preferredPresentationCardTheme = null;
 
+      function isSlideFaceActive() {
+          return currentWorkspaceView === 'detail' && currentDetailFace === 'slide';
+      }
+
       function syncWorkspaceModeState() {
           isGridMode = (currentWorkspaceView === 'grid');
-          isDeckMode = (currentWorkspaceView === 'detail' && currentDetailFace === 'slide');
+          isDeckMode = isSlideFaceActive();
 
           document.body.classList.remove('grid-mode-active', 'deck-mode-active');
           if (isGridMode || currentWorkspaceView === 'digest') document.body.classList.add('grid-mode-active');
@@ -2743,19 +2814,16 @@
           const pivotZone = getEl('dock-pivot-zone');
           const filtersZone = getEl('dock-filters-zone');
           const focusZone = getEl('dock-focus-zone');
-          const deckActionsZone = getEl('dock-deck-actions-zone');
           const clearZone = getEl('dock-clear-zone');
-          const navPrev = getEl('dock-nav-prev');
-          const navNext = getEl('dock-nav-next');
           const faceBtn = getEl('dock-btn-face-toggle');
+          const slideDeck = getEl('slide-action-deck');
+          const showSlideDeck = isSlideFaceActive() && !document.body.classList.contains('gantt-fullscreen');
 
           if (filtersZone) filtersZone.classList.remove('collapsed');
           if (pivotZone) pivotZone.classList.toggle('collapsed', !isGridModeView);
           if (focusZone) focusZone.classList.toggle('collapsed', !isDetailMode);
-          if (deckActionsZone) deckActionsZone.classList.toggle('collapsed', !isDeckMode);
-          if (navPrev) navPrev.classList.toggle('collapsed', !isDeckMode);
-          if (navNext) navNext.classList.toggle('collapsed', !isDeckMode);
           if (clearZone) clearZone.classList.toggle('collapsed', getEl('btn-clear-filters')?.classList.contains('collapsed') !== false);
+          if (slideDeck) slideDeck.classList.toggle('visible', showSlideDeck);
 
           if (faceBtn) {
               faceBtn.style.display = isDetailMode ? 'inline-flex' : 'none';
@@ -2768,6 +2836,7 @@
           if (sortQueue) sortQueue.style.display = isDeckMode ? 'none' : '';
           const sidebarPivot = getEl('sidebar-pivot-select');
           if (sidebarPivot) sidebarPivot.style.display = isDeckMode ? 'inline-block' : 'none';
+          syncSlideActionDeck();
       }
 
       function renderDetailWorkspaceFace() {
@@ -2891,6 +2960,17 @@
           setTimeout(() => {
               dock.classList.remove('dock-slide-down-enter', 'dock-rise-up-enter');
           }, 460);
+      }
+
+      function syncSlideActionDeck() {
+          const deck = getEl('slide-action-deck');
+          if (!deck) return;
+          const isFs = document.body.classList.contains('gantt-fullscreen');
+          const showDeck = isSlideFaceActive() && !isFs;
+          deck.classList.toggle('visible', showDeck);
+          deck.classList.toggle('theater-active', showDeck && isPresentationMode);
+          if (!showDeck) deck.classList.remove('dock-idle');
+          syncSlideThemeButton();
       }
 
       function getStageColor(stage) {
@@ -3097,10 +3177,7 @@
       function restoreDockState() {
           getEl('dock-system-zone').classList.add('collapsed');
           previousDockState.forEach(id => getEl(id)?.classList.remove('collapsed'));
-          if (typeof isDeckMode !== 'undefined' && isDeckMode) {
-              getEl('dock-nav-prev')?.classList.remove('collapsed');
-              getEl('dock-nav-next')?.classList.remove('collapsed');
-          }
+          syncSlideActionDeck();
       }
 
       function syncGanttIslandState() {
@@ -3113,14 +3190,12 @@
           const filtersZone = getEl('dock-filters-zone');
           const pivotZone   = getEl('dock-pivot-zone');
           const focusZone   = getEl('dock-focus-zone');
-          const deckZone    = getEl('dock-deck-actions-zone');
           const clearZone   = getEl('dock-clear-zone');
-          const navPrev     = getEl('dock-nav-prev');
-          const navNext     = getEl('dock-nav-next');
           const isGrid      = currentWorkspaceView === 'grid';
           const isDeck      = isDeckMode;
           const isDetail    = currentWorkspaceView === 'detail';
           const showFocusZone = isDetail;
+          const slideDeck   = getEl('slide-action-deck');
 
           if (btnFs) btnFs.classList.toggle('collapsed', !isFs);
           if (btnFocus) btnFocus.classList.toggle('collapsed', !(isFs && hasFocus));
@@ -3133,35 +3208,24 @@
               if (filtersZone) filtersZone.classList.remove('collapsed');
               if (pivotZone) pivotZone.classList.add('collapsed');
               if (focusZone) focusZone.classList.add('collapsed');
-              if (deckZone) deckZone.classList.add('collapsed');
               if (clearZone) clearZone.classList.toggle('collapsed', getEl('btn-clear-filters')?.classList.contains('collapsed') !== false);
-              if (navPrev) navPrev.classList.add('collapsed');
-              if (navNext) navNext.classList.add('collapsed');
+              if (slideDeck) slideDeck.classList.remove('visible');
           } else if (isPresentationMode) {
-              if (filtersZone) filtersZone.classList.add('collapsed');
+              if (filtersZone) filtersZone.classList.toggle('collapsed', isDeck);
               if (pivotZone) pivotZone.classList.add('collapsed');
               if (focusZone) focusZone.classList.toggle('collapsed', !showFocusZone);
-              if (deckZone) deckZone.classList.toggle('collapsed', !isDeck);
               if (clearZone) clearZone.classList.add('collapsed');
-              if (navPrev) navPrev.classList.toggle('collapsed', !isDeck);
-              if (navNext) navNext.classList.toggle('collapsed', !isDeck);
               const tBtn = getEl('dock-btn-slide-theme');
-              if (tBtn) {
-                  tBtn.style.display = isDeck ? 'inline-flex' : 'none';
-                  const isDark = (isDeck && getEl('deck-stage-card')?.classList.contains('slide-dark-mode')) ||
-                                 (!isDeck && document.querySelector('.qb-grid')?.classList.contains('slide-dark-mode'));
-                  tBtn.innerHTML = isDark ? _SUN_SVG : _MOON_SVG;
-              }
+              if (tBtn) syncSlideThemeButton();
+              if (slideDeck) slideDeck.classList.toggle('visible', isDeck);
           } else {
               if (filtersZone) filtersZone.classList.remove('collapsed');
               if (pivotZone) pivotZone.classList.toggle('collapsed', !isGrid);
               if (focusZone) focusZone.classList.toggle('collapsed', !showFocusZone);
-              if (deckZone) deckZone.classList.toggle('collapsed', !isDeck);
-              if (navPrev) navPrev.classList.toggle('collapsed', !isDeck);
-              if (navNext) navNext.classList.toggle('collapsed', !isDeck);
               if (clearZone) clearZone.classList.toggle('collapsed', getEl('btn-clear-filters')?.classList.contains('collapsed') !== false);
               const tBtn = getEl('dock-btn-slide-theme');
-              if (tBtn) tBtn.style.display = isDeck ? 'inline-flex' : 'none';
+              if (tBtn) syncSlideThemeButton();
+              if (slideDeck) slideDeck.classList.toggle('visible', isDeck);
           }
       }
 
@@ -6938,12 +7002,12 @@
       // Stealth Dock idle timer
       function resetDeckIdleTimer() {
         if (!isPresentationMode) return;
-        const dock = document.getElementById('filter-strip');
+        const dock = (isSlideFaceActive() ? document.getElementById('slide-action-deck') : document.getElementById('filter-strip'));
         if (dock) dock.classList.remove('dock-idle');
         clearTimeout(deckIdleTimer);
         deckIdleTimer = setTimeout(() => {
           if (isPresentationMode) {
-            const d = document.getElementById('filter-strip');
+            const d = (isSlideFaceActive() ? document.getElementById('slide-action-deck') : document.getElementById('filter-strip'));
             if (d) d.classList.add('dock-idle');
           }
         }, 3000);
@@ -7794,23 +7858,35 @@ ${item.comment || 'No notes provided.'}
         left: 50% !important; transform: translateX(-50%) !important; margin: 0 !important;
         display: flex !important;
       }
+      body.presentation-active.deck-mode-active .filter-strip {
+        display: none !important;
+      }
       body.presentation-active #pane-content {
         padding-bottom: 120px !important;
       }
       body.presentation-active .filter-strip.dock-idle {
         opacity: 0.05; filter: blur(6px); pointer-events: none; transform: translateX(-50%) translateY(20px);
       }
-      /* Hide redundant nav in Cinema */
-      body.presentation-active #dock-btn-skip { display: none !important; }
-      body.presentation-active .dock-arrow { display: inline-flex !important; color: #fff !important; opacity: 0.8; }
+      body.presentation-active #slide-action-deck {
+        position: fixed !important;
+        bottom: 40px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        z-index: 2000006 !important;
+        background: rgba(24, 24, 27, 0.96) !important;
+        color: #fff !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+      }
+      body.presentation-active:not(.deck-mode-active) #slide-action-deck {
+        display: none !important;
+      }
+      body.presentation-active .slide-action-deck .dock-arrow { color: #fff !important; opacity: 0.9; }
       #dock-btn-presentation:hover {
         background: var(--color-insight, #a855f7) !important;
         color: #fff !important;
         border-color: #9333ea !important;
       }
-      /* Slide theme: hidden by default, shown only in Cinema */
-      #dock-btn-slide-theme { display: none !important; width: 44px; height: 44px; padding: 0 !important; border-radius: 50%; font-size: 0 !important; align-items: center; justify-content: center; }
-      body.presentation-active #dock-btn-slide-theme { display: inline-flex !important; }
+      #dock-btn-slide-theme { width: 44px; height: 44px; padding: 0 !important; border-radius: 50%; font-size: 0 !important; align-items: center; justify-content: center; }
       body.presentation-active .top-nav,
       body.presentation-active .inbox-sidebar,
       body.presentation-active .outbox-pane { display: none !important; }

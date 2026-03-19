@@ -27,6 +27,11 @@
 ## 🟡 NEXT (Core Workflow & Enhancements)
 *Focus: Queue management, Admin panels, and Core Data filtering.*
 
+- [ ] **Task 8: Split Slide Dock / Bottom Action Deck / Theater Dock Simplification**
+  - Keep filters/search/face toggle in the shared top dock
+  - Move Slide-only actions into a dedicated bottom action deck
+  - Hide the top dock in Slide Theater mode and keep only the bottom control rail
+  - Resolve the lingering empty dock space by removing Slide actions from the shared dock layout
 - [x] **Theater mode: Detail card / deck slide sizing**
   - **Expected:** Increase card/slide size slightly while maintaining aspect ratio.
   - **Acceptance:** Card is visibly larger but retains comfortable margins (not edge-to-edge).
