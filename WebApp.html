@@ -553,11 +553,15 @@
           padding-left: 0 !important;
           padding-right: 0 !important;
           gap: 0 !important;
+          overflow: hidden !important;
           pointer-events: none;
           border: none !important;
       }
       .dock-zone.collapsed > * {
           transform: scale(0.85);
+      }
+      .dock-zone.collapsed .dock-divider {
+          display: none !important;
       }
       /* Segmented View Switcher */
       .view-segment-group {
@@ -1238,8 +1242,10 @@
           align-items: center !important;
           justify-content: center !important;
           padding-top: 40px !important;
+          padding-right: 420px !important;
           padding-bottom: 120px !important;
           overflow: auto !important;
+          box-sizing: border-box !important;
       }
       body.deck-mode-active .inbox-sidebar {
           display: flex !important;
@@ -3205,7 +3211,7 @@
 
       function getDiagnosticTagClass(flag) {
           let f = String(flag || '').toUpperCase();
-          if (/(^|\\b)COMPLETE(\\b|$)/.test(f)) return 'tag-green';
+          if (/\bCOMPLETE\b/.test(f)) return 'tag-green';
           if (f.includes('ADMIN: CHECK CROSSINGS') || f.includes('ADMIN: REFRESH REF DATA')) return 'tag-admin';
           if (f.includes('STATUS MISMATCH') || f.includes('MISSING QB STATUS')) return 'tag-yellow';
           if (f.includes('🚨') || f.includes('🛑') || f.includes('🚩')) return 'tag-red';
