@@ -1903,10 +1903,6 @@
           margin: 0 !important;
           z-index: 10005 !important;
       }
-      body.gantt-fullscreen .detail-main {
-          display: block !important;
-          width: 100vw !important;
-      }
       body.gantt-fullscreen #welcome-screen,
       body.gantt-fullscreen #grid-content,
       body.gantt-fullscreen #digest-workspace,
@@ -6679,10 +6675,10 @@
         }
         if (deckStage) {
             deckStage.style.display = 'none';
-            deckStage.style.flex = '0 0 auto';
-            deckStage.style.width = '0';
-            deckStage.style.padding = '0';
-            deckStage.style.overflow = 'hidden';
+            deckStage.style.flex = '';
+            deckStage.style.width = '';
+            deckStage.style.padding = '';
+            deckStage.style.overflow = '';
         }
         if (grid) grid.classList.toggle('active', isGridMode);
 
@@ -7580,7 +7576,7 @@ ${item.comment || 'No notes provided.'}
         cursor: pointer;
       }
       /* Shared focus properties */
-      #deck-stage-card, .qb-grid {
+      #deck-stage-card {
         width: min(92vw, 1320px) !important;
         max-width: min(92vw, 1320px) !important;
         max-height: min(88vh, calc(100vh - 120px)) !important;
@@ -7615,10 +7611,7 @@ ${item.comment || 'No notes provided.'}
         overflow-y: auto !important;
       }
       body.presentation-active .qb-grid {
-        width: min(92vw, 1280px) !important;
-        max-width: min(92vw, 1280px) !important;
-        max-height: min(88vh, calc(100vh - 110px)) !important;
-        transform: scale(1.04);
+        transform: scale(1.02);
       }
       /* Dynamic Executive Typography Scaling */
       body.presentation-active .slide-hdr-id { font-size: 32px !important; }
