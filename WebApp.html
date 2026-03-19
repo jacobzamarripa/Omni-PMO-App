@@ -1244,6 +1244,15 @@
       body.deck-mode-active .inbox-sidebar {
           display: flex !important;
       }
+      body.deck-mode-active .outbox-pane {
+          position: absolute !important;
+          right: 0 !important;
+          top: 0 !important;
+          bottom: 0 !important;
+          height: 100% !important;
+          z-index: 1005 !important;
+          box-shadow: -15px 0 40px rgba(0,0,0,0.2) !important;
+      }
       body.deck-mode-active .inbox-list {
           padding: 14px;
           gap: 12px;
@@ -3196,7 +3205,7 @@
 
       function getDiagnosticTagClass(flag) {
           let f = String(flag || '').toUpperCase();
-          if (f === 'COMPLETE') return 'tag-green';
+          if (/(^|\\b)COMPLETE(\\b|$)/.test(f)) return 'tag-green';
           if (f.includes('ADMIN: CHECK CROSSINGS') || f.includes('ADMIN: REFRESH REF DATA')) return 'tag-admin';
           if (f.includes('STATUS MISMATCH') || f.includes('MISSING QB STATUS')) return 'tag-yellow';
           if (f.includes('🚨') || f.includes('🛑') || f.includes('🚩')) return 'tag-red';
