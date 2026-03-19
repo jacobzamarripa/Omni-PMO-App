@@ -4047,8 +4047,6 @@
       applyTheme(_sysDark.matches);
       _sysDark.addEventListener('change', e => applyTheme(e.matches));
       applyViewMode(); // restore persisted queue view (card/list/grid)
-      loadReviewedTray();
-      renderOutbox();
       if (navigator.maxTouchPoints > 1 && window.innerWidth >= 769) document.body.classList.add('touch-tablet');
       // Debounced search filter (300ms delay prevents re-render on every keystroke)
       let _filterDebounce;
@@ -4740,6 +4738,8 @@
       let globalRefDataDate = "";
       let globalAllFdhIds = [];
       // View mode is managed by currentViewMode + applyViewMode()
+      loadReviewedTray();
+      renderOutbox();
 
       function persistReviewedTray() {
           try { localStorage.setItem(REVIEWED_TRAY_STORAGE_KEY, JSON.stringify(committedItems || [])); } catch (e) {}
@@ -6218,6 +6218,7 @@
       function renderOutbox() {
           const list = getEl('outbox-list');
           if (!list) return;
+          if (typeof committedItems === 'undefined' || typeof stagedDeckItems === 'undefined') return;
           const stagedItems = getStagedReviewItems();
           const reviewedItems = committedItems || [];
           const totalCount = stagedItems.length + reviewedItems.length;
