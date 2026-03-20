@@ -3206,6 +3206,7 @@
                 <div class="ms-wrap" id="wrap-filter-vendor"></div>
                 <div class="ms-wrap" id="wrap-filter-city"></div>
                 <div class="ms-wrap" id="wrap-filter-ofs"></div>
+                <div class="ms-wrap" id="wrap-filter-status"></div>
                 <select id="filter-log-user" onchange="renderGrid()" style="display:none; margin-left:8px;">
                     <option value="ALL">All Users</option>
                 </select>
@@ -3231,6 +3232,15 @@
 
             <div class="dock-zone collapsed" id="dock-gantt-actions-zone">
                 <div class="dock-divider"></div>
+                <select id="gantt-sort-select" class="gantt-sort-select" onchange="syncGanttSort(this.value)">
+                    <option value="end">CX Complete</option>
+                    <option value="start">CX Start</option>
+                    <option value="target">Target Date</option>
+                    <option value="ofs">OFS Date</option>
+                    <option value="report">Report Date</option>
+                    <option value="admin">Admin Check</option>
+                    <option value="default">Default</option>
+                </select>
                 <button class="btn collapsed hover-trigger" id="dock-btn-exit-theater" onclick="exitTheaterMode()" style="background:#a855f7; color:#fff; border-color:#9333ea; padding: 0 14px;">Exit Focus</button>
                 <button class="btn collapsed hover-trigger" id="dock-btn-exit-fs" onclick="switchWorkspaceView('detail')" style="background:var(--text-main); color:var(--bg); border-color:var(--text-main); padding: 0 14px;">Exit Gantt</button>
             </div>
@@ -3552,15 +3562,6 @@
                 <div style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--text-muted);">Global Construction Timeline</div>
             </div>
             <div class="gantt-controls-actions">
-                <select id="gantt-sort-select" class="gantt-sort-select" onchange="syncGanttSort(this.value)">
-                    <option value="end">CX Complete</option>
-                    <option value="start">CX Start</option>
-                    <option value="target">Target Date</option>
-                    <option value="ofs">OFS Date</option>
-                    <option value="report">Report Date</option>
-                    <option value="admin">Admin Check</option>
-                    <option value="default">Default</option>
-                </select>
                 <button class="btn btn-nav" id="btn-exit-theater" style="display:none; padding: 4px 8px; font-size: 9px; background:var(--text-main); color:var(--bg);" onclick="event.stopPropagation(); clearGanttFocus()">Exit Focus</button>
             </div>
         </div>
@@ -3629,7 +3630,7 @@
       let isPresentationMode = false; // Controls Theater blackout
       let deckIdleTimer = null;
       let activePieStageFilter = null;
-      let activeFilters = { sev: [], vendor: [], city: [], ofs: [] };
+      let activeFilters = { sev: [], vendor: [], city: [], ofs: [], status: [] };
       let openDropdownId = null;
       const CHANGELOG_PULSE_SESSION_KEY = 'changelogPulseSeen';
       const STAGED_REVIEW_SESSION_KEY = 'dpa.stagedReviewItems.v1';
@@ -3919,7 +3920,7 @@
       }
 
       function getFilterCategoryLabel(category) {
-          return ({ sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS' }[category]) || category;
+          return ({ sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS', status: 'Status' }[category]) || category;
       }
 
       function getFilterValueLabel(category, value) {
@@ -3934,13 +3935,13 @@
       function getFilterSummaryText(category, selected, optionLabelMap, defaultLabel) {
           if (selected.length === 0) return defaultLabel;
           if (selected.length === 1) return optionLabelMap[selected[0]] || selected[0];
-          let pluralLabel = ({ sev: 'Health Filters', vendor: 'Vendors', city: 'Cities', ofs: 'OFS Filters' }[category]) || `${getFilterCategoryLabel(category)}s`;
+          let pluralLabel = ({ sev: 'Health Filters', vendor: 'Vendors', city: 'Cities', ofs: 'OFS Filters', status: 'Statuses' }[category]) || `${getFilterCategoryLabel(category)}s`;
           return `${selected.length} ${pluralLabel}`;
       }
 
       function getProjectsHudFilterEntries() {
           let entries = [];
-          ['sev', 'vendor', 'city', 'ofs'].forEach(function(category) {
+          ['sev', 'vendor', 'city', 'ofs', 'status'].forEach(function(category) {
               (activeFilters[category] || []).forEach(function(value) {
                   entries.push({
                       category: category,
@@ -4111,7 +4112,7 @@
           const container = getEl('active-filter-pills');
           if (!container) return;
           container.innerHTML = '';
-          const categories = { sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS', user: 'User' };
+          const categories = { sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS', status: 'Status', user: 'User' };
           Object.keys(activeFilters).forEach(cat => {
               activeFilters[cat].forEach(val => {
                   const pill = document.createElement('div');
@@ -4219,6 +4220,7 @@
       function syncGanttSort(value) {
           const queueSort = getEl('sort-queue');
           if (queueSort) queueSort.value = value || 'end';
+          syncSortControls();
           applyFilters();
       }
 
@@ -4464,6 +4466,7 @@
 
           const ganttArea = getEl('gantt-area-main');
           if (ganttArea) ganttArea.classList.add('has-focus');
+          applyGanttFocusState('smooth');
           syncGanttIslandState();
 
           // Set as active item so note sync works
@@ -5127,6 +5130,7 @@
 
       function exitTheaterMode(e) {
           if (e && e.target.closest('.gantt-quick-peek')) return;
+          if (e && e.target.closest('.gantt-row')) return;
           closeQuickPeek();
           if (e && e.target.closest('.gantt-row:not(.is-active)') && !e.target.closest('.gantt-spike-label') && !e.target.closest('.gantt-today-label')) return;
           if (e && (e.target.closest('.gantt-spike-label') || e.target.closest('.gantt-today-label'))) return;
@@ -7042,13 +7046,15 @@
                 let mVen = skipCategory === 'vendor' || activeFilters.vendor.length === 0 || activeFilters.vendor.includes(item.vendor);
                 let mCit = skipCategory === 'city' || activeFilters.city.length === 0 || activeFilters.city.includes(item.city);
                 let mOfs = skipCategory === 'ofs' || activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
+                let mStatus = skipCategory === 'status' || activeFilters.status.length === 0 || activeFilters.status.includes(item.status || '');
                 let mSearch = itemMatchesSearch(item, searchTerm);
-                return mSev && mVen && mCit && mOfs && mSearch;
+                return mSev && mVen && mCit && mOfs && mStatus && mSearch;
             };
 
             let validSev = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'sev')).map(i => getSeverity(i.flags)))];
             let validVen = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'vendor')).map(i => i.vendor).filter(Boolean))].sort();
             let validCit = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'city')).map(i => i.city).filter(Boolean))].sort();
+            let validStatus = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'status')).map(i => i.status).filter(Boolean))].sort();
             let validOfsSet = new Set();
             activeQueueItems.filter(i => filterMatch(i, 'ofs')).forEach(i => {
                 getOfsFilterBuckets(i, today).forEach(bucket => validOfsSet.add(bucket));
@@ -7063,6 +7069,7 @@
             activeFilters.vendor = activeFilters.vendor.filter(v => validVen.includes(v));
             activeFilters.city = activeFilters.city.filter(v => validCit.includes(v));
             activeFilters.ofs = activeFilters.ofs.filter(v => validOfs.includes(v));
+            activeFilters.status = activeFilters.status.filter(v => validStatus.includes(v));
 
             let sevOpts = [
                 { val: 'crit', label: 'Critical' },
@@ -7078,6 +7085,7 @@
             renderMultiSelect('wrap-filter-vendor', 'vendor', 'All Vendors', validVen.map(v => ({ val: v, label: v })));
             renderMultiSelect('wrap-filter-city', 'city', 'All Cities', validCit.map(v => ({ val: v, label: v })));
             renderMultiSelect('wrap-filter-ofs', 'ofs', 'All OFS Dates', ofsOpts);
+            renderMultiSelect('wrap-filter-status', 'status', 'All Statuses', validStatus.map(v => ({ val: v, label: v })));
 
             // Base filter: vendor/city/OFS/severity/search — NO admin filter
             // Used for badge counts so Crossings & QB Status always show correct totals
@@ -7087,8 +7095,9 @@
                 let mVen = activeFilters.vendor.length === 0 || activeFilters.vendor.includes(i.vendor);
                 let mCit = activeFilters.city.length === 0 || activeFilters.city.includes(i.city);
                 let mOfs = activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
+                let mStatus = activeFilters.status.length === 0 || activeFilters.status.includes(i.status || '');
                 let mSearch = itemMatchesSearch(i, searchTerm);
-                return mSev && mVen && mCit && mOfs && mSearch;
+                return mSev && mVen && mCit && mOfs && mStatus && mSearch;
             });
             setTxt('kpi-crossings-val', baseFiltered.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS")).length);
             setTxt('kpi-status-val', baseFiltered.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS")).length);
@@ -7206,7 +7215,7 @@
                 });
             } else { displayFiltered.sort((a, b) => a.rowNum - b.rowNum); }
             
-            let anyActive = activeFilters.sev.length > 0 || activeFilters.vendor.length > 0 || activeFilters.city.length > 0 || activeFilters.ofs.length > 0 || searchTerm !== '' || activeAdminFilter !== null || activePieStageFilter !== null;
+            let anyActive = activeFilters.sev.length > 0 || activeFilters.vendor.length > 0 || activeFilters.city.length > 0 || activeFilters.ofs.length > 0 || activeFilters.status.length > 0 || searchTerm !== '' || activeAdminFilter !== null || activePieStageFilter !== null;
             let clearBtn = getEl('btn-clear-filters');
             let clearZone = getEl('dock-clear-zone');
             if (clearBtn) clearBtn.classList.toggle('collapsed', !anyActive);
@@ -7231,7 +7240,7 @@
 
       function clearAllFilters() {
           let s = getEl('search-input'); if (s) s.value = '';
-          activeFilters = { sev: [], vendor: [], city: [], ofs: [] };
+          activeFilters = { sev: [], vendor: [], city: [], ofs: [], status: [] };
           activeAdminFilter = null;
           activePieStageFilter = null;
           if (openDropdownId) {
