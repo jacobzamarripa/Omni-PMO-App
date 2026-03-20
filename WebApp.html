@@ -429,13 +429,18 @@
           transform: translateX(-50%) !important;
           box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18), inset 0 1px 1px rgba(255,255,255,1) !important;
       }
+      body.gantt-view-active .filter-strip {
+          top: auto !important;
+          bottom: 16px !important;
+          z-index: 10020 !important;
+      }
       body.deck-mode-active:not(.presentation-active) .filter-strip {
           top: 16px !important;
           bottom: auto !important;
           z-index: 2000 !important;
       }
       body.deck-mode-active:not(.presentation-active) #deck-stage {
-          padding-top: 96px !important;
+          padding-top: 92px !important;
       }
       .filter-strip.dock-slide-down-enter {
           animation: dockSlideDownIn 420ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -1465,15 +1470,15 @@
       .pane-content {
           flex: 1;
           overflow-y: auto;
-          padding: 80px 20px 20px !important;
+          padding: 96px 20px 24px !important;
           width: 100% !important;
           max-width: none !important;
           margin: 0 auto;
           
           display: none;
           flex-direction: column;
-          justify-content: flex-start; /* 🧠 Lifts content to the top */
-          align-items: flex-start !important;
+          justify-content: center;
+          align-items: center !important;
           gap: 20px !important;
           position: relative;
           box-sizing: border-box;
@@ -1543,9 +1548,9 @@
           min-width: 0 !important;
           display: flex !important;
           align-items: center !important;
-          justify-content: flex-start !important;
-          padding-top: 40px !important;
-          padding-bottom: 120px !important;
+          justify-content: center !important;
+          padding-top: 88px !important;
+          padding-bottom: 24px !important;
           overflow: auto !important;
       }
       body.deck-mode-active .inbox-sidebar {
@@ -1580,7 +1585,7 @@
             gap: 0 !important;
             width: 100% !important;
             max-width: 1100px !important;
-            max-height: calc(100vh - 200px) !important;
+            max-height: calc(100vh - 150px) !important;
             margin: 0 auto !important;
             flex-shrink: 1 !important;
             min-height: 0 !important;
@@ -2157,7 +2162,20 @@
           box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;
       }
       .gantt-quick-peek .chat-bubble { min-height: 120px !important; }
-      .raw-data-strip { height: 52px; min-height: 52px; background: var(--bg); overflow-x: auto; overflow-y: hidden; display: flex; align-items: center; padding: 0 12px; flex-shrink: 0; transition: background 0.3s; margin-top: 0 !important; border-bottom: 1px solid var(--border); }
+      .raw-data-strip {
+          height: 52px;
+          min-height: 52px;
+          background: var(--bg);
+          overflow-x: auto;
+          overflow-y: hidden;
+          display: none;
+          align-items: center;
+          padding: 0 12px;
+          flex-shrink: 0;
+          transition: background 0.3s, opacity 0.2s ease;
+          margin-top: 0 !important;
+          border-top: 1px solid var(--border);
+      }
       .admin-list-card {
           padding: 14px 16px 12px !important;
           border-bottom: 1px solid var(--border) !important;
@@ -2230,7 +2248,7 @@
           top: var(--gantt-top-offset, 78px);
           left: 0;
           right: 0;
-          bottom: 0;
+          bottom: var(--gantt-bottom-offset, 0);
           flex: none;
           min-height: 0;
           height: auto !important;
@@ -3042,10 +3060,11 @@
                </div>
                  </div>
               </div>
-            <div id="deck-stage" style="display:none; flex:1; flex-direction:column; padding:40px; overflow-y:auto; align-items:center; justify-content:center; box-sizing:border-box;">
-                <div id="deck-stage-card" style="width:100%; max-width:1100px; max-height:calc(100vh - 200px); aspect-ratio:16/9; height:auto; flex-shrink:1; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;"></div>
+                 <div id="deck-stage" style="display:none; flex:1; flex-direction:column; padding:40px; overflow-y:auto; align-items:center; justify-content:center; box-sizing:border-box;">
+                <div id="deck-stage-card" style="width:100%; max-width:1100px; max-height:calc(100vh - 150px); aspect-ratio:16/9; height:auto; flex-shrink:1; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;"></div>
 
             </div>
+            <div class="raw-data-strip" id="raw-data-strip"></div>
             </div>
                 <div class="outbox-pane" id="outbox-pane">
                    <div id="review-hub-main-header" class="inbox-header" style="padding-top:14px; padding-bottom:14px; gap:12px;">
@@ -3223,7 +3242,6 @@
                 <button class="btn btn-nav" id="btn-exit-theater" style="display:none; padding: 4px 8px; font-size: 9px; margin-right:6px; background:var(--text-main); color:var(--bg);" onclick="event.stopPropagation(); clearGanttFocus()">Exit Focus</button>
             </div>
         </div>
-        <div class="raw-data-strip" id="raw-data-strip"></div>
         <div class="timeline-wrapper" id="gantt-wrapper">
            <div class="timeline-container" id="gantt-scroll" onclick="exitTheaterMode(event)">
                <div id="gantt-container"><div class="empty-msg" style="margin-top:20px;">Loading Timeline...</div></div>
@@ -3301,6 +3319,7 @@
       let pendingFaceAnimation = null;
       let preferredPresentationCardTheme = null;
       let isStagedReviewCollapsed = false;
+      let currentDockPlacement = 'top';
       let ganttHasMounted = false;
       let ganttNeedsRender = true;
       let ganttFocusedFdh = null;
@@ -3356,6 +3375,8 @@
           const sidebarPivot = getEl('sidebar-pivot-select');
           if (sidebarPivot) sidebarPivot.style.display = currentViewMode === 'grid' ? 'inline-block' : 'none';
           syncGanttViewportLayout();
+          syncDockPlacementState();
+          syncRawDataStripState();
           syncSlideActionDeck();
           syncDockLayoutSpacing();
           updateFloatingPillsPosition();
@@ -3482,6 +3503,32 @@
           setTimeout(() => {
               dock.classList.remove('dock-slide-down-enter', 'dock-rise-up-enter');
           }, 460);
+      }
+
+      function syncDockPlacementState() {
+          const dock = getEl('filter-strip');
+          if (!dock) return;
+          const nextPlacement = currentWorkspaceView === 'gantt' ? 'bottom' : 'top';
+          if (currentDockPlacement === nextPlacement) return;
+          dock.classList.remove('dock-slide-down-enter', 'dock-rise-up-enter');
+          void dock.offsetWidth;
+          dock.classList.add(nextPlacement === 'bottom' ? 'dock-slide-down-enter' : 'dock-rise-up-enter');
+          currentDockPlacement = nextPlacement;
+          setTimeout(() => {
+              dock.classList.remove('dock-slide-down-enter', 'dock-rise-up-enter');
+          }, 460);
+      }
+
+      function syncRawDataStripState() {
+          const strip = getEl('raw-data-strip');
+          if (!strip) return;
+          const shouldShow = currentWorkspaceView === 'detail' && currentActiveItem && Array.isArray(currentActiveItem.rawRow) && currentActiveItem.rawRow.length > 0;
+          strip.style.display = shouldShow ? 'flex' : 'none';
+          if (!shouldShow) {
+              strip.innerHTML = '';
+              strip.style.opacity = '1';
+              strip.style.pointerEvents = '';
+          }
       }
 
       function syncSlideActionDeck() {
@@ -3903,14 +3950,20 @@
           let nav = document.querySelector('.top-nav');
           let topOffset = nav ? Math.ceil(nav.getBoundingClientRect().bottom + 6) : 78;
           let dock = getEl('filter-strip');
+          let bottomOffset = 0;
           if (dock && getComputedStyle(dock).display !== 'none') {
-              topOffset = Math.max(topOffset, Math.ceil(dock.getBoundingClientRect().bottom + 10));
+              if (currentWorkspaceView === 'gantt') {
+                  bottomOffset = Math.max(bottomOffset, Math.ceil(window.innerHeight - dock.getBoundingClientRect().top + 10));
+              } else {
+                  topOffset = Math.max(topOffset, Math.ceil(dock.getBoundingClientRect().bottom + 10));
+              }
           }
           let pills = getEl('active-filter-pills');
           if (pills && pills.childElementCount > 0 && getComputedStyle(pills).display !== 'none') {
               topOffset = Math.max(topOffset, Math.ceil(pills.getBoundingClientRect().bottom + 10));
           }
           document.documentElement.style.setProperty('--gantt-top-offset', `${Math.max(64, topOffset)}px`);
+          document.documentElement.style.setProperty('--gantt-bottom-offset', `${Math.max(0, bottomOffset)}px`);
       }
 
       function applyGanttFocusState(behavior) {
@@ -6574,7 +6627,7 @@
       }
 
       function renderDiagnosticStrip(rowArray) {
-          let strip = getEl('raw-data-strip'); if(!strip) return; if(!rowArray || !rowArray.length) { strip.innerHTML = ''; return; }
+          let strip = getEl('raw-data-strip'); if(!strip) return; if(!rowArray || !rowArray.length) { strip.innerHTML = ''; syncRawDataStripState(); return; }
           let html = `<table class="raw-table"><tr>`;
           rowArray.forEach(entry => { let safeH = (entry.h || '').replace(/"/g, '&quot;'); html += `<th data-header="${safeH}">${entry.h || ''}</th>`; });
           html += `</tr><tr>`;
@@ -6587,6 +6640,7 @@
               html += `<td data-header="${safeH}">${val}</td>`;
           });
           html += `</tr></table>`; strip.innerHTML = html;
+          syncRawDataStripState();
       }
 
       function generateSmartComment(item, daysLeft, isOverdue) {
@@ -6753,6 +6807,7 @@
                   _diagStrip.style.opacity = _anomalyCount === 0 ? '0.4' : '1';
                   _diagStrip.style.pointerEvents = _anomalyCount === 0 ? 'none' : '';
               }
+              syncRawDataStripState();
 
               setTxt('p-fdh', item.fdh || "N/A"); setTxt('p-meta', item.city || "Unknown City");
               
@@ -7069,6 +7124,7 @@
               let ov = getEl('outbox-overlay'); if (ov) ov.classList.remove('open');
               setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">All Clear ✓</div>`);
           }
+          syncRawDataStripState();
       }
 
       function skipReview() {
@@ -8934,6 +8990,7 @@ ${item.comment || 'No notes provided.'}
       #deck-stage-card {
         width: 100% !important;
         max-width: 1100px !important;
+        max-height: calc(100vh - 150px) !important;
         height: auto !important;
         aspect-ratio: 16 / 9 !important;
         flex-shrink: 1 !important;
@@ -8951,7 +9008,7 @@ ${item.comment || 'No notes provided.'}
         aspect-ratio: auto !important;
         width: 100%;
         max-width: 1100px;
-        max-height: 92vh;
+        max-height: min(94vh, calc(100vh - 140px));
         overflow-y: auto !important;
       }
       body.presentation-active .qb-grid {
