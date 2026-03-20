@@ -396,8 +396,9 @@
           position: absolute !important;
           top: 16px !important;
           left: 50% !important;
+          right: auto !important;
           transform: translateX(-50%) !important;
-          width: max-content !important;
+          width: fit-content !important;
           max-width: 95% !important;
           min-width: 0 !important;
           margin: 0 !important;
@@ -1154,7 +1155,7 @@
       body.digest-mode-active #digest-workspace { transition:padding 0.28s ease; }
       @media screen and (min-width: 1100px) {
           body.digest-mode-active .reading-pane.admin-open #digest-workspace {
-              padding-right: calc(var(--inbox-panel-width) + 22px) !important;
+              padding-right: calc(var(--inbox-panel-width) + (var(--panel-gutter-x) * 2) + 12px) !important;
           }
       }
       @media screen and (max-width: 1440px) {
@@ -1748,7 +1749,7 @@
           overflow-x: hidden !important;
       }
       #welcome-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; height: 100%; text-align: center; }
-      .admin-dock { position: absolute; top: var(--panel-gutter-y); right: var(--panel-gutter-x); bottom: var(--panel-gutter-y); width: auto; display: flex; justify-content: flex-end; pointer-events: none; z-index: 8; }
+      .admin-dock { position: absolute; inset: 0; padding: var(--panel-gutter-y) var(--panel-gutter-x); box-sizing: border-box; width: auto; display: flex; justify-content: flex-end; pointer-events: none; z-index: 8; }
       .reading-pane.admin-open .admin-dock { pointer-events: auto; }
       #grid-content {
           display: none;
@@ -2554,10 +2555,11 @@
           max-width: none;
           margin: 0;
           align-self: stretch;
+          justify-content: center;
           min-width: 0;
       }
       body.digest-mode-active #digest-workspace {
-          display: block !important;
+          display: flex !important;
           width: 100%;
           max-width: none;
           margin: 0;
@@ -5944,8 +5946,9 @@
 
       function buildDigestCommandCenterData() {
           let now = new Date();
-          let startToday = getDigestStartOfDay(now);
-          let startYesterday = new Date(startToday.getTime() - 86400000);
+          let lookbackHours = (now.getDay() === 1 && now.getHours() < 11) ? 80 : 48;
+          let cutoff = new Date(now.getTime() - (lookbackHours * 60 * 60 * 1000));
+          let previousCutoff = new Date(cutoff.getTime() - (lookbackHours * 60 * 60 * 1000));
           let itemMap = {};
           (allActionItems || []).forEach(function(item) { itemMap[String(item.fdh || '')] = item; });
 
@@ -5956,8 +5959,8 @@
               }).sort(function(a, b) { return getDigestLogTimestamp(b) - getDigestLogTimestamp(a); });
           }
 
-          let todayLogs = collectLogs(startToday.getTime(), now.getTime() + 1);
-          let yesterdayLogs = collectLogs(startYesterday.getTime(), startToday.getTime());
+          let todayLogs = collectLogs(cutoff.getTime(), now.getTime() + 1);
+          let yesterdayLogs = collectLogs(previousCutoff.getTime(), cutoff.getTime());
           let stageSummary = {};
           DIGEST_STAGE_ORDER.forEach(function(stageKey) {
               stageSummary[stageKey] = { today: 0, yesterday: 0, delta: 0, meta: getDigestStageMeta(stageKey) };
@@ -6038,8 +6041,9 @@
 
           return {
               now: now,
-              startToday: startToday,
-              startYesterday: startYesterday,
+              lookbackHours: lookbackHours,
+              cutoff: cutoff,
+              previousCutoff: previousCutoff,
               itemMap: itemMap,
               todayLogs: todayLogs,
               yesterdayLogs: yesterdayLogs,
@@ -6070,7 +6074,7 @@
           return `<div class="digest-stage-summary-grid">` + DIGEST_STAGE_ORDER.map(function(stageKey) {
               let entry = data.stageSummary[stageKey];
               let deltaTone = entry.delta > 0 ? 'pill-complete' : (entry.delta < 0 ? 'pill-missing' : 'pill-default');
-              let deltaText = entry.delta === 0 ? 'Flat vs yesterday' : ((entry.delta > 0 ? '+' : '') + entry.delta + ' vs yesterday');
+              let deltaText = entry.delta === 0 ? 'Flat vs previous window' : ((entry.delta > 0 ? '+' : '') + entry.delta + ' vs previous window');
               return `<div class="digest-stage-summary-card">
                   <div class="digest-stage-summary-top">
                       <span class="glass-pill ${entry.meta.pillClass}" style="font-size:9px; padding:4px 8px;">${esc(entry.meta.label)}</span>
@@ -6079,14 +6083,14 @@
                   <div class="digest-stage-summary-count digest-mono">${entry.today}</div>
                   <div class="digest-stage-summary-foot">
                       <span>Today</span>
-                      <span class="digest-mono">${entry.yesterday} yesterday</span>
+                      <span class="digest-mono">${entry.yesterday} previous</span>
                   </div>
               </div>`;
           }).join('') + `</div>`;
       }
 
       function renderDigestActivityFeed(logs, itemMap) {
-          if (!logs.length) return '<div class="digest-feed-empty">No database activity has been logged yet today.</div>';
+          if (!logs.length) return '<div class="digest-feed-empty">No database activity has been logged in the current lookback window.</div>';
           return `<div class="digest-activity-list">` + logs.map(function(log) {
               let item = itemMap[String(log.fdh || '')] || null;
               let stageKey = getDigestStageKeyForLog(log, item);
@@ -6120,7 +6124,7 @@
 
       function renderDigestMoverDetail(data) {
           let mover = data.selectedMover;
-          if (!mover) return '<div class="digest-panel-empty">Select a mover or project change to inspect today&apos;s activity.</div>';
+          if (!mover) return '<div class="digest-panel-empty">Select a mover or project change to inspect the current activity window.</div>';
           return `<div class="digest-rail-detail">
               <div class="digest-selection-card">
                   <div>
@@ -6129,7 +6133,7 @@
                   </div>
                   <div class="digest-detail-metric-row">
                       <div class="digest-detail-metric">
-                          <div class="digest-detail-metric-label">Edits Today</div>
+                          <div class="digest-detail-metric-label">Edits In Window</div>
                           <div class="digest-detail-metric-value digest-mono">${mover.total}</div>
                       </div>
                       <div class="digest-detail-metric">
@@ -6171,7 +6175,7 @@
       function renderDigestProjectDetail(data) {
           let item = data.selectedProjectItem;
           let logs = data.selectedProjectLogs || [];
-          if (!item || !logs.length) return '<div class="digest-panel-empty">Select a project change from the feed to see today&apos;s project detail.</div>';
+          if (!item || !logs.length) return '<div class="digest-panel-empty">Select a project change from the feed to see the current project detail.</div>';
           let latestLog = logs[0];
           let stageMeta = getDigestStageMeta(getDigestStageKeyForLog(latestLog, item));
           return `<div class="digest-rail-detail">
@@ -6187,7 +6191,7 @@
                   </div>
                   <div class="digest-detail-metric-row">
                       <div class="digest-detail-metric">
-                          <div class="digest-detail-metric-label">Edits Today</div>
+                          <div class="digest-detail-metric-label">Edits In Window</div>
                           <div class="digest-detail-metric-value digest-mono">${logs.length}</div>
                       </div>
                       <div class="digest-detail-metric">
@@ -6219,26 +6223,27 @@
           let data = buildDigestCommandCenterData();
           let dateStr = data.now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
           let deltaTone = data.summary.deltaChanges > 0 ? 'pill-complete' : (data.summary.deltaChanges < 0 ? 'pill-missing' : 'pill-default');
-          let deltaLabel = data.summary.deltaChanges === 0 ? 'Flat vs yesterday' : ((data.summary.deltaChanges > 0 ? '+' : '') + data.summary.deltaChanges + ' vs yesterday');
+          let lookbackLabel = data.lookbackHours > 48 ? '48 Working Hours · Weekend Carry' : '48 Working Hours';
+          let deltaLabel = data.summary.deltaChanges === 0 ? 'Flat vs previous window' : ((data.summary.deltaChanges > 0 ? '+' : '') + data.summary.deltaChanges + ' vs previous window');
           ws.innerHTML = `
               <div class="digest-shell">
                   <div class="digest-doc-header">
                       <div>
                           <div class="digest-ws-header">Pipeline Command Center</div>
-                          <div class="digest-doc-subheader">${esc(dateStr)} &nbsp;&middot;&nbsp; Today vs Yesterday &nbsp;&middot;&nbsp; Database Activity</div>
+                          <div class="digest-doc-subheader">${esc(dateStr)} &nbsp;&middot;&nbsp; ${esc(lookbackLabel)} &nbsp;&middot;&nbsp; Database Activity</div>
                       </div>
                   </div>
                   <div class="digest-summary-grid">
-                      ${renderDigestSummaryStat('Total Changes Today', data.summary.totalChanges, 'All logged database activity for today')}
+                      ${renderDigestSummaryStat('Changes In Window', data.summary.totalChanges, 'All logged database activity in the current lookback')}
                       ${renderDigestSummaryStat('Change Delta', (data.summary.deltaChanges > 0 ? '+' : '') + data.summary.deltaChanges, deltaLabel, deltaTone)}
-                      ${renderDigestSummaryStat('Projects Touched', data.summary.projectsTouched, 'Distinct projects updated today')}
-                      ${renderDigestSummaryStat('Users Active', data.summary.usersActive, 'Editors with logged changes today')}
+                      ${renderDigestSummaryStat('Projects Touched', data.summary.projectsTouched, 'Distinct projects updated in the current lookback')}
+                      ${renderDigestSummaryStat('Users Active', data.summary.usersActive, 'Editors with logged changes in the current lookback')}
                   </div>
                   <div class="digest-card">
                       <div class="digest-card-head">
                           <div>
                               <div class="digest-section-label" style="margin:0 0 6px 0;">Stage Shift Summary</div>
-                              <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Today&apos;s logged moves compared against yesterday using the same stage language as the rest of the app.</div>
+                              <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Current lookback compared against the previous window using the same stage language as the rest of the app.</div>
                           </div>
                       </div>
                       <div class="digest-card-body">${renderDigestStageSummary(data)}</div>
@@ -6247,9 +6252,9 @@
                       <div class="digest-card-head">
                           <div>
                               <div class="digest-section-label" style="margin:0 0 6px 0;">Recent DB Moves</div>
-                              <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Reverse-chronological change feed. Click a row to inspect the project in the rail, or jump straight into Detail view.</div>
+                              <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Reverse-chronological change feed for the current lookback. Click a row to inspect the project in the rail, or jump straight into Detail view.</div>
                           </div>
-                          <span class="glass-pill pill-default" style="font-size:9px; padding:4px 8px;">${data.todayLogs.length} today</span>
+                          <span class="glass-pill pill-default" style="font-size:9px; padding:4px 8px;">${data.todayLogs.length} in window</span>
                       </div>
                       ${renderDigestActivityFeed(data.todayLogs, data.itemMap)}
                   </div>
@@ -6270,7 +6275,7 @@
                           <div>
                               <div class="digest-panel-kicker">Pipeline Command Center</div>
                               <div class="digest-panel-count">Activity Rail</div>
-                              <div class="digest-panel-sub">Top movers today with contextual project drill-in for the selected change.</div>
+                              <div class="digest-panel-sub">Top movers in the current lookback with contextual project drill-in for the selected change.</div>
                           </div>
                           <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
                               <span class="ob-tab-badge ob-tab-badge-purple" style="position:static; min-width:28px; height:28px; border-radius:14px; border:1px solid var(--border); box-shadow:none;">${movers.length}</span>
@@ -6282,8 +6287,8 @@
                       <div class="digest-rail-card">
                           <div class="digest-card-head">
                               <div>
-                                  <div class="digest-section-label" style="margin:0 0 6px 0;">Top Movers Today</div>
-                                  <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Ranked by logged database edits in today&apos;s activity window.</div>
+                                  <div class="digest-section-label" style="margin:0 0 6px 0;">Top Movers</div>
+                                  <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Ranked by logged database edits in the current lookback window.</div>
                               </div>
                           </div>
                           <div class="digest-card-body">${renderDigestLeaderboard(movers)}</div>
