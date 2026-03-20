@@ -1627,7 +1627,9 @@
       .qb-proj-meta { font-size: 11px; font-weight: 600; color: var(--text-muted);}
 
       .qb-time-labels { display: flex; justify-content: space-between; font-size: 10px; font-weight: 800; color: var(--text-muted); margin-top: 12px; margin-bottom: 2px; text-transform: uppercase;}
+      .qb-time-labels.is-below-bar { margin-top: 0; margin-bottom: 12px; }
       .qb-time-bar { height: 12px; background: var(--bg); border-radius: 6px; position: relative; border: 1px solid var(--border); margin-bottom: 16px; overflow: visible;}
+      .qb-time-bar.detail-schedule-bar { margin-top: 28px; margin-bottom: 10px; z-index: 1; }
       .qb-time-fill { height: 100%; border-radius: 6px; transition: width 0.5s;}
       .qb-time-bead { position: absolute; top: -1px; width: 14px; height: 14px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); border-radius: 50%; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.2); box-sizing: border-box; border: 3px solid;}
       .proj-bead { position: absolute; top: -3px; width: 18px; height: 18px; background: var(--card-bg); border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: 2px solid; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; z-index: 8; pointer-events: auto; cursor: pointer; font-size: 8px; font-weight: 900; }
@@ -2224,14 +2226,18 @@
       body:not(.gantt-view-active) #gantt-panel { display: none !important; }
       body.gantt-view-active #gantt-panel {
           display: flex !important;
-          position: relative;
-          flex: 1 1 auto;
+          position: fixed;
+          top: var(--gantt-top-offset, 78px);
+          left: 0;
+          right: 0;
+          bottom: 0;
+          flex: none;
           min-height: 0;
           height: auto !important;
           border-top: none !important;
           box-shadow: none !important;
           margin-top: 0 !important;
-          z-index: 1;
+          z-index: 9000;
       }
       body.gantt-view-active #gantt-panel .gantt-controls {
           position: sticky;
@@ -2244,17 +2250,22 @@
           border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
       }
       body.gantt-view-active #gantt-panel .timeline-wrapper { display: flex !important; }
+      body.gantt-view-active #gantt-panel .timeline-container { flex: 1 1 auto; min-height: 0; }
+      body.gantt-view-active #gantt-wrapper { min-height: 0; flex: 1 1 auto; }
       body.gantt-view-active #grid-content,
       body.gantt-view-active #digest-workspace,
       body.gantt-view-active #pane-content,
       body.gantt-view-active #deck-stage,
       body.gantt-view-active #welcome-screen { display: none !important; }
+      body.gantt-view-active .outbox-pane,
+      body.gantt-view-active .admin-dock,
+      body.gantt-view-active .inbox-sidebar { display: none !important; }
       .schedule-today-indicator {
           position: absolute;
           top: 0;
           bottom: 0;
           width: 0;
-          z-index: 0;
+          z-index: 2;
           pointer-events: none;
       }
       .schedule-today-line {
@@ -2268,7 +2279,7 @@
       }
       .schedule-today-label {
           position: absolute;
-          top: -28px;
+          top: -30px;
           transform: translateX(-50%);
           font-size: 10px;
           font-weight: 900;
@@ -2278,6 +2289,7 @@
           border-radius: 6px;
           box-shadow: 0 4px 6px rgba(0,0,0,0.1);
           white-space: nowrap;
+          z-index: 3;
       }
       .schedule-today-indicator.is-muted { opacity: 0.45; }
 
@@ -2929,18 +2941,17 @@
                            <span id="p-edit-engine"></span>
                        </div>
                    </div>
-                   <div class="qb-time-labels">
-                       <span id="p-cx-start" onmouseenter="hl('CX Start')" onmouseleave="hl('')" style="cursor:pointer;">CX START: <span style="color:var(--text-main);">TBD</span></span>
-                       <span id="p-cx-end" onmouseenter="hl('CX Complete')" onmouseleave="hl('')" style="cursor:pointer;">CX COMPLETE: <span style="color:var(--text-main);">TBD</span></span>
-                   </div>
-                   <div class="qb-time-bar" onclick="openGanttForCurrentProject()" style="cursor:pointer;">
+                   <div class="qb-time-bar detail-schedule-bar" onclick="openGanttForCurrentProject()" style="cursor:pointer;">
                        <div class="schedule-today-indicator" id="p-today-indicator" style="display:none;">
                            <div class="schedule-today-line" id="p-today-line"></div>
                            <div class="schedule-today-label" id="p-today-label">TODAY</div>
                        </div>
                        <div class="qb-time-fill" id="p-time-fill" style="width:0%;"></div>
                        <div id="p-time-stars"></div>
-                       <div class="qb-time-bead" id="p-time-bead" style="display:none; left:0%;"></div>
+                   </div>
+                   <div class="qb-time-labels is-below-bar">
+                       <span id="p-cx-start" onmouseenter="hl('CX Start')" onmouseleave="hl('')" style="cursor:pointer;">CX START: <span style="color:var(--text-main);">TBD</span></span>
+                       <span id="p-cx-end" onmouseenter="hl('CX Complete')" onmouseleave="hl('')" style="cursor:pointer;">CX COMPLETE: <span style="color:var(--text-main);">TBD</span></span>
                    </div>
                    <div id="p-target-wrap" class="qb-target-wrap hover-trigger" onmouseenter="hl('Target Completion Date')" onmouseleave="hl('')" onclick="openGanttForCurrentProject()" style="cursor:pointer;">
                        <div class="qb-target-inner" id="p-target-inner">
@@ -3344,6 +3355,7 @@
           if (sortQueue) sortQueue.style.display = currentViewMode === 'grid' || isGanttView ? 'none' : '';
           const sidebarPivot = getEl('sidebar-pivot-select');
           if (sidebarPivot) sidebarPivot.style.display = currentViewMode === 'grid' ? 'inline-block' : 'none';
+          syncGanttViewportLayout();
           syncSlideActionDeck();
           syncDockLayoutSpacing();
           updateFloatingPillsPosition();
@@ -3885,6 +3897,20 @@
               left: Math.max(0, ganttScrollState.left || 0),
               behavior: 'auto'
           });
+      }
+
+      function syncGanttViewportLayout() {
+          let nav = document.querySelector('.top-nav');
+          let topOffset = nav ? Math.ceil(nav.getBoundingClientRect().bottom + 6) : 78;
+          let dock = getEl('filter-strip');
+          if (dock && getComputedStyle(dock).display !== 'none') {
+              topOffset = Math.max(topOffset, Math.ceil(dock.getBoundingClientRect().bottom + 10));
+          }
+          let pills = getEl('active-filter-pills');
+          if (pills && pills.childElementCount > 0 && getComputedStyle(pills).display !== 'none') {
+              topOffset = Math.max(topOffset, Math.ceil(pills.getBoundingClientRect().bottom + 10));
+          }
+          document.documentElement.style.setProperty('--gantt-top-offset', `${Math.max(64, topOffset)}px`);
       }
 
       function applyGanttFocusState(behavior) {
@@ -6415,6 +6441,7 @@
       }
 
       window.addEventListener('orientationchange', () => { setTimeout(scrollGanttToToday, 350); });
+      window.addEventListener('resize', syncGanttViewportLayout);
 
       function renderList(items) {
         let list = getEl('inbox-list'); if(!list) return; setTxt('inbox-count', items.length); list.innerHTML = '';
@@ -6777,18 +6804,17 @@
               setHtml('p-cx-start', `CX START: <span style="color:var(--text-main)">${hasStart ? formatDate(item.cxStart) : "TBD"}</span>`);
               setHtml('p-cx-end', `CX COMPLETE: <span style="color:var(--text-main)">${hasEnd ? formatDate(item.cxEnd) : "TBD"}</span>`);
               
-              let scheduleFill = getEl('p-time-fill'); let scheduleBead = getEl('p-time-bead');
+              let scheduleFill = getEl('p-time-fill');
               let scheduleTodayIndicator = getEl('p-today-indicator');
               let scheduleTodayLine = getEl('p-today-line');
               let scheduleTodayLabel = getEl('p-today-label');
               let daysLeft = 0; let pStart = safeDate(item.cxStart); let pEnd = safeDate(item.cxEnd);
 
-              if(hasStart && hasEnd && pStart && pEnd && scheduleFill && scheduleBead) {
+              if(hasStart && hasEnd && pStart && pEnd && scheduleFill) {
                  let total = pEnd - pStart, elap = new Date() - pStart; daysLeft = Math.ceil((pEnd - new Date()) / 86400000);
                  let pct = total > 0 ? Math.max(0, Math.min(100, (elap/total)*100)) : 0;
                  scheduleFill.style.width = `${pct}%`; scheduleFill.style.background = statusColor;
-                 if(pct > 0 && pct < 100) { scheduleBead.style.display = 'block'; scheduleBead.style.left = `calc(${pct}% - 7px)`; scheduleBead.style.borderColor = statusColor; } else { scheduleBead.style.display = 'none'; }
-              } else if (scheduleFill && scheduleBead) { scheduleFill.style.width = "0%"; scheduleBead.style.display = "none"; }
+              } else if (scheduleFill) { scheduleFill.style.width = "0%"; }
 
               let cardToday = getTimelineTodayIndicator(pStart, pEnd, new Date());
               if (scheduleTodayIndicator && scheduleTodayLine && scheduleTodayLabel && cardToday) {
