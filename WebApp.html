@@ -2946,7 +2946,7 @@
           <div class="core-ring middle"></div>
           <div class="core-dot"></div>
         </div>
-        <h1 class="loader-brand">Dailies Command Center</h1>
+        <h1 class="loader-brand">Daily Production Analyzer</h1>
         <div class="loader-version">v4.2.0 // BENNY ENGINE ACTIVE</div>
         <div class="loader-progress-wrap">
           <div class="loader-progress-bar" id="boot-progress"></div>
@@ -2977,11 +2977,6 @@
             <h3>Slide</h3>
             <p>Presentation Face</p>
           </div>
-          <div class="startup-card" onclick="completeStartup('digest')">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            <h3>Command Center</h3>
-            <p>Pipeline Intelligence</p>
-          </div>
         </div>
       </div>
     </div>
@@ -3001,25 +2996,11 @@
       </div>
     </div>
 
-    <div id="digest-overlay" class="digest-overlay" onclick="toggleDigest(false)">
-      <div class="digest-modal" onclick="event.stopPropagation()">
-        <div class="digest-header">
-          <div>
-            <h2 style="margin:0; font-size:20px; font-weight:900; letter-spacing:-0.5px; color:var(--text-main);">Morning Briefing</h2>
-            <p style="margin:2px 0 0 0; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;" id="digest-date-subtitle"></p>
-          </div>
-          <button class="btn hover-trigger" onclick="toggleDigest(false)" style="background:var(--bg); color:var(--text-main); border-color:var(--border);">Close</button>
-        </div>
-        <div class="digest-body" id="digest-body-content">
-           </div>
-      </div>
-    </div>
-
     <div id="gantt-hud" class="gantt-hud"></div>
     
     <div class="top-nav">
       <div class="top-nav-left">
-        <div class="nav-brand">Dailies Command Center</div>
+        <div class="nav-brand">Daily Production Analyzer</div>
 
         <div class="kpi-nav-container">
             <div class="kpi-hud-group">
@@ -3067,9 +3048,6 @@
               </button>
               <button class="view-segment-btn" id="view-btn-grid" onclick="switchWorkspaceView('grid')" title="Grid View">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              </button>
-              <button class="view-segment-btn" id="view-btn-digest" onclick="switchWorkspaceView('digest')" title="Pipeline Command Center">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
               </button>
               <div style="width: 1px; height: 14px; background: var(--border); margin: 0 4px;"></div>
               <button class="view-segment-btn" id="view-btn-gantt" onclick="openGanttView()" title="Gantt View">
@@ -3235,8 +3213,7 @@
         <div id="active-filter-pills"></div>
                  <div id="welcome-screen" class="empty-msg"><div style="font-size:32px; margin-bottom:12px;">Select a Project</div></div>
                  <div id="grid-content" style="display:none; width:100%; flex:1; overflow-y:auto; padding:20px; align-content:flex-start; gap:16px; box-sizing:border-box;"></div>
-                 <div id="digest-workspace"></div>
-              <div class="pane-content" id="pane-content">
+	              <div class="pane-content" id="pane-content">
                  <div class="qb-grid" id="main-qb-grid">
                <div class="qb-top-row">
                <div class="qb-module hover-trigger" id="project-schedule-card" onmouseenter="hl('Budget OFS')" onmouseleave="hl('')">
@@ -3391,9 +3368,7 @@
                    </div>
 
                    <div id="deck-action-panel" style="display:none; flex-direction:column; flex-grow:1; overflow-y:auto; padding:20px; gap:16px;"></div>
-                   <div id="digest-action-panel" style="display:none; flex-direction:column; flex-grow:1; min-height:0; overflow:hidden;"></div>
-
-                   <div id="ob-panel-admin" style="display:flex; flex-grow:1; flex-direction:column; overflow:hidden;">
+	                   <div id="ob-panel-admin" style="display:flex; flex-grow:1; flex-direction:column; overflow:hidden;">
                       <div class="admin-strip" style="flex-shrink:0;">
                          <div class="admin-kpi crossings" id="kpi-admin-crossings" onclick="toggleAdminFilter('crossings')" title="Filter: Crossings to verify">
                             <div class="admin-kpi-val" id="kpi-crossings-val">0</div>
@@ -3464,7 +3439,7 @@
     <div class="help-panel" id="help-panel">
       <div class="help-hdr">
         <div>
-          <div class="help-hdr-title">Dailies Command Center — Help</div>
+          <div class="help-hdr-title">Daily Production Analyzer — Help</div>
           <div class="help-hdr-sub">Reference guide for reviewers and managers</div>
         </div>
         <button class="help-close" onclick="toggleHelpPanel()">✕</button>
@@ -3622,8 +3597,6 @@
       const STAGED_REVIEW_COLLAPSED_SESSION_KEY = 'dpa.stagedReviewCollapsed.v1';
       const GANTT_VIEW_SCROLL_SESSION_KEY = 'dpa.ganttScroll.v1';
       const GANTT_VIEW_FOCUS_SESSION_KEY = 'dpa.ganttFocus.v1';
-      let showDigestAfterNextDataLoad = false;
-      let showDigestAfterStartupSelection = false;
       let pendingFaceAnimation = null;
       let preferredPresentationCardTheme = null;
       let isStagedReviewCollapsed = false;
@@ -3633,15 +3606,6 @@
       let ganttFocusedFdh = null;
       let ganttScrollState = { top: 0, left: 0 };
       let ganttHasVisited = false;
-      let digestVendorGoals = {};
-      let digestVendorCities = {};
-      let currentDigestVendorFilter = 'ALL';
-      let currentDigestSelection = { type: 'mover', key: '' };
-      let currentDigestFilter = 'all';
-      let digestLeafletMap = null;
-      let digestLeafletLayer = null;
-      let digestPulseAutoScrollTimer = null;
-
       function isSlideFaceActive() {
           return currentWorkspaceView === 'detail' && currentDetailFace === 'slide';
       }
@@ -3653,12 +3617,11 @@
           document.body.classList.remove('grid-mode-active', 'deck-mode-active', 'gantt-view-active', 'digest-mode-active');
           if (isGridMode) document.body.classList.add('grid-mode-active');
           if (isDeckMode) document.body.classList.add('deck-mode-active');
-          if (currentWorkspaceView === 'digest') document.body.classList.add('digest-mode-active');
           if (currentWorkspaceView === 'gantt') document.body.classList.add('gantt-view-active');
       }
 
       function syncWorkspaceChrome() {
-          ['detail', 'grid', 'digest', 'gantt'].forEach(v => {
+          ['detail', 'grid', 'gantt'].forEach(v => {
               const btn = getEl(`view-btn-${v}`);
               if (btn) btn.classList.toggle('active', v === currentWorkspaceView);
           });
@@ -4748,18 +4711,11 @@
           const overlay = getEl('startup-overlay');
           if (overlay) overlay.classList.remove('visible');
 
-          const startupMode = mode === 'slide' ? 'detail' : mode;
+          const startupMode = (mode === 'slide' || mode === 'digest') ? 'detail' : mode;
           switchWorkspaceView(startupMode);
           if (mode === 'slide') {
               setTimeout(() => toggleDetailFace('slide'), 80);
           }
-          if (showDigestAfterStartupSelection) {
-              showDigestAfterStartupSelection = false;
-              setTimeout(() => {
-                  toggleDigest(true);
-              }, 600);
-          }
-
       }
 
       function toggleCriticalFilter() {
@@ -4805,97 +4761,6 @@
 
       let currentPanelTab = 'admin';
       let allGlobalLogs = [];
-      function toggleDigest(show) {
-          const overlay = getEl('digest-overlay');
-          if (!overlay) return;
-          if (show) {
-              generateMorningDigest();
-              overlay.classList.add('visible');
-          } else {
-              overlay.classList.remove('visible');
-          }
-      }
-      function generateMorningDigest() {
-          const body = getEl('digest-body-content');
-          const subtitle = getEl('digest-date-subtitle');
-          if (!body || !subtitle) return;
-
-          let d = new Date();
-          subtitle.innerText = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-
-          let now = new Date();
-          let lookbackHours = 48;
-          if (now.getDay() === 1 && now.getHours() < 11) { lookbackHours = 80; }
-          let cutoff = new Date(now.getTime() - (lookbackHours * 60 * 60 * 1000));
-          let recentLogs = allGlobalLogs.filter(l => Number(l.timestampObj || 0) >= cutoff.getTime());
-
-          let shifts = { ofs: 0, cx: 0, permit: 0, totalChanges: recentLogs.length };
-
-          recentLogs.forEach(l => {
-              let type = String(l.type || '').toUpperCase();
-              let val = String(l.val || '').toUpperCase();
-              if (type.includes("STATUS") || type.includes("STAGE")) {
-                  if (val.includes("OPEN FOR SALE") || val.includes("OFS")) shifts.ofs++;
-                  if (val.includes("FIELD CX") || val.includes("CONSTRUCTION")) shifts.cx++;
-                  if (val.includes("PERMIT") && val.includes("APPROV")) shifts.permit++;
-              }
-          });
-
-          let prodByVendor = {};
-
-          (allActionItems || []).forEach(item => {
-              let v = item.vendor || "Unknown";
-              if (v === "-" || v === "") return;
-
-              if (!prodByVendor[v]) prodByVendor[v] = { ug: 0, ae: 0, fib: 0, nap: 0 };
-              if (item.vel) {
-                  prodByVendor[v].ug += Number((item.vel.ug && item.vel.ug.daily) || 0);
-                  prodByVendor[v].ae += Number((item.vel.ae && item.vel.ae.daily) || 0);
-                  prodByVendor[v].fib += Number((item.vel.fib && item.vel.fib.daily) || 0);
-                  prodByVendor[v].nap += Number((item.vel.nap && item.vel.nap.daily) || 0);
-              }
-          });
-
-          let prodHtml = Object.keys(prodByVendor).sort().map(v => {
-              let data = prodByVendor[v];
-              if (data.ug === 0 && data.ae === 0 && data.fib === 0 && data.nap === 0) return '';
-
-              let stats = [];
-              if (data.ug > 0) stats.push(`<span style="color:#f97316;">+${data.ug.toLocaleString()}ft UG</span>`);
-              if (data.ae > 0) stats.push(`<span style="color:#64748b;">+${data.ae.toLocaleString()}ft Strand</span>`);
-              if (data.fib > 0) stats.push(`<span style="color:#ef4444;">+${data.fib.toLocaleString()}ft Fiber</span>`);
-              if (data.nap > 0) stats.push(`<span style="color:#6366f1;">+${data.nap.toLocaleString()} NAPs</span>`);
-
-              return `
-        <div class="digest-card" style="margin-bottom:8px;">
-            <div style="font-size:12px; font-weight:900; color:var(--text-main); margin-bottom:6px;">${esc(v)}</div>
-            <div style="font-size:11px; font-weight:700; display:flex; flex-wrap:wrap; gap:10px;">
-                ${stats.join('<span style="color:var(--border);">|</span>')}
-            </div>
-        </div>`;
-          }).join('');
-
-          if (prodHtml === '') prodHtml = `<div class="empty-msg" style="min-height:40px; font-size:11px;">No production reported today.</div>`;
-
-          body.innerHTML = `
-        <div class="digest-grid">
-            <div>
-                <div class="digest-section-title">Pipeline Shifts (Last 24h)</div>
-                <div class="digest-card">
-                    <div class="digest-stat-row"><span>QuickBase Edits Logged</span><span class="digest-num">${shifts.totalChanges}</span></div>
-                    <div class="digest-stat-row"><span>Projects reaching OFS</span><span class="digest-num" style="color:#22c55e;">${shifts.ofs}</span></div>
-                    <div class="digest-stat-row"><span>Moved to Construction</span><span class="digest-num" style="color:#facc15;">${shifts.cx}</span></div>
-                    <div class="digest-stat-row"><span>Permits Approved</span><span class="digest-num" style="color:#a855f7;">${shifts.permit}</span></div>
-                </div>
-            </div>
-
-            <div>
-                <div class="digest-section-title">Reported Production Today</div>
-                ${prodHtml}
-            </div>
-        </div>
-    `;
-      }
       function toggleAdminPanel() {
           let pane = getEl('outbox-pane');
           let isOpen = pane && pane.classList.contains('open');
@@ -4948,30 +4813,20 @@
           let title = getEl('review-hub-title');
           let tabBar = document.querySelector('#review-hub-main-header .panel-tab-bar');
           let deckPanel = getEl('deck-action-panel');
-          let digestPanel = getEl('digest-action-panel');
           let adminPanel = getEl('ob-panel-admin');
           let reviewedPanel = getEl('ob-panel-reviewed');
           let changelogPanel = getEl('ob-panel-changelog');
           let fab = getEl('admin-fab');
-          let isDigestView = currentWorkspaceView === 'digest';
           let isDeckView = isSlideFaceActive();
 
           if (title) {
-              title.innerHTML = isDigestView ? '<span>Activity</span><span>Rail</span>' : '<span>Review</span><span>Hub</span>';
+              title.innerHTML = '<span>Review</span><span>Hub</span>';
           }
-          if (tabBar) tabBar.style.display = (isDigestView || isDeckView) ? 'none' : 'flex';
+          if (tabBar) tabBar.style.display = isDeckView ? 'none' : 'flex';
           if (deckPanel) deckPanel.style.display = isDeckView ? 'flex' : 'none';
-          if (digestPanel) digestPanel.style.display = isDigestView ? 'flex' : 'none';
           if (fab) {
-              fab.title = isDigestView ? 'Activity Rail' : 'Admin / Reviewed';
-              fab.setAttribute('aria-label', isDigestView ? 'Open activity rail' : 'Open admin panel');
-          }
-
-          if (isDigestView) {
-              if (adminPanel) adminPanel.style.display = 'none';
-              if (reviewedPanel) reviewedPanel.style.display = 'none';
-              if (changelogPanel) changelogPanel.style.display = 'none';
-              return;
+              fab.title = 'Admin / Reviewed';
+              fab.setAttribute('aria-label', 'Open admin panel');
           }
 
           if (isDeckView) {
@@ -5180,15 +5035,6 @@
           syncAdminPanelForViewport();
       }
       window.addEventListener('resize', () => {
-          if (currentWorkspaceView === 'digest') {
-              if (window.innerWidth <= 768) return;
-              if (shouldAutoOpenAdminPanel()) {
-                  setAdminPanelOpen(true);
-              } else if (isIPadLike()) {
-                  setAdminPanelOpen(false);
-              }
-              return;
-          }
           if (!currentActiveItem || window.innerWidth <= 768) return;
           if (shouldAutoOpenAdminPanel()) {
               setAdminPanelOpen(true);
@@ -5319,7 +5165,6 @@
                   if (r.success) {
                       globalRefDataDate = r.timestamp;
                       updateRefDataIndicator();
-                      showDigestAfterNextDataLoad = true;
                       google.script.run
                           .withSuccessHandler(function(data) {
                               hideFrostedLoader();
@@ -5328,9 +5173,8 @@
                               showToast('✅ Synced ' + r.count + ' records · ' + r.timestamp);
 
                               const promptRunReview = function() {
-                                  const overlay = getEl('digest-overlay');
                                   const startupOverlay = getEl('startup-overlay');
-                                  if ((overlay && overlay.classList.contains('visible')) || (startupOverlay && startupOverlay.classList.contains('visible'))) {
+                                  if (startupOverlay && startupOverlay.classList.contains('visible')) {
                                       setTimeout(promptRunReview, 300);
                                       return;
                                   }
@@ -5341,21 +5185,18 @@
                               setTimeout(promptRunReview, 400);
                           })
                           .withFailureHandler(function(err) {
-                              showDigestAfterNextDataLoad = false;
                               hideFrostedLoader();
                               if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
                               alert('Refresh Error: ' + err.message);
                           })
                           .getDashboardData();
                   } else {
-                      showDigestAfterNextDataLoad = false;
                       hideFrostedLoader();
                       if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
                       showToast('❌ ' + r.error, 'error');
                   }
               })
               .withFailureHandler(function(e) {
-                  showDigestAfterNextDataLoad = false;
                   hideFrostedLoader();
                   if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
                   showToast('❌ Sync error: ' + e.message, 'error');
@@ -5432,10 +5273,8 @@
           google.script.run.withSuccessHandler((data) => {
               hideFrostedLoader();
               if(btn) { btn.innerText = "▶ Run Review"; btn.disabled = false; }
-              showDigestAfterNextDataLoad = true;
               initDashboard(data);
           }).withFailureHandler((err) => {
-              showDigestAfterNextDataLoad = false;
               hideFrostedLoader();
               if(btn) { btn.innerText = "▶ Run Review"; btn.disabled = false; } alert("Engine Error: " + err.message);
           }).webAppTrigger3a(targetDates);
@@ -7028,9 +6867,6 @@
                     changelogBadge.style.display = 'none';
                 }
             }
-            const shouldShowDigestAfterLoad = !!showDigestAfterNextDataLoad;
-            showDigestAfterNextDataLoad = false;
-            showDigestAfterStartupSelection = shouldShowDigestAfterLoad;
             if (!data || !data.actionItems || data.actionItems.length === 0) {
                 allActionItems = [];
                 setHtml('gantt-container', `<div class="empty-msg">All Clear ✓</div>`);
@@ -7038,13 +6874,10 @@
                 setStyle('welcome-screen', 'display', 'flex');
                 setStyle('detail-layout', 'display', 'none');
                 setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px; font-weight:900; letter-spacing:-1px; color:var(--text-muted);">All Clear ✓</div>`);
-                if (currentWorkspaceView === 'digest') renderDigestWorkspace();
                 showStartupSelector();
                 return;
             }
             allActionItems = data.actionItems; globalHeaders = data.headers;
-            digestVendorGoals = (data && data.vendorGoals) ? data.vendorGoals : {};
-            digestVendorCities = (data && data.vendorCities) ? data.vendorCities : {};
             globalRefDataDate = data.refDataDate || "";
             reconcileStagedReviewItems();
             let activeQueueItems = getActiveQueueItems();
@@ -7066,7 +6899,6 @@
                 });
             }
             applyFilters();
-            if (currentWorkspaceView === 'digest') renderDigestWorkspace();
             showStartupSelector();
         });
       }
@@ -9278,7 +9110,7 @@
 
       function switchWorkspaceView(mode) {
         const requestedMode = mode;
-        const normalizedMode = (requestedMode === 'deck' || requestedMode === 'slide') ? 'detail' : requestedMode;
+        const normalizedMode = (requestedMode === 'deck' || requestedMode === 'slide' || requestedMode === 'digest') ? 'detail' : requestedMode;
         if (isDeckMode && normalizedMode !== 'detail') saveCurrentCardState();
         if (currentWorkspaceView === 'gantt' && normalizedMode !== 'gantt') captureGanttScrollState();
 
@@ -9310,14 +9142,8 @@
         const grid = getEl('grid-content');
         const welcome = getEl('welcome-screen');
         const paneContent = getEl('pane-content');
-        const digestWs = getEl('digest-workspace');
         const deckStage = getEl('deck-stage');
         const ganttPanel = getEl('gantt-panel');
-        if (digestWs) {
-            digestWs.style.display = 'none';
-            digestWs.style.flex = '';
-            digestWs.style.width = '';
-        }
         if (grid) {
             grid.style.display = 'none';
             grid.style.flex = '';
@@ -9355,13 +9181,6 @@
                 if (deckStage) deckStage.style.display = 'none';
                 if (grid) grid.style.display = 'grid';
                 renderGrid();
-            } else if (normalizedMode === 'digest') {
-                if (welcome) welcome.style.display = 'none';
-                if (paneContent) paneContent.style.display = 'none';
-                if (deckStage) deckStage.style.display = 'none';
-                if (digestWs) digestWs.style.display = 'flex';
-                renderDigestWorkspace();
-                syncAdminPanelForViewport();
             } else if (normalizedMode === 'gantt') {
                 setAdminPanelOpen(false);
                 if (welcome) welcome.style.display = 'none';
