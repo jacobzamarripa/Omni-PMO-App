@@ -118,7 +118,7 @@ function exportInboxReviewsCSV() {
 }
 
 function getDashboardData() {
-  const CACHE_KEY = 'dashboard_data_cache_v9';
+  const CACHE_KEY = 'dashboard_data_cache_v10';
   const cache = CacheService.getScriptCache();
   const cached = cache.get(CACHE_KEY);
   if (cached) { try { return JSON.parse(cached); } catch(e) {} }
@@ -134,6 +134,7 @@ function getDashboardData() {
   const headers = data[0].map(String); // Force strings
 
   const getIdx = name => headers.indexOf(name);
+  const getIdxByAliases = (aliases) => headers.findIndex(h => aliases.includes(String(h || '').trim().toUpperCase()));
   const fdhIdx = getIdx("FDH Engineering ID"), flagsIdx = getIdx("Health Flags"), draftIdx = getIdx("Action Required");
   const vendorIdx = getIdx("Contractor"), statusIdx = getIdx("Status"), cityIdx = getIdx("City"), stageIdx = getIdx("Stage");
   const ofsIdx = getIdx("Budget OFS"), benchIdx = getIdx("Historical Milestones"), dateIdx = getIdx("Date");
@@ -143,6 +144,8 @@ function getDashboardData() {
   const specXIdx = getIdx("Special Crossings?");
   const specXDetIdx = (() => { let i = headers.indexOf("Special Crossing Details"); return i > -1 ? i : headers.indexOf("Sepcial Crossings Details"); })();
   const vcIdx = getIdx("Vendor Comment") > -1 ? getIdx("Vendor Comment") : getIdx("Construction Comments");
+  const drgIdx = getIdxByAliases(["DRG", "DIRECT VENDOR", "DIRECT VENDOR TRACKING", "DRG TRACKER", "DIRECT VENDOR TRACKER"]);
+  const drgUrlIdx = getIdxByAliases(["DRG TRACKER URL", "DIRECT VENDOR TRACKER URL", "DRG URL", "DIRECT VENDOR URL", "TRACKER URL"]);
 
   const ugTotIdx = getIdx("Total UG Footage Completed"), ugBomIdx = getIdx("UG BOM Quantity"), ugDailyIdx = getIdx("Daily UG Footage");
   const aeTotIdx = getIdx("Total Strand Footage Complete?"), aeBomIdx = getIdx("Strand BOM Quantity"), aeDailyIdx = getIdx("Daily Strand Footage");
@@ -155,6 +158,12 @@ function getDashboardData() {
       let match = String(val).split('(')[0].replace(/,/g, '').trim().match(/-?\d+(\.\d+)?/);
       return match ? Number(match[0]) : 0;
   };
+  const isChecked = (val) => {
+      if (val === true) return true;
+      let normalized = String(val || '').trim().toLowerCase();
+      return ['true', '1', 'yes', 'y', 'checked', 'x', 'drg', 'direct vendor', 'tracked'].includes(normalized);
+  };
+  const defaultDrgTrackerUrl = VENDOR_TRACKER_ID ? `https://docs.google.com/spreadsheets/d/${VENDOR_TRACKER_ID}/edit` : "";
 
   const logSheet = ss.getSheetByName(CHANGE_LOG_SHEET);
   let globalLogs = [];
@@ -222,6 +231,10 @@ function getDashboardData() {
 
      if (flags !== "" && !flags.includes("✅ No Anomalies")) {
          const parseDate = (val) => val ? ((val instanceof Date) ? Utilities.formatDate(val, "GMT-5", "MM-dd-yyyy") : String(val).split('T')[0]) : "";
+         const mirrorDrgTracked = drgIdx > -1 ? isChecked(data[i][drgIdx]) : false;
+         const mirrorDrgTrackerUrl = drgUrlIdx > -1 ? String(data[i][drgUrlIdx] || "").trim() : "";
+         const refDrgTracked = refData ? !!refData.isDrgTracked : false;
+         const refDrgTrackerUrl = refData ? String(refData.drgTrackerUrl || "").trim() : "";
          
          // 🧠 FIX: Ensure no Date objects make it into the raw row
          let safeRawRow = data[i]
@@ -252,6 +265,8 @@ function getDashboardData() {
              geminiDate: geminiDateIdx > -1 ? String(data[i][geminiDateIdx] || "").trim() : "",
              rawSpecialX:  specXIdx > -1 ? String(data[i][specXIdx] || "").trim() : "",
              specXDetails: specXDetIdx > -1 ? String(data[i][specXDetIdx] || "").trim() : "",
+             isDrgTracked: mirrorDrgTracked || refDrgTracked,
+             drgTrackerUrl: mirrorDrgTrackerUrl || refDrgTrackerUrl || defaultDrgTrackerUrl,
              rid: refData ? String(refData.rid || "") : "",
              hasBOMDel: refData ? refData.hasBOMDel : false,
              hasSpliceDel: refData ? refData.hasSpliceDel : false,

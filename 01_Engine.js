@@ -177,6 +177,12 @@ function getReferenceDictionary() {
     let qbBomSentIdx    = getIdx("QB_BOM_Sent");
     let qbSowSignIdx    = getIdx("QB_SOW_Sign");
     let qbOfsReasonIdx  = getIdx("QB_Ofs_Reason");
+    let drgIdx          = ["DRG", "Direct Vendor", "Direct Vendor Tracking", "DRG Tracker", "Direct Vendor Tracker"]
+      .map(getIdx)
+      .find(function(idx) { return idx > -1; });
+    let drgUrlIdx       = ["DRG Tracker URL", "Direct Vendor Tracker URL", "DRG URL", "Direct Vendor URL", "Tracker URL"]
+      .map(getIdx)
+      .find(function(idx) { return idx > -1; });
     let vendorIdx = getIdx("CX Vendor");
     if (vendorIdx === -1) vendorIdx = getIdx("Contractor");
     if (vendorIdx === -1) vendorIdx = getIdx("Vendor");
@@ -222,6 +228,8 @@ function getReferenceDictionary() {
            rawSpecialX: xingVal,
            isSpecialX: (xingVal.toLowerCase() === "yes" || xingVal.toLowerCase() === "true"),
            specXDetails: specXDetailsIdx > -1 ? String(r[specXDetailsIdx] || "").trim() : "",
+           isDrgTracked: drgIdx > -1 ? isChecked(r[drgIdx]) : false,
+           drgTrackerUrl: drgUrlIdx > -1 ? String(r[drgUrlIdx] || "").trim() : "",
            adminDate: adminDict[f] ? safeDate(adminDict[f].xingDate) : "",
            statusSyncDate: adminDict[f] && adminDict[f].statusDate ? safeDate(adminDict[f].statusDate) : "",
            geminiInsight: adminDict[f] ? String(adminDict[f].geminiInsight || "") : "",

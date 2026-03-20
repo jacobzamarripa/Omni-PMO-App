@@ -21,6 +21,7 @@
         --pill-complete-txt: #15803d; --pill-complete-bg: rgba(34,197,94,0.15);  --pill-complete-bdr: #22c55e;
         --pill-hold-txt: #475569;     --pill-hold-bg: rgba(148,163,184,0.15);    --pill-hold-bdr: #94a3b8;
         --pill-missing-txt: #b91c1c;  --pill-missing-bg: rgba(239,68,68,0.15);   --pill-missing-bdr: #ef4444;
+        --pill-drg-txt: #0f766e;      --pill-drg-bg: rgba(20,184,166,0.14);      --pill-drg-bdr: #14b8a6;
       }
 
       /* 🚀 EXECUTIVE BOOT SEQUENCE LOADER STYLES */
@@ -1716,6 +1717,7 @@
       .em-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;}
       .em-fdh { font-size: 12px; font-weight: 900; color: var(--text-main); letter-spacing: -0.01em; line-height: 1;}
       .em-vendor { font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; line-height: 1;}
+      .em-pill-stack { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-left: 8px; }
       
       .glass-pill { font-size: 9px; font-weight: 800; padding: 3px 10px; border-radius: 8px; border: 1.5px solid; text-transform: uppercase; white-space: nowrap; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: inline-flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
       .chip-active, .pill-active, .pill-default { color: var(--pill-active-txt); background: var(--pill-active-bg); border-color: var(--pill-active-bdr); }
@@ -1724,6 +1726,10 @@
       .chip-complete, .pill-complete { color: var(--pill-complete-txt); background: var(--pill-complete-bg); border-color: var(--pill-complete-bdr); }
       .chip-hold, .pill-hold { color: var(--pill-hold-txt); background: var(--pill-hold-bg); border-color: var(--pill-hold-bdr); }
       .chip-missing, .pill-missing { color: var(--pill-missing-txt); background: var(--pill-missing-bg); border-color: var(--pill-missing-bdr); }
+      .chip-drg, .pill-drg { color: var(--pill-drg-txt); background: var(--pill-drg-bg); border-color: var(--pill-drg-bdr); }
+      .pill-drg { text-decoration: none; }
+      .pill-drg:hover { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(20, 184, 166, 0.18); }
+      .pill-drg-inline { font-size: 8px; padding: 2px 6px; }
       body.dark-mode {
           --pill-active-txt: #fde047;   --pill-active-bg: rgba(133,77,14,0.35);   --pill-active-bdr: #facc15;
           --pill-ofs-txt: #a5f3fc;      --pill-ofs-bg: rgba(8,145,178,0.35);      --pill-ofs-bdr: #22d3ee;
@@ -1731,6 +1737,7 @@
           --pill-complete-txt: #86efac; --pill-complete-bg: rgba(21,128,61,0.35); --pill-complete-bdr: #4ade80;
           --pill-hold-txt: #e2e8f0;     --pill-hold-bg: rgba(71,85,105,0.35);     --pill-hold-bdr: #94a3b8;
           --pill-missing-txt: #fca5a5;  --pill-missing-bg: rgba(153,27,27,0.35);  --pill-missing-bdr: #f87171;
+          --pill-drg-txt: #99f6e4;      --pill-drg-bg: rgba(13,148,136,0.28);     --pill-drg-bdr: #2dd4bf;
       }
       .is-muted { opacity: 0.45; transition: opacity 0.3s ease; }
       .grid-card:hover .is-muted { opacity: 0.8; }
@@ -3225,6 +3232,7 @@
                        </div>
                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
                            <div class="glass-pill" id="p-status" onmouseenter="hl('Status')" onmouseleave="hl('')">Field CX | In Progress</div>
+                           <div id="p-drg-pill-wrap"></div>
                            <span id="p-edit-engine"></span>
                        </div>
                    </div>
@@ -4660,6 +4668,31 @@
           if (stat.includes('complete')) return 'chip-complete';
           if (stat.includes('hold') || stat.includes('assign')) return 'chip-hold';
           return 'chip-active';
+      }
+
+      function isDrgTracked(item) {
+          return !!(item && item.isDrgTracked);
+      }
+
+      function getDrgTooltip(item) {
+          let label = item && item.drgTrackerUrl ? 'Open the shared DRG tracker sheet.' : 'Tracked in the shared DRG sheet.';
+          return `Direct Vendor tracked project. ${label}`;
+      }
+
+      function renderDrgPill(item, options) {
+          if (!isDrgTracked(item)) return '';
+          let opts = options || {};
+          let classes = ['glass-pill', 'pill-drg'];
+          if (opts.inline) classes.push('pill-drg-inline');
+          let label = esc(opts.label || 'DRG Tracker');
+          let tooltip = esc(getDrgTooltip(item));
+          let href = item && item.drgTrackerUrl ? esc(item.drgTrackerUrl) : '';
+          let attrs = `class="${classes.join(' ')} has-tooltip" data-tooltip="${tooltip}" title="${tooltip}"`;
+          if (href) {
+              let click = opts.stopPropagation ? ` onclick="${opts.stopPropagation}"` : '';
+              return `<a href="${href}" target="_blank" rel="noopener noreferrer" ${attrs}${click}>${label}</a>`;
+          }
+          return `<span ${attrs}>${label}</span>`;
       }
 
       function getDiagnosticTagClass(flag) {
@@ -7601,7 +7634,10 @@
                     <div style="display: flex; align-items: baseline; gap: 8px; min-width: 0;">
                         <div class="em-fdh" style="flex-shrink: 0;">${item.fdh}</div><div class="em-vendor" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.vendor}</div>
                     </div>
-                    <span class="glass-pill ${pillCls}" style="flex-shrink: 0; margin-left: 8px;">${combinedPill}</span>
+                    <div class="em-pill-stack">
+                        <span class="glass-pill ${pillCls}" style="flex-shrink: 0;">${combinedPill}</span>
+                        ${renderDrgPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                    </div>
                  </div><div class="em-tags">${tagsHtml}</div>`;
               list.appendChild(card);
           });
@@ -7688,7 +7724,10 @@
                           <div style="font-size:14px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
                           <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${item.vendor}</div>
                       </div>
-                      <span class="glass-pill ${pillCls}" style="font-size:8px; padding:2px 6px;">${combinedPill}</span>
+                      <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
+                          <span class="glass-pill ${pillCls}" style="font-size:8px; padding:2px 6px;">${combinedPill}</span>
+                          ${renderDrgPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                      </div>
                   </div>
                   <div class="grid-card-body" style="gap:4px;">${bodyHtml}</div>`;
               list.appendChild(card);
@@ -7890,6 +7929,7 @@
                   if(item.flags.includes("MISSING QB STATUS") && !item.flags.includes("NOT IN QB REFERENCE")) combinedPill = "MISSING QB STATUS";
                   pill.innerText = combinedPill; pill.className = `glass-pill ${getQBStatusClass(item.stage, item.status, isNotInQb)}`;
               }
+              setHtml('p-drg-pill-wrap', renderDrgPill(item, { label: 'Direct Vendor' }));
 
               let st = (item.stage || "").toLowerCase(); let stat = (item.status || "").toLowerCase();
               let isOFS = st.includes('ofs'); let isPermit = st.includes('permit'); let isComplete = stat.includes('complete'); let isOnHold = stat.includes('hold') || stat.includes('assign');
@@ -8448,7 +8488,10 @@
                               <div style="font-size:14px; font-weight:900; color:var(--text-main);">${esc(log.fdh)}</div>
                               <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${item ? esc(item.vendor) : ''}</div>
                           </div>
-                          <span class="glass-pill ${pillCls}">${esc(combinedPill)}</span>
+                          <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
+                              <span class="glass-pill ${pillCls}">${esc(combinedPill)}</span>
+                              ${renderDrgPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                          </div>
                       </div>
                       <div class="grid-card-body" style="justify-content:center;">
                           <div class="log-grid-item">
@@ -8651,7 +8694,10 @@
                               <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${item.vendor}</div>
                           </div>
                           <div style="display:flex; flex-direction:column; align-items:flex-end;">
-                              <span class="glass-pill ${pillCls}">${combinedPill}</span>
+                              <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
+                                  <span class="glass-pill ${pillCls}">${combinedPill}</span>
+                                  ${renderDrgPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                              </div>
                               ${topBadgeHtml}
                           </div>
                       </div>

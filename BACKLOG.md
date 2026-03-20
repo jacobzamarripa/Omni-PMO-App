@@ -133,19 +133,6 @@
       - Re-opening Gantt within the same session renders immediately (cached instance).
       - No measurable regression in Gantt render quality or interactivity after lazy-loading is applied.
 
-- [ ] **Daily digest: QuickBase edits by person**
-  - **Expected:** Daily digest includes a section summarizing QB edits over the last 24h, grouped by person. Show a ranked list of top editors/top movers with edit counts and lightweight breakdown by edit type or impacted projects.
-  - **Notes:**
-    - Define what counts as an "edit" (field change, status change, comment, bulk import, etc.) and whether bulk updates count individually or as a group.
-    - Decide whether "top movers" = pure edit volume, records touched, high-impact fields changed, or a weighted score.
-    - Target a compact leaderboard/card treatment that fits naturally into the existing morning briefing layout.
-  - **Acceptance:**
-    - Digest shows QB edit totals grouped by person for the selected time window.
-    - Top editors ranked clearly with accurate counts.
-    - Clear empty state if no edits logged (no broken appearance).
-    - Layout fits current morning briefing design and remains readable at typical screen sizes.
-    - Metrics based on a documented definition so counts are consistent day to day.
-
 - [ ] **Filter dock: Add "Group by …" capability**
   - **Expected:** Filter dock includes a "Group by" selector (Vendor / City / Health / Stage / etc.). Selecting a grouping reorganizes the result set into collapsible/scrollable groups. Works across views (Deck/Theater/Detail) and respects existing filters/search.
   - **Acceptance:**
@@ -162,7 +149,7 @@
     - Closing/reopening calculator returns it to last position (session persistence minimum).
     - No layout glitches in Deck/Theater/other views.
 
-- [ ] **Vendor tracker: DRG "Direct Vendor" pill**
+- [x] **Vendor tracker: DRG "Direct Vendor" pill**
   - **Background:** A Google Sheet flag already exists for Direct Vendor tracking (DRG), but the app has no visible indicator.
   - **Expected:** Projects flagged for Direct Vendor tracking display a "DRG Tracker" / "Direct Vendor" pill/badge in relevant surfaces (header, project card, detail view). Pill provides context on hover/click (tooltip or hub link explaining what it means, and optionally a link to the tracker sheet).
   - **Acceptance:**
@@ -170,3 +157,4 @@
     - Non-flagged projects do not show the pill.
     - Pill text + color follows design system and does not conflict with other status pills.
     - If a link is included, it opens the correct DRG tracker (permissions-dependent).
+  - **Completed:** DRG flags now flow from the sheet/reference data into the dashboard payload, and flagged projects show a consistent teal tracker pill in list cards, grid cards, activity cards, and the detail header with hover context plus a tracker-sheet link when available.
