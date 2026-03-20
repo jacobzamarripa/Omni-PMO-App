@@ -139,6 +139,7 @@ function getDashboardData() {
   const vendorIdx = getIdx("Contractor"), statusIdx = getIdx("Status"), cityIdx = getIdx("City"), stageIdx = getIdx("Stage");
   const ofsIdx = getIdx("Budget OFS"), benchIdx = getIdx("Historical Milestones"), dateIdx = getIdx("Date");
   const targetIdx = getIdx("Target Completion Date"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete");
+  const summaryIdx = getIdx("Field Production");
   const xingIdx = getIdx("QB Context & Gaps"), bslsIdx = getIdx("BSLs"), lightIdx = getIdx("Light to Cabinets");
   const cdIntelIdx = getIdx("CD Intelligence"), geminiInsightIdx = getIdx("Gemini Insight"), geminiDateIdx = getIdx("Gemini Insight Date");
   const specXIdx = getIdx("Special Crossings?");
@@ -231,6 +232,8 @@ function getDashboardData() {
 
      if (flags !== "" && !flags.includes("✅ No Anomalies")) {
          const parseDate = (val) => val ? ((val instanceof Date) ? Utilities.formatDate(val, "GMT-5", "MM-dd-yyyy") : String(val).split('T')[0]) : "";
+         const fieldProduction = summaryIdx > -1 ? String(data[i][summaryIdx] || "").trim() : "";
+         const mirrorTrackerLinked = fieldProduction.includes("[📡 Tracker Linked]") || fieldProduction.includes("[Tracker Linked]");
          const mirrorDrgTracked = drgIdx > -1 ? isChecked(data[i][drgIdx]) : false;
          const mirrorDrgTrackerUrl = drgUrlIdx > -1 ? String(data[i][drgUrlIdx] || "").trim() : "";
          const refDrgTracked = refData ? !!refData.isDrgTracked : false;
@@ -258,6 +261,7 @@ function getDashboardData() {
              gaps: xingIdx > -1 ? String(data[i][xingIdx] || "") : "", 
              flags: flags, 
              draft: draftIdx > -1 ? String(data[i][draftIdx] || "") : "", 
+             fieldProduction: fieldProduction,
              bench: benchIdx > -1 ? String(data[i][benchIdx] || "") : "",
              vendorComment: vcIdx > -1 ? String(data[i][vcIdx] || "") : "",
              cdIntel: cdIntelIdx > -1 ? String(data[i][cdIntelIdx] || "").trim() : "",
@@ -265,6 +269,7 @@ function getDashboardData() {
              geminiDate: geminiDateIdx > -1 ? String(data[i][geminiDateIdx] || "").trim() : "",
              rawSpecialX:  specXIdx > -1 ? String(data[i][specXIdx] || "").trim() : "",
              specXDetails: specXDetIdx > -1 ? String(data[i][specXDetIdx] || "").trim() : "",
+             isTrackerLinked: mirrorTrackerLinked,
              isDrgTracked: mirrorDrgTracked || refDrgTracked,
              drgTrackerUrl: mirrorDrgTrackerUrl || refDrgTrackerUrl || defaultDrgTrackerUrl,
              rid: refData ? String(refData.rid || "") : "",

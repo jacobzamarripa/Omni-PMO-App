@@ -4673,22 +4673,26 @@
           return 'chip-active';
       }
 
-      function isDrgTracked(item) {
-          return !!(item && item.isDrgTracked);
+      function isVendorTrackerLinked(item) {
+          return !!(item && (item.isTrackerLinked || item.isDrgTracked));
       }
 
-      function getDrgTooltip(item) {
-          let label = item && item.drgTrackerUrl ? 'Open the shared DRG tracker sheet.' : 'Tracked in the shared DRG sheet.';
-          return `Direct Vendor tracked project. ${label}`;
+      function getVendorTrackerTooltip(item) {
+          let detail = item && item.isTrackerLinked
+              ? 'Tracker data is linked into Daily Review and may override baseline database values.'
+              : 'Tracked in the shared vendor tracker sheet.';
+          let action = item && item.drgTrackerUrl ? ' Open the tracker sheet.' : '';
+          return `${detail}${action}`;
       }
 
-      function renderDrgPill(item, options) {
-          if (!isDrgTracked(item)) return '';
+      function renderTrackerPill(item, options) {
+          if (!isVendorTrackerLinked(item)) return '';
           let opts = options || {};
           let classes = ['glass-pill', 'pill-drg'];
           if (opts.inline) classes.push('pill-drg-inline');
-          let label = esc(opts.label || 'DRG Tracker');
-          let tooltip = esc(getDrgTooltip(item));
+          let defaultLabel = item && item.isTrackerLinked ? 'Tracker Linked' : 'DRG Tracker';
+          let label = esc(opts.label || defaultLabel);
+          let tooltip = esc(getVendorTrackerTooltip(item));
           let href = item && item.drgTrackerUrl ? esc(item.drgTrackerUrl) : '';
           let attrs = `class="${classes.join(' ')} has-tooltip" data-tooltip="${tooltip}" title="${tooltip}"`;
           if (href) {
@@ -7641,7 +7645,7 @@
                     </div>
                     <div class="em-pill-stack">
                         <span class="glass-pill ${pillCls}" style="flex-shrink: 0;">${combinedPill}</span>
-                        ${renderDrgPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                        ${renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
                     </div>
                  </div><div class="em-tags">${tagsHtml}</div>`;
               list.appendChild(card);
@@ -7731,7 +7735,7 @@
                       </div>
                       <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
                           <span class="glass-pill ${pillCls}" style="font-size:8px; padding:2px 6px;">${combinedPill}</span>
-                          ${renderDrgPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                          ${renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
                       </div>
                   </div>
                   <div class="grid-card-body" style="gap:4px;">${bodyHtml}</div>`;
@@ -7934,7 +7938,7 @@
                   if(item.flags.includes("MISSING QB STATUS") && !item.flags.includes("NOT IN QB REFERENCE")) combinedPill = "MISSING QB STATUS";
                   pill.innerText = combinedPill; pill.className = `glass-pill ${getQBStatusClass(item.stage, item.status, isNotInQb)}`;
               }
-              setHtml('p-drg-pill-wrap', renderDrgPill(item, { label: 'Direct Vendor' }));
+              setHtml('p-drg-pill-wrap', renderTrackerPill(item));
 
               let st = (item.stage || "").toLowerCase(); let stat = (item.status || "").toLowerCase();
               let isOFS = st.includes('ofs'); let isPermit = st.includes('permit'); let isComplete = stat.includes('complete'); let isOnHold = stat.includes('hold') || stat.includes('assign');
@@ -8495,7 +8499,7 @@
                           </div>
                           <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
                               <span class="glass-pill ${pillCls}">${esc(combinedPill)}</span>
-                              ${renderDrgPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                              ${renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
                           </div>
                       </div>
                       <div class="grid-card-body" style="justify-content:center;">
@@ -8701,7 +8705,7 @@
                           <div style="display:flex; flex-direction:column; align-items:flex-end;">
                               <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
                                   <span class="glass-pill ${pillCls}">${combinedPill}</span>
-                                  ${renderDrgPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                                  ${renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
                               </div>
                               ${topBadgeHtml}
                           </div>
