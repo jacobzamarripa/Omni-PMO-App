@@ -67,7 +67,7 @@
     - User can clear individual selections and "clear all".
     - Filtering logic applies AND/OR semantics as documented per filter type.
   - **Completed:** Header KPI/HUD spacing is breakpoint-tuned, selector chips summarize multi-select state, active selections remain removable as pills with clear-all support, and the Projects HUD now documents OR-within-category / AND-across-category semantics while reflecting active filters.
-- [ ] **Header: Make "Critical" pill actionable (open Critical Hub)**
+- [x] **Header: Make "Critical" pill actionable (open Critical Hub)**
   - **Expected:** Clicking the Critical pill opens a Critical Hub panel with a breakdown and actionable list.
   - **Hub contents:**
     - Clear count breakdown (what is considered "critical").
@@ -78,6 +78,7 @@
     - Hub content matches the pill count and is not empty when count > 0.
     - User can click an item and be taken to the relevant record/context.
     - If count = 0, hub shows a clear "no critical items" empty state — no confusing blank.
+  - **Completed:** The Critical pill now opens a filterable Critical Hub with live count parity, derived critical-type breakdowns, market/vendor/type sorting and filters, navigate + local acknowledge actions, and a non-blank empty state.
 
 ## 🟢 LATER (New Features)
 *Focus: Drag-and-drop, Advanced Analytics, Data Source Indicators.*

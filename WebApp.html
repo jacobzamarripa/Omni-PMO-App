@@ -1872,6 +1872,262 @@
       .toast-msg { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); padding:8px 20px; border-radius:20px; font-size:12px; font-weight:700; transition:opacity 0.4s; opacity:0; z-index:99999; pointer-events:none; white-space:nowrap; }
       .toast-ok    { background:#166534; color:#fff; }
       .toast-error { background:#991b1b; color:#fff; }
+      .critical-hub-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.45);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          z-index: 100020;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          box-sizing: border-box;
+      }
+      .critical-hub-overlay.open { display: flex; }
+      .critical-hub-panel {
+          width: min(1120px, calc(100vw - 32px));
+          max-height: calc(100vh - 48px);
+          background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+          border: 1px solid var(--border);
+          border-radius: 24px;
+          box-shadow: 0 30px 80px rgba(15, 23, 42, 0.24);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+      }
+      .critical-hub-header {
+          padding: 20px 22px 16px;
+          border-bottom: 1px solid var(--border);
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 16px;
+          background: color-mix(in srgb, var(--bg) 92%, transparent);
+      }
+      .critical-hub-kicker {
+          font-size: 10px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          color: var(--color-critical);
+          margin-bottom: 6px;
+      }
+      .critical-hub-title {
+          font-size: 28px;
+          font-weight: 900;
+          letter-spacing: -1px;
+          color: var(--text-main);
+          line-height: 1;
+      }
+      .critical-hub-subtitle {
+          margin-top: 8px;
+          font-size: 12px;
+          line-height: 1.55;
+          color: var(--text-muted);
+          max-width: 780px;
+      }
+      .critical-hub-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+      }
+      .critical-hub-body {
+          padding: 18px 22px 22px;
+          overflow: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+      }
+      .critical-hub-summary {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 12px;
+      }
+      .critical-hub-stat {
+          background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 14px 16px;
+          box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+      }
+      .critical-hub-stat-label {
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
+          color: var(--text-muted);
+      }
+      .critical-hub-stat-value {
+          margin-top: 8px;
+          font-size: 26px;
+          font-weight: 900;
+          line-height: 1;
+          color: var(--text-main);
+      }
+      .critical-hub-stat-note {
+          margin-top: 6px;
+          font-size: 10px;
+          color: var(--text-muted);
+      }
+      .critical-hub-controls {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 12px;
+      }
+      .critical-hub-control {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+      }
+      .critical-hub-control label {
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
+          color: var(--text-muted);
+      }
+      .critical-hub-control select {
+          width: 100%;
+          height: 36px;
+          border-radius: 12px;
+          padding: 0 12px;
+          font-size: 11px;
+          font-weight: 800;
+          color: var(--text-main);
+          background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+          border: 1px solid var(--border);
+          outline: none;
+      }
+      .critical-hub-breakdown {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+      }
+      .critical-hub-breakdown-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--card-bg) 90%, transparent);
+          cursor: pointer;
+          transition: all 0.2s;
+          font-size: 11px;
+          font-weight: 800;
+          color: var(--text-main);
+      }
+      .critical-hub-breakdown-chip.active {
+          border-color: rgba(239, 68, 68, 0.45);
+          background: rgba(239, 68, 68, 0.08);
+          color: #b91c1c;
+      }
+      .critical-hub-breakdown-count {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 20px;
+          height: 20px;
+          border-radius: 10px;
+          background: rgba(239, 68, 68, 0.14);
+          color: #b91c1c;
+          font-size: 10px;
+          font-weight: 900;
+          padding: 0 6px;
+      }
+      .critical-hub-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+      }
+      .critical-hub-item {
+          border: 1px solid var(--border);
+          border-left: 4px solid var(--color-critical);
+          border-radius: 16px;
+          background: color-mix(in srgb, var(--card-bg) 94%, transparent);
+          padding: 14px 16px;
+          box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+      }
+      .critical-hub-item-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 14px;
+      }
+      .critical-hub-item-id {
+          font-size: 16px;
+          font-weight: 900;
+          color: var(--text-main);
+          letter-spacing: -0.4px;
+      }
+      .critical-hub-item-meta {
+          margin-top: 4px;
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: var(--text-muted);
+      }
+      .critical-hub-item-flags {
+          margin-top: 10px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+      }
+      .critical-hub-item-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 12px;
+      }
+      .critical-hub-empty {
+          border: 1px dashed var(--border);
+          border-radius: 18px;
+          padding: 32px 24px;
+          text-align: center;
+          background: color-mix(in srgb, var(--bg) 80%, transparent);
+      }
+      .critical-hub-empty-title {
+          font-size: 20px;
+          font-weight: 900;
+          letter-spacing: -0.6px;
+          color: var(--text-main);
+      }
+      .critical-hub-empty-copy {
+          margin-top: 8px;
+          font-size: 12px;
+          color: var(--text-muted);
+      }
+      @media (max-width: 900px) {
+          .critical-hub-overlay { padding: 12px; }
+          .critical-hub-panel {
+              width: calc(100vw - 24px);
+              max-height: calc(100vh - 24px);
+              border-radius: 18px;
+          }
+          .critical-hub-header,
+          .critical-hub-body {
+              padding-left: 16px;
+              padding-right: 16px;
+          }
+          .critical-hub-summary,
+          .critical-hub-controls {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+      }
+      @media (max-width: 640px) {
+          .critical-hub-summary,
+          .critical-hub-controls {
+              grid-template-columns: 1fr;
+          }
+          .critical-hub-item-top {
+              flex-direction: column;
+          }
+      }
       .raw-table { border-collapse: collapse; font-family: monospace; font-size: 10px; background: var(--card-bg); margin: auto 0; border: 1px solid var(--border);}
       .raw-table th { background: var(--bg); color: var(--text-muted); font-weight: bold; padding: 4px 8px; border: 1px solid var(--border); white-space: nowrap;}
       .raw-table td { padding: 4px 8px; border: 1px solid var(--border); white-space: nowrap; color: var(--text-main); transition: background-color 0.2s; }
@@ -2440,7 +2696,7 @@
                         <div class="kpi-expand-inner" id="kpi-bsls-breakdown"></div>
                     </div>
                 </div>
-                <div class="kpi-nav-box metric-red has-tooltip" data-tooltip="Toggle Critical Filter" onclick="toggleCriticalFilter()">
+                <div class="kpi-nav-box metric-red has-tooltip" data-tooltip="Open Critical Hub" onclick="openCriticalHub()">
                     <div class="kpi-base">
                         <div class="kpi-val" id="kpi-active-crit">0</div>
                         <div class="kpi-label">Critical</div>
@@ -2450,6 +2706,9 @@
             <div id="bsls-pie-hud" class="projects-hud"></div>
             <div id="projects-pie-hud" class="projects-hud"></div>
         </div>
+      </div>
+      <div id="critical-hub-overlay" class="critical-hub-overlay" onclick="closeCriticalHub()">
+          <div id="critical-hub-panel" class="critical-hub-panel" onclick="event.stopPropagation()"></div>
       </div>
 
       <div class="view-segment-group">
@@ -3295,6 +3554,16 @@
           applyFilters();
       }
 
+      function getCriticalType(item) {
+          let flags = String((item && item.flags) || '').toUpperCase();
+          if (flags.includes('OVERDUE')) return 'Overdue';
+          if (flags.includes('MISSING DAILY REPORT')) return 'Missing Report';
+          if (flags.includes('CROSSING') || flags.includes('X-ING')) return 'Crossing Risk';
+          if (flags.includes('BOM') || flags.includes('REROUTE') || flags.includes('SCOPE') || flags.includes('DEVIATION')) return 'BOM / Scope Issue';
+          if (flags.includes('QB') || flags.includes('REFERENCE') || flags.includes('STATUS MISMATCH') || flags.includes('MISSING QB STATUS')) return 'QB / Reference Issue';
+          return 'Other Critical';
+      }
+
       function renderMultiSelect(id, category, defaultLabel, optionsArr) {
           let wrap = getEl(id);
           if (!wrap) return;
@@ -3923,12 +4192,7 @@
           if (minBtn) minBtn.innerText = isMin ? 'Expand' : 'Minimize';
       }
       function toggleCriticalFilter() {
-          if (activeFilters.sev.includes('crit')) {
-              activeFilters.sev = activeFilters.sev.filter(v => v !== 'crit');
-          } else {
-              activeFilters.sev.push('crit');
-          }
-          applyFilters();
+          openCriticalHub();
       }
       function toggleAdminFilter(type) {
           activeAdminFilter = (activeAdminFilter === type) ? null : type;
@@ -5040,6 +5304,9 @@
       let filteredItems = []; let currentQueueIndex = -1; let ganttManualHeight = null;
       let globalRefDataDate = "";
       let globalAllFdhIds = [];
+      let currentCriticalHubItems = [];
+      let acknowledgedCriticalFdhs = [];
+      let criticalHubState = { market: 'ALL', vendor: 'ALL', type: 'ALL', sort: 'default', showAcknowledged: false };
       // View mode is managed by currentViewMode + applyViewMode()
       loadStagedReviewSession();
       loadReviewedTray();
@@ -5590,6 +5857,8 @@
                 if (activeAdminFilter === 'status') return i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS");
                 return true;
             });
+            currentCriticalHubItems = filtered.filter(i => getSeverity(i.flags) === 'crit');
+            acknowledgedCriticalFdhs = acknowledgedCriticalFdhs.filter(fdh => currentCriticalHubItems.some(item => String(item.fdh || '') === String(fdh || '')));
 
             let activeProjCount = 0; let pendingProjCount = 0; let overdueProjCount = 0;
             let activeBslsCount = 0; let activeCritCount = 0;
@@ -5712,6 +5981,7 @@
                 renderDeckStage();
             }
             renderActiveFilterPills();
+            if (getEl('critical-hub-overlay')?.classList.contains('open')) renderCriticalHub();
         });
       }
 
@@ -5738,6 +6008,236 @@
               strip.classList.add('hidden');
               if (btn) btn.classList.remove('btn-filters-active');
           }
+      }
+
+      function getCriticalHubVisibleItems() {
+          let items = (currentCriticalHubItems || []).slice();
+          if (!criticalHubState.showAcknowledged) {
+              items = items.filter(item => !acknowledgedCriticalFdhs.includes(String(item.fdh || '')));
+          }
+          if (criticalHubState.market !== 'ALL') items = items.filter(item => String(item.city || '') === criticalHubState.market);
+          if (criticalHubState.vendor !== 'ALL') items = items.filter(item => String(item.vendor || '') === criticalHubState.vendor);
+          if (criticalHubState.type !== 'ALL') items = items.filter(item => getCriticalType(item) === criticalHubState.type);
+
+          items.sort(function(a, b) {
+              if (criticalHubState.sort === 'vendor') return String(a.vendor || '').localeCompare(String(b.vendor || '')) || ((a.rowNum || 0) - (b.rowNum || 0));
+              if (criticalHubState.sort === 'market') return String(a.city || '').localeCompare(String(b.city || '')) || ((a.rowNum || 0) - (b.rowNum || 0));
+              if (criticalHubState.sort === 'type') return getCriticalType(a).localeCompare(getCriticalType(b)) || ((a.rowNum || 0) - (b.rowNum || 0));
+              if (criticalHubState.sort === 'target') {
+                  let aDate = safeDate(a.cxEnd || a.targetDate);
+                  let bDate = safeDate(b.cxEnd || b.targetDate);
+                  let aTime = aDate && !isNaN(aDate.getTime()) ? aDate.getTime() : Number.MAX_SAFE_INTEGER;
+                  let bTime = bDate && !isNaN(bDate.getTime()) ? bDate.getTime() : Number.MAX_SAFE_INTEGER;
+                  return aTime - bTime || ((a.rowNum || 0) - (b.rowNum || 0));
+              }
+              return (a.rowNum || 0) - (b.rowNum || 0);
+          });
+          return items;
+      }
+
+      function setCriticalHubFilter(field, value) {
+          criticalHubState[field] = value;
+          renderCriticalHub();
+      }
+
+      function toggleCriticalHubType(type) {
+          criticalHubState.type = criticalHubState.type === type ? 'ALL' : type;
+          renderCriticalHub();
+      }
+
+      function toggleCriticalShowAcknowledged() {
+          criticalHubState.showAcknowledged = !criticalHubState.showAcknowledged;
+          renderCriticalHub();
+      }
+
+      function resetCriticalAcknowledged() {
+          acknowledgedCriticalFdhs = [];
+          renderCriticalHub();
+      }
+
+      function acknowledgeCriticalItem(fdh) {
+          let key = String(fdh || '');
+          if (!acknowledgedCriticalFdhs.includes(key)) acknowledgedCriticalFdhs.push(key);
+          renderCriticalHub();
+          showToast(`Acknowledged ${key}`);
+      }
+
+      function navigateFromCriticalHub(fdh) {
+          let item = (currentCriticalHubItems || []).find(function(entry) { return String(entry.fdh || '') === String(fdh || ''); });
+          if (!item) return;
+          closeCriticalHub();
+          if (document.body.classList.contains('gantt-fullscreen')) {
+              handleGanttClick(item.fdh);
+              return;
+          }
+          if (currentWorkspaceView === 'grid') {
+              openPaneFromGrid(item.fdh);
+              return;
+          }
+          openPane(item, getEl(`card-${item.fdh}`) || null);
+      }
+
+      function openCriticalHub() {
+          let overlay = getEl('critical-hub-overlay');
+          if (!overlay) return;
+          overlay.classList.add('open');
+          renderCriticalHub();
+      }
+
+      function closeCriticalHub() {
+          let overlay = getEl('critical-hub-overlay');
+          if (overlay) overlay.classList.remove('open');
+      }
+
+      function renderCriticalHub() {
+          let panel = getEl('critical-hub-panel');
+          if (!panel) return;
+
+          let sourceItems = (currentCriticalHubItems || []).slice();
+          let visibleItems = getCriticalHubVisibleItems();
+          let totalCount = sourceItems.length;
+          let visibleCount = visibleItems.length;
+          let acknowledgedCount = acknowledgedCriticalFdhs.filter(function(fdh) {
+              return sourceItems.some(function(item) { return String(item.fdh || '') === String(fdh || ''); });
+          }).length;
+          let markets = [...new Set(sourceItems.map(item => String(item.city || '')).filter(Boolean))].sort();
+          let vendors = [...new Set(sourceItems.map(item => String(item.vendor || '')).filter(Boolean))].sort();
+          let types = [...new Set(sourceItems.map(item => getCriticalType(item)).filter(Boolean))].sort();
+          let breakdownCounts = {};
+          sourceItems.forEach(function(item) {
+              let type = getCriticalType(item);
+              breakdownCounts[type] = (breakdownCounts[type] || 0) + 1;
+          });
+
+          let controlsHtml = `
+              <div class="critical-hub-controls">
+                  <div class="critical-hub-control">
+                      <label>Market</label>
+                      <select onchange="setCriticalHubFilter('market', this.value)">
+                          <option value="ALL">All Markets</option>
+                          ${markets.map(v => `<option value="${esc(v)}" ${criticalHubState.market === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+                      </select>
+                  </div>
+                  <div class="critical-hub-control">
+                      <label>Vendor</label>
+                      <select onchange="setCriticalHubFilter('vendor', this.value)">
+                          <option value="ALL">All Vendors</option>
+                          ${vendors.map(v => `<option value="${esc(v)}" ${criticalHubState.vendor === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+                      </select>
+                  </div>
+                  <div class="critical-hub-control">
+                      <label>Type</label>
+                      <select onchange="setCriticalHubFilter('type', this.value)">
+                          <option value="ALL">All Types</option>
+                          ${types.map(v => `<option value="${esc(v)}" ${criticalHubState.type === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+                      </select>
+                  </div>
+                  <div class="critical-hub-control">
+                      <label>Sort</label>
+                      <select onchange="setCriticalHubFilter('sort', this.value)">
+                          <option value="default" ${criticalHubState.sort === 'default' ? 'selected' : ''}>Default</option>
+                          <option value="vendor" ${criticalHubState.sort === 'vendor' ? 'selected' : ''}>Vendor</option>
+                          <option value="market" ${criticalHubState.sort === 'market' ? 'selected' : ''}>Market</option>
+                          <option value="type" ${criticalHubState.sort === 'type' ? 'selected' : ''}>Type</option>
+                          <option value="target" ${criticalHubState.sort === 'target' ? 'selected' : ''}>Target / End Date</option>
+                      </select>
+                  </div>
+              </div>
+          `;
+
+          let breakdownHtml = types.map(function(type) {
+              let count = breakdownCounts[type] || 0;
+              let isActive = criticalHubState.type === type;
+              return `<button class="critical-hub-breakdown-chip ${isActive ? 'active' : ''}" onclick="toggleCriticalHubType('${escJs(type)}')"><span>${esc(type)}</span><span class="critical-hub-breakdown-count">${count}</span></button>`;
+          }).join('');
+
+          let listHtml = '';
+          if (totalCount === 0) {
+              listHtml = `
+                  <div class="critical-hub-empty">
+                      <div class="critical-hub-empty-title">No critical items</div>
+                      <div class="critical-hub-empty-copy">The current working set has no critical projects. The hub stays available so the pill is always consistent and never opens to a blank panel.</div>
+                  </div>
+              `;
+          } else if (visibleCount === 0) {
+              listHtml = `
+                  <div class="critical-hub-empty">
+                      <div class="critical-hub-empty-title">No items match the current hub filters</div>
+                      <div class="critical-hub-empty-copy">Adjust Market, Vendor, Type, sort order, or toggle acknowledged items to widen the list.</div>
+                  </div>
+              `;
+          } else {
+              listHtml = visibleItems.map(function(item) {
+                  let type = getCriticalType(item);
+                  let rawFlags = String(item.flags || '').split('\n').map(function(flag) { return flag.trim(); }).filter(Boolean);
+                  let visibleFlags = rawFlags.slice(0, 4).map(function(flag) {
+                      return `<span class="tag ${getDiagnosticTagClass(flag)}" style="font-size:9px; padding:3px 7px;">${esc(cleanDiagnosticFlagText(flag))}</span>`;
+                  }).join('');
+                  let isNotInQb = String(item.flags || '').includes("NOT IN QB REFERENCE") || String(item.flags || '').includes("MISSING QB STATUS");
+                  let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || '-'} | ${item.status || '-'}`;
+                  let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+                  let targetLabel = item.cxEnd || item.targetDate ? formatDate(item.cxEnd || item.targetDate) : 'TBD';
+                  return `
+                      <div class="critical-hub-item">
+                          <div class="critical-hub-item-top">
+                              <div>
+                                  <div class="critical-hub-item-id">${esc(item.fdh)}</div>
+                                  <div class="critical-hub-item-meta">${esc(item.city || 'Unknown Market')} • ${esc(item.vendor || 'Unknown Vendor')} • ${esc(type)}</div>
+                              </div>
+                              <span class="glass-pill ${pillCls}" style="font-size:9px; padding:4px 8px;">${esc(combinedPill)}</span>
+                          </div>
+                          <div class="critical-hub-item-flags">${visibleFlags || '<span style="font-size:11px; color:var(--text-muted);">No diagnostic flags available.</span>'}</div>
+                          <div class="critical-hub-item-actions">
+                              <span style="font-size:10px; font-weight:800; color:var(--text-muted);">Target / End: ${esc(targetLabel)}</span>
+                              <button class="btn" onclick="navigateFromCriticalHub('${escJs(item.fdh)}')" style="background:#0f172a; color:#fff; border-color:#0f172a;">Navigate</button>
+                              <button class="btn" onclick="acknowledgeCriticalItem('${escJs(item.fdh)}')" style="background:transparent; color:var(--color-critical); border-color:rgba(239,68,68,0.35);">Acknowledge</button>
+                          </div>
+                      </div>
+                  `;
+              }).join('');
+          }
+
+          panel.innerHTML = `
+              <div class="critical-hub-header">
+                  <div>
+                      <div class="critical-hub-kicker">Critical Hub</div>
+                      <div class="critical-hub-title">Actionable Critical Items</div>
+                      <div class="critical-hub-subtitle">Critical items are projects whose existing severity resolves to <b>critical</b> from current diagnostic flags. Market uses the current city field in v1, type is derived from flag families, and acknowledge is local to this browser session.</div>
+                  </div>
+                  <div class="critical-hub-header-actions">
+                      <button class="btn" onclick="toggleCriticalShowAcknowledged()" style="background:transparent; color:var(--text-main); border-color:var(--border);">${criticalHubState.showAcknowledged ? 'Hide Acknowledged' : 'Show Acknowledged'}</button>
+                      <button class="btn" onclick="resetCriticalAcknowledged()" style="background:transparent; color:var(--text-main); border-color:var(--border);">Reset Acknowledged</button>
+                      <button class="panel-tab-close" onclick="closeCriticalHub()" title="Close hub">✕</button>
+                  </div>
+              </div>
+              <div class="critical-hub-body">
+                  <div class="critical-hub-summary">
+                      <div class="critical-hub-stat">
+                          <div class="critical-hub-stat-label">Critical Count</div>
+                          <div class="critical-hub-stat-value">${totalCount}</div>
+                          <div class="critical-hub-stat-note">Matches the header pill count for the current working set.</div>
+                      </div>
+                      <div class="critical-hub-stat">
+                          <div class="critical-hub-stat-label">Visible</div>
+                          <div class="critical-hub-stat-value">${visibleCount}</div>
+                          <div class="critical-hub-stat-note">After hub filters and acknowledge state.</div>
+                      </div>
+                      <div class="critical-hub-stat">
+                          <div class="critical-hub-stat-label">Acknowledged</div>
+                          <div class="critical-hub-stat-value">${acknowledgedCount}</div>
+                          <div class="critical-hub-stat-note">Hidden by default until you choose to show them.</div>
+                      </div>
+                      <div class="critical-hub-stat">
+                          <div class="critical-hub-stat-label">Filter Logic</div>
+                          <div class="critical-hub-stat-value" style="font-size:18px;">Live</div>
+                          <div class="critical-hub-stat-note">Hub follows the same current dataset as the red pill.</div>
+                      </div>
+                  </div>
+                  ${controlsHtml}
+                  <div class="critical-hub-breakdown">${breakdownHtml || '<span style="font-size:11px; color:var(--text-muted);">No type breakdown available.</span>'}</div>
+                  <div class="critical-hub-list">${listHtml}</div>
+              </div>
+          `;
       }
 
       // 🧠 GANTT CHART ENGINE (REBUILT FOR PERFECT LAYERING)
