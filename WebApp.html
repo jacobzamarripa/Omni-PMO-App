@@ -1037,42 +1037,10 @@
       }
       .kpi-val { line-height: 1; }
       .kpi-label { line-height: 1; white-space: nowrap; }
-      .kpi-expand-wrap {
-          max-width: 0;
-          opacity: 0;
-          overflow: hidden;
-          transition: max-width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
-      }
-      .kpi-nav-box:hover .kpi-expand-wrap {
-          max-width: 350px;
-          opacity: 1;
-      }
-      .kpi-expand-inner {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: 0.3px;
-          white-space: nowrap;
-          border-left: 1px solid color-mix(in srgb, var(--text-muted) 30%, transparent);
-          padding-left: 8px;
-          margin-left: 8px;
-      }
       #nav-projects-pill { cursor: pointer; }
       #nav-projects-pill.is-locked { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.4); }
       #nav-bsls-pill { cursor: pointer; }
       #nav-bsls-pill.is-locked { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4); }
-      #kpi-projects-breakdown span.ok { color: #16a34a; }
-      #kpi-projects-breakdown span.pending { color: #d97706; }
-      #kpi-projects-breakdown span.overdue { color: #dc2626; }
-      #kpi-projects-breakdown span.sep,
-      #kpi-bsls-breakdown span.sep { color: var(--text-muted); }
-      #kpi-bsls-breakdown span.month-chip { color: #2563eb; }
-      body.dark-mode #kpi-projects-breakdown span.ok { color: #4ade80; }
-      body.dark-mode #kpi-projects-breakdown span.pending { color: #fbbf24; }
-      body.dark-mode #kpi-projects-breakdown span.overdue { color: #f87171; }
-      body.dark-mode #kpi-bsls-breakdown span.month-chip { color: #60a5fa; }
       .projects-hud {
           position: fixed;
           z-index: 999999;
@@ -1111,12 +1079,6 @@
           letter-spacing:0.7px;
           color:#fde68a;
       }
-      .projects-hud-subtitle {
-          margin-top:4px;
-          font-size:11px;
-          line-height:1.45;
-          color:#d4d4d8;
-      }
       .projects-hud-actions {
           display:flex;
           align-items:center;
@@ -1149,11 +1111,6 @@
           text-transform:uppercase;
           letter-spacing:0.8px;
           color:#a1a1aa;
-      }
-      .projects-hud-helper {
-          font-size:10px;
-          line-height:1.5;
-          color:#d4d4d8;
       }
       .projects-hud-chip-row {
           display:flex;
@@ -1192,6 +1149,11 @@
           cursor:pointer;
           font-size:8px;
           line-height:1;
+      }
+      .projects-hud-empty {
+          font-size:11px;
+          font-weight:800;
+          color:#a1a1aa;
       }
       .projects-hud-main {
           display:flex;
@@ -2680,9 +2642,6 @@
                         <div class="kpi-val" id="kpi-total-proj">0</div>
                         <div class="kpi-label">Projects</div>
                     </div>
-                    <div class="kpi-expand-wrap">
-                        <div class="kpi-expand-inner" id="kpi-projects-breakdown"></div>
-                    </div>
                 </div>
                 <div class="kpi-nav-box metric-blue" id="nav-bsls-pill"
                      onmouseenter="showBslsHUD()"
@@ -2691,9 +2650,6 @@
                     <div class="kpi-base">
                         <div class="kpi-val" id="kpi-active-bsls">0</div>
                         <div class="kpi-label">BSLs</div>
-                    </div>
-                    <div class="kpi-expand-wrap">
-                        <div class="kpi-expand-inner" id="kpi-bsls-breakdown"></div>
                     </div>
                 </div>
                 <div class="kpi-nav-box metric-red has-tooltip" data-tooltip="Open Critical Hub" onclick="openCriticalHub()">
@@ -5921,19 +5877,6 @@
             setTxt('kpi-active-bsls', activeBslsCount.toLocaleString());
             setTxt('kpi-active-crit', activeCritCount);
 
-            let sortedStageKeys = Object.keys(currentFilterStats.stageCounts).sort((a, b) => currentFilterStats.stageCounts[b] - currentFilterStats.stageCounts[a]);
-            let top3Stages = sortedStageKeys.slice(0, 3);
-            let stageHtml = top3Stages.map(s => `<span style="color:${getStageColor(s)}; font-weight:800;">${currentFilterStats.stageCounts[s]} ${s}</span>`).join(' <span class="sep" style="color:var(--text-muted);">•</span> ');
-            setHtml('kpi-projects-breakdown', stageHtml || `<span style="color:var(--text-muted);">No Stages</span>`);
-
-            let sortedMonths = Object.keys(currentFilterStats.bslByMonth)
-                .sort((a, b) => currentFilterStats.bslByMonth[b] - currentFilterStats.bslByMonth[a])
-                .slice(0, 3);
-            let bslMonthHtml = sortedMonths
-                .map(m => `<span class="month-chip">${m}: ${currentFilterStats.bslByMonth[m].toLocaleString()}</span>`)
-                .join(' <span class="sep">•</span> ');
-            setHtml('kpi-bsls-breakdown', bslMonthHtml || `<span style="color:var(--text-muted);">No Target Dates</span>`);
-
             if (bslsHudLocked) {
                 let pill = getEl('nav-bsls-pill');
                 if (!renderBslsHUD()) {
@@ -7637,17 +7580,11 @@
                     let chipStyle = entry.color ? ` style="border-color:${entry.color}; box-shadow: inset 3px 0 0 ${entry.color};"` : '';
                     return `<span class="projects-hud-chip"${chipStyle}><span class="projects-hud-chip-label">${esc(entry.categoryLabel)}</span><span>${esc(entry.label)}</span><span class="projects-hud-chip-remove" onclick="${removeAction}">✕</span></span>`;
                 }).join('') + `</div>`
-              : `<div class="projects-hud-helper">No category filters active. Use the dock selectors for multi-select, then click a stage row here to layer on a stage-specific view.</div>`;
-          let semanticsText = activeFilterEntries.length > 0
-              ? `OR within each filter category. AND across categories. Stage filtering from this HUD applies on top of the active set.`
-              : `Multi-select semantics are consistent across the app: OR within a category, AND across categories.`;
+              : `<div class="projects-hud-empty">None</div>`;
 
           hud.innerHTML = `
               <div class="projects-hud-header">
-                  <div>
-                      <div class="projects-hud-title">Projects by Stage</div>
-                      <div class="projects-hud-subtitle">${semanticsText}</div>
-                  </div>
+                  <div class="projects-hud-title">Projects</div>
                   <div class="projects-hud-actions">
                       ${clearStageBtn}
                       ${clearAllBtn}
@@ -7720,9 +7657,7 @@
           }).join('');
 
           hud.innerHTML = `
-              <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:#93c5fd; letter-spacing:0.5px; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:12px;">
-                  BSL Yield by Vendor
-              </div>
+              <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:#93c5fd; letter-spacing:0.5px; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:12px;">BSLs</div>
               <table style="width:100%; border-collapse:collapse; font-size:11px;">
                   <thead>
                       <tr style="border-bottom:1px solid #333338;">
