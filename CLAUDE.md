@@ -14,6 +14,7 @@
    * Nav/Dock: `10000` - `20000`
    * Floating Pills: `3000`
    * Deck/Cards: `5` - `100`
+5. **WebApp Template Serving:** `WebApp.html` must be served via `createTemplateFromFile('WebApp').evaluate()` in `02_Utilities.js`, never `createHtmlOutputFromFile()`. The latter will silently break all `<?!= include() ?>` directives.
 
 ## Error Handling & Logging
 * Use the custom `logMsg()` function in `00_Config.js` instead of `console.log()` for backend logic, as it writes directly to the `System_Logs` sheet.
@@ -38,7 +39,7 @@
 
 ## File Map
 > Agent navigation index. Read this before opening any file.
-> Last updated: [DATE]
+> Last updated: March 21, 2026
 
 ### How to Use This Map
 - Check **Agent Notes** before editing any file
@@ -68,7 +69,7 @@
 
 | File | Role | Agent Notes | Mobile Notes |
 |---|---|---|---|
-| `WebApp.html` | Desktop HtmlService shell and current monolithic frontend runtime | **Massive file.** Search for existing `:root` variables before adding CSS. Do not duplicate classes. When extracting partials, use `<?!= include('filename') ?>`. | Desktop-only layout assumptions — flag any px widths before mobile work |
+| `WebApp.html` | Desktop HtmlService shell with extracted style/utility/module partials, dedicated queue/router/session state includes, and the remaining inline runtime/bootstrap anchors | **Massive file.** CSS, pure helpers, tools/widgets, changelog, theme controls, and state owners are extracted. `initDashboard()` and `applyFilters()` remain the bootstrap anchors in the shell. When extracting partials, use `<?!= include('filename') ?>`. | Desktop-only layout assumptions — flag any px widths before mobile work |
 | `MobileApp.html` | Mobile HtmlService app surface for narrow viewport routing | Routed from `02_Utilities.js` doGet(). Treat as separate surface from `WebApp.html` — changes that work on desktop may break mobile. | Primary mobile surface — touch targets, font sizes, and bottom dock behavior live here |
 | `Sidebar.html` | Sidebar dashboard view, anomaly cards, lightweight filtering | Isolated — safe to edit independently | N/A |
 | `DatePicker.html` | Modal date-picker partial used by GAS dialogs | Isolated modal — z-index range `999990–999999` | N/A |
@@ -80,6 +81,34 @@
 | File | Role | Agent Notes | Mobile Notes |
 |---|---|---|---|
 | `_registry.html` | Declarative registry of data-layer boundaries, guarded integrations, shared frontend state names | **Read first before any data logic.** Loaded before all other partials. | N/A |
+| `_styles_base.html` | Global design tokens, resets, typography, and core theme variables | Read before editing any shared color, spacing, or theme token. | Contains viewport tokens like `--inbox-panel-width` that need mobile review |
+| `_styles_layout.html` | Structural page framing, panel positioning, and responsive layout scaffolding | Read with `WebApp.html` markup before changing workspace or pane structure. | Contains desktop-first pane widths and touch-device layout assumptions |
+| `_styles_components.html` | Non-Gantt component visuals, overlays, controls, and utility widget styling | Read after `_styles_base.html`; prefer existing component selectors over adding new ones. | Contains hover states, dense controls, and fixed-size widgets that are desktop-biased |
+| `_styles_gantt.html` | Gantt timeline, sticky headers, quick peek, HUD, and Gantt-owned styles | Read with Gantt markup/runtime before touching timeline visuals or layering. | Contains fixed row-header widths, hover HUD patterns, and fullscreen layout assumptions |
+| `_state_queue.html` | Authoritative queue, selection, filter, grouping, and queue view-mode state owner | Load before shared utilities, modules, and the main runtime. Keeps queue globals on `window` via top-level declarations. | Any future mobile queue/filter surface should read from this shared state owner |
+| `_state_router.html` | Authoritative workspace routing, detail face, deck mode, deck index, and dock placement state owner | Load after `_state_queue.html` and before modules. Bottom-dock inversion behavior depends on this state staying global. | Dock-placement behavior will matter for any mobile surface that mirrors Gantt/dock patterns |
+| `_state_session.html` | Authoritative PM session memory, staged deck, ref-data date, and presentation mode state owner | Load after `_state_router.html`. Used by deck staging, export flows, PM memory, and ref-data indicators. | Any mobile surface showing ref-data age or staged deck status should read from this state owner |
+| `_utils_shared.html` | Pure shared frontend helpers for escaping, date normalization, and classification logic | Safe to read alone for pure helper changes, but verify call sites in `WebApp.html` before changing return behavior. | Indirect mobile impact through shared formatting and status classification |
+| `_utils_notifications.html` | Shared dock-status, toast, and UI error wrapper helpers | Depends on existing DOM ids and `previousDockState` in `WebApp.html`; read call sites before editing. | Desktop-oriented dock and toast assumptions will need adaptation for mobile surfaces |
+| `_module_tools_widgets.html` | Calculator and calendar widget runtime with drag, persistence, and inline control handlers | Low-risk extracted module. Public surface remains on `window` for existing inline handlers and keyboard listeners. | Fixed-position widget behavior and drag UX remain desktop-biased |
+| `_module_changelog.html` | Review Hub changelog rendering module | Keep `allGlobalLogs` global in `WebApp.html` until bootstrap state moves. Rendering only lives here; payload hydration remains in shell. | Changelog panel density and controls remain desktop-first |
+| `_module_theme_controls.html` | Shared dark-mode icons, theme toggle handlers, and system-theme listener | Keep presentation-mode theme handoff in `WebApp.html`; only shared theme controls live here. | Mobile theme button shares this runtime, but presentation specifics still live in desktop shell |
+
+### WebApp Include Order
+- `_registry.html`
+- `_styles_base.html`
+- `_styles_layout.html`
+- `_styles_components.html`
+- `_styles_gantt.html`
+- `_state_queue.html`
+- `_state_router.html`
+- `_state_session.html`
+- `_utils_shared.html`
+- `_utils_notifications.html`
+- `_module_tools_widgets.html`
+- `_module_changelog.html`
+- `_module_theme_controls.html`
+- main inline script
 
 ---
 

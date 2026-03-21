@@ -1,0 +1,79 @@
+<script>
+// ============================================================
+// FILE: _state_queue.html
+// ROLE: Authoritative queue, selection, and filter state owner
+// DEPENDS ON: _registry.html
+// DEPENDED ON BY: WebApp.html main runtime, _module_tools_widgets,
+//   _module_changelog, and all future high-risk module extractions
+// MOBILE NOTES: These variables drive all queue/filter surfaces —
+//   any mobile queue view must read from this state owner
+// AGENT NOTES: Read this before touching any queue, filter,
+//   selection, or view-mode logic anywhere in the app
+// ============================================================
+// STATE: allActionItems
+// READS: queue, detail, grid, digest, admin, deck, data callbacks
+// WRITES: bootstrap, queue mutation helpers, quick-peek sync, HUD helpers
+// EXTRACT WITH: filteredItems, currentActiveItem, globalHeaders, globalEndCounts, globalTodayData
+// WORKSTREAM 3 RISK: High
+let allActionItems = [];
+// STATE: committedItems
+// READS: outbox, reviewed tray, export flows
+// WRITES: reviewed tray load/add/clear flows
+// EXTRACT WITH: stagedDeckItems, currentActiveItem, renderOutbox
+// WORKSTREAM 3 RISK: High
+let committedItems = [];
+// STATE: currentActiveItem
+// READS: detail, admin actions, deck save/draft, gantt quick peek
+// WRITES: queue/grid/gantt selection, admin actions, deck navigation
+// EXTRACT WITH: allActionItems, filteredItems, committedItems, pmSessionMemory
+// WORKSTREAM 3 RISK: High
+let currentActiveItem = null;
+// STATE: filteredItems
+// READS: queue, detail, grid, gantt, deck item selection
+// WRITES: bootstrap/detail rendering, applyFilters, grid/deck navigation
+// EXTRACT WITH: allActionItems, currentActiveItem, currentQueueIndex, activeFilters
+// WORKSTREAM 3 RISK: High
+// STATE: currentQueueIndex
+// READS: queue/deck navigation helpers
+// WRITES: applyFilters and selection/navigation helpers
+// EXTRACT WITH: filteredItems, currentActiveItem
+// WORKSTREAM 3 RISK: Medium
+let filteredItems = []; let currentQueueIndex = -1;
+// STATE: activeFilters
+// READS: queue filtering, filter UI, pills, HUD helpers
+// WRITES: applyFilters, clearAllFilters
+// EXTRACT WITH: filteredItems, currentGroupBy, activeAdminFilter, activePieStageFilter
+// WORKSTREAM 3 RISK: High
+let activeFilters = { sev: [], vendor: [], city: [], ofs: [], status: [] };
+// STATE: currentGroupBy
+// READS: queue grouping, filter pills, bootstrap, renderList
+// WRITES: queue grouping controls
+// EXTRACT WITH: queueGroupCollapseState, activeFilters, filteredItems
+// WORKSTREAM 3 RISK: High
+let currentGroupBy = (function() {
+    try {
+        let stored = sessionStorage.getItem(GROUP_BY_SESSION_KEY) || 'none';
+        return GROUP_BY_OPTIONS.includes(stored) ? stored : 'none';
+    } catch (e) {
+        return 'none';
+    }
+})();
+// STATE: _VIEW_MODES
+// READS: queue view controls
+// WRITES: none
+// EXTRACT WITH: currentViewMode, applyViewMode
+// WORKSTREAM 3 RISK: Low
+const _VIEW_MODES = ['inbox', 'list', 'grid'];
+// STATE: currentViewMode
+// READS: queue/list rendering, workspace chrome
+// WRITES: queue view toggles, applyViewMode
+// EXTRACT WITH: filteredItems, currentWorkspaceView, currentGridPivot
+// WORKSTREAM 3 RISK: High
+let currentViewMode = (function() {
+    let stored = localStorage.getItem('queueViewMode') || 'inbox';
+    if (stored === 'regular') return 'inbox';
+    if (stored === 'dense') return 'list';
+    if (stored === 'relaxed') return 'grid';
+    return _VIEW_MODES.includes(stored) ? stored : 'inbox';
+})();
+</script>

@@ -1,0 +1,71 @@
+<script>
+// ============================================================
+// FILE: _module_changelog.html
+// ROLE: Owns changelog list rendering for the Review Hub while leaving payload hydration in the WebApp shell.
+// DEPENDS ON: WebApp.html markup, _utils_shared.html
+// DEPENDED ON BY: WebApp.html changelog controls and bootstrap payload flow
+// MOBILE NOTES: Renders into a desktop-biased panel with dense controls and inline desktop spacing assumptions.
+// AGENT NOTES: Keep `allGlobalLogs` global in WebApp.html until bootstrap state moves; do not pull payload hydration into this file.
+// ============================================================
+function renderChangeLog() {
+    let list = getEl('changelog-list');
+    if (!list) return;
+    let search = (getEl('changelog-search')?.value || '').toLowerCase();
+    let timeFilter = getEl('changelog-time')?.value || 'ALL';
+    let userFilter = getEl('changelog-user')?.value || 'ALL';
+    let currentFdhOnly = getEl('changelog-current-fdh')?.checked;
+
+    let logsToRender = allGlobalLogs.slice();
+
+    if (currentFdhOnly && typeof currentActiveItem !== 'undefined' && currentActiveItem) {
+        logsToRender = logsToRender.filter(log => String(log.fdh || '') === String(currentActiveItem.fdh || ''));
+    }
+
+    if (timeFilter !== 'ALL') {
+        let cutoffTime = Date.now() - (parseInt(timeFilter, 10) * 60 * 60 * 1000);
+        logsToRender = logsToRender.filter(log => Number(log.timestampObj || 0) >= cutoffTime);
+    }
+
+    if (userFilter !== 'ALL') {
+        logsToRender = logsToRender.filter(log => String(log.user || '') === userFilter);
+    }
+
+    if (search) {
+        logsToRender = logsToRender.filter(log =>
+            String(log.fdh || '').toLowerCase().includes(search) ||
+            String(log.user || '').toLowerCase().includes(search) ||
+            String(log.type || '').toLowerCase().includes(search)
+        );
+    }
+
+    logsToRender.sort((a, b) => Number(b.timestampObj || 0) - Number(a.timestampObj || 0));
+
+    if (logsToRender.length === 0) {
+        list.innerHTML = `<div class="empty-msg" style="margin-top:20px; font-size:11px;">No activity matches current filters.</div>`;
+        return;
+    }
+
+    let html = '';
+    logsToRender.forEach(log => {
+        let navArg = JSON.stringify(String(log.fdh || ''));
+        let cleanVal = String(log.val ?? '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
+        html += `
+        <div class="log-card">
+            <div class="log-header">
+                <div style="font-size:12px; font-weight:900; color:var(--text-main);">${esc(log.fdh)}</div>
+                <div style="font-size:9px; font-weight:700; color:var(--text-muted);">${formatDate(log.timestampObj ? new Date(Number(log.timestampObj)) : log.time, true)}</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:2px;">
+                <span class="log-type">${esc(log.type)}</span>
+                <span style="font-size:10px; font-weight:800; color:var(--text-muted);">By: <span style="color:var(--text-main);">${esc(log.user)}</span></span>
+            </div>
+            <div style="font-size:11px; color:var(--text-main); font-weight:600; margin-top:4px; padding:6px; background:var(--bg); border-radius:6px; border:1px solid var(--border);">
+                &#8594; ${esc(cleanVal)}
+            </div>
+            <button class="btn" style="margin-top:6px; align-self:flex-start; padding:4px 10px;" onclick='selectItemForNav(${navArg})'>Go to Project</button>
+        </div>`;
+    });
+
+    list.innerHTML = html;
+}
+</script>

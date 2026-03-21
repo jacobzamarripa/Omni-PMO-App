@@ -1,0 +1,39 @@
+<!--
+// ============================================================
+// FILE: _styles_base.html
+// ROLE: Defines global design tokens, resets, typography, and core theme variables.
+// DEPENDS ON: _registry.html, WebApp.html
+// DEPENDED ON BY: _styles_layout.html, _styles_components.html, _styles_gantt.html, WebApp.html
+// MOBILE NOTES: Includes hardcoded viewport-level tokens like --inbox-panel-width that will need review for touch-first layouts.
+// AGENT NOTES: Read _registry.html and WebApp.html before changing tokens or theme variables.
+// ============================================================
+-->
+<style>
+      /* 🧠 PREMIUM ENTERPRISE COLOR PALETTE */
+      :root {
+        --bg: #f1f5f9; --card-bg: #ffffff; --border: #e2e8f0; --text-main: #0f172a; --text-muted: #64748b;
+        --color-critical: #ef4444; --color-review: #f59e0b; --color-insight: #a855f7; 
+        --qb-ug: #f97316; --qb-ae: #94a3b8; --qb-fib: #000000; --qb-nap: #4338ca; --qb-done: #22c55e;
+        --qb-ae-bg: repeating-linear-gradient(115deg, #94a3b8, #94a3b8 3px, #e2e8f0 3px, #e2e8f0 6px);
+        --qb-fib-bg: linear-gradient(to bottom, #64748b 0%, #171717 25%, #171717 75%, #000000 100%);
+        --qb-nap-bg: linear-gradient(90deg, #4338ca 0%, #6366f1 70%, #22d3ee 100%);
+        --qb-fib-border: #ef4444; --qb-nap-border: #6366f1;
+        --starGold: #fbbf24; --accent: #3b82f6; --gantt-panel-height: 34vh; --inbox-panel-width: 380px; --panel-gutter-x: 16px; --panel-gutter-y: 12px; --dock-panel-offset: 0px; --dock-clearance-top: 72px;
+        /* Status Pill Colors */
+        --pill-active-txt: #b45309;   --pill-active-bg: rgba(253,224,71,0.25);   --pill-active-bdr: #facc15;
+        --pill-ofs-txt: #0f766e;      --pill-ofs-bg: rgba(6,182,212,0.15);       --pill-ofs-bdr: #06b6d4;
+        --pill-permit-txt: #7e22ce;   --pill-permit-bg: rgba(168,85,247,0.15);   --pill-permit-bdr: #a855f7;
+        --pill-complete-txt: #15803d; --pill-complete-bg: rgba(34,197,94,0.15);  --pill-complete-bdr: #22c55e;
+        --pill-hold-txt: #475569;     --pill-hold-bg: rgba(148,163,184,0.15);    --pill-hold-bdr: #94a3b8;
+        --pill-missing-txt: #b91c1c;  --pill-missing-bg: rgba(239,68,68,0.15);   --pill-missing-bdr: #ef4444;
+        --pill-drg-txt: #0f766e;      --pill-drg-bg: rgba(20,184,166,0.14);      --pill-drg-bdr: #14b8a6;
+      }
+
+      /* 🧠 ENHANCED OBSIDIAN ZINC DARK MODE */
+      body.dark-mode {
+        --bg: #09090b; --card-bg: #1e1e24; --border: #333338; --text-main: #fafafa; --text-muted: #a1a1aa; 
+        --qb-ae-bg: repeating-linear-gradient(115deg, #3f3f46, #3f3f46 3px, #27272a 3px, #27272a 6px);
+      }
+      
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background-color 0.3s, color 0.3s;}
+</style>

@@ -55,14 +55,17 @@ function doGet(e) {
         .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
   }
 
-  if (view === 'codex') {
-    return HtmlService.createHtmlOutputFromFile('CodexMobileApp')
-        .setTitle('Production Hub · Mobile (Codex)')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-        .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
-  }
+  // TODO: CodexMobileApp view removed March 21, 2026 — surface not present
+  // in this workspace. Uncomment and build when Codex mobile is scoped.
+  // if (view === 'codex') {
+  //   return HtmlService.createHtmlOutputFromFile('CodexMobileApp')
+  //       .setTitle('Production Hub · Mobile (Codex)')
+  //       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+  //       .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  // }
 
-  return HtmlService.createHtmlOutputFromFile('WebApp')
+  return HtmlService.createTemplateFromFile('WebApp')
+      .evaluate()
       .setTitle('Daily Production Hub')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');

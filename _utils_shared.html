@@ -1,0 +1,132 @@
+<!--
+// ============================================================
+// FILE: _utils_shared.html
+// ROLE: Provides pure shared frontend helpers for escaping, date normalization, and classification logic.
+// DEPENDS ON: _registry.html, WebApp.html
+// DEPENDED ON BY: WebApp.html runtime functions and future frontend partials
+// MOBILE NOTES: Date helpers are mobile-safe, but the classification helpers still feed desktop-first UI states elsewhere.
+// AGENT NOTES: Read _registry.html and WebApp.html before changing helper behavior because these functions are reused across queue, detail, and Gantt rendering.
+// ============================================================
+-->
+<script>
+      function esc(s) {
+          if (s === null || s === undefined) return '';
+          return String(s)
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;');
+      }
+
+      function escJs(s) {
+          return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      }
+
+      // UTC-locked date parser — prevents browser local-time shifting across timezones.
+      function safeDate(str) {
+          if (!str || str === '' || str === '-' || str === 'Unknown') return null;
+          let s = String(str);
+          // yyyy-MM-dd or yyyy/MM/dd (ISO-style)
+          let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+          if (m) return new Date(Date.UTC(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10)));
+          // MM-dd-yyyy or MM/dd/yyyy or MM-dd-yy
+          m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+          if (m) {
+              let yr = m[3].length === 2 ? parseInt('20'+m[3],10) : parseInt(m[3],10);
+              return new Date(Date.UTC(yr, parseInt(m[1],10)-1, parseInt(m[2],10)));
+          }
+          let d = new Date(str);
+          return isNaN(d.getTime()) ? null : d;
+      }
+
+      // UTC-locked date formatter — everyone on the team sees the same Business Day date.
+      function formatDate(val, includeTime = false) {
+          if (!val || val === '-' || val === 'Unknown' || val === '') return 'TBD';
+
+          let d;
+          if (val instanceof Date) {
+              d = val;
+          } else {
+              let raw = String(val).split('GMT')[0].split('(')[0].trim();
+              d = new Date(raw);
+              if (isNaN(d.getTime())) d = safeDate(val);
+          }
+
+          if (!d || isNaN(d.getTime())) return String(val);
+
+          // QB date-only fields are normalized to UTC midnight upstream; suppress time for those.
+          const isMidnightUTC = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+          const options = { month: '2-digit', day: '2-digit', year: '2-digit', timeZone: 'UTC' };
+          if (includeTime && !isMidnightUTC) {
+              options.hour = '2-digit';
+              options.minute = '2-digit';
+          }
+
+          return new Intl.DateTimeFormat('en-US', options).format(d);
+      }
+
+      function getTimelineTodayIndicator(start, end, referenceDate) {
+          let s = safeDate(start);
+          let e = safeDate(end);
+          let today = safeDate(referenceDate) || new Date();
+          if (!s || !e || isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) return null;
+          today.setHours(0, 0, 0, 0);
+          let rawPct = ((today - s) / (e - s)) * 100;
+          return {
+              pct: rawPct,
+              clampedPct: Math.max(0, Math.min(100, rawPct)),
+              isOutOfRange: rawPct < 0 || rawPct > 100
+          };
+      }
+
+      function getSeverity(flagsStr) {
+          let rawFlags = (flagsStr || "").split('\n').map(f => f.trim()).filter(f => f !== "");
+          let highestSev = "info";
+          rawFlags.forEach(f => {
+              if (f.includes("🚨") || f.includes("🛑") || f.includes("🚩")) { highestSev = "crit"; }
+              else if (f.includes("ADMIN: CHECK CROSSINGS") || f.includes("ADMIN: REFRESH REF DATA") || f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) { if (highestSev !== "crit") highestSev = "warn"; }
+              else if (f.includes("⚠️") || f.includes("🖍️") || f.includes("🚧")) { if (highestSev !== "crit") highestSev = "warn"; }
+          });
+          if (highestSev === "info" && rawFlags.some(f => f === "MISSING DAILY REPORT")) highestSev = "ghost";
+          return highestSev;
+      }
+
+      function getQBStatusClass(stage, status, isMissing) {
+          if (isMissing) return 'chip-missing';
+          let st = (stage || "").toLowerCase(), stat = (status || "").toLowerCase();
+          if (st.includes('ofs')) return 'chip-ofs';
+          if (st.includes('permit')) return 'chip-permit';
+          if (stat.includes('complete')) return 'chip-complete';
+          if (stat.includes('hold') || stat.includes('assign')) return 'chip-hold';
+          return 'chip-active';
+      }
+
+      function getDiagnosticTagClass(flag) {
+          let f = String(flag || '').toUpperCase();
+          if (f.includes('OFS') || f.includes('OPEN FOR SALE')) return 'chip-ofs';
+          if (f.includes('COMPLETE')) return 'chip-complete';
+          if (f.includes('ON HOLD')) return 'chip-hold';
+          if (f.includes('ADMIN: CHECK CROSSINGS') || f.includes('ADMIN: REFRESH REF DATA')) return 'chip-admin';
+          if (f.includes('STATUS MISMATCH') || f.includes('MISSING QB STATUS')) return 'chip-warn';
+          if (f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧')) return 'chip-warn';
+          if (f.includes('🪄') || f.includes('🟣')) return 'chip-magic';
+          if (f === 'MISSING DAILY REPORT') return 'chip-ghost';
+          if (f.includes('🚨') || f.includes('🛑') || f.includes('🚩')) return 'tag-red';
+          return 'chip-muted';
+      }
+
+      function cleanDiagnosticFlagText(flag) {
+          return String(flag || '').replace(/[🚨🛑🚩⚠️🖍️🚧🪄🟣🔵🟢⚪]/g, '').trim();
+      }
+
+      function getGanttClass(stage, status, isOverdue) {
+          let st = (stage || "").toLowerCase(), stat = (status || "").toLowerCase();
+          if (st.includes('ofs')) return 'g-color-blue';
+          if (st.includes('permit')) return 'g-color-purple';
+          if (stat.includes('complete')) return 'g-color-green';
+          if (stat.includes('hold')) return 'g-color-gray';
+          if (isOverdue || st === "NOT IN QB REFERENCE" || st === "-") return 'g-color-red';
+          return 'g-color-yellow';
+      }
+</script>

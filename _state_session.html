@@ -1,0 +1,38 @@
+<script>
+// ============================================================
+// FILE: _state_session.html
+// ROLE: Authoritative session, deck staging, and presentation
+//   mode state owner
+// DEPENDS ON: _registry.html, _state_queue.html, _state_router.html
+// DEPENDED ON BY: WebApp.html main runtime, deck module,
+//   export workflows, and PM memory features
+// MOBILE NOTES: globalRefDataDate drives ref data indicators —
+//   any mobile surface showing ref data age reads from here
+// AGENT NOTES: Read this before touching deck staging, batch
+//   export, PM notes memory, or presentation mode logic
+// ============================================================
+// STATE: pmSessionMemory
+// READS: deck stage, quick peek save, exports, save flows
+// WRITES: deck persistence flows and note sync
+// EXTRACT WITH: stagedDeckItems, deckIndex, currentActiveItem
+// WORKSTREAM 3 RISK: High
+let pmSessionMemory = {};
+// STATE: stagedDeckItems
+// READS: outbox, reviewed tray, batch export, deck stage
+// WRITES: deck staging, reviewed tray reconciliation, export flows
+// EXTRACT WITH: pmSessionMemory, committedItems, deckIndex, filteredItems
+// WORKSTREAM 3 RISK: High
+let stagedDeckItems = [];
+// STATE: globalRefDataDate
+// READS: ref-data badge and deck stage
+// WRITES: QB sync and bootstrap payload load
+// EXTRACT WITH: initDashboard, updateRefDataIndicator, triggerQBSync
+// WORKSTREAM 3 RISK: High
+let globalRefDataDate = "";
+// STATE: isPresentationMode
+// READS: deck theme sync, dock state, deck idle handling
+// WRITES: presentation mode toggle
+// EXTRACT WITH: preferredPresentationCardTheme, preTheaterThemeWasDark, deckIdleTimer
+// WORKSTREAM 3 RISK: Medium
+let isPresentationMode = false; // Controls Theater blackout
+</script>

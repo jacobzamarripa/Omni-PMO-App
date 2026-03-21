@@ -1,0 +1,182 @@
+<!--
+// ============================================================
+// FILE: _styles_layout.html
+// ROLE: Defines structural page framing, workspace shells, panel positioning, and responsive layout scaffolding.
+// DEPENDS ON: _styles_base.html, WebApp.html
+// DEPENDED ON BY: _styles_components.html, WebApp.html
+// MOBILE NOTES: Contains desktop-first pane widths, outbox positioning, tablet overrides, and help panel layout assumptions.
+// AGENT NOTES: Read _styles_base.html and inspect WebApp.html markup before editing structural selectors.
+// ============================================================
+-->
+<style>
+      .top-nav { background: transparent; height: auto; box-sizing: border-box; padding: 10px 18px 6px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; z-index: 10000; position: relative; flex-shrink: 0; transition: background 0.3s, border-color 0.3s; gap: 12px; border-bottom: none; }
+      .top-nav-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; justify-self: start; }
+      .top-nav-center { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; justify-self: center; }
+
+      .nav-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; min-width: 0; flex-wrap: wrap; justify-self: end; }
+
+      #digest-workspace {
+          display: none;
+          width: 100%;
+          flex: 1 1 auto;
+          overflow-y: auto;
+          padding: 88px 28px 36px;
+          box-sizing: border-box;
+          max-width: none;
+          margin: 0;
+          align-self: stretch;
+          justify-content: center;
+          min-width: 0;
+      }
+      body.digest-mode-active #digest-workspace {
+          display: flex !important;
+          width: 100%;
+          max-width: none;
+          margin: 0;
+          padding: 96px 32px 40px;
+      }
+
+      .mobile-menu-toggle { display: none; }
+
+      .mobile-outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 290; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+      .mobile-outbox-overlay.open { display: block; }
+      .mobile-outbox-sheet { display: none; position: fixed; bottom: 0; left: 0; right: 0; max-height: 65vh; background: var(--card-bg); border-radius: 18px 18px 0 0; border-top: 1px solid var(--border); z-index: 300; flex-direction: column; box-shadow: 0 -8px 32px rgba(0,0,0,0.2); transition: background 0.3s, border-color 0.3s; }
+      .mobile-outbox-sheet.open { display: flex; }
+      .mob-sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 10px auto 0; flex-shrink: 0; }
+      .mob-sheet-header { padding: 10px 16px 10px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+      .mob-sheet-list { overflow-y: auto; flex-grow: 1; -webkit-overflow-scrolling: touch; }
+      .mob-sheet-footer { padding: 10px 16px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); flex-shrink: 0; }
+
+      /* 📱 TABLET (touch devices: iPad portrait + landscape; min-height excludes iPhones in landscape ~390px) */
+      @media screen and (pointer: coarse) and (min-width: 769px) and (min-height: 600px) {
+          :root { --inbox-panel-width: 280px; }
+          .inbox-sidebar { min-width: 240px; }
+          .reading-pane { padding: 16px; }
+          .qb-grid { gap: 20px; }
+          .kpi-nav-container { gap: 8px; margin-left: 8px; }
+          .kpi-hud-group { gap: 2px; padding: 3px; }
+          .kpi-hud-label { padding: 0 8px 0 6px; }
+          .kpi-nav-box { padding: 3px 8px; min-width: 38px; }
+          .kpi-expand-wrap { max-width: 0; }
+          .kpi-expand-inner { gap: 4px; font-size: 8px; padding-left: 6px; margin-left: 6px; }
+          .ref-age-badge { padding: 5px 8px; }
+      }
+
+      /* iPad handles fallback — (hover: none) catches Edge which may not report pointer:coarse */
+      @media screen and (hover: none) and (min-width: 769px) and (min-height: 600px) {
+          :root { --inbox-panel-width: 280px; }
+      }
+      .touch-tablet { --inbox-panel-width: 280px; }
+
+      /* 🧠 MORPHING PANEL STYLING */
+      .outbox-pane {
+          display: none; /* Controlled by JS to prevent layout shifts */
+          flex-direction: column;
+          position: relative;
+          top: 0; /* Align with top of anchor */
+          right: 0;
+          width: 380px;
+          flex-shrink: 0; 
+          height: calc(100% - (var(--panel-gutter-y) * 2) - var(--dock-panel-offset)) !important;
+          max-height: none !important;
+          margin-top: calc(var(--panel-gutter-y) + var(--dock-panel-offset));
+          margin-right: var(--panel-gutter-x);
+          margin-bottom: var(--panel-gutter-y);
+          background: color-mix(in srgb, var(--card-bg) 98%, transparent);
+          border-left: 1px solid var(--border);
+          z-index: 1001;
+          border: 1px solid var(--border);
+          border-radius: 22px;
+          box-shadow: 0 28px 60px rgba(15,23,42,0.24);
+          overflow: hidden;
+          min-width: 320px;
+          min-height: 200px;
+          
+          /* Animation Properties */
+          opacity: 0;
+          transform: scale(0.1); /* Start small at the FAB's location */
+          transform-origin: top right;
+          transition: opacity 0.2s ease-out, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+          pointer-events: none;
+          backdrop-filter: blur(14px);
+      }
+
+      .outbox-pane.open {
+          display: flex;
+          opacity: 1;
+          transform: scale(1);
+          pointer-events: auto;
+      }
+
+      /* 🧠 HIDE FAB WHEN PANEL IS OPEN */
+      .reading-pane.admin-open #admin-fab {
+          opacity: 0;
+          transform: scale(0.5);
+          pointer-events: none;
+          transition: all 0.2s ease-in;
+      }
+
+
+      .outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 119; backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+      /* 📖 HELP PANEL */
+      .help-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 99997; display: none; }
+      .help-overlay.open { display: block; }
+      .help-panel { position: fixed; top: 0; right: 0; width: 360px; max-width: 92vw; height: 100vh; background: var(--card-bg); border-left: 1px solid var(--border); z-index: 99998; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -8px 0 32px rgba(0,0,0,0.2); }
+      .help-panel.open { transform: translateX(0); }
+      .help-hdr { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0; gap: 12px; }
+      .help-hdr-title { font-size: 13px; font-weight: 900; letter-spacing: -0.3px; }
+      .help-hdr-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+      .help-close { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px; font-weight: 900; color: var(--text-main); flex-shrink: 0; }
+      .help-close:hover { background: var(--border); }
+      .help-body { overflow-y: auto; flex-grow: 1; padding: 16px 18px; display: flex; flex-direction: column; gap: 20px; }
+      .help-body::-webkit-scrollbar { width: 4px; } .help-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+      .help-search-wrap { position: sticky; top: -16px; z-index: 2; margin: -16px -18px 0; padding: 16px 18px 10px; background: linear-gradient(to bottom, color-mix(in srgb, var(--card-bg) 96%, transparent), color-mix(in srgb, var(--card-bg) 92%, transparent)); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+      #help-search-input { width: 100%; box-sizing: border-box; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main); font-size: 12px; font-weight: 600; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.03); transition: border-color 0.2s, box-shadow 0.2s; }
+      #help-search-input:focus { border-color: var(--color-insight); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15), inset 0 1px 3px rgba(0,0,0,0.03); }
+      .help-sec { display: flex; flex-direction: column; gap: 8px; }
+      .help-sec-title { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+      .help-row { display: flex; gap: 8px; align-items: flex-start; }
+      .hbadge { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 6px; border-radius: 3px; flex-shrink: 0; margin-top: 2px; white-space: nowrap; }
+      .hbadge-red { background: rgba(239,68,68,0.12); color: #b91c1c; border: 1px solid rgba(239,68,68,0.3); }
+      .hbadge-yellow { background: rgba(250,204,21,0.2); color: #854d0e; border: 1px solid rgba(250,204,21,0.5); }
+      .hbadge-purple { background: rgba(168,85,247,0.12); color: #7c3aed; border: 1px solid rgba(168,85,247,0.3); }
+      .hbadge-blue { background: rgba(59,130,246,0.12); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.3); }
+      .hbadge-gray { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+      .hbadge-green { background: rgba(34,197,94,0.12); color: #15803d; border: 1px solid rgba(34,197,94,0.3); }
+      .hbadge-stripe { background: repeating-linear-gradient(-45deg,#facc15 0,#facc15 3px,#0f172a 3px,#0f172a 6px); border: 1px solid #facc15; color: #0f172a; }
+      .hdesc { font-size: 11px; line-height: 1.55; color: var(--text-main); }
+      .hdesc b { font-weight: 900; }
+      .help-wf-step { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 4px; }
+      .help-wf-num { width: 20px; height: 20px; border-radius: 50%; background: var(--text-main); color: var(--card-bg); font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+
+      #grid-content, #welcome-screen {
+          padding-top: 80px !important;
+      }
+
+      /* Dock positioning */
+      .detail-main {
+          min-width: 0 !important;
+          position: relative !important;
+      }
+      body.deck-mode-active .detail-main,
+      body.presentation-active .detail-main {
+          z-index: 2000000 !important;
+      }
+      body.deck-mode-active .top-nav,
+      body.presentation-active .top-nav {
+          z-index: 2000011 !important;
+      }
+      .pane-content {
+          align-items: flex-start !important;
+          padding-top: 88px !important;
+      }
+      .qb-grid {
+          width: 100% !important;
+          max-width: 1100px !important;
+          margin: 0 auto !important;
+      }
+      #grid-content, #welcome-screen {
+          padding-top: 80px !important;
+      }
+</style>

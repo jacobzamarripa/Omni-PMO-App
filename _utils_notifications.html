@@ -1,0 +1,71 @@
+<!--
+// ============================================================
+// FILE: _utils_notifications.html
+// ROLE: Provides shared frontend notification, dock-status, and UI error wrapper helpers.
+// DEPENDS ON: _registry.html, WebApp.html
+// DEPENDED ON BY: WebApp.html runtime actions and future frontend partials
+// MOBILE NOTES: Uses desktop-oriented dock and toast UI elements that will need adaptation for touch-first mobile surfaces.
+// AGENT NOTES: Read WebApp.html before changing these helpers because they rely on existing DOM ids and the retained dock state variable.
+// ============================================================
+-->
+<script>
+      function showDockLoading(message) {
+          const dock = getEl('filter-strip');
+          if (!dock) return;
+          previousDockState = [];
+          dock.querySelectorAll('.dock-zone').forEach(zone => {
+              if (zone.id !== 'dock-system-zone' && !zone.classList.contains('collapsed')) {
+                  previousDockState.push(zone.id);
+                  zone.classList.add('collapsed');
+              }
+          });
+          getEl('dock-nav-prev')?.classList.add('collapsed');
+          getEl('dock-nav-next')?.classList.add('collapsed');
+          const sysZone = getEl('dock-system-zone');
+          sysZone.className = 'dock-zone';
+          getEl('dock-sys-msg').innerText = message;
+          getEl('dock-sys-spinner').style.display = 'inline-block';
+          dock.style.transform = 'translateX(-50%) scale(0.98)';
+          setTimeout(() => dock.style.transform = 'translateX(-50%) scale(1)', 150);
+      }
+
+      function showDockSuccess(message, duration = 2000) {
+          getEl('dock-sys-spinner').style.display = 'none';
+          const sysZone = getEl('dock-system-zone');
+          sysZone.classList.add('success');
+          getEl('dock-sys-msg').innerHTML = `✓ ${message}`;
+          setTimeout(restoreDockState, duration);
+      }
+
+      function showDockError(message, duration = 3000) {
+          getEl('dock-sys-spinner').style.display = 'none';
+          const sysZone = getEl('dock-system-zone');
+          sysZone.classList.add('error');
+          getEl('dock-sys-msg').innerHTML = `✕ ${message}`;
+          setTimeout(restoreDockState, duration);
+      }
+
+      function safeExecute(fnName, fn) {
+          try { fn(); } catch (err) {
+              console.error(`UI Error in ${fnName}:`, err);
+              let pc = getEl('pane-content');
+              if(pc) {
+                  pc.innerHTML = `<div class="error-msg" style="color:var(--color-critical); padding:20px; font-family:monospace; text-align:left;"><b>Dashboard Render Crash (${fnName}):</b><br/>${err.message}<br/><br/><pre style="white-space:pre-wrap; font-size:10px; color:var(--text-muted);">${err.stack}</pre></div>`;
+                  pc.style.display = 'flex';
+                  let ws = getEl('welcome-screen'); if (ws) ws.style.display = 'none';
+                  let dl = getEl('detail-layout'); if (dl) dl.style.display = 'flex';
+              }
+          }
+      }
+
+      // ── Toast helper ──────────────────────────────────────────────────────
+      function showToast(msg, type) {
+          let t = getEl('toast-msg');
+          if (!t) { t = document.createElement('div'); t.id = 'toast-msg'; document.body.appendChild(t); }
+          t.textContent = msg;
+          t.className = 'toast-msg ' + (type === 'error' ? 'toast-error' : 'toast-ok');
+          t.style.opacity = '1';
+          clearTimeout(t._timer);
+          t._timer = setTimeout(function() { t.style.opacity = '0'; }, 3500);
+      }
+</script>

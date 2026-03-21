@@ -1,0 +1,43 @@
+<script>
+// ============================================================
+// FILE: _state_router.html
+// ROLE: Authoritative workspace routing and view mode state owner
+// DEPENDS ON: _registry.html, _state_queue.html
+// DEPENDED ON BY: WebApp.html main runtime and all workspace/
+//   navigation module extractions
+// MOBILE NOTES: currentDockPlacement drives dock inversion in
+//   Gantt view — bottom dock opens dropdowns upward
+// AGENT NOTES: Read this before touching any workspace switching,
+//   dock behavior, deck mode, or view routing logic
+// ============================================================
+// STATE: currentWorkspaceView
+// READS: workspace-router, detail, gantt, grid, critical hub
+// WRITES: workspace-router, applyFilters, navigation helpers
+// EXTRACT WITH: currentDetailFace, isDeckMode, deckIndex, gantt session state
+// WORKSTREAM 3 RISK: High
+let currentWorkspaceView = 'detail';
+// STATE: currentDetailFace
+// READS: detail/deck face rendering, workspace-router
+// WRITES: workspace-router, detail face toggles
+// EXTRACT WITH: currentWorkspaceView, isDeckMode, deckIndex
+// WORKSTREAM 3 RISK: High
+let currentDetailFace = 'detail';
+// STATE: isDeckMode
+// READS: detail/deck rendering, grid, applyFilters, router
+// WRITES: workspace-router, deck presentation toggles
+// EXTRACT WITH: currentWorkspaceView, currentDetailFace, deckIndex, pmSessionMemory
+// WORKSTREAM 3 RISK: High
+let isDeckMode = false;
+// STATE: deckIndex
+// READS: deck navigation, deck selection
+// WRITES: deck/detail navigation, grid open handlers
+// EXTRACT WITH: isDeckMode, filteredItems, stagedDeckItems, pmSessionMemory
+// WORKSTREAM 3 RISK: Medium
+let deckIndex = 0;
+// STATE: currentDockPlacement
+// READS: dock spacing, gantt island layout
+// WRITES: dock placement sync and floating pill positioning
+// EXTRACT WITH: currentWorkspaceView, isDeckMode, gantt session state
+// WORKSTREAM 3 RISK: Medium
+let currentDockPlacement = 'top';
+</script>

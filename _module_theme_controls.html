@@ -1,0 +1,41 @@
+<script>
+// ============================================================
+// FILE: _module_theme_controls.html
+// ROLE: Owns shared dark-mode icons, system theme preference binding, and top-level theme toggle handlers.
+// DEPENDS ON: WebApp.html markup
+// DEPENDED ON BY: WebApp.html shell, mobile menu theme button, slide theme button sync
+// MOBILE NOTES: Touches desktop and mobile theme buttons; presentation-mode handoff remains in WebApp.html.
+// AGENT NOTES: Keep `preferredPresentationCardTheme` and presentation-mode theme handoff in WebApp.html; only shared theme controls live here.
+// ============================================================
+// STATE: _SUN_SVG
+// READS: theme controls
+// WRITES: none
+// EXTRACT WITH: applyTheme, syncSlideThemeButton
+// WORKSTREAM 3 RISK: Low
+const _SUN_SVG  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+// STATE: _MOON_SVG
+// READS: theme controls
+// WRITES: none
+// EXTRACT WITH: applyTheme, syncSlideThemeButton
+// WORKSTREAM 3 RISK: Low
+const _MOON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+// MODULE CANDIDATE: _module_theme_controls.html
+// STATE DEPS: _sysDark, _SUN_SVG, _MOON_SVG
+// EXTRACT ORDER: 3
+function applyTheme(dark) {
+    document.body.classList.toggle('dark-mode', dark);
+    let btn = getEl('btn-theme'); if (btn) btn.innerHTML = dark ? _MOON_SVG : _SUN_SVG;
+    let mobBtn = getEl('mob-theme-btn'); if (mobBtn) mobBtn.textContent = dark ? 'Light Mode' : 'Dark Mode';
+}
+function toggleDarkMode() { applyTheme(!document.body.classList.contains('dark-mode')); }
+
+// Follow system light/dark preference; update live when macOS Auto switches at sunset/sunrise
+// STATE: _sysDark
+// READS: theme init and system theme listener
+// WRITES: none
+// EXTRACT WITH: applyTheme, toggleDarkMode
+// WORKSTREAM 3 RISK: Low
+let _sysDark = window.matchMedia('(prefers-color-scheme: dark)');
+applyTheme(_sysDark.matches);
+_sysDark.addEventListener('change', e => applyTheme(e.matches));
+</script>
