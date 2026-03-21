@@ -13,7 +13,7 @@
         --qb-fib-bg: linear-gradient(to bottom, #64748b 0%, #171717 25%, #171717 75%, #000000 100%);
         --qb-nap-bg: linear-gradient(90deg, #4338ca 0%, #6366f1 70%, #22d3ee 100%);
         --qb-fib-border: #ef4444; --qb-nap-border: #6366f1;
-        --starGold: #fbbf24; --accent: #3b82f6; --gantt-panel-height: 34vh; --inbox-panel-width: 380px; --panel-gutter-x: 16px; --panel-gutter-y: 12px; --dock-panel-offset: 0px;
+        --starGold: #fbbf24; --accent: #3b82f6; --gantt-panel-height: 34vh; --inbox-panel-width: 380px; --panel-gutter-x: 16px; --panel-gutter-y: 12px; --dock-panel-offset: 0px; --dock-clearance-top: 72px;
         /* Status Pill Colors */
         --pill-active-txt: #b45309;   --pill-active-bg: rgba(253,224,71,0.25);   --pill-active-bdr: #facc15;
         --pill-ofs-txt: #0f766e;      --pill-ofs-bg: rgba(6,182,212,0.15);       --pill-ofs-bdr: #06b6d4;
@@ -421,6 +421,15 @@
           overflow: visible !important;
           scrollbar-width: none;
           transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease !important;
+      }
+      body.dock-clearance-active .filter-strip {
+          position: fixed !important;
+          top: var(--dock-clearance-top) !important;
+          left: 50% !important;
+          right: auto !important;
+          transform: translateX(-50%) !important;
+          max-width: min(calc(100vw - 40px), max-content) !important;
+          z-index: 10030 !important;
       }
       body.dark-mode .filter-strip {
           background: rgba(24, 24, 27, 0.65) !important;
@@ -3012,19 +3021,103 @@
     .cal-cell.today { background: #ff3b30; color: #fff; font-weight: 700; }
 
     /* Calculator */
-    #calc-display { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px solid var(--border); background: transparent; padding: 16px 20px 12px; font-size: 46px; font-family: -apple-system, "SF Pro Display", sans-serif; font-weight: 200; text-align: right; color: var(--text-main); outline: none; }
-    .calc-sub-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 0 16px 16px; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
-    .calc-sub-btn { background: color-mix(in srgb, var(--card-bg) 60%, transparent); border: none; padding: 9px 0; font-size: 8px; font-weight: 700; color: #007aff; text-transform: uppercase; cursor: pointer; transition: background 0.1s; letter-spacing: 0.3px; }
-    .calc-sub-btn:hover { background: var(--bg); }
-    body.dark-mode .calc-sub-btn { color: #0a84ff; }
-    .calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px; }
-    .calc-btn { background: rgba(120,120,128,0.12); border: none; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 400; color: var(--text-main); cursor: pointer; border-radius: 50%; transition: opacity 0.15s; }
-    .calc-btn:active { opacity: 0.6; }
-    .calc-btn.op { background: #007aff; color: #fff; font-size: 22px; }
-    .calc-btn.top-op { background: rgba(120,120,128,0.24); color: var(--text-main); font-size: 16px; font-weight: 500; }
-    .calc-btn.zero { grid-column: span 2; border-radius: 999px; aspect-ratio: auto; padding: 0 28px; justify-content: flex-start; }
-    body.dark-mode .calc-btn { background: rgba(255,255,255,0.1); }
-    body.dark-mode .calc-btn.top-op { background: rgba(255,255,255,0.18); }
+    #calc-widget {
+        width: 320px;
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.98));
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 32px 72px rgba(15, 23, 42, 0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    #calc-widget .tool-header {
+        color: rgba(248, 250, 252, 0.92);
+        padding: 18px 18px 10px;
+        font-size: 12px;
+        letter-spacing: 0.02em;
+    }
+    #calc-widget .tool-close {
+        background: rgba(255,255,255,0.08);
+        color: rgba(248,250,252,0.78);
+    }
+    #calc-widget .tool-close:hover { background: rgba(255,255,255,0.16); }
+    #calc-display {
+        width: 100%;
+        box-sizing: border-box;
+        border: none;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        background: transparent;
+        padding: 10px 22px 14px;
+        font-size: 50px;
+        font-family: -apple-system, "SF Pro Display", sans-serif;
+        font-weight: 250;
+        text-align: right;
+        color: #f8fafc;
+        outline: none;
+        letter-spacing: -0.04em;
+    }
+    .calc-sub-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        padding: 14px 14px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .calc-sub-btn {
+        background: linear-gradient(180deg, rgba(59,130,246,0.95), rgba(37,99,235,0.95));
+        border: 1px solid rgba(147,197,253,0.28);
+        padding: 11px 0;
+        font-size: 8px;
+        font-weight: 900;
+        color: #eff6ff;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+        letter-spacing: 0.45px;
+        border-radius: 14px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 18px rgba(37,99,235,0.28);
+    }
+    .calc-sub-btn:hover { filter: brightness(1.06); }
+    .calc-sub-btn:active { transform: scale(0.97); }
+    .calc-keys {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        padding: 14px;
+    }
+    .calc-btn {
+        background: linear-gradient(180deg, rgba(71,85,105,0.86), rgba(51,65,85,0.94));
+        border: 1px solid rgba(255,255,255,0.06);
+        aspect-ratio: 1/1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        font-weight: 500;
+        color: #f8fafc;
+        cursor: pointer;
+        border-radius: 50%;
+        transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 12px 20px rgba(2,6,23,0.24);
+    }
+    .calc-btn:hover { filter: brightness(1.05); }
+    .calc-btn:active { transform: scale(0.96); }
+    .calc-btn.op {
+        background: linear-gradient(180deg, #f97316, #ef4444);
+        color: #fff7ed;
+        font-size: 24px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 12px 22px rgba(239,68,68,0.28);
+    }
+    .calc-btn.top-op {
+        background: linear-gradient(180deg, rgba(148,163,184,0.95), rgba(100,116,139,0.96));
+        color: #f8fafc;
+        font-size: 16px;
+        font-weight: 700;
+    }
+    .calc-btn.zero {
+        grid-column: span 2;
+        border-radius: 999px;
+        aspect-ratio: auto;
+        padding: 0 28px;
+        justify-content: flex-start;
+    }
     </style>
   </head>
   <body>
@@ -4427,12 +4520,20 @@
               let dockRect = dock.getBoundingClientRect();
               let clearBottom = dockRect.bottom;
               let leftRail = workspace.querySelector('.inbox-sidebar');
+              let detailMain = workspace.querySelector('.detail-main');
               let outboxPane = getEl('outbox-pane');
               let fabAnchor = document.querySelector('.admin-fab-anchor');
+              let topNav = document.querySelector('.top-nav');
+              let topNavLeft = document.querySelector('.top-nav-left');
               let topNavCenter = document.querySelector('.top-nav-center');
+              let topNavRight = document.querySelector('.nav-actions');
               let leftRect = (leftRail && getComputedStyle(leftRail).display !== 'none') ? leftRail.getBoundingClientRect() : null;
+              let detailRect = (detailMain && getComputedStyle(detailMain).display !== 'none') ? detailMain.getBoundingClientRect() : null;
               let rightRect = null;
+              let navRect = topNav ? topNav.getBoundingClientRect() : null;
+              let navLeftRect = topNavLeft ? topNavLeft.getBoundingClientRect() : null;
               let navCenterRect = topNavCenter ? topNavCenter.getBoundingClientRect() : null;
+              let navRightRect = topNavRight ? topNavRight.getBoundingClientRect() : null;
 
               if (pills && pills.childElementCount > 0) {
                   let pillsRect = pills.getBoundingClientRect();
@@ -4453,22 +4554,35 @@
               let dockBottomInWorkspace = Math.max(0, clearBottom - workspaceRect.top);
               let leftOverlap = overlapX(dockRect, leftRect);
               let rightOverlap = overlapX(dockRect, rightRect);
+              let detailCompression = detailRect ? dockRect.width >= Math.max(0, detailRect.width - 72) : false;
+              let navSideCrowded = false;
               let centerCrowded = false;
 
               if (navCenterRect) {
-                  centerCrowded = dockRect.width >= Math.max(0, navCenterRect.width - 12);
+                  centerCrowded = dockRect.width >= Math.max(0, navCenterRect.width - 24);
+              }
+              if (navLeftRect && navRightRect) {
+                  let navCorridorWidth = Math.max(0, navRightRect.left - navLeftRect.right - 28);
+                  navSideCrowded = dockRect.width >= Math.max(0, navCorridorWidth);
               }
 
               shouldShift = dockBottomInWorkspace > 0 && (
                   leftOverlap > 0 ||
                   rightOverlap > 0 ||
+                  detailCompression ||
+                  navSideCrowded ||
                   centerCrowded ||
-                  dockRect.width >= Math.max(1100, window.innerWidth - 520)
+                  dockRect.width >= Math.max(1020, window.innerWidth - 620)
               );
 
               if (shouldShift) {
-                  let desiredTop = dockBottomInWorkspace + 14;
-                  offset = Math.max(44, Math.ceil(desiredTop - 12));
+                  let desiredTop = dockBottomInWorkspace + 18;
+                  offset = Math.max(52, Math.ceil(desiredTop - 12));
+                  if (navRect) {
+                      document.documentElement.style.setProperty('--dock-clearance-top', `${Math.ceil(navRect.bottom + 10)}px`);
+                  }
+              } else if (navRect) {
+                  document.documentElement.style.setProperty('--dock-clearance-top', `${Math.ceil(navRect.bottom + 10)}px`);
               }
           }
 
@@ -10618,6 +10732,22 @@ ${item.comment || 'No notes provided.'}
         max-height: min(86vh, calc((92vw) * 9 / 16)) !important;
         aspect-ratio: 16 / 9 !important;
         transform: scale(1.04);
+      }
+      @media screen and (max-width: 1600px), screen and (max-height: 980px) {
+        body.presentation-active #deck-stage-card {
+          width: min(86vw, 1220px) !important;
+          max-width: min(86vw, 1220px) !important;
+          max-height: min(80vh, calc((86vw) * 9 / 16)) !important;
+          transform: scale(0.98) !important;
+        }
+      }
+      @media screen and (max-width: 1360px), screen and (max-height: 860px) {
+        body.presentation-active #deck-stage-card {
+          width: min(82vw, 1080px) !important;
+          max-width: min(82vw, 1080px) !important;
+          max-height: min(74vh, calc((82vw) * 9 / 16)) !important;
+          transform: scale(0.94) !important;
+        }
       }
       /* Detail card: flexible vertical */
       .qb-grid {
