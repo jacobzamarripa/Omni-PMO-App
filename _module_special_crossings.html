@@ -1,0 +1,111 @@
+<script>
+// ============================================================
+// FILE: _module_special_crossings.html
+// ROLE: Special crossings admin UI, verification actions, and
+//   staged crossing commit workflow extracted from WebApp.html
+// DEPENDS ON: _state_queue.html, _state_session.html,
+//   _utils_shared.html, _utils_notifications.html,
+//   _module_queue_state.html, _module_admin.html
+// DEPENDED ON BY: _module_admin.html, WebApp.html detail/admin
+//   review flows, and crossings verification workflow
+// MOBILE NOTES: Crossings verification remains a desktop review
+//   workflow for now; mobile should adapt these actions rather
+//   than reuse this panel markup directly
+// AGENT NOTES: Keep google.script.run signatures stable.
+//   Desktop crossings surfaces read Gemini-produced `cdIntel`
+//   and `specXDetails`, while the actual Gemini analysis entry
+//   point remains the registry-declared backend function
+//   `runCDAnalysis`.
+// ============================================================
+function renderSpecialCrossingsAdminSection(crossings) {
+    if (!crossings || crossings.length === 0) return '';
+    let commitBtn = `<button onclick="commitStagedCrossings(this)" style="padding:3px 8px; font-size:9px; font-weight:900; background:#0f172a; color:#fff; border:1px solid #0f172a; border-radius:4px; cursor:pointer; white-space:nowrap;">Commit Staged →</button>`;
+    let cards = crossings.map(function(item) {
+        let xVal = item.rawSpecialX || (item.isXing ? 'YES' : '—');
+        let xDet = item.specXDetails ? `<div style="font-size:10px; color:var(--text-muted); margin-top:3px; line-height:1.4;">${item.specXDetails.substring(0, 120)}${item.specXDetails.length > 120 ? '…' : ''}</div>` : '';
+        let cd = item.cdIntel ? `<div style="font-size:10px; color:var(--color-insight); margin-top:4px; line-height:1.3;">${item.cdIntel.substring(0, 120)}${item.cdIntel.length > 120 ? '…' : ''}</div>` : '';
+        return `<div id="admin-card-${item.fdh}" class="admin-list-card" onclick="selectItemForNav('${item.fdh}')">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+                <div>
+                    <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">QB Crossings: <span style="font-weight:bold; color:var(--text-main);">${xVal}</span></div>
+                    ${xDet}${cd}
+                </div>
+                <button id="admin-verify-${item.fdh}" class="btn" onclick="event.stopPropagation(); verifyXingFromAdmin('${item.fdh}')" style="padding:5px 10px; font-size:10px; font-weight:900; background:#0f172a; color:#fff; border-color:#0f172a; white-space:nowrap; flex-shrink:0;">✓ Verify</button>
+            </div>
+        </div>`;
+    }).join('');
+    return `<div style="border-bottom:1px solid var(--border); padding:0;">
+        <div style="padding:10px 16px 6px; font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; background:var(--bg);">
+            <span>Crossings to Verify <span style="background:var(--border); color:var(--text-main); padding:1px 7px; border-radius:10px; font-size:10px;">${crossings.length}</span></span>
+            ${commitBtn}
+        </div>
+        ${cards}
+    </div>`;
+}
+
+function verifyXingFromAdmin(fdhId) {
+    let btn = getEl('admin-verify-' + fdhId);
+    if (btn) { btn.innerText = 'Saving...'; btn.disabled = true; }
+    google.script.run.withSuccessHandler(function(dateStr) {
+        let item = (allActionItems || []).find(i => i.fdh === fdhId) || currentActiveItem;
+        if (item) {
+            item.flags = String(item.flags || '').replace('🚩 ADMIN: CHECK CROSSINGS', '').trim();
+            item.comment = `Crossings verified on ${dateStr}.`;
+            if (currentActiveItem && currentActiveItem.fdh === fdhId) setTxt('p-last-check', 'LAST CHECKED: ' + dateStr);
+            let wasCurrent = currentActiveItem && currentActiveItem.fdh === fdhId;
+            if (wasCurrent) currentActiveItem = null;
+            moveItemToReviewed(item, { comment: item.comment, action: 'admin-crossings' });
+            if (wasCurrent) advanceAfterAction();
+            else applyFilters();
+            showToast(`✓ ${fdhId} moved to Reviewed`);
+        }
+    }).withFailureHandler(function(err) {
+        alert('Failed to verify: ' + err.message);
+        let b = getEl('admin-verify-' + fdhId);
+        if (b) { b.innerText = '✓ Verify'; b.disabled = false; }
+    }).verifySpecialCrossings(fdhId);
+}
+
+function commitStagedCrossings(btn) {
+    if (btn) { btn.innerText = 'Committing...'; btn.disabled = true; }
+    google.script.run
+        .withSuccessHandler(function(r) {
+            if (r.success) {
+                showToast('✅ ' + r.count + ' crossings committed to queue');
+                renderAdminPane(getActiveQueueItems());
+            } else {
+                alert('Commit failed: ' + r.error);
+                if (btn) { btn.innerText = 'Commit Staged →'; btn.disabled = false; }
+            }
+        })
+        .withFailureHandler(function(err) {
+            alert('Commit failed: ' + err.message);
+            if (btn) { btn.innerText = 'Commit Staged →'; btn.disabled = false; }
+        })
+        .commitToQueueWebApp();
+}
+
+function markChecked(fdhId) {
+    let btn = getEl('btn-admin-check');
+    if (btn) { btn.innerText = 'SAVING...'; btn.disabled = true; }
+    google.script.run.withSuccessHandler((dateStr) => {
+        if (btn) btn.remove();
+        let paneTags = document.querySelectorAll('#p-action .tag-admin');
+        paneTags.forEach(t => t.remove());
+        let qCard = getEl(`card-${fdhId}`);
+        if (qCard) {
+            let qTags = qCard.querySelectorAll('.tag-admin');
+            qTags.forEach(t => {
+                if (t.innerText.includes('ADMIN: CHECK CROSSINGS')) t.remove();
+            });
+        }
+        if (currentActiveItem) currentActiveItem.flags = currentActiveItem.flags.replace('🚩 ADMIN: CHECK CROSSINGS', '').trim();
+        setTxt('p-last-check', `LAST CHECKED: ${dateStr}`);
+    }).withFailureHandler(err => {
+        alert('Failed to save: ' + err.message);
+        if (btn) { btn.innerText = '🛡️ VERIFY CROSSINGS'; btn.disabled = false; }
+    }).verifySpecialCrossings(fdhId);
+}
+</script>

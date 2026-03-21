@@ -14,6 +14,7 @@
 > Workstream 2 complete March 21, 2026. Full `WebApp.html` state inventory mapped, consumer dependencies documented, and inline extraction-risk tags added. Next: Workstream 3 sequenced module extraction.
 > Workstream 3 complete March 21, 2026. Low-risk modules extracted, queue/router/session state owners grouped in `WebApp.html`, and high-risk extractions deferred to Workstream 4.
 > Workstream 4 complete March 21, 2026. Queue/router/session state owners extracted to dedicated partial files, include order updated, and smoke tests passed after each phase. Next: Workstream 5 high-risk module extractions.
+> Workstream 5 complete March 21, 2026. High-risk modules extracted with smoke tests passed after each phase; `_module_tabs.html` deferred, `_module_gantt.html` partially extracted, and `WebApp.html` reduced to bootstrap anchors plus remaining shared runtime.
 
 ---
 
@@ -46,6 +47,10 @@
 ## Known Issues Carried Forward
 - `WebApp.html` remains monolithic — partial extraction is Workstream 1
 - Tab fullscreen bleed-through — root cause not yet isolated, do not move tab code until diagnosed
+
+## Known Deferrals
+- `_module_tabs.html` deferred — router/fullscreen orchestration and overlay layering must be resolved first. Revisit after Workstream 6 router isolation pass.
+- `currentPanelTab` is still missing from `_state_router.html` — add it during the Workstream 6 router isolation pass before any tab extraction resumes.
 
 ## Known UI Bugs (Pre-Existing)
 - Admin panel close button (X) covered by widget z-index when calculator or calendar is open. Attempted fix: raised `.outbox-pane` z-index to `100010` in `_styles_layout.html` — did not resolve. Needs deeper investigation.
@@ -308,12 +313,19 @@ directives without changing any function signatures, variable names, or
 11. `_module_tools_widgets`
 12. `_module_changelog`
 13. `_module_theme_controls`
-14. main inline script
+14. `_module_queue_state`
+15. `_module_digest`
+16. `_module_admin`
+17. `_module_special_crossings`
+18. `_module_gantt`
+19. `_module_deck`
+20. main inline script
 
 ### Notes
 - All three state owner blocks now live in dedicated partials and still initialize on the global `window` scope through top-level script declarations.
 - `initDashboard()` and `applyFilters()` remain in `WebApp.html` as bootstrap anchors and were not moved.
-- `WebApp.html` still contains the existing extraction tags and runtime scaffolding around the new includes.
+- `WebApp.html` still contains the existing extraction tags and the remaining shared runtime scaffolding around the new includes.
+- `_module_tabs.html` is intentionally absent from the include order because it was deferred.
 
 ### State Inventory Summary
 - Total top-level variables in the main `WebApp.html` script: `84`
@@ -795,16 +807,34 @@ directives without changing any function signatures, variable names, or
 7. Extract gantt after router and queue state stabilize.
 8. Extract deck last, after reviewed tray, queue selection, and router concerns are separated.
 
-## Workstream 5 Recommendation
-- All three state owners now live in dedicated files: `_state_queue.html`, `_state_router.html`, and `_state_session.html`.
-- High-risk module extractions are now unblocked, but `initDashboard()` and `applyFilters()` should remain in `WebApp.html` until downstream consumers are separated.
-- Remaining high-risk extraction order from the Workstream 3 recommendation table:
-  4. `_module_queue_state.html`
-  5. `_module_tabs.html`
-  6. `_module_digest.html`
-  7. `_module_admin.html`
-  8. `_module_special_crossings.html`
-  9. `_module_gantt.html`
-  10. `_module_deck.html`
-- `_module_tabs.html` still requires pre-extraction diagnosis for the known fullscreen bleed-through issue before it is touched.
-- `_module_gantt.html` still requires pre-extraction diagnosis because of its tight coupling to queue selection, focus state, dock inversion, and HUD/session behavior.
+## Workstream 5 Complete
+> Completed March 21, 2026
+
+### Extracted modules confirmed working
+- `_module_queue_state.html`
+- `_module_digest.html`
+- `_module_admin.html`
+- `_module_special_crossings.html`
+- `_module_gantt.html` (partial extraction only)
+- `_module_deck.html`
+
+### Deferred / partial scope notes
+- `_module_tabs.html` deferred — router/fullscreen orchestration and overlay layering must be resolved first. Revisit after the Workstream 6 router isolation pass.
+- `_module_gantt.html` was intentionally extracted as a conservative partial:
+  - Extracted: core Gantt render/session/focus helpers, hover HUD helpers, and Gantt-local session state
+  - Left in `WebApp.html`: quick peek write path (`renderQuickPeek()`, `closeQuickPeek()`, `syncQuickPeekNote()`, `askGeminiForQuickPeek()`, `saveQuickPeek()`)
+  - Left in `WebApp.html`: shared KPI HUD helpers (`renderProjectsHUD()`, `renderBslsHUD()`)
+  - Left in `WebApp.html`: shared workspace helpers (`syncDockPlacementState()`, `syncWorkspaceChrome()`)
+- `currentPanelTab` is still owned in `WebApp.html` and is missing from `_state_router.html`. Add it during Workstream 6 before attempting `_module_tabs.html`.
+
+## Workstream 6 Recommendation
+- First priority: isolate workspace router state and helpers, including `currentPanelTab`, before touching tabs. This is the prerequisite for safely extracting `_module_tabs.html`.
+- Resume `_module_tabs.html` only after router isolation resolves the fullscreen bleed-through and overlay layering orchestration.
+- Keep the approved Gantt TODOs open:
+  - Quick peek extraction must wait until session/deck state and its `google.script.run` callbacks are isolated.
+  - Shared KPI HUD helpers should stay shared until their ownership is separated cleanly from Gantt.
+- Add the FAB dropdown feature to replace the desktop header button cluster once router state is stabilized.
+- Start the mobile buildout against `MobileApp.html` after desktop router isolation, using the extracted desktop module/state boundaries as the reference architecture rather than reusing desktop layout assumptions directly.
+- Carry forward the known UI bugs:
+  - Admin panel close button is still covered by widget z-index layering in some states.
+  - Hamburger menu is still visible on the desktop header.

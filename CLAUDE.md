@@ -104,7 +104,7 @@ When executing any workstream in this project:
 
 | File | Role | Agent Notes | Mobile Notes |
 |---|---|---|---|
-| `WebApp.html` | Desktop HtmlService shell with extracted style/utility/module partials, dedicated queue/router/session state includes, and the remaining inline runtime/bootstrap anchors | **Massive file.** CSS, pure helpers, tools/widgets, changelog, theme controls, and state owners are extracted. `initDashboard()` and `applyFilters()` remain the bootstrap anchors in the shell. When extracting partials, use `<?!= include('filename') ?>`. | Desktop-only layout assumptions — flag any px widths before mobile work |
+| `WebApp.html` | Desktop HtmlService shell with extracted style/state/module partials plus the remaining bootstrap anchors and shared runtime glue | **Massive file.** `initDashboard()` and `applyFilters()` remain the bootstrap anchors in the shell. Router/tabs orchestration, shared quick-peek paths, shared KPI HUD helpers, and a few cross-module globals still live here. When extracting partials, use `<?!= include('filename') ?>`. | Desktop-only layout assumptions — flag any px widths before mobile work |
 | `MobileApp.html` | Mobile HtmlService app surface for narrow viewport routing | Routed from `02_Utilities.js` doGet(). Treat as separate surface from `WebApp.html` — changes that work on desktop may break mobile. | Primary mobile surface — touch targets, font sizes, and bottom dock behavior live here |
 | `Sidebar.html` | Sidebar dashboard view, anomaly cards, lightweight filtering | Isolated — safe to edit independently | N/A |
 | `DatePicker.html` | Modal date-picker partial used by GAS dialogs | Isolated modal — z-index range `999990–999999` | N/A |
@@ -128,6 +128,12 @@ When executing any workstream in this project:
 | `_module_tools_widgets.html` | Calculator and calendar widget runtime with drag, persistence, and inline control handlers | Low-risk extracted module. Public surface remains on `window` for existing inline handlers and keyboard listeners. | Fixed-position widget behavior and drag UX remain desktop-biased |
 | `_module_changelog.html` | Review Hub changelog rendering module | Keep `allGlobalLogs` global in `WebApp.html` until bootstrap state moves. Rendering only lives here; payload hydration remains in shell. | Changelog panel density and controls remain desktop-first |
 | `_module_theme_controls.html` | Shared dark-mode icons, theme toggle handlers, and system-theme listener | Keep presentation-mode theme handoff in `WebApp.html`; only shared theme controls live here. | Mobile theme button shares this runtime, but presentation specifics still live in desktop shell |
+| `_module_queue_state.html` | Queue rendering, grouping, filter UI helpers, selection adapter, and queue view helpers | Reads queue/selection/filter globals from `_state_queue.html`. Keep bootstrap anchors in `WebApp.html`; this module should stay load-ordered before downstream admin/gantt/deck modules. | Future mobile queue work can reuse grouping/filter logic, not desktop markup |
+| `_module_digest.html` | Digest workspace rendering, analytics summaries, vendor map, and digest side-panel helpers | Depends on `allGlobalLogs` hydration from `WebApp.html` and queue selection state from `_state_queue.html`. | Desktop digest layout is dense; mobile should adapt data helpers and not reuse the full workspace layout |
+| `_module_admin.html` | Admin pane rendering, panel helpers, reviewed tray persistence, and outbox rendering | Reads queue/review state from `_state_queue.html`. Crossings-specific rendering/actions were split into `_module_special_crossings.html`. | Review Hub panel layout remains desktop-first |
+| `_module_special_crossings.html` | Special crossings admin section, verification action, staged commit workflow, and crossings review helpers | Keep Gemini/registry contracts unchanged. Still depends on shared queue/admin review state. | Desktop review flow only for now |
+| `_module_gantt.html` | Partial Gantt extraction: core render/session/focus helpers, row-header-coupled `renderGantt()`, and hover HUD helpers | Conservative partial only. Quick-peek write flows, shared KPI HUD helpers, and shared workspace dock orchestration still remain in `WebApp.html`. | Mobile timeline should reuse data ideas only; desktop sticky headers/fullscreen assumptions remain here |
+| `_module_deck.html` | Deck/slide workspace rendering, PM memory helpers, staging/export flows, and presentation/theater runtime | Reads `stagedDeckItems`, `pmSessionMemory`, and `isPresentationMode` from `_state_session.html`. `moveItemToReviewed()` still writes back into queue/admin state by design. | Presentation keyboard/runtime behavior is desktop-specific; mobile should not reuse it directly |
 
 ### WebApp Include Order
 - `_registry.html`
@@ -143,6 +149,12 @@ When executing any workstream in this project:
 - `_module_tools_widgets.html`
 - `_module_changelog.html`
 - `_module_theme_controls.html`
+- `_module_queue_state.html`
+- `_module_digest.html`
+- `_module_admin.html`
+- `_module_special_crossings.html`
+- `_module_gantt.html`
+- `_module_deck.html`
 - main inline script
 
 ---

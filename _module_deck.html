@@ -1,0 +1,918 @@
+<script>
+// ============================================================
+// FILE: _module_deck.html
+// ROLE: Deck/slide workspace rendering, PM memory helpers,
+//   staging/export flows, and presentation mode runtime
+//   extracted from WebApp.html
+// DEPENDS ON: _state_queue.html, _state_router.html,
+//   _state_session.html, _utils_shared.html,
+//   _utils_notifications.html, _module_queue_state.html,
+//   _module_admin.html, _module_changelog.html
+// DEPENDED ON BY: WebApp.html bootstrap anchors, detail/grid
+//   navigation flows, admin review actions, and deck exports
+// MOBILE NOTES: Desktop deck presentation and theater controls
+//   stay here; mobile should adapt the data helpers without
+//   reusing this layout/keyboard behavior directly
+// AGENT NOTES: Keep function names and google.script.run
+//   signatures stable. `moveItemToReviewed()` intentionally
+//   still writes back into queue/admin state because the review
+//   workflow is not isolated yet.
+// ============================================================
+// STATE: isDeckEditing
+// READS: deck stage rendering
+// WRITES: deck edit toggles, deck navigation
+let isDeckEditing = false;
+// STATE: deckIdleTimer
+// READS: presentation mode toggle
+// WRITES: deck idle reset
+let deckIdleTimer = null;
+// STATE: preferredPresentationCardTheme
+// READS: deck theme sync
+// WRITES: deck theme toggles, presentation mode
+let preferredPresentationCardTheme = null;
+// STATE: preTheaterThemeWasDark
+// READS: presentation theme restore
+// WRITES: presentation mode/theme sync
+var preTheaterThemeWasDark = false;
+
+function getActivePresentationCard() {
+    return isDeckMode ? getEl('deck-stage-card') : document.querySelector('.qb-grid');
+}
+
+function applyPresentationCardTheme(card, theme) {
+    if (!card) return;
+    card.classList.remove('slide-light-mode', 'slide-dark-mode');
+    if (theme === 'dark') card.classList.add('slide-dark-mode');
+    if (theme === 'light') card.classList.add('slide-light-mode');
+}
+
+function syncSlideThemeButton() {
+    const btn = getEl('dock-btn-slide-theme');
+    if (!btn) return;
+    const effectiveTheme = preferredPresentationCardTheme || (document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+    btn.innerHTML = effectiveTheme === 'dark' ? _SUN_SVG : _MOON_SVG;
+    btn.setAttribute('aria-label', effectiveTheme === 'dark' ? 'Switch slide lighting to light mode' : 'Switch slide lighting to dark mode');
+    btn.title = effectiveTheme === 'dark' ? 'Lights Up' : 'Lights Down';
+}
+
+function clearPresentationCardThemes() {
+    document.querySelectorAll('.qb-grid, #deck-stage-card').forEach(card => {
+        card.classList.remove('slide-light-mode', 'slide-dark-mode');
+    });
+}
+
+function syncActivePresentationCardTheme() {
+    if (!isPresentationMode) {
+        clearPresentationCardThemes();
+        syncSlideThemeButton();
+        return;
+    }
+    const theme = preferredPresentationCardTheme || (preTheaterThemeWasDark ? 'dark' : 'light');
+    clearPresentationCardThemes();
+    applyPresentationCardTheme(getActivePresentationCard(), theme);
+    syncSlideThemeButton();
+}
+
+function syncSlideActionDeck() {
+    const deck = getEl('slide-action-deck');
+    if (!deck) return;
+    const isFs = currentWorkspaceView === 'gantt';
+    const showDeck = isSlideFaceActive() && !isFs;
+    deck.classList.toggle('visible', showDeck);
+    deck.classList.toggle('theater-active', showDeck && isPresentationMode);
+    if (!showDeck) deck.classList.remove('dock-idle');
+    syncSlideThemeButton();
+    syncDockLayoutSpacing();
+    updateFloatingPillsPosition();
+}
+
+function clearStagedDeckItems() {
+    stagedDeckItems = [];
+    persistStagedReviewSession();
+    syncDockStagingButton();
+    renderDeckStage();
+    renderOutbox();
+}
+
+// TODO: HIGH RISK - mutates queue/detail/admin/reviewed tray state.
+// Requires state layer isolation before extraction.
+function moveItemToReviewed(item, meta) {
+    if (!item || !item.fdh) return;
+    clearDeckSessionForFdh(item.fdh);
+    removeDeckItemFromSource(item.fdh);
+    allActionItems = allActionItems.filter(i => String(i.fdh || '') !== String(item.fdh || ''));
+    stagedDeckItems = (stagedDeckItems || []).filter(fdh => String(fdh || '') !== String(item.fdh || ''));
+    persistStagedReviewSession();
+    addToReviewedTray(item, meta || {});
+    updateAdminBadge();
+    renderAdminPane(getActiveQueueItems());
+    renderOutbox();
+}
+
+function toggleStageCurrentDeckItem() {
+    saveCurrentCardState();
+    const item = ensureDeckIndex();
+    if (!item) return;
+    let idx = stagedDeckItems.indexOf(item.fdh);
+    if (idx > -1) {
+        stagedDeckItems.splice(idx, 1);
+        persistStagedReviewSession();
+        showDockSuccess('Removed from Batch');
+        syncDockStagingButton();
+        renderDeckStage();
+        renderOutbox();
+    } else {
+        stagedDeckItems.push(item.fdh);
+        persistStagedReviewSession();
+        showDockSuccess('Staged for Batch');
+        syncDockStagingButton();
+        renderDeckStage();
+        renderOutbox();
+
+        setTimeout(() => {
+            navDeck(1);
+        }, 600);
+    }
+}
+
+function syncDockStagingButton() {
+    const item = ensureDeckIndex();
+    const btn = getEl('dock-btn-stage');
+    if (!btn || !item) return;
+    if (stagedDeckItems.includes(item.fdh)) {
+        btn.innerHTML = 'Unstage';
+        btn.style.background = 'var(--card-bg)';
+        btn.style.color = '#a855f7';
+        btn.style.borderColor = '#d8b4fe';
+    } else {
+        btn.innerHTML = 'Stage Project';
+        btn.style.background = '#a855f7';
+        btn.style.color = '#fff';
+        btn.style.borderColor = '#9333ea';
+    }
+}
+
+function promptBatchDeckExport() {
+    if (stagedDeckItems.length === 0) return alert('No items staged.');
+    const email = prompt(`📧 Email Batch Report (${stagedDeckItems.length} project${stagedDeckItems.length !== 1 ? 's' : ''})\n\nThis will also permanently SAVE these items to the 8-Deck_Answers sheet.\n\nEnter destination email:`, '');
+    if (!email || !email.trim()) return;
+
+    showDockLoading(`Exporting ${stagedDeckItems.length} projects...`);
+
+    const now = new Date();
+    const dateStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const boolLabel = (val, fallback='—') => (val === true || val === 'true') ? 'YES' : (val === false || val === 'false') ? 'NO' : fallback;
+    let payloads = [];
+    let combinedText = `DAILY PM BATCH REPORT\nGenerated: ${dateStr}\n\n`;
+
+    stagedDeckItems.forEach(fdh => {
+        const item = (allActionItems || []).find(i => i.fdh === fdh);
+        if (!item) return;
+        const mem = pmSessionMemory[fdh] || {};
+        const isXingSelected = mem['q_is_xing'] !== undefined ? (mem['q_is_xing'] === true || mem['q_is_xing'] === 'true') : item.isXing;
+        payloads.push({ fdh: item.fdh, vendor: item.vendor, targetDate: item.targetDate || item.cxEnd || 'TBD', note: item.comment || '', answers: mem });
+
+        const ofsStr = item.ofsDate && item.ofsDate !== '-' ? item.ofsDate : 'TBD';
+        combinedText += `==================================================\n`;
+        combinedText += `PROJECT: ${item.fdh} (${item.vendor || 'Unknown'} - ${item.city || 'Unknown'})\n`;
+        combinedText += `Target OFS: ${ofsStr} | Stage: ${item.stage} | Status: ${item.status}\n\n`;
+        combinedText += `[DELIVERABLES]\n`;
+        combinedText += `- CD Distributed: ${item.hasCDDist ? 'YES' : 'NO'}\n`;
+        combinedText += `- Splice Docs Dist: ${item.hasSpliceDist ? 'YES' : 'NO'}\n`;
+        combinedText += `- Strand Maps Dist: ${item.hasStrandDist ? 'YES' : 'NO'}\n`;
+        combinedText += `- BOM Sent: ${boolLabel(mem['q_bom_sent'])}\n`;
+        combinedText += `- PO Number Sent: ${boolLabel(mem['q_po_sent'])}\n`;
+        combinedText += `- SOW Signed: ${boolLabel(mem['q_sow_sign'])}\n\n`;
+        combinedText += `[FIELD / PERMITTING QA]\n`;
+        combinedText += `- Sent for permitting: ${mem['q_permit_sent'] || '\u2014'}\n`;
+        combinedText += `- Permit approved: ${mem['q_permit_appr'] || '\u2014'}\n`;
+        combinedText += `- Special Crossings: ${isXingSelected ? 'YES' : 'NONE'}\n`;
+        if (isXingSelected) {
+            combinedText += `  * DOT paperwork submitted: ${mem['q_cross_sub'] || '\u2014'}\n`;
+            combinedText += `  * Crossing approved: ${mem['q_cross_appr'] || '\u2014'}\n`;
+            combinedText += `  * Approval distributed: ${mem['q_cross_dist'] || '\u2014'}\n`;
+        }
+        combinedText += `- Active set: ${boolLabel(mem['q_active_set'])}\n`;
+        combinedText += `- Active has power: ${boolLabel(mem['q_active_pwr'])}\n`;
+        combinedText += `- Transport available: ${boolLabel(mem['q_transport'])}\n`;
+        combinedText += `- OFS date changed: ${boolLabel(mem['q_ofs_change'])}\n`;
+        combinedText += `- OFS change reason: ${mem['q_ofs_reason'] || '\u2014'}\n\n`;
+        combinedText += `[MANAGER NOTE]\n${item.comment || item.draft || 'No note provided.'}\n\n`;
+    });
+
+    // DATA CALL: promptBatchDeckExport
+    // COUPLED TO: stagedDeckItems, pmSessionMemory, dock system UI, renderDeckStage, renderOutbox
+    // EXTRACT BLOCKER: staged export flow still depends on deck state ownership plus reviewed/outbox side effects
+    google.script.run
+        .withSuccessHandler(count => {
+            showDockSuccess(`Emailed & Saved ${count} projects!`);
+            stagedDeckItems = [];
+            persistStagedReviewSession();
+            syncDockStagingButton();
+            renderDeckStage();
+            renderOutbox();
+        })
+        .withFailureHandler(err => {
+            showDockError('Export Failed');
+            alert('Export Error: ' + (err.message || err));
+        })
+        .processBatchDeckExport(payloads, email.trim(), combinedText);
+}
+
+function getDeckItems() {
+    return filteredItems || [];
+}
+
+function centerQueueCardByFdh(fdh, behavior) {
+    const container = getEl('inbox-list');
+    if (!container || !fdh) return;
+    const target = container.querySelector(`[data-fdh="${CSS.escape(String(fdh || ''))}"]`) || getEl(`card-${fdh}`) || getEl(`queue-grid-card-${fdh}`);
+    if (!target) return;
+    const top = target.offsetTop - (container.clientHeight / 2) + (target.offsetHeight / 2);
+    container.scrollTo({ top: Math.max(0, top), behavior: behavior || 'smooth' });
+}
+
+function ensureDeckIndex() {
+    const items = getDeckItems();
+    if (items.length === 0) {
+        deckIndex = 0;
+        return null;
+    }
+    if (deckIndex < 0) deckIndex = 0;
+    if (deckIndex >= items.length) deckIndex = items.length - 1;
+    return items[deckIndex];
+}
+
+function updateDeckStageSelection() {
+    const items = getDeckItems();
+    const active = items[deckIndex];
+    document.querySelectorAll('.inbox-list .grid-card').forEach(card => card.classList.remove('is-selected'));
+    if (!active) return;
+    document.querySelectorAll(`.inbox-list [data-fdh="${CSS.escape(String(active.fdh || ''))}"]`).forEach(card => card.classList.add('is-selected'));
+    centerQueueCardByFdh(active.fdh, 'smooth');
+}
+
+function navDeck(dir) {
+    const items = getDeckItems();
+    if (items.length === 0) return;
+    const currentItem = items[deckIndex];
+    if (isDeckEditing && pmSessionMemory[currentItem.fdh]) {
+        if (confirm("⚠️ UNCOMMITTED CHANGES\n\nCommit changes to the local sheet before moving?\n\n'OK' to Commit\n'Cancel' to Erase local edits.")) {
+            toggleStageCurrentDeckItem();
+        } else {
+            delete pmSessionMemory[currentItem.fdh];
+        }
+    }
+    isDeckEditing = false;
+    document.body.classList.remove('deck-is-editing');
+    deckIndex = (deckIndex + dir + items.length) % items.length;
+    const nextItem = items[deckIndex];
+    openPane(nextItem, getEl(`card-${nextItem.fdh}`));
+    renderDeckStage();
+}
+
+function toggleSlideSpecificTheme() {
+    const card = getActivePresentationCard();
+    if (!card) return;
+    const isDark = (preferredPresentationCardTheme || (card.classList.contains('slide-dark-mode') ? 'dark' : 'light')) === 'dark';
+    preferredPresentationCardTheme = isDark ? 'light' : 'dark';
+    if (isPresentationMode) {
+        syncActivePresentationCardTheme();
+    } else {
+        applyPresentationCardTheme(card, preferredPresentationCardTheme);
+        syncSlideThemeButton();
+    }
+}
+
+// Stealth Dock idle timer
+function resetDeckIdleTimer() {
+    if (!isPresentationMode) return;
+    const dock = (isSlideFaceActive() ? document.getElementById('slide-action-deck') : document.getElementById('filter-strip'));
+    if (dock) dock.classList.remove('dock-idle');
+    clearTimeout(deckIdleTimer);
+    deckIdleTimer = setTimeout(() => {
+        if (isPresentationMode) {
+            const d = (isSlideFaceActive() ? document.getElementById('slide-action-deck') : document.getElementById('filter-strip'));
+            if (d) d.classList.add('dock-idle');
+        }
+    }, 3000);
+}
+
+function navGlobal(dir, isVertical) {
+    if (isDeckMode) {
+        const len = filteredItems?.length || 1;
+        deckIndex = (deckIndex + dir + len) % len;
+        renderDeckStage();
+        return;
+    }
+    const items = filteredItems || [];
+    if (items.length === 0) return;
+    let idx = items.findIndex(i => i.fdh === currentActiveItem?.fdh);
+    if (idx === -1) idx = 0;
+
+    let nextIdx;
+    if (currentWorkspaceView === 'grid' && isVertical) {
+        const container = document.getElementById('grid-content');
+        const cards = Array.from(container?.querySelectorAll('.grid-card') || []);
+        if (cards.length > 1) {
+            // Visual detection: count cards sharing the first card's offsetTop
+            const firstTop = cards[0].offsetTop;
+            let cols = 0;
+            for (let i = 0; i < cards.length; i++) {
+                if (cards[i].offsetTop === firstTop) cols++;
+                else break;
+            }
+            cols = cols || 1;
+            const rows = Math.ceil(items.length / cols);
+            const curRow = Math.floor(idx / cols);
+            const curCol = idx % cols;
+            let nextRow = (curRow + dir + rows) % rows;
+            nextIdx = nextRow * cols + curCol;
+            if (nextIdx >= items.length) nextIdx = items.length - 1;
+        } else {
+            nextIdx = (idx + dir + items.length) % items.length;
+        }
+    } else {
+        nextIdx = (idx + dir + items.length) % items.length;
+    }
+
+    if (currentWorkspaceView === 'grid') openPaneFromGrid(items[nextIdx].fdh);
+    else openPane(items[nextIdx], document.getElementById(`card-${items[nextIdx].fdh}`));
+}
+
+function showCinemaTooltip() {
+    showToast('⌨️ SPACE / ARROWS to navigate · ESC to exit', 'info');
+}
+
+function togglePresentationMode() {
+    isPresentationMode = !isPresentationMode;
+    const body = document.body;
+    const btn = document.getElementById('dock-btn-presentation');
+    const activeContainer = isDeckMode ? document.getElementById('deck-stage') : document.getElementById('pane-content');
+    if (isPresentationMode) {
+        preTheaterThemeWasDark = body.classList.contains('dark-mode');
+        if (!preferredPresentationCardTheme) preferredPresentationCardTheme = preTheaterThemeWasDark ? 'dark' : 'light';
+        body.classList.add('presentation-active');
+        applyTheme(true);
+        syncActivePresentationCardTheme();
+        if (btn) btn.innerHTML = 'Exit Cinema';
+        showCinemaTooltip();
+        resetDeckIdleTimer();
+        if (activeContainer) activeContainer.onclick = (e) => { if (e.target === activeContainer) togglePresentationMode(); };
+    } else {
+        body.classList.remove('presentation-active');
+        if (btn) btn.innerHTML = 'Theater Mode';
+        applyTheme(preTheaterThemeWasDark);
+        clearPresentationCardThemes();
+        syncSlideThemeButton();
+        clearTimeout(deckIdleTimer);
+        document.getElementById('filter-strip')?.classList.remove('dock-idle');
+        if (activeContainer) activeContainer.onclick = null;
+    }
+    syncGanttIslandState();
+    syncDockLayoutSpacing();
+    updateFloatingPillsPosition();
+}
+
+function toggleDeckEditMode() {
+    isDeckEditing = !isDeckEditing;
+    document.body.classList.toggle('deck-is-editing', isDeckEditing);
+    renderDeckStage();
+}
+
+function buildSmartFdhDatalist(currentFdh) {
+    if (!globalAllFdhIds || globalAllFdhIds.length === 0) return '';
+    let match = String(currentFdh).match(/^(.*?)-F(\d+)$/i);
+    let options = [];
+    if (match) {
+        let prefix = match[1].toUpperCase();
+        let currentNum = parseInt(match[2], 10);
+        let sameMarket = globalAllFdhIds.filter(id => id.toUpperCase().startsWith(prefix + '-F'));
+        sameMarket.sort((a, b) => {
+            let numA = parseInt((a.match(/-F(\d+)$/i) || [0, 0])[1], 10);
+            let numB = parseInt((b.match(/-F(\d+)$/i) || [0, 0])[1], 10);
+            return Math.abs(numA - currentNum) - Math.abs(numB - currentNum);
+        });
+        let others = globalAllFdhIds.filter(id => !id.toUpperCase().startsWith(prefix + '-F')).sort();
+        options = [...sameMarket, ...others];
+    } else {
+        options = globalAllFdhIds.slice().sort();
+    }
+    return options.map(id => `<option value="${id}">`).join('');
+}
+
+function toggleXingRows(show) {
+    document.querySelectorAll('.xing-nested-row').forEach(el => el.classList.toggle('muted-row', !show));
+    document.querySelectorAll('.xing-nested-edit').forEach(el => el.style.display = show ? 'flex' : 'none');
+}
+
+function toggleOfsRows(show) {
+    document.querySelectorAll('.ofs-reason-row').forEach(el => el.classList.toggle('muted-row', !show));
+    document.querySelectorAll('.ofs-reason-edit').forEach(el => el.style.display = show ? 'flex' : 'none');
+}
+
+// TODO: HIGH RISK - mutates queue/detail/admin/reviewed tray state.
+// Requires state layer isolation before extraction.
+// TODO: MODULE CANDIDATE - Gemini draft flows mutate currentActiveItem/filteredItems and view-specific DOM; isolate state adapters first
+function renderDeckStage() {
+        const stageCard = getEl('deck-stage-card');
+        if (!stageCard) return;
+
+        stageCard.style.cssText = "width: 100%; max-width: 1100px; height: auto; aspect-ratio: 16/9; max-height: 75vh; flex-shrink: 0; background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 30px 60px rgba(15,23,42,0.15); display: flex; flex-direction: column; overflow: hidden; margin: 0 auto;";
+
+        const item = ensureDeckIndex();
+        if (!item) {
+          stageCard.innerHTML = '<div style="margin:auto; font-size:24px;">No projects match current filters.</div>';
+          const ap = getEl('deck-action-panel');
+          if (ap) ap.innerHTML = '';
+          document.body.classList.remove('deck-is-editing');
+          return;
+        }
+        currentActiveItem = item;
+
+        // Sync theme icon immediately (prevents flicker)
+        const tBtn = getEl('dock-btn-slide-theme');
+        if (tBtn) {
+          syncSlideThemeButton();
+        }
+
+        let pEnd = safeDate(item.cxEnd);
+        let today = new Date(); today.setHours(0,0,0,0);
+        let daysLeft = pEnd ? Math.ceil((pEnd - today) / 86400000) : 0;
+        let isComplete = (item.stage||'').toLowerCase().includes('ofs') || (item.status||'').toLowerCase().includes('complete');
+        let isPermit = (item.stage||'').toLowerCase().includes('permit');
+        let isOnHold = (item.status||'').toLowerCase().includes('hold');
+        let isOverdue = pEnd && today > pEnd && !isComplete && !isOnHold && !isPermit;
+
+        let sColor = isComplete ? '#22c55e' : isPermit ? '#a855f7' : isOnHold ? '#94a3b8' : isOverdue ? '#ef4444' : '#facc15';
+        let ofsMonthStr = 'TBD', isOFSMonth = false;
+        if (item.ofsDate && item.ofsDate !== '-' && item.ofsDate !== 'Unknown') {
+          let d = safeDate(item.ofsDate);
+          if (d) {
+            ofsMonthStr = d.toLocaleDateString('en-US', {month:'short', timeZone:'UTC'}).toUpperCase();
+            if (d.getUTCMonth() === today.getMonth() && d.getUTCFullYear() === today.getFullYear()) isOFSMonth = true;
+          }
+        }
+        let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239,246,255,0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--card-bg); border-color:var(--border);';
+        let daysLeftTxt = daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`;
+
+        let deckReportDate = formatDate(item.reportDate || item.date);
+        let deckLastCheck = formatDate(item.lastChecked);
+        let rawRef = (typeof globalRefDataDate !== 'undefined' && globalRefDataDate) ? globalRefDataDate : '';
+        let deckRefData = rawRef ? formatDate(rawRef.split(' ')[0]) : '—';
+
+        const mem = pmSessionMemory[item.fdh] || {};
+        const isXingActive = mem['q_is_xing'] !== undefined ? (mem['q_is_xing'] === 'true' || mem['q_is_xing'] === true) : item.isXing;
+        const memOfsChange = mem['q_ofs_change'];
+        const refOfsChange = item.qbRef?.ofsChange === true || String(item.qbRef?.ofsChange).toLowerCase() === 'true';
+        const isOfsChangeActive = memOfsChange !== undefined ? (memOfsChange === true || memOfsChange === 'true') : refOfsChange;
+
+        const isMismatch = (memVal, refVal, type) => {
+          if (memVal === undefined || memVal === null || memVal === '') return false;
+          if (type === 'bool') {
+            const mBool = (memVal === true || String(memVal).toLowerCase() === 'true');
+            const rBool = (refVal === true || String(refVal).toLowerCase() === 'true');
+            return mBool !== rBool;
+          }
+          if (type === 'date') return String(memVal).trim() !== String(refVal).trim();
+          return String(memVal).trim() !== String(refVal || '').trim();
+        };
+
+        const getVal = (id, refVal, type) => {
+          let mVal = mem[id];
+          let mismatch = isMismatch(mVal, refVal, type);
+          let v = mismatch ? mVal : refVal;
+          let stagedBadge = mismatch ? `<span class="badge-staged" title="Staged locally.">STAGED 🔄</span>` : '';
+          if (v === undefined || v === '' || v === null || v === '-') return `<span class="slide-ppt-ans gap">Pending</span>`;
+          if (type === 'bool') return `<span class="slide-ppt-ans">${(v === true || String(v).toLowerCase() === 'true') ? 'YES' : 'NO'}</span>${stagedBadge}`;
+          return `<span class="slide-ppt-ans">${type === 'date' ? formatDate(v) : esc(v)}</span>${stagedBadge}`;
+        };
+
+        const pptRow = (q, ans, isMuted=false, isSub=false, extraClass='') => `<div class="slide-ppt-row ${isMuted ? 'muted-row' : ''} ${extraClass}"><div class="slide-ppt-q ${isSub ? 'sub-q' : ''}">${q}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">${isMuted ? '<span class="slide-ppt-ans" style="color:var(--text-muted);">—</span>' : ans}</div></div>`;
+
+        const actionWrap = (content, extraClass='') => `<span class="slide-input-wrap ${extraClass}">${content}</span>`;
+        const gapDot = (show, color='#ef4444') => show ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-right:5px;flex-shrink:0;vertical-align:middle;"></span>` : '';
+        const stagedIcon = (show) => show ? `<span class="indicator-staged" title="Staged locally.">🔄</span>` : '';
+        const row = (label, control, isFull=false) => `<div class="slide-q-row ${isFull ? 'full-width-row' : ''}"><span class="slide-q-label">${label}</span>${control}</div>`;
+
+        const mi = (id, label, refVal) => row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(isMismatch(mem[id], refVal, 'text'))}${gapDot(!mem[id] && (!refVal || refVal === '' || refVal === '-'))}<input type="text" class="slide-input" id="${id}" value="${mem[id] !== undefined ? mem[id] : (refVal||'')}" placeholder="${refVal||'Missing'}" oninput="persistDeckInput(this)"></span>`));
+        const mdl = (id, label, refVal) => row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(isMismatch(mem[id], refVal, 'text'))}${gapDot(!mem[id] && (!refVal || refVal === '' || refVal === '-'))}<input type="text" list="smart-fdh-list" class="slide-input" id="${id}" value="${mem[id] !== undefined ? mem[id] : (refVal||'')}" placeholder="${refVal||'Missing'}" oninput="persistDeckInput(this)"></span>`));
+        const md = (id, label, refVal, locked=false) => row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(isMismatch(mem[id], refVal, 'date'))}${gapDot(!mem[id] && (!refVal || refVal === '' || refVal === '-'), locked?'#a855f7':'#ef4444')}<input type="date" class="slide-input" id="${id}" value="${mem[id] !== undefined ? mem[id] : (refVal||'')}" ${locked?'disabled':''} onchange="persistDeckInput(this)"></span>`));
+        const mc = (id, label, refVal, onChangeExtra='') => {
+            let mismatch = isMismatch(mem[id], refVal, 'bool');
+            let memVal = mem[id];
+            let checked = memVal !== undefined ? (memVal === true || memVal === 'true') : (refVal === true || String(refVal).toLowerCase() === 'true');
+            let gap = memVal === undefined && (refVal === undefined || refVal === '' || refVal === null);
+            return row(label, actionWrap(`<span class="slide-q-action checkbox-action">${stagedIcon(mismatch)}${gapDot(gap && !mismatch)}<input type="checkbox" class="slide-input" id="${id}" ${checked ? 'checked' : ''} onchange="persistDeckInput(this); ${onChangeExtra}" style="cursor:pointer; accent-color:${mismatch ? '#f59e0b' : 'var(--accent, #6366f1)'};"></span>`, 'check-wrap'));
+        };
+        const mta = (id, label, refVal) => row(label, actionWrap(`<span class="slide-q-action" style="width:100%;">${stagedIcon(isMismatch(mem[id], refVal, 'text'))}${gapDot(!mem[id] && (!refVal || refVal === '' || refVal === '-'))}<textarea class="slide-input" id="${id}" placeholder="${(!mem[id] && (!refVal || refVal === '' || refVal === '-')) ? 'QB: No data yet' : label}" oninput="persistDeckInput(this)" style="resize:vertical;">${mem[id] !== undefined ? mem[id] : (refVal||'')}</textarea></span>`), true);
+        const ms = (id, label, selected) => row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(mem[id] !== undefined)}<select class="slide-input" id="${id}" onchange="persistDeckInput(this); toggleXingRows(this.value === 'true');"><option value="true" ${selected ? 'selected' : ''}>YES</option><option value="false" ${!selected ? 'selected' : ''}>NO</option></select></span>`));
+
+        var recentChangesCount = getRecentChangesForItem(item.fdh).length;
+        stageCard.innerHTML = `
+            <datalist id="smart-fdh-list">${buildSmartFdhDatalist(item.fdh)}</datalist>
+
+            <div class="slide-header" style="display:flex; justify-content:space-between; align-items:center; padding:15px 30px; background:var(--bg); border-bottom:1px solid var(--border);">
+              <div style="display:flex; flex-direction:column; gap:2px;">
+                <div style="font-size:10px; font-weight:900; color:#6b21a8; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Questions Project Managers Must Know Answers to:</div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <div class="slide-hdr-id" style="font-size:28px; font-weight:900; color:var(--text-main); letter-spacing:-1px; line-height:1;">${item.fdh}</div>
+                  <div style="font-size:10px; font-weight:900; background:var(--card-bg); border:1px solid var(--border); padding:4px 10px; border-radius:12px; text-transform:uppercase; color:var(--text-main);">${item.stage} | ${item.status}</div>
+                  ${isXingActive ? `<div style="background:#171717; color:#facc15; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:900; border:1px solid #facc15; box-shadow:0 2px 4px rgba(0,0,0,0.1);">X-ING</div>` : ''}
+                  ${recentChangesCount > 0 ? `<div style="background:rgba(168,85,247,0.15); color:#a855f7; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:900; border:1px solid rgba(168,85,247,0.5); cursor:pointer;" onclick="toggleCinemaHistory()">UPDATES (${recentChangesCount})</div>` : ''}
+                </div>
+                <div style="font-size:12px; font-weight:700; color:var(--text-muted);">${item.city} &bull; ${item.vendor}</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
+                ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=dr&rid=${item.rid}" target="_blank" class="hover-trigger" style="text-decoration:none; font-size:10px; font-weight:900; color:var(--text-muted); background:var(--card-bg); padding:8px 14px; border-radius:12px; border:1px solid var(--border); box-shadow:0 2px 6px rgba(15,23,42,0.06); display:inline-flex; align-items:center; justify-content:center; width:100%; box-sizing:border-box; transition:all 0.2s;">VIEW RECORD</a>` : ''}
+                <button class="btn hover-trigger" onclick="toggleDeckEditMode()" style="padding:6px 14px; font-size:10px; font-weight:900; border-radius:12px; width:100%; box-sizing:border-box; transition: all 0.2s; ${isDeckEditing ? 'background:#3b82f6; color:#fff; border-color:#2563eb;' : 'background:var(--bg); color:var(--text-main); border-color:var(--border);'}">${isDeckEditing ? 'VIEW SLIDE' : 'EDIT ANSWERS'}</button>
+              </div>
+            </div>
+
+            <div style="flex-grow:1; overflow-y:auto; overflow-x:hidden;" id="deck-scroll-body">
+                <div class="deck-display-mode">
+                    <div class="slide-ppt-grid">
+                        <div style="display:flex; flex-direction:column; gap:32px;">
+                            <div class="slide-ppt-quadrant">
+                                <div class="slide-ppt-quad-header">Compliance</div>
+                                ${pptRow('Was it sent for permitting?', getVal('q_permit_sent', item.qbRef?.permitSent, 'date'))}
+                                ${pptRow('Has it been permit approved? Yes or No. If so, date approved?', getVal('q_permit_appr', item.qbRef?.permitAppr, 'date'))}
+                            </div>
+                            <div class="slide-ppt-quadrant">
+                                <div class="slide-ppt-quad-header">Distribution</div>
+                                ${pptRow('Has the CD been distributed?', getVal('q_cd_dist', item.qbRef?.cdDist, 'bool'))}
+                                ${pptRow('Have splice docs been distributed?', getVal('q_splice_dist', item.qbRef?.spliceDist, 'bool'))}
+                                ${pptRow('Have strand maps been distributed?', getVal('q_strand_dist', item.qbRef?.strandDist, 'bool'))}
+                                ${pptRow('Was the BOM sent?', getVal('q_bom_sent', item.qbRef?.bomSent, 'bool'))}
+                                ${pptRow('Was the PO number sent?', getVal('q_po_sent', null, 'bool'))}
+                                ${pptRow('Has the SOW been signed?', getVal('q_sow_sign', item.qbRef?.sowSign, 'bool'))}
+                            </div>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:32px;">
+                            <div class="slide-ppt-quadrant">
+                                <div class="slide-ppt-quad-header">Special Crossings</div>
+                                ${pptRow('Are there any special crossings?', getVal('q_is_xing', isXingActive, 'bool'))}
+                                ${pptRow('Confirm with engineers that proper paperwork is ready for DOT crossings', '', !isXingActive, true, 'sub-q')}
+                                ${pptRow('Has the special crossing approval been distributed?', getVal('q_cross_dist', item.qbRef?.crossDist, 'date'), !isXingActive, true, 'sub-q')}
+                            </div>
+                            <div class="slide-ppt-quadrant">
+                                <div class="slide-ppt-quad-header">Readiness &amp; Architecture</div>
+                                ${pptRow('Has the active been set?', getVal('q_active_set', item.qbRef?.activeSet, 'bool'))}
+                                ${pptRow('What leg is this FDH on?', getVal('q_leg', item.qbRef?.leg, 'text'))}
+                                ${pptRow('How is this FDH being fed?', getVal('q_how_fed', item.qbRef?.howFed, 'text'))}
+                                ${pptRow('Did the OFS date change?', getVal('q_ofs_change', isOfsChangeActive, 'bool'))}
+                                ${pptRow('If so, why?', getVal('q_ofs_reason', item.qbRef?.ofsReason, 'text'), !isOfsChangeActive, true, 'sub-q')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="deck-edit-mode deck-module-grid">
+                    <div class="deck-module">
+                        <div class="module-header ph-permitting">COMPLIANCE</div>
+                        <div class="grid-density-date">
+                            ${md('q_permit_sent', 'Sent for permitting?', item.qbRef?.permitSent, true)}
+                            ${md('q_permit_appr', 'Permit approved date?', item.qbRef?.permitAppr, true)}
+                        </div>
+                    </div>
+                    <div class="deck-module">
+                        <div class="module-header">SPECIAL CROSSINGS</div>
+                        <div class="grid-density-date">
+                            ${ms('q_is_xing', 'Special crossings present?', isXingActive)}
+                            <div class="xing-nested-edit" style="display:${isXingActive ? 'flex' : 'none'}; width:100%; grid-column: 1 / -1; flex-direction:column; gap:8px;">
+                                ${md('q_cross_sub', 'Crossing submitted?', item.qbRef?.crossSub)}
+                                ${md('q_cross_appr', 'Crossing approved?', item.qbRef?.crossAppr)}
+                                ${md('q_cross_dist', 'Approval distributed?', item.qbRef?.crossDist)}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="deck-module">
+                        <div class="module-header">DISTRIBUTION</div>
+                        <div class="grid-density-check">
+                            ${mc('q_cd_dist', 'CD Distributed?', item.qbRef?.cdDist)}
+                            ${mc('q_splice_dist', 'Splice docs dist?', item.qbRef?.spliceDist)}
+                            ${mc('q_strand_dist', 'Strand maps dist?', item.qbRef?.strandDist)}
+                            ${mc('q_bom_sent', 'BOM Sent?', item.qbRef?.bomSent)}
+                            ${mc('q_po_sent', 'PO Sent?', null)}
+                            ${mc('q_sow_sign', 'SOW Signed?', item.qbRef?.sowSign)}
+                        </div>
+                    </div>
+                    <div class="deck-module">
+                        <div class="module-header">READINESS &amp; ARCHITECTURE</div>
+                        <div class="grid-density-check">
+                            ${mc('q_active_set', 'Active Set?', item.qbRef?.activeSet)}
+                            ${mc('q_active_pwr', 'Active has power?', item.qbRef?.activePwr)}
+                            ${mc('q_transport', 'Transport available?', item.qbRef?.transport)}
+                        </div>
+                        <div class="grid-density-date">
+                            ${mi('q_leg', 'FDH Leg ID?', item.qbRef?.leg)}
+                            ${mdl('q_how_fed', 'How is it fed? (Search)', item.qbRef?.howFed)}
+                        </div>
+                        <div class="stacked-text-group">
+                            ${mdl('q_what_feeds', 'What does it feed? (Search)', item.qbRef?.whatFeeds)}
+                            ${mta('q_island', 'Island missing components?', item.qbRef?.island)}
+                        </div>
+                        <div class="grid-density-date" style="margin-top:16px;">
+                            ${mc('q_ofs_change', 'OFS Date Changed?', item.qbRef?.ofsChange, 'toggleOfsRows(this.checked);')}
+                            <div class="ofs-reason-edit" style="display:${isOfsChangeActive ? 'flex' : 'none'}; width:100%;">
+                                ${mta('q_ofs_reason', 'OFS Change Reason?', item.qbRef?.ofsReason)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="slide-footer" style="padding:10px 30px; display:flex; flex-direction:row; justify-content:space-between; align-items:center; flex-wrap:nowrap; gap:16px;">
+              <div style="font-size:12px; font-weight:900; color:${sColor}; white-space:nowrap; flex-shrink:0;">${daysLeftTxt}</div>
+              <div class="slide-fine-print" style="margin:0; display:flex; gap:12px; align-items:center; white-space:nowrap; flex-grow:1; justify-content:center; overflow:hidden;">
+                <span>Report Date <b>${deckReportDate}</b></span><span>|</span>
+                <span>Last Checked <b>${deckLastCheck}</b></span><span>|</span>
+                <span>Ref Data <b>${deckRefData}</b></span>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; white-space:nowrap; flex-shrink:0;">
+                <div style="font-size:10px; font-weight:800; padding:3px 8px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--text-main);">BSLS: ${item.bsls || 'N/A'}</div>
+                <div style="font-size:10px; font-weight:800; padding:3px 8px; border-radius:6px; border:1px solid; ${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
+                ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={'3'.EX.'${item.rid}'}" target="_blank" class="btn" style="padding:5px 12px; font-size:9px; color:var(--text-muted); background:var(--bg); border-color:var(--border); text-decoration:none;">⚙ EDIT IN ENGINE</a>` : ''}
+              </div>
+            </div>
+        `;
+        document.body.classList.toggle('deck-is-editing', isDeckEditing);
+        const actionPanel = getEl('deck-action-panel');
+        if (actionPanel) {
+          let diagClass = 'action-box';
+          const sev = getSeverity(item.flags);
+          if (sev === 'crit') diagClass += ' crit'; else if (sev === 'warn') diagClass += ' warn';
+          const rawFlags = (item.flags || '').split('\n').map(f => f.trim()).filter(f => f !== '');
+          let tagsHtml = '';
+          rawFlags.forEach(f => {
+            const cleanText = cleanDiagnosticFlagText(f);
+            tagsHtml += `<span class="tag ${getDiagnosticTagClass(f)}" style="font-size:10px; padding:4px 8px;">${cleanText}</span>`;
+          });
+          syncDockStagingButton();
+          let stagingBannerHtml = '';
+          if (stagedDeckItems.length > 0) {
+              let stagedTags = stagedDeckItems.map(f => `<span style="display:inline-flex; align-items:center; padding:3px 8px; border-radius:6px; background:rgba(168,85,247,0.15); color:#7e22ce; font-size:10px; font-weight:800; border:1px solid #d8b4fe;">${f}</span>`).join('');
+              stagingBannerHtml = `
+              <div style="background: rgba(168, 85, 247, 0.06); border: 1px solid #c084fc; border-radius: 12px; padding: 14px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(168, 85, 247, 0.05);">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                      <div>
+                          <div style="font-size: 9px; font-weight: 900; color: #7e22ce; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Staged for Export</div>
+                          <div style="font-size: 16px; font-weight: 900; color: #6b21a8; line-height: 1;">${stagedDeckItems.length} Project${stagedDeckItems.length !== 1 ? 's' : ''}</div>
+                      </div>
+                      <div style="display: flex; gap: 8px;">
+                          <button class="btn hover-trigger" style="background: #a855f7; color: white; border: none; padding: 6px 12px; font-size: 10px; box-shadow: 0 2px 4px rgba(168, 85, 247, 0.2);" onclick="promptBatchDeckExport()">Email &amp; Save</button>
+                          <button class="btn hover-trigger" style="background: transparent; color: #7e22ce; border: 1px solid #c084fc; padding: 6px 10px; font-size: 10px;" onclick="clearStagedDeckItems()">Clear</button>
+                      </div>
+                  </div>
+                  <div style="display: flex; flex-wrap: wrap; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(192, 132, 252, 0.3); max-height: 80px; overflow-y: auto;">
+                      ${stagedTags}
+                  </div>
+            </div>
+        `;
+      }
+          actionPanel.innerHTML = `${stagingBannerHtml}
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:4px;">
+              <div style="font-size:12px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Manager Review</div>
+              <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel">✕</button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <div class="section-label" style="margin:0 !important;">Vendor Update</div>
+              <div class="vendor-bubble" style="font-size:12px; padding:12px !important;">"${item.vendorComment || 'No update provided.'}"</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <div class="section-label" style="margin:0 !important;">System Diagnostics</div>
+              <div class="${diagClass}" style="padding:12px !important;">
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">${tagsHtml || '<span style="color:var(--text-muted); font-size:11px;">No anomalies detected.</span>'}</div>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-grow:1; margin-top:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="section-label" style="color:var(--color-insight); margin:0 !important;">PM NOTE</div>
+                ${item.geminiDate ? `<span style="font-size:9px; font-style:italic; color:#a855f7;">Drafted: ${item.geminiDate}</span>` : ''}
+              </div>
+              <textarea id="deck-note" class="chat-bubble" placeholder="Enter decision..." oninput="syncDeckNote()" style="flex-grow:1; min-height:120px; font-size:13px; line-height:1.5;">${item.comment || item.draft || ''}</textarea>
+            </div>
+            <div style="display:flex; flex-direction:column; margin-top:auto; padding-top:16px; border-top:1px solid var(--border);">
+              <button class="btn-ai" onclick="askGeminiForDraftDeck(this)" style="padding:12px 16px; font-size:12px; width:100%; box-shadow:0 4px 12px rgba(168,85,247,0.2);">✨ DRAFT W/ GEMINI</button>
+            </div>
+          `;
+        }
+
+        syncActivePresentationCardTheme();
+        updateDeckStageSelection();
+      }
+
+function saveCurrentCardState() {
+    const item = ensureDeckIndex();
+    if (!item) return;
+    if (!pmSessionMemory[item.fdh]) pmSessionMemory[item.fdh] = {};
+    document.querySelectorAll('.slide-input').forEach(inp => {
+        pmSessionMemory[item.fdh][inp.id] = inp.type === 'checkbox' ? inp.checked : inp.value;
+    });
+    syncDeckNote();
+}
+
+function persistDeckInput(inputEl) {
+    const item = ensureDeckIndex();
+    if (!item || !inputEl) return;
+    if (!pmSessionMemory[item.fdh]) pmSessionMemory[item.fdh] = {};
+    pmSessionMemory[item.fdh][inputEl.id] = inputEl.type === 'checkbox' ? inputEl.checked : inputEl.value;
+    const saveBtn = getEl('dock-btn-save');
+    if (saveBtn) saveBtn.classList.remove('collapsed');
+}
+
+function syncDeckNote() {
+    const item = ensureDeckIndex();
+    const noteEl = getEl('deck-note');
+    if (!item || !noteEl) return;
+    item.comment = noteEl.value;
+    let mainNote = getEl('p-comment');
+    if (mainNote && typeof currentActiveItem !== 'undefined' && currentActiveItem && currentActiveItem.fdh === item.fdh) {
+        mainNote.value = item.comment;
+        mainNote.dataset.generated = 'false';
+    }
+    const saveBtn = getEl('dock-btn-save');
+    if (saveBtn) saveBtn.classList.remove('collapsed');
+}
+
+function askGeminiForDraftDeck(btn) {
+    const item = ensureDeckIndex();
+    if (!item) return;
+    let origText = btn.innerHTML;
+    btn.innerHTML = 'DRAFTING...';
+    btn.style.opacity = '0.7';
+    btn.disabled = true;
+    let payload = {
+        fdh: item.fdh, vendor: item.vendor, status: `${item.stage} | ${item.status}`,
+        targetDate: item.targetDate, flags: item.flags, vendorComment: item.vendorComment,
+        history: item.bench, productionToday: item.summary
+    };
+    // DATA CALL: askGeminiForDraftDeck
+    // COUPLED TO: ensureDeckIndex/current deck item, deck-note textarea, syncDeckNote, deck button state
+    // EXTRACT BLOCKER: deck runtime owns note state and current card context, so the AI bridge cannot move cleanly yet
+    google.script.run
+        .withSuccessHandler(response => {
+            let textArea = getEl('deck-note');
+            if (textArea) textArea.value = response.text;
+            item.comment = response.text;
+            item.geminiInsight = response.text;
+            item.geminiDate = response.date;
+            syncDeckNote();
+            btn.innerHTML = 'DRAFTED ✓';
+            btn.style.opacity = '1';
+            btn.disabled = false;
+        })
+        .withFailureHandler(err => {
+            alert('AI Error: ' + err.message);
+            btn.innerHTML = origText; btn.style.opacity = '1'; btn.disabled = false;
+        })
+        .generateAndSaveFDHNarrative(payload);
+}
+
+function exportDeckReport() {
+    saveCurrentCardState();
+    const item = ensureDeckIndex();
+    if (!item) return;
+    const mem = pmSessionMemory[item.fdh] || {};
+    const boolLabel = (val, fallback='Unknown') => (val === true || val === 'true') ? 'YES' : (val === false || val === 'false') ? 'NO' : fallback;
+    const isXingSelected = mem['q_is_xing'] !== undefined ? (mem['q_is_xing'] === true || mem['q_is_xing'] === 'true') : item.isXing;
+    const text = `
+# PROJECT PM REPORT: ${item.fdh}
+
+General Info:
+* Vendor: ${item.vendor || ''}
+* City: ${item.city || ''}
+* Target OFS: ${item.ofsDate || 'TBD'}
+
+1. Deliverables (System Verified):
+* CD Distributed: ${item.hasCDDist ? 'YES' : 'NO'}
+* Splice Docs Distributed: ${item.hasSpliceDist ? 'YES' : 'NO'}
+* Strand Maps Distributed: ${item.hasStrandDist ? 'YES' : 'NO'}
+* BOM Sent: ${boolLabel(mem['q_bom_sent'])}
+* PO Number Sent: ${boolLabel(mem['q_po_sent'])}
+* SOW Signed: ${boolLabel(mem['q_sow_sign'])}
+
+2. Permitting & Crossings:
+* Special Crossings Detected: ${isXingSelected ? 'YES' : 'NONE'}
+* Crossing Details: ${item.specXDetails || 'N/A'}
+* Sent for permitting?: ${mem['q_permit_sent'] || 'Unknown'}
+* Permit Approved (Date)?: ${mem['q_permit_appr'] || 'Unknown'}
+* DOT/Crossing Paperwork Submitted?: ${mem['q_cross_sub'] || 'Unknown'}
+* Special Crossing Approved?: ${mem['q_cross_appr'] || 'Unknown'}
+* Special Crossing Approval Distributed?: ${mem['q_cross_dist'] || 'Unknown'}
+
+3. Network & Actives:
+* Active Set?: ${boolLabel(mem['q_active_set'])}
+* Active Has Power?: ${boolLabel(mem['q_active_pwr'])}
+* Transport Available?: ${boolLabel(mem['q_transport'])}
+* Leg ID: ${mem['q_leg'] || 'Unknown'}
+
+4. Architecture:
+* How is it fed?: ${mem['q_how_fed'] || 'Unknown'}
+* What does it feed?: ${mem['q_what_feeds'] || 'Unknown'}
+* Island Missing Components: ${mem['q_island'] || 'N/A'}
+* OFS Changed?: ${boolLabel(mem['q_ofs_change'])}
+* OFS Change Reason: ${mem['q_ofs_reason'] || 'N/A'}
+
+Manager Note / Decision:
+${item.comment || 'No notes provided.'}
+    `.trim();
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = getEl('btn-export-deck');
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = '&#10003; COPIED';
+        btn.style.background = '#15803d';
+        setTimeout(() => { btn.innerHTML = origHtml; btn.style.background = '#16a34a'; }, 2000);
+    }).catch(err => alert('Failed to copy to clipboard. ' + err));
+}
+
+function saveDeckToSheet(btn) {
+    saveCurrentCardState();
+    const item = ensureDeckIndex();
+    if (!item) return;
+
+    showDockLoading(`Saving ${item.fdh}...`);
+
+    const mem = pmSessionMemory[item.fdh] || {};
+    const payload = {
+        fdh: item.fdh,
+        vendor: item.vendor,
+        targetDate: item.targetDate || item.cxEnd || 'TBD',
+        note: item.comment || "",
+        answers: mem
+    };
+
+    // DATA CALL: saveDeckToSheet
+    // COUPLED TO: ensureDeckIndex/current deck item, pmSessionMemory, dock system UI, deck save flow
+    // EXTRACT BLOCKER: save path still depends on central deck/session state and shared dock feedback helpers
+    google.script.run
+        .withSuccessHandler(timestamp => {
+            showDockSuccess('Saved to Sheet');
+        })
+        .withFailureHandler(err => {
+            showDockError('Save Failed');
+        })
+        .saveDeckAnswers(payload);
+}
+
+function getRecentChangesForItem(fdh) {
+    var now = new Date();
+    var lookbackHours = (now.getDay() === 1 && now.getHours() < 11) ? 80 : 48;
+    var cutoff = now.getTime() - (lookbackHours * 60 * 60 * 1000);
+    return allGlobalLogs.filter(function(log) {
+        return log.fdh === fdh && Number(log.timestampObj || 0) >= cutoff;
+    });
+}
+
+function toggleCinemaHistory() {
+    var overlay = getEl('cinema-history-overlay');
+    if (!overlay) return;
+    if (overlay.classList.contains('active')) {
+        overlay.classList.remove('active');
+        return;
+    }
+    var item = currentActiveItem;
+    if (!item) return;
+    var changes = getRecentChangesForItem(item.fdh);
+    var content = getEl('cinema-history-content');
+    if (content) {
+        if (changes.length === 0) {
+            content.innerHTML = '<div style="text-align:center; color:rgba(255,255,255,0.5); padding:40px; font-size:13px;">No recent activity in the lookback window.</div>';
+        } else {
+            content.innerHTML = '<div style="font-size:11px; font-weight:900; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px; margin-bottom:20px;">Recent Activity &mdash; ' + esc(item.fdh) + '</div>' +
+            changes.slice(0, 5).map(function(log) {
+                var dateStr = formatDate(log.timestampObj ? new Date(Number(log.timestampObj)) : log.time, true);
+                var cleanVal = String(log.val ?? '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
+                return '<div style="border-bottom:1px solid rgba(255,255,255,0.08); padding:14px 0;">' +
+                    '<div style="display:flex; justify-content:space-between; margin-bottom:6px;">' +
+                    '<span style="font-size:10px; font-weight:900; color:#a855f7; text-transform:uppercase;">' + esc(log.type) + '</span>' +
+                    '<span style="font-size:9px; color:rgba(255,255,255,0.4);">' + esc(dateStr) + '</span>' +
+                    '</div>' +
+                    '<div style="font-size:14px; font-weight:600; color:#f4f4f5; margin-bottom:4px;">&#8594; ' + esc(cleanVal) + '</div>' +
+                    '<div style="font-size:9px; color:rgba(255,255,255,0.4); text-transform:uppercase;">By: ' + esc(log.user) + '</div>' +
+                    '</div>';
+            }).join('');
+        }
+    }
+    overlay.classList.add('active');
+}
+
+document.addEventListener('mousemove', resetDeckIdleTimer);
+
+// Global keyboard navigation
+document.addEventListener('keydown', function(e) {
+    resetDeckIdleTimer();
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+
+    if (e.key === 'ArrowRight' || e.code === 'Space') { e.preventDefault(); navGlobal(1, false); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); navGlobal(-1, false); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); navGlobal(1, true); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); navGlobal(-1, true); }
+
+    if (e.key === 'Escape') {
+        if (isPresentationMode) togglePresentationMode();
+        else if (document.getElementById('gantt-area-main')?.classList.contains('has-focus')) exitTheaterMode();
+    }
+});
+</script>

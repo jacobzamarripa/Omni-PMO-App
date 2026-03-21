@@ -1,0 +1,922 @@
+<script>
+// ============================================================
+// FILE: _module_digest.html
+// ROLE: Digest workspace rendering, digest analytics helpers,
+//   digest feed output, and digest side-panel drill-in module
+//   extracted from WebApp.html
+// DEPENDS ON: _state_queue.html, _utils_shared.html,
+//   _utils_notifications.html, _module_changelog.html,
+//   _module_queue_state.html
+// DEPENDED ON BY: WebApp.html bootstrap anchors and digest
+//   workspace entry points
+// MOBILE NOTES: Desktop digest command-center UI remains here;
+//   mobile should adapt the data helpers without reusing this
+//   DOM layout directly
+// AGENT NOTES: Keep all function names/signatures stable. Keep
+//   digest-local globals on window scope and continue reading
+//   queue/changelog state from owner files.
+// ============================================================
+// STATE: digestVendorCities
+// READS: digest vendor map projection helpers
+// WRITES: initDashboard hydrates from dashboard payload
+let digestVendorCities = [];
+// STATE: digestPulseAutoScrollTimer
+// READS: digest pulse lane auto-scroll helpers
+// WRITES: setupDigestPulseAutoScroll, clearDigestPulseAutoScroll
+let digestPulseAutoScrollTimer = null;
+// STATE: currentDigestVendorFilter
+// READS: digest vendor map and command center filtering
+// WRITES: setDigestVendorFilter
+let currentDigestVendorFilter = 'ALL';
+// STATE: currentDigestSelection
+// READS: digest rail detail and feed selection
+// WRITES: setDigestRailFocus, buildDigestCommandCenterData
+let currentDigestSelection = { type: 'mover', key: '' };
+// STATE: currentDigestFilter
+// READS: digest feed filter buttons
+// WRITES: renderDigestWorkspace, filterDigestFeed3
+let currentDigestFilter = 'all';
+
+// STATE: DIGEST_STAGE_ORDER
+// READS: digest summaries and leaderboards
+// WRITES: none
+// EXTRACT WITH: digest helpers
+// WORKSTREAM 3 RISK: Low
+const DIGEST_STAGE_ORDER = ['permitApproved', 'construction', 'completed', 'ofs'];
+// STATE: DIGEST_STAGE_META
+// READS: digest labels, pills, stage cards
+// WRITES: none
+// EXTRACT WITH: digest helpers
+// WORKSTREAM 3 RISK: Low
+const DIGEST_STAGE_META = {
+    permitApproved: { label: 'Permitting Approved', shortLabel: 'Permits', pillClass: 'pill-permit', accent: '#a855f7' },
+    construction:   { label: 'Construction', shortLabel: 'Construction', pillClass: 'pill-active', accent: '#f59e0b' },
+    completed:      { label: 'Completed', shortLabel: 'Completed', pillClass: 'pill-complete', accent: '#22c55e' },
+    ofs:            { label: 'OFS', shortLabel: 'OFS', pillClass: 'pill-ofs', accent: '#06b6d4' },
+    other:          { label: 'Other', shortLabel: 'Other', pillClass: 'pill-default', accent: '#64748b' }
+};
+// STATE: DIGEST_MAP_BOUNDS
+// READS: digest vendor map projection
+// WRITES: none
+// EXTRACT WITH: digest map helpers
+// WORKSTREAM 3 RISK: Low
+const DIGEST_MAP_BOUNDS = { minLat: 24.5, maxLat: 48.8, minLng: -107.5, maxLng: -74.0 };
+// STATE: DIGEST_STATE_BOUNDS
+// READS: digest vendor map projection
+// WRITES: none
+// EXTRACT WITH: digest map helpers
+// WORKSTREAM 3 RISK: Low
+const DIGEST_STATE_BOUNDS = {
+    TX: { minLat: 25.8, maxLat: 36.6, minLng: -106.7, maxLng: -93.4, label: 'Texas' },
+    MI: { minLat: 41.7, maxLat: 48.4, minLng: -90.5, maxLng: -82.3, label: 'Michigan' },
+    OH: { minLat: 38.4, maxLat: 42.4, minLng: -84.9, maxLng: -80.4, label: 'Ohio' },
+    PA: { minLat: 39.7, maxLat: 42.5, minLng: -80.7, maxLng: -74.7, label: 'Pennsylvania' }
+};
+
+function getDigestStageMeta(key) {
+    return DIGEST_STAGE_META[key] || DIGEST_STAGE_META.other;
+}
+
+function getDigestStageKeyFromValues(stage, status, type, val) {
+    let st = String(stage || '').toUpperCase();
+    let stat = String(status || '').toUpperCase();
+    let t = String(type || '').toUpperCase();
+    let v = String(val || '').toUpperCase();
+    if ((st.includes('PERMIT') && stat.includes('APPROV')) || ((t.includes('STATUS') || t.includes('STAGE')) && v.includes('PERMIT') && v.includes('APPROV'))) return 'permitApproved';
+    if (st.includes('OFS') || stat.includes('OFS') || v.includes('OPEN FOR SALE') || v.includes('OFS')) return 'ofs';
+    if ((stat.includes('COMPLETE') && !st.includes('OFS')) || v.includes('COMPLETE')) return 'completed';
+    if (st.includes('FIELD CX') || st.includes('CONSTRUCTION') || v.includes('FIELD CX') || v.includes('CONSTRUCTION')) return 'construction';
+    return 'other';
+}
+
+function getDigestStageKeyForItem(item) {
+    return item ? getDigestStageKeyFromValues(item.stage, item.status, '', '') : 'other';
+}
+
+function getDigestStageKeyForLog(log, item) {
+    return getDigestStageKeyFromValues(item && item.stage, item && item.status, log && log.type, log && log.val);
+}
+
+function getDigestConfigValue(dict, key) {
+    if (!dict || !key) return null;
+    if (Array.isArray(dict)) return null;
+    if (dict[key]) return dict[key];
+    let wanted = String(key || '').trim().toLowerCase();
+    let match = Object.keys(dict).find(function(dictKey) {
+        return String(dictKey || '').trim().toLowerCase() === wanted;
+    });
+    return match ? dict[match] : null;
+}
+
+function normalizeDigestCityKey(city) {
+    return String(city || '')
+        .toUpperCase()
+        .replace(/\s*,\s*[A-Z]{2}$/g, '')
+        .replace(/\./g, '')
+        .replace(/[^A-Z0-9 ]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function getDigestScopeKey(vendor, city) {
+    return [String(vendor || '').trim(), normalizeDigestCityKey(city || '')].join('||');
+}
+
+function getDigestScopeLabel(scopeKey) {
+    if (!scopeKey || scopeKey === 'ALL') return 'All Vendor Cities';
+    let parts = String(scopeKey).split('||');
+    let city = String(parts[1] || '').toLowerCase().replace(/\b\w/g, function(ch) { return ch.toUpperCase(); });
+    return parts[0] + ' · ' + city;
+}
+
+function getDigestVendorCityEntry(vendor, city) {
+    let wantedVendor = String(vendor || '').trim().toLowerCase();
+    let wantedCity = normalizeDigestCityKey(city);
+    let match = (digestVendorCities || []).find(function(entry) {
+        return String(entry.vendor || '').trim().toLowerCase() === wantedVendor &&
+            normalizeDigestCityKey(entry.city || '') === wantedCity;
+    });
+    if (match) {
+        return {
+            vendor: String(match.vendor || vendor || '').trim(),
+            city: String(match.city || city || '').trim(),
+            state: String(match.state || '').trim(),
+            lat: Number(match.lat),
+            lng: Number(match.lng)
+        };
+    }
+    return { vendor: String(vendor || '').trim(), city: String(city || '').trim(), state: '', lat: null, lng: null };
+}
+
+function getDigestScopeMatches(item) {
+    if (currentDigestVendorFilter === 'ALL') return true;
+    return getDigestScopeKey(item && item.vendor, item && item.city) === currentDigestVendorFilter;
+}
+
+function projectDigestPoint(lat, lng) {
+    let x = ((lng - DIGEST_MAP_BOUNDS.minLng) / (DIGEST_MAP_BOUNDS.maxLng - DIGEST_MAP_BOUNDS.minLng)) * 100;
+    let y = (1 - ((lat - DIGEST_MAP_BOUNDS.minLat) / (DIGEST_MAP_BOUNDS.maxLat - DIGEST_MAP_BOUNDS.minLat))) * 100;
+    return { x: x, y: y };
+}
+
+function getDigestScopeTone(entries, entry) {
+    let sorted = entries.slice().sort(function(a, b) { return a.progressPct - b.progressPct; });
+    let idx = Math.max(0, sorted.findIndex(function(candidate) { return candidate.scopeKey === entry.scopeKey; }));
+    let ratio = sorted.length <= 1 ? 1 : (idx / (sorted.length - 1));
+    if (ratio >= 0.75) return { fill: '#22c55e', pill: 'pill-complete' };
+    if (ratio >= 0.5) return { fill: '#64748b', pill: 'pill-default' };
+    if (ratio >= 0.25) return { fill: '#f59e0b', pill: 'pill-active' };
+    return { fill: '#dc2626', pill: 'pill-missing' };
+}
+
+function getDigestFootageTotal(item) {
+    if (!item || !item.vel) return 0;
+    return Number((item.vel.ug && item.vel.ug.daily) || 0) +
+        Number((item.vel.ae && item.vel.ae.daily) || 0) +
+        Number((item.vel.fib && item.vel.fib.daily) || 0);
+}
+
+function getDigestFootagePotential(item) {
+    if (!item || !item.vel) return 0;
+    return Number((item.vel.ug && item.vel.ug.bom) || 0) +
+        Number((item.vel.ae && item.vel.ae.bom) || 0) +
+        Number((item.vel.fib && item.vel.fib.bom) || 0);
+}
+
+function getDigestRemainingFootage(item) {
+    if (!item || !item.vel) return 0;
+    return Math.max(0, Number((item.vel.ug && item.vel.ug.bom) || 0) - Number((item.vel.ug && item.vel.ug.tot) || 0)) +
+        Math.max(0, Number((item.vel.ae && item.vel.ae.bom) || 0) - Number((item.vel.ae && item.vel.ae.tot) || 0)) +
+        Math.max(0, Number((item.vel.fib && item.vel.fib.bom) || 0) - Number((item.vel.fib && item.vel.fib.tot) || 0));
+}
+
+function getDigestVendorGaugeStyle(actual, goal, now) {
+    let pct = goal > 0 ? (actual / goal) * 100 : 0;
+    let isBeforeNoon = now.getHours() < 12;
+    let fill = '#94a3b8';
+    let tone = 'neutral';
+    if (pct >= 100) { fill = '#22c55e'; tone = 'good'; }
+    else if ((isBeforeNoon && pct < 50) || pct < 50) { fill = '#dc2626'; tone = 'critical'; }
+    else if (pct < 90) { fill = '#f59e0b'; tone = 'watch'; }
+    return { pctRaw: Math.max(0, pct), pct: Math.max(0, Math.min(100, Math.round(pct))), fill: fill, tone: tone };
+}
+
+function getDigestStageAgeDate(item, latestTs) {
+    return safeDate(item && item.cxEnd) || safeDate(item && item.cxStart) || safeDate(item && item.ofsDate) || safeDate(item && item.targetDate) || (latestTs ? new Date(latestTs) : safeDate(item && item.reportDate));
+}
+
+function getDigestAgeDays(item, latestTs) {
+    let anchor = getDigestStageAgeDate(item, latestTs);
+    if (!anchor || isNaN(anchor.getTime())) return 0;
+    return Math.max(0, Math.floor((Date.now() - anchor.getTime()) / 86400000));
+}
+
+function getDigestItemDaysLeft(item) {
+    let end = safeDate(item && (item.cxEnd || item.targetDate));
+    if (!end || isNaN(end.getTime())) return 14;
+    let today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.max(1, Math.ceil((end.getTime() - today.getTime()) / 86400000));
+}
+
+function isDigestActiveConstructionItem(item) {
+    return !!item && getDigestStageKeyForItem(item) === 'construction';
+}
+
+function getDigestProjectCardStyle(stageKey, ageDays) {
+    let stageTint = {
+        permitApproved: 'rgba(168,85,247,0.10)',
+        construction: 'rgba(245,158,11,0.10)',
+        completed: 'rgba(34,197,94,0.10)',
+        ofs: 'rgba(6,182,212,0.10)'
+    }[stageKey] || 'rgba(148,163,184,0.08)';
+    let heatAlpha = Math.min(0.16, ageDays / 180);
+    return 'linear-gradient(180deg, ' + stageTint + ', rgba(239,68,68,' + heatAlpha.toFixed(3) + '))';
+}
+
+function clearDigestPulseAutoScroll() {
+    if (digestPulseAutoScrollTimer) {
+        clearInterval(digestPulseAutoScrollTimer);
+        digestPulseAutoScrollTimer = null;
+    }
+}
+
+function setupDigestPulseAutoScroll() {
+    clearDigestPulseAutoScroll();
+    let wrap = getEl('digest-pulse-lane-wrap');
+    if (!wrap) return;
+    if (!wrap.dataset.bound) {
+        wrap.addEventListener('mouseenter', function() { wrap.dataset.paused = '1'; });
+        wrap.addEventListener('mouseleave', function() { wrap.dataset.paused = '0'; });
+        wrap.addEventListener('focusin', function() { wrap.dataset.paused = '1'; });
+        wrap.addEventListener('focusout', function() { wrap.dataset.paused = '0'; });
+        wrap.dataset.bound = '1';
+    }
+    wrap.dataset.paused = '0';
+    if (wrap.scrollWidth <= wrap.clientWidth + 24) return;
+    digestPulseAutoScrollTimer = setInterval(function() {
+        if (!document.body.classList.contains('digest-mode-active')) return;
+        if (wrap.dataset.paused === '1') return;
+        wrap.scrollLeft = wrap.scrollLeft >= (wrap.scrollWidth - wrap.clientWidth - 2) ? 0 : wrap.scrollLeft + 1;
+    }, 45);
+}
+
+function setDigestVendorFilter(vendor) {
+    currentDigestVendorFilter = vendor || 'ALL';
+    renderDigestWorkspace();
+}
+
+function buildDigestVendorMetrics() {
+    let vendorMap = {};
+    (allActionItems || []).forEach(function(item) {
+        if (!isDigestActiveConstructionItem(item)) return;
+        let vendor = String(item.vendor || '').trim();
+        let city = String(item.city || '').trim();
+        if (!vendor || vendor === '-' || !city) return;
+        let cityEntry = getDigestVendorCityEntry(vendor, city);
+        let scopeKey = getDigestScopeKey(vendor, cityEntry.city || city);
+        if (!vendorMap[scopeKey]) {
+            vendorMap[scopeKey] = {
+                scopeKey: scopeKey,
+                vendor: vendor,
+                city: cityEntry.city,
+                state: cityEntry.state,
+                lat: cityEntry.lat,
+                lng: cityEntry.lng,
+                projectCount: 0,
+                ugDaily: 0, ugTot: 0, ugBom: 0,
+                aeDaily: 0, aeTot: 0, aeBom: 0,
+                fibDaily: 0, fibTot: 0, fibBom: 0,
+                napDaily: 0, napTot: 0, napBom: 0,
+                scopeTotal: 0,
+                daysLeftTotal: 0, daysLeftCount: 0
+            };
+        }
+        let entry = vendorMap[scopeKey];
+        entry.projectCount++;
+        entry.ugDaily += Number((item.vel && item.vel.ug && item.vel.ug.daily) || 0);
+        entry.ugTot += Number((item.vel && item.vel.ug && item.vel.ug.tot) || 0);
+        entry.ugBom += Number((item.vel && item.vel.ug && item.vel.ug.bom) || 0);
+        entry.aeDaily += Number((item.vel && item.vel.ae && item.vel.ae.daily) || 0);
+        entry.aeTot += Number((item.vel && item.vel.ae && item.vel.ae.tot) || 0);
+        entry.aeBom += Number((item.vel && item.vel.ae && item.vel.ae.bom) || 0);
+        entry.fibDaily += Number((item.vel && item.vel.fib && item.vel.fib.daily) || 0);
+        entry.fibTot += Number((item.vel && item.vel.fib && item.vel.fib.tot) || 0);
+        entry.fibBom += Number((item.vel && item.vel.fib && item.vel.fib.bom) || 0);
+        entry.napDaily += Number((item.vel && item.vel.nap && item.vel.nap.daily) || 0);
+        entry.napTot += Number((item.vel && item.vel.nap && item.vel.nap.tot) || 0);
+        entry.napBom += Number((item.vel && item.vel.nap && item.vel.nap.bom) || 0);
+        entry.scopeTotal += Number((item.vel && item.vel.ug && item.vel.ug.bom) || 0) +
+            Number((item.vel && item.vel.ae && item.vel.ae.bom) || 0) +
+            Number((item.vel && item.vel.fib && item.vel.fib.bom) || 0);
+        entry.daysLeftTotal += getDigestItemDaysLeft(item);
+        entry.daysLeftCount++;
+    });
+    let rows = Object.keys(vendorMap).map(function(scopeKey) {
+        let entry = vendorMap[scopeKey];
+        entry.totalDaily = entry.ugDaily + entry.aeDaily + entry.fibDaily;
+        entry.goal = entry.scopeTotal;
+        entry.progressPct = entry.scopeTotal > 0 ? (entry.totalDaily / entry.scopeTotal) * 100 : 0;
+        entry.avgDaysLeft = entry.daysLeftCount ? Math.max(1, Math.round(entry.daysLeftTotal / entry.daysLeftCount)) : 14;
+        return entry;
+    }).sort(function(a, b) { return b.totalDaily - a.totalDaily; });
+    rows.forEach(function(entry) {
+        let tone = getDigestScopeTone(rows, entry);
+        entry.gauge = { pct: Math.max(0, Math.round(entry.progressPct)), pctRaw: Math.max(0, entry.progressPct), fill: tone.fill, tone: tone.pill };
+    });
+    return rows;
+}
+
+function renderDigestVendorMapTooltip(entry) {
+    return `<div class="digest-map-tooltip-inner">
+        <div class="digest-map-tooltip-head">
+            <div>
+                <div class="digest-map-tooltip-title">${esc(entry.vendor)}</div>
+                <div class="digest-map-tooltip-city">${esc(entry.city || 'Unknown City')}${entry.state ? ', ' + esc(entry.state) : ''}</div>
+            </div>
+            <span class="glass-pill ${entry.gauge.tone}" style="font-size:9px; padding:4px 8px;">${entry.projectCount} active projects</span>
+        </div>
+        <div class="digest-tooltip-metrics">
+            <div class="digest-tooltip-metric"><div class="digest-tooltip-metric-label">Actual Today</div><div class="digest-tooltip-metric-value digest-mono">${entry.totalDaily.toLocaleString()}</div></div>
+            <div class="digest-tooltip-metric"><div class="digest-tooltip-metric-label">Active Scope</div><div class="digest-tooltip-metric-value digest-mono">${entry.goal > 0 ? entry.goal.toLocaleString() : '--'}</div></div>
+            <div class="digest-tooltip-metric"><div class="digest-tooltip-metric-label">Progress Today</div><div class="digest-tooltip-metric-value digest-mono">${entry.goal > 0 ? entry.progressPct.toFixed(2) + '%' : '--'}</div></div>
+            <div class="digest-tooltip-metric"><div class="digest-tooltip-metric-label">Avg Days Left</div><div class="digest-tooltip-metric-value digest-mono">${entry.avgDaysLeft}</div></div>
+        </div>
+        <div class="digest-tooltip-bars">
+            ${buildVelocityBar('UG', entry.ugDaily, entry.ugTot, entry.ugBom, 'UG', entry.avgDaysLeft)}
+            ${buildVelocityBar('Aerial', entry.aeDaily, entry.aeTot, entry.aeBom, 'AE', entry.avgDaysLeft)}
+            ${buildVelocityBar('Fiber', entry.fibDaily, entry.fibTot, entry.fibBom, 'FIB', entry.avgDaysLeft)}
+        </div>
+    </div>`;
+}
+
+function initializeDigestVendorMap(vendorEntries) {
+    let host = getEl('digest-vendor-map');
+    if (!host) return;
+    let usableEntries = (vendorEntries || []).filter(function(entry) {
+        return typeof entry.lat === 'number' && typeof entry.lng === 'number' && !isNaN(entry.lat) && !isNaN(entry.lng);
+    });
+    if (!usableEntries.length) {
+        host.innerHTML = '<div class="digest-panel-empty">No vendor city coordinates available for the current view.</div>';
+        return;
+    }
+    let maxDaily = usableEntries.reduce(function(max, entry) { return Math.max(max, entry.totalDaily || 0); }, 1);
+    let regionHtml = Object.keys(DIGEST_STATE_BOUNDS).map(function(stateKey) {
+        let state = DIGEST_STATE_BOUNDS[stateKey];
+        let tl = projectDigestPoint(state.maxLat, state.minLng);
+        let br = projectDigestPoint(state.minLat, state.maxLng);
+        return `<div class="digest-map-region" style="left:${tl.x}%; top:${tl.y}%; width:${Math.max(5, br.x - tl.x)}%; height:${Math.max(5, br.y - tl.y)}%;"></div>
+            <div class="digest-map-region-label" style="left:${tl.x + 1.2}%; top:${Math.max(2, tl.y - 4)}%;">${esc(state.label)}</div>`;
+    }).join('');
+    let popupHtml = usableEntries.map(function(entry, idx) {
+        let point = projectDigestPoint(entry.lat, entry.lng);
+        let x = Math.min(96, Math.max(4, point.x));
+        let y = Math.min(92, Math.max(8, point.y));
+        let radius = 14 + Math.round(((entry.totalDaily || 0) / maxDaily) * 18);
+        let active = currentDigestVendorFilter === entry.scopeKey;
+        return `
+            <button
+                class="digest-map-dot ${active ? 'active' : ''}"
+                style="left:${x}%; top:${y}%; width:${radius}px; height:${radius}px; background:${entry.gauge.fill};"
+                onmouseenter="toggleDigestMapPopup(${idx}, true)"
+                onmouseleave="toggleDigestMapPopup(${idx}, false)"
+                onclick="setDigestVendorFilter('${escJs(currentDigestVendorFilter === entry.scopeKey ? 'ALL' : entry.scopeKey)}')"
+                title="${esc(entry.vendor + ' · ' + entry.city)}">
+            </button>
+            <div
+                class="digest-map-popup hidden"
+                id="digest-map-popup-${idx}"
+                style="left:${x}%; top:${y}%;">
+                ${renderDigestVendorMapTooltip(entry)}
+            </div>
+            <div class="digest-map-city-label" style="left:${x}%; top:calc(${y}% + ${Math.max(18, radius / 2 + 10)}px); transform:translateX(-50%);">${esc(entry.city || entry.vendor)}</div>
+        `;
+    }).join('');
+    host.innerHTML = `
+        <div class="digest-geo-map">
+            ${regionHtml}
+            ${popupHtml}
+        </div>
+    `;
+}
+
+function toggleDigestMapPopup(index, shouldShow) {
+    let popup = getEl('digest-map-popup-' + index);
+    if (!popup) return;
+    popup.classList.toggle('hidden', !shouldShow);
+}
+
+function renderDigestPulseFeed(logs, itemMap) {
+    if (!logs.length) return '<div class="digest-panel-empty">No recent moves for this view.</div>';
+    return logs.slice(0, 16).map(function(log) {
+        let item = itemMap[String(log.fdh || '')] || null;
+        let stageKey = getDigestStageKeyForLog(log, item);
+        let meta = getDigestStageMeta(stageKey);
+        let timestamp = getDigestLogTimestamp(log);
+        let timeLabel = formatDate(timestamp ? new Date(timestamp) : log.time, true);
+        return `<button class="digest-pulse-chip" onclick="setDigestRailFocus('project', '${escJs(String(log.fdh || ''))}')">
+            <span class="digest-pulse-dot" style="background:${meta.accent};"></span>
+            <span class="digest-pulse-fdh">${esc(log.fdh || '-')}</span>
+            <span class="digest-pulse-copy">${esc(String(log.val || '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, ''))}</span>
+            <span class="digest-pulse-time">${esc(timeLabel)}</span>
+        </button>`;
+    }).join('');
+}
+
+function renderDigestLeaderboard(entries) {
+    if (!entries.length) return '<div class="digest-panel-empty">No editor activity in the current window.</div>';
+    return entries.map(function(entry, idx) {
+        let active = currentDigestSelection.type === 'mover' && currentDigestSelection.key === entry.user;
+        return `<div class="digest-rank-row" onclick="setDigestRailFocus('mover', '${escJs(entry.user)}')" style="cursor:pointer; ${active ? 'box-shadow:inset 3px 0 0 var(--color-insight);' : ''}">
+            <div class="digest-rank-position">${idx + 1}</div>
+            <div class="digest-rank-main">
+                <div class="digest-rank-name">${esc(entry.user || 'Unknown User')}</div>
+                <div class="digest-rank-meta">${entry.projects.length} projects touched</div>
+            </div>
+            <div class="digest-rank-value digest-mono">${entry.total}</div>
+        </div>`;
+    }).join('');
+}
+
+function renderDigestStageCard(stageKey, stageEntry) {
+    let meta = getDigestStageMeta(stageKey);
+    let delta = stageEntry.current - stageEntry.previous;
+    let deltaSign = delta > 0 ? '+' : '';
+    let deltaClass = delta > 0 ? 'pill-complete' : (delta < 0 ? 'pill-missing' : 'pill-default');
+    return `<div class="digest-stage-card">
+        <div class="digest-stage-top">
+            <span class="glass-pill ${meta.pillClass}" style="font-size:9px; padding:3px 8px;">${esc(meta.shortLabel)}</span>
+            <span class="glass-pill ${deltaClass}" style="font-size:9px; padding:3px 8px;">${deltaSign}${delta}</span>
+        </div>
+        <div class="digest-stage-value digest-mono">${stageEntry.current}</div>
+        <div class="digest-stage-sub">Prev window ${stageEntry.previous}</div>
+    </div>`;
+}
+
+function renderDigestBlockerRow(entry) {
+    return `<div class="digest-blocker-row">
+        <div class="digest-blocker-main">
+            <div class="digest-blocker-title">${esc(entry.fdh || '-')}</div>
+            <div class="digest-blocker-sub">${esc(entry.vendor || 'Unknown Vendor')}</div>
+        </div>
+        <div class="digest-blocker-meta">
+            <span class="glass-pill pill-missing" style="font-size:9px; padding:3px 8px;">${entry.ageDays}d stale</span>
+        </div>
+    </div>`;
+}
+
+function getDigestStartOfDay(date) {
+    let d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function getDigestLogTimestamp(log) {
+    return Number(log && (log.timestampObj || log.timestamp || 0)) || 0;
+}
+
+function setDigestRailFocus(type, key) {
+    currentDigestSelection = { type: type || 'mover', key: String(key || '') };
+    renderDigestWorkspace();
+}
+
+function buildDigestCommandCenterData() {
+    let itemMap = {};
+    (allActionItems || []).forEach(function(item) { itemMap[String(item.fdh || '')] = item; });
+    let now = new Date();
+    let lookbackHours = now.getDay() === 1 ? 80 : 48;
+    let windowStart = now.getTime() - (lookbackHours * 60 * 60 * 1000);
+    let previousWindowStart = windowStart - (lookbackHours * 60 * 60 * 1000);
+    let todayLogs = (allGlobalLogs || []).filter(function(log) {
+        let ts = getDigestLogTimestamp(log);
+        return ts >= windowStart;
+    }).sort(function(a, b) {
+        return getDigestLogTimestamp(b) - getDigestLogTimestamp(a);
+    });
+    let previousLogs = (allGlobalLogs || []).filter(function(log) {
+        let ts = getDigestLogTimestamp(log);
+        return ts >= previousWindowStart && ts < windowStart;
+    });
+
+    let moversMap = {};
+    todayLogs.forEach(function(log) {
+        let user = String(log.user || '').trim() || 'Unknown User';
+        if (!moversMap[user]) {
+            moversMap[user] = { user: user, total: 0, logs: [], projects: [], projectMap: {}, stageCounts: {} };
+        }
+        let mover = moversMap[user];
+        mover.total++;
+        mover.logs.push(log);
+        let fdhKey = String(log.fdh || '');
+        if (fdhKey) {
+            if (!mover.projectMap[fdhKey]) {
+                mover.projectMap[fdhKey] = { fdh: fdhKey, count: 0 };
+                mover.projects.push(mover.projectMap[fdhKey]);
+            }
+            mover.projectMap[fdhKey].count++;
+        }
+        let stageKey = getDigestStageKeyForLog(log, itemMap[fdhKey] || null);
+        mover.stageCounts[stageKey] = (mover.stageCounts[stageKey] || 0) + 1;
+    });
+
+    let movers = Object.keys(moversMap).map(function(userKey) {
+        let mover = moversMap[userKey];
+        mover.projects.sort(function(a, b) { return b.count - a.count; });
+        mover.logs.sort(function(a, b) { return getDigestLogTimestamp(b) - getDigestLogTimestamp(a); });
+        return mover;
+    }).sort(function(a, b) { return b.total - a.total; });
+
+    let summary = {
+        totalChanges: todayLogs.length,
+        projectsTouched: new Set(todayLogs.map(function(log) { return String(log.fdh || ''); }).filter(Boolean)).size,
+        usersActive: new Set(todayLogs.map(function(log) { return String(log.user || '').trim(); }).filter(Boolean)).size,
+        deltaChanges: todayLogs.length - previousLogs.length
+    };
+
+    let stageSummary = {};
+    DIGEST_STAGE_ORDER.forEach(function(stageKey) {
+        stageSummary[stageKey] = { current: 0, previous: 0 };
+    });
+    todayLogs.forEach(function(log) {
+        let item = itemMap[String(log.fdh || '')] || null;
+        let stageKey = getDigestStageKeyForLog(log, item);
+        if (!stageSummary[stageKey]) stageSummary[stageKey] = { current: 0, previous: 0 };
+        stageSummary[stageKey].current++;
+    });
+    previousLogs.forEach(function(log) {
+        let item = itemMap[String(log.fdh || '')] || null;
+        let stageKey = getDigestStageKeyForLog(log, item);
+        if (!stageSummary[stageKey]) stageSummary[stageKey] = { current: 0, previous: 0 };
+        stageSummary[stageKey].previous++;
+    });
+
+    let vendorMetrics = buildDigestVendorMetrics();
+    let filteredVendorMetrics = vendorMetrics.filter(function(entry) {
+        return currentDigestVendorFilter === 'ALL' || entry.scopeKey === currentDigestVendorFilter;
+    });
+
+    let selectedType = currentDigestSelection && currentDigestSelection.type ? currentDigestSelection.type : 'mover';
+    let selectedKey = currentDigestSelection && currentDigestSelection.key ? currentDigestSelection.key : '';
+    if (selectedType === 'project' && !itemMap[selectedKey]) {
+        selectedType = 'mover';
+        selectedKey = movers.length ? movers[0].user : '';
+    }
+    if (selectedType === 'mover' && !movers.some(function(entry) { return entry.user === selectedKey; })) {
+        selectedKey = movers.length ? movers[0].user : '';
+    }
+    currentDigestSelection = { type: selectedType, key: selectedKey };
+
+    let selectedMover = selectedType === 'mover'
+        ? (movers.find(function(entry) { return entry.user === selectedKey; }) || null)
+        : null;
+    let selectedProjectLogs = selectedType === 'project'
+        ? todayLogs.filter(function(log) { return String(log.fdh || '') === selectedKey; })
+        : [];
+    let selectedProjectItem = selectedType === 'project'
+        ? (itemMap[selectedKey] || null)
+        : null;
+
+    return {
+        now: now,
+        lookbackHours: lookbackHours,
+        itemMap: itemMap,
+        todayLogs: todayLogs,
+        previousLogs: previousLogs,
+        summary: summary,
+        movers: movers,
+        stageSummary: stageSummary,
+        vendorMetrics: vendorMetrics,
+        filteredVendorMetrics: filteredVendorMetrics,
+        selected: currentDigestSelection,
+        selectedMover: selectedMover,
+        selectedProjectItem: selectedProjectItem,
+        selectedProjectLogs: selectedProjectLogs
+    };
+}
+
+function renderDigestSummaryStat(label, value, subtext, toneClass) {
+    return `<div class="digest-stat-card ${toneClass || ''}">
+        <div class="digest-stat-label">${esc(label)}</div>
+        <div class="digest-stat-value digest-mono">${esc(String(value))}</div>
+        <div class="digest-stat-sub">${esc(subtext || '')}</div>
+    </div>`;
+}
+
+function renderDigestStageSummary(data) {
+    return DIGEST_STAGE_ORDER.map(function(stageKey) {
+        return renderDigestStageCard(stageKey, data.stageSummary[stageKey] || { current: 0, previous: 0 });
+    }).join('');
+}
+
+function renderDigestActivityFeed(logs, itemMap) {
+    if (!logs.length) return '<div class="digest-panel-empty">No project change activity in the current window.</div>';
+    return logs.slice(0, 12).map(function(log) {
+        let item = itemMap[String(log.fdh || '')] || null;
+        let stageKey = getDigestStageKeyForLog(log, item);
+        let meta = getDigestStageMeta(stageKey);
+        let selected = currentDigestSelection.type === 'project' && currentDigestSelection.key === String(log.fdh || '');
+        return `<div class="log-card ${selected ? 'selected' : ''}" onclick="setDigestRailFocus('project', '${escJs(String(log.fdh || ''))}')">
+            <div class="log-card-head">
+                <div class="log-card-title">${esc(log.fdh || '-')}</div>
+                <span class="glass-pill ${meta.pillClass}" style="font-size:9px; padding:3px 8px;">${esc(meta.shortLabel)}</span>
+            </div>
+            <div class="log-card-body">${esc(String(log.val || '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, ''))}</div>
+            <div class="log-card-meta">${esc(log.user || '-')} · ${esc(formatDate(getDigestLogTimestamp(log) ? new Date(getDigestLogTimestamp(log)) : log.time, true))}</div>
+        </div>`;
+    }).join('');
+}
+
+function renderDigestMoverDetail(data) {
+    let mover = data.selectedMover;
+    if (!mover) return '<div class="digest-panel-empty">Select a mover to see project activity and stage mix.</div>';
+    return `<div class="digest-rail-detail">
+        <div class="digest-selection-card">
+            <div>
+                <div class="digest-selection-sub">Selected Mover</div>
+                <div class="digest-selection-title">${esc(mover.user)}</div>
+            </div>
+            <div class="digest-detail-metric-row">
+                <div class="digest-detail-metric">
+                    <div class="digest-detail-metric-label">Edits In Window</div>
+                    <div class="digest-detail-metric-value digest-mono">${mover.total}</div>
+                </div>
+                <div class="digest-detail-metric">
+                    <div class="digest-detail-metric-label">Projects Touched</div>
+                    <div class="digest-detail-metric-value digest-mono">${mover.projects.length}</div>
+                </div>
+            </div>
+            <div class="digest-pill-row">
+                ${DIGEST_STAGE_ORDER.filter(function(stageKey) { return (mover.stageCounts[stageKey] || 0) > 0; }).map(function(stageKey) {
+                    return `<span class="glass-pill ${getDigestStageMeta(stageKey).pillClass}" style="font-size:9px; padding:3px 8px;">${esc(getDigestStageMeta(stageKey).shortLabel)} ${mover.stageCounts[stageKey]}</span>`;
+                }).join('')}
+            </div>
+            <div class="digest-selection-projects">
+                ${mover.projects.slice(0, 10).map(function(project) {
+                    return `<button class="digest-selection-project-btn" onclick="setDigestRailFocus('project', '${escJs(project.fdh)}')">${esc(project.fdh)} <span class="digest-mono">${project.count}</span></button>`;
+                }).join('')}
+            </div>
+        </div>
+        <div class="digest-mini-log-list">
+            ${mover.logs.slice(0, 6).map(function(log) {
+                let item = data.itemMap[String(log.fdh || '')] || null;
+                let stageMeta = getDigestStageMeta(getDigestStageKeyForLog(log, item));
+                return `<div class="digest-mini-log">
+                    <div class="digest-mini-log-top">
+                        <div>
+                            <div class="digest-selection-title" style="font-size:12px;">${esc(log.fdh || '-')}</div>
+                            <div class="digest-mini-log-meta">${esc(item && item.vendor ? item.vendor : 'Unknown Vendor')}</div>
+                        </div>
+                        <span class="glass-pill ${stageMeta.pillClass}" style="font-size:9px; padding:3px 8px;">${esc(stageMeta.label)}</span>
+                    </div>
+                    <div style="font-size:11px; font-weight:700; color:var(--text-main);">&#8594; ${esc(String(log.val || '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, ''))}</div>
+                    <div class="digest-mini-log-meta">${esc(formatDate(getDigestLogTimestamp(log) ? new Date(getDigestLogTimestamp(log)) : log.time, true))}</div>
+                </div>`;
+            }).join('')}
+        </div>
+    </div>`;
+}
+
+function renderDigestProjectDetail(data) {
+    let item = data.selectedProjectItem;
+    let logs = data.selectedProjectLogs || [];
+    if (!item || !logs.length) return '<div class="digest-panel-empty">Select a project change from the feed to see the current project detail.</div>';
+    let latestLog = logs[0];
+    let stageMeta = getDigestStageMeta(getDigestStageKeyForLog(latestLog, item));
+    return `<div class="digest-rail-detail">
+        <div class="digest-selection-card">
+            <div>
+                <div class="digest-selection-sub">Selected Project</div>
+                <div class="digest-selection-title">${esc(item.fdh || '-')}</div>
+                <div class="digest-mini-log-meta">${esc(item.vendor || 'Unknown Vendor')}</div>
+            </div>
+            <div class="digest-pill-row">
+                <span class="glass-pill ${stageMeta.pillClass}" style="font-size:9px; padding:3px 8px;">${esc(stageMeta.label)}</span>
+                <span class="glass-pill ${getQBStatusClass(item.stage, item.status, false)}" style="font-size:9px; padding:3px 8px;">${esc((item.stage || '-') + ' | ' + (item.status || '-'))}</span>
+            </div>
+            <div class="digest-detail-metric-row">
+                <div class="digest-detail-metric">
+                    <div class="digest-detail-metric-label">Edits In Window</div>
+                    <div class="digest-detail-metric-value digest-mono">${logs.length}</div>
+                </div>
+                <div class="digest-detail-metric">
+                    <div class="digest-detail-metric-label">Contributors</div>
+                    <div class="digest-detail-metric-value digest-mono">${new Set(logs.map(function(log) { return String(log.user || '').trim(); }).filter(Boolean)).size}</div>
+                </div>
+            </div>
+            <button class="btn" onclick="switchWorkspaceView('detail'); selectItemForNav('${escJs(String(item.fdh || ''))}')">Go to Project</button>
+        </div>
+        <div class="digest-mini-log-list">
+            ${logs.slice(0, 8).map(function(log) {
+                return `<div class="digest-mini-log">
+                    <div class="digest-mini-log-top">
+                        <div class="digest-mini-log-meta">By <span style="color:var(--text-main);">${esc(log.user || '-')}</span></div>
+                        <div class="digest-mini-log-meta">${esc(formatDate(getDigestLogTimestamp(log) ? new Date(getDigestLogTimestamp(log)) : log.time, true))}</div>
+                    </div>
+                    <div style="font-size:11px; font-weight:700; color:var(--text-main);">&#8594; ${esc(String(log.val || '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, ''))}</div>
+                    <div class="digest-mini-log-meta">${esc(log.type || 'Change')}</div>
+                </div>`;
+            }).join('')}
+        </div>
+    </div>`;
+}
+
+// TODO: MODULE CANDIDATE - digest workspace still depends on allActionItems, filteredItems, admin panel docking, and shared selection state.
+function renderDigestWorkspace() {
+    let ws = getEl('digest-workspace');
+    if (!ws) return;
+    clearDigestPulseAutoScroll();
+    let data = buildDigestCommandCenterData();
+    let dateStr = data.now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    let deltaTone = data.summary.deltaChanges > 0 ? 'pill-complete' : (data.summary.deltaChanges < 0 ? 'pill-missing' : 'pill-default');
+    let deltaSign = data.summary.deltaChanges > 0 ? '+' : '';
+    let lookbackLabel = data.lookbackHours > 48 ? 'Weekend Carry · 80h Window' : '48h Working Hours';
+
+    let prodByVendor = {};
+    (allActionItems || []).forEach(function(item) {
+        let v = String(item.vendor || '').trim();
+        if (!v || v === '-') return;
+        if (!prodByVendor[v]) prodByVendor[v] = { ug: 0, ae: 0, fib: 0, nap: 0 };
+        if (item.vel) {
+            prodByVendor[v].ug += Number((item.vel.ug && item.vel.ug.daily) || 0);
+            prodByVendor[v].ae += Number((item.vel.ae && item.vel.ae.daily) || 0);
+            prodByVendor[v].fib += Number((item.vel.fib && item.vel.fib.daily) || 0);
+            prodByVendor[v].nap += Number((item.vel.nap && item.vel.nap.daily) || 0);
+        }
+    });
+    let prodRows = Object.keys(prodByVendor).sort().filter(function(v) {
+        let d = prodByVendor[v];
+        return d.ug > 0 || d.ae > 0 || d.fib > 0 || d.nap > 0;
+    }).map(function(v) {
+        let d = prodByVendor[v];
+        let stats = [];
+        if (d.ug > 0) stats.push('<span style="color:#f97316;font-weight:800;">+' + d.ug.toLocaleString() + 'ft UG</span>');
+        if (d.ae > 0) stats.push('<span style="color:#64748b;font-weight:800;">+' + d.ae.toLocaleString() + 'ft Strand</span>');
+        if (d.fib > 0) stats.push('<span style="color:#ef4444;font-weight:800;">+' + d.fib.toLocaleString() + 'ft Fiber</span>');
+        if (d.nap > 0) stats.push('<span style="color:#6366f1;font-weight:800;">+' + d.nap.toLocaleString() + ' NAPs</span>');
+        return '<div class="digest-stat-row"><span style="font-weight:800;font-size:11px;">' + esc(v) + '</span><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;font-size:11px;">' + stats.join('') + '</div></div>';
+    }).join('');
+    if (!prodRows) prodRows = '<div class="digest-panel-empty">No production velocity data in this window.</div>';
+
+    let feedByCat = { all: data.todayLogs };
+    DIGEST_STAGE_ORDER.forEach(function(k) { feedByCat[k] = []; });
+    data.todayLogs.forEach(function(log) {
+        let item = data.itemMap[String(log.fdh || '')] || null;
+        let stageKey = getDigestStageKeyForLog(log, item);
+        if (feedByCat[stageKey]) feedByCat[stageKey].push(log);
+    });
+    window._digestFeedData3 = { cats: feedByCat, itemMap: data.itemMap };
+    currentDigestFilter = currentDigestFilter || 'all';
+
+    let filterBtns = '<button class="digest-filter-btn' + (currentDigestFilter === 'all' ? ' active' : '') + '" data-filter="all" onclick="filterDigestFeed3(\'all\')">All (' + data.todayLogs.length + ')</button>';
+    DIGEST_STAGE_ORDER.forEach(function(stageKey) {
+        let meta = getDigestStageMeta(stageKey);
+        let count = (feedByCat[stageKey] || []).length;
+        if (count > 0) {
+            filterBtns += '<button class="digest-filter-btn' + (currentDigestFilter === stageKey ? ' active' : '') + '" data-filter="' + stageKey + '" onclick="filterDigestFeed3(\'' + stageKey + '\')">' +
+                '<span style="color:' + meta.accent + '; margin-right:4px;">&#9679;</span>' + esc(meta.shortLabel) + ' (' + count + ')</button>';
+        }
+    });
+
+    ws.innerHTML = `
+        <div class="digest-shell">
+            <div class="digest-doc-header">
+                <div>
+                    <div class="digest-ws-header">Daily Pipeline Digest</div>
+                    <div class="digest-doc-subheader">${esc(dateStr)} &nbsp;&middot;&nbsp; ${esc(lookbackLabel)}</div>
+                </div>
+                <span class="glass-pill ${deltaTone}" style="font-size:11px; padding:6px 14px; flex-shrink:0;">${deltaSign}${data.summary.deltaChanges} vs prev window</span>
+            </div>
+            <div class="digest-summary-grid">
+                ${renderDigestSummaryStat('Changes In Window', data.summary.totalChanges, 'All logged database activity')}
+                ${renderDigestSummaryStat('Projects Touched', data.summary.projectsTouched, 'Distinct projects updated')}
+                ${renderDigestSummaryStat('Editors Active', data.summary.usersActive, 'Users with logged changes')}
+                ${renderDigestSummaryStat('Change Delta', deltaSign + data.summary.deltaChanges, 'vs previous same-length window', deltaTone)}
+            </div>
+            <div class="digest-section-label" style="margin-top:4px;">Morning Briefing</div>
+            <div class="digest-brief-grid">
+                <div class="digest-card">
+                    <div class="digest-card-head">
+                        <div>
+                            <div class="digest-section-label" style="margin:0 0 4px 0;">Stage Shifts</div>
+                            <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Current window vs previous window</div>
+                        </div>
+                    </div>
+                    <div class="digest-card-body" style="padding:12px 14px;">${renderDigestStageSummary(data)}</div>
+                </div>
+                <div class="digest-card">
+                    <div class="digest-card-head">
+                        <div>
+                            <div class="digest-section-label" style="margin:0 0 4px 0;">Production Today</div>
+                            <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Daily velocity by vendor</div>
+                        </div>
+                    </div>
+                    <div class="digest-card-body" style="padding:0 14px 4px;">${prodRows}</div>
+                </div>
+            </div>
+            <div class="digest-section-label" style="margin-top:4px;">Editor Leaderboard</div>
+            <div class="digest-card">
+                <div class="digest-card-head">
+                    <div>
+                        <div class="digest-section-label" style="margin:0 0 4px 0;">Top Movers</div>
+                        <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Ranked by edits in the current lookback window. Click a row to inspect.</div>
+                    </div>
+                    <span class="glass-pill pill-default" style="font-size:9px; padding:4px 8px;">${data.movers.length} editors</span>
+                </div>
+                <div class="digest-card-body">${renderDigestLeaderboard(data.movers.slice(0, 8))}</div>
+            </div>
+            <div class="digest-filter-row" style="margin-top:4px;">
+                <span class="digest-section-label" style="margin:0;">Project Changes <span style="color:var(--text-muted); font-weight:600; font-size:9px; margin-left:4px;">${data.todayLogs.length} events</span></span>
+                <div class="digest-filter-strip">${filterBtns}</div>
+            </div>
+            <div class="digest-card" style="margin-bottom:40px;">
+                <div id="digest-feed-list3">${renderDigestFeedItems3(window._digestFeedData3, currentDigestFilter)}</div>
+            </div>
+        </div>
+    `;
+    renderDigestSidePanel(data);
+}
+
+function renderDigestSidePanel(data) {
+    let panel = getEl('digest-action-panel');
+    if (!panel) return;
+    let movers = (data && data.movers ? data.movers : []).slice(0, 8);
+    let selectedIsProject = data && data.selected && data.selected.type === 'project';
+    panel.innerHTML = `
+        <div class="digest-rail-shell">
+            <div class="digest-panel-head">
+                <div class="digest-panel-title">
+                    <div>
+                        <div class="digest-panel-kicker">Pipeline Command Center</div>
+                        <div class="digest-panel-count">Activity Rail</div>
+                        <div class="digest-panel-sub">Top movers in the current lookback with contextual project drill-in for the selected change.</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                        <span class="ob-tab-badge ob-tab-badge-purple" style="position:static; min-width:28px; height:28px; border-radius:14px; border:1px solid var(--border); box-shadow:none;">${movers.length}</span>
+                        <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel" style="flex-shrink:0;">✕</button>
+                    </div>
+                </div>
+            </div>
+            <div class="digest-panel-body">
+                <div class="digest-rail-card">
+                    <div class="digest-card-head">
+                        <div>
+                            <div class="digest-section-label" style="margin:0 0 6px 0;">Top Movers</div>
+                            <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Ranked by logged database edits in the current lookback window.</div>
+                        </div>
+                    </div>
+                    <div class="digest-card-body">${renderDigestLeaderboard(movers)}</div>
+                </div>
+                <div class="digest-rail-card">
+                    <div class="digest-card-head">
+                        <div>
+                            <div class="digest-section-label" style="margin:0 0 6px 0;">${selectedIsProject ? 'Selected Project Detail' : 'Selected Mover Detail'}</div>
+                            <div style="font-size:11px; font-weight:700; color:var(--text-muted);">${selectedIsProject ? 'Project-specific detail from the selected feed row.' : 'User-specific detail from the selected mover row.'}</div>
+                        </div>
+                    </div>
+                    <div class="digest-card-body">${selectedIsProject ? renderDigestProjectDetail(data) : renderDigestMoverDetail(data)}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function filterDigestFeed3(stageKey) {
+    currentDigestFilter = stageKey;
+    document.querySelectorAll('.digest-filter-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.filter === stageKey);
+    });
+    let feedList = getEl('digest-feed-list3');
+    if (!feedList || !window._digestFeedData3) return;
+    feedList.innerHTML = renderDigestFeedItems3(window._digestFeedData3, stageKey);
+}
+
+function renderDigestFeedItems3(feedData, filter) {
+    if (!feedData) return '';
+    let logs = filter === 'all' ? feedData.cats.all : (feedData.cats[filter] || []);
+    if (!logs.length) return '<div class="digest-panel-empty" style="padding:32px; text-align:center;">No changes in this category.</div>';
+    let itemMap = feedData.itemMap || {};
+    return logs.map(function(log) {
+        let item = itemMap[String(log.fdh || '')] || null;
+        let stageKey = getDigestStageKeyForLog(log, item);
+        let meta = getDigestStageMeta(stageKey);
+        let ts = getDigestLogTimestamp(log);
+        let cleanVal = String(log.val || '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
+        let selected = currentDigestSelection.type === 'project' && currentDigestSelection.key === String(log.fdh || '');
+        return '<div class="digest-feed-item' + (selected ? ' selected' : '') + '" onclick="setDigestRailFocus(\'project\', \'' + escJs(String(log.fdh || '')) + '\')">' +
+            '<div class="digest-feed-dot" style="background:' + meta.accent + ';"></div>' +
+            '<div class="digest-feed-body">' +
+                '<div class="digest-feed-row1">' +
+                    '<span class="digest-feed-fdh">' + esc(log.fdh || '-') + '</span>' +
+                    (item ? '<span class="digest-feed-vendor">' + esc(item.vendor || '') + '</span>' : '') +
+                    '<span class="glass-pill ' + meta.pillClass + '" style="font-size:9px; padding:3px 8px;">' + esc(meta.label) + '</span>' +
+                    '<span class="digest-feed-time">' + esc(formatDate(ts ? new Date(ts) : log.time, true)) + '</span>' +
+                '</div>' +
+                '<div class="digest-feed-row2">' +
+                    '<span class="digest-feed-change">&#8594; ' + esc(cleanVal || '-') + '</span>' +
+                    '<span class="digest-feed-user">by ' + esc(log.user || '-') + '</span>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+</script>

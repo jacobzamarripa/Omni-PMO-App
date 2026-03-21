@@ -1,0 +1,970 @@
+<script>
+// ============================================================
+// FILE: _module_queue_state.html
+// ROLE: Queue rendering, grouping, selection adapter, and queue
+//   view/filter helper module extracted from WebApp.html
+// DEPENDS ON: _state_queue.html, _state_router.html,
+//   _state_session.html, _utils_shared.html,
+//   _utils_notifications.html, _module_changelog.html
+// DEPENDED ON BY: WebApp.html bootstrap anchors and downstream
+//   desktop modules that open or render queue-backed project state
+// MOBILE NOTES: Desktop queue/detail behaviors remain intact here;
+//   any mobile queue extraction should adapt rather than reuse
+//   these DOM flows directly
+// AGENT NOTES: Keep function names/signatures stable. Do not
+//   redeclare state owner variables that already live in the
+//   extracted state partials.
+// ============================================================
+function persistQueueGroupingSession() {
+    try {
+        sessionStorage.setItem(GROUP_BY_SESSION_KEY, currentGroupBy || 'none');
+        sessionStorage.setItem(GROUP_COLLAPSE_SESSION_KEY, JSON.stringify(queueGroupCollapseState || {}));
+    } catch (e) {}
+}
+
+function setGroupBy(value) {
+    let nextValue = GROUP_BY_OPTIONS.includes(value) ? value : 'none';
+    currentGroupBy = nextValue;
+    persistQueueGroupingSession();
+    applyFilters();
+}
+
+function toggleQueueGroupSection(groupKey) {
+    if (currentGroupBy === 'none') return;
+    let modeState = queueGroupCollapseState[currentGroupBy] || {};
+    modeState[groupKey] = !modeState[groupKey];
+    queueGroupCollapseState[currentGroupBy] = modeState;
+    persistQueueGroupingSession();
+    renderList(filteredItems || []);
+}
+
+function isQueueGroupCollapsed(groupKey) {
+    return !!(queueGroupCollapseState[currentGroupBy] && queueGroupCollapseState[currentGroupBy][groupKey]);
+}
+
+function getGroupMetaForItem(item, groupBy) {
+    let mode = GROUP_BY_OPTIONS.includes(groupBy) ? groupBy : 'none';
+    if (mode === 'vendor') {
+        let label = String(item.vendor || 'Unknown Vendor').trim() || 'Unknown Vendor';
+        return { key: 'vendor:' + label.toLowerCase(), label: label, sortKey: label.toLowerCase() };
+    }
+    if (mode === 'city') {
+        let label = String(item.city || 'Unknown City').trim() || 'Unknown City';
+        return { key: 'city:' + label.toLowerCase(), label: label, sortKey: label.toLowerCase() };
+    }
+    if (mode === 'stage') {
+        let label = String(item.stage || 'Unknown Stage').trim() || 'Unknown Stage';
+        return { key: 'stage:' + label.toLowerCase(), label: label, sortKey: label.toLowerCase() };
+    }
+    if (mode === 'status') {
+        let label = String(item.status || 'Unknown Status').trim() || 'Unknown Status';
+        return { key: 'status:' + label.toLowerCase(), label: label, sortKey: label.toLowerCase() };
+    }
+    if (mode === 'health') {
+        let severity = getSeverity(item.flags);
+        let labels = { crit: 'Critical', warn: 'Warnings', info: 'Clear' };
+        let order = { crit: 0, warn: 1, info: 2 };
+        return {
+            key: 'health:' + severity,
+            label: labels[severity] || 'Clear',
+            sortKey: String(order[severity] !== undefined ? order[severity] : 99)
+        };
+    }
+    return { key: 'all', label: 'All Projects', sortKey: '0' };
+}
+
+function getGroupedQueueSections(items) {
+    if (currentGroupBy === 'none') return [];
+    let groups = new Map();
+    (items || []).forEach(function(item) {
+        let meta = getGroupMetaForItem(item, currentGroupBy);
+        if (!groups.has(meta.key)) {
+            groups.set(meta.key, { key: meta.key, label: meta.label, sortKey: meta.sortKey, items: [] });
+        }
+        groups.get(meta.key).items.push(item);
+    });
+    let sections = Array.from(groups.values());
+    sections.sort(function(a, b) {
+        if (currentGroupBy === 'health') return Number(a.sortKey) - Number(b.sortKey);
+        return String(a.sortKey || '').localeCompare(String(b.sortKey || ''));
+    });
+    return sections;
+}
+
+function flattenGroupedSections(sections) {
+    return (sections || []).reduce(function(acc, section) {
+        return acc.concat(section.items || []);
+    }, []);
+}
+
+function handleFilterCheck(category, value, isChecked) {
+    if (isChecked) {
+        if (!activeFilters[category].includes(value)) activeFilters[category].push(value);
+    } else {
+        activeFilters[category] = activeFilters[category].filter(v => v !== value);
+    }
+    applyFilters();
+}
+
+function getFilterCategoryLabel(category) {
+    return ({ sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS', status: 'Status' }[category]) || category;
+}
+
+function getFilterValueLabel(category, value) {
+    if (category === 'sev') return ({ crit: 'Critical', warn: 'Warnings', info: 'Clear' }[value]) || value;
+    if (category === 'ofs') {
+        if (value === '60_DAYS') return '< 60 Days';
+        if (value === '90_DAYS') return '< 90 Days';
+    }
+    return value;
+}
+
+function getFilterSummaryText(category, selected, optionLabelMap, defaultLabel) {
+    if (selected.length === 0) return defaultLabel;
+    if (selected.length === 1) return optionLabelMap[selected[0]] || selected[0];
+    let pluralLabel = ({ sev: 'Health Filters', vendor: 'Vendors', city: 'Cities', ofs: 'OFS Filters', status: 'Statuses' }[category]) || `${getFilterCategoryLabel(category)}s`;
+    return `${selected.length} ${pluralLabel}`;
+}
+
+function clearFilterCategory(category) {
+    if (!activeFilters[category]) return;
+    activeFilters[category] = [];
+    applyFilters();
+}
+
+function renderMultiSelect(id, category, defaultLabel, optionsArr) {
+    let wrap = getEl(id);
+    if (!wrap) return;
+    let selected = activeFilters[category];
+    let optionLabelMap = {};
+    optionsArr.forEach(opt => { optionLabelMap[opt.val] = opt.label; });
+    let displayText = getFilterSummaryText(category, selected, optionLabelMap, defaultLabel);
+    let isActive = selected.length > 0;
+    let semanticsText = `${getFilterCategoryLabel(category)} uses OR within this category and AND across categories.`;
+    let displayHtml = `<div class="ms-display ${isActive ? 'is-active' : ''}" onclick="toggleDropdown('${id}', event)" title="${esc(semanticsText)}"><span>${esc(displayText)}</span><span style="font-size:8px;">▼</span></div>`;
+    let optionsHtml = `<div class="ms-dropdown" onclick="event.stopPropagation()">`;
+    optionsArr.forEach(opt => {
+        let isSel = selected.includes(opt.val);
+        let style = isSel ? 'background:rgba(59,130,246,0.1);color:#2563eb;font-weight:900;' : '';
+        optionsHtml += `<div class="ms-opt" style="${style}" onclick="toggleFilterValue('${category}','${escJs(opt.val)}')">${esc(opt.label)}${isSel ? '<span style="margin-left:auto;">✓</span>' : ''}</div>`;
+    });
+    if (selected.length > 0) {
+        optionsHtml += `<div class="ms-opt" style="margin-top:4px; border-top:1px solid var(--border); color:#ef4444; font-weight:900;" onclick="clearFilterCategory('${category}')">Clear ${esc(getFilterCategoryLabel(category))}</div>`;
+    }
+    optionsHtml += `</div>`;
+    wrap.innerHTML = displayHtml + optionsHtml;
+    wrap.classList.toggle('open', openDropdownId === id);
+}
+
+function toggleFilterValue(category, value) {
+    if (activeFilters[category].includes(value)) {
+        activeFilters[category] = activeFilters[category].filter(v => v !== value);
+    } else {
+        activeFilters[category].push(value);
+    }
+    applyFilters();
+}
+
+function cycleViewMode() {
+    let idx = (_VIEW_MODES.indexOf(currentViewMode) + 1) % _VIEW_MODES.length;
+    currentViewMode = _VIEW_MODES[idx];
+    localStorage.setItem('queueViewMode', currentViewMode);
+    applyViewMode();
+    syncWorkspaceChrome();
+    applyFilters();
+}
+
+function applyViewMode() {
+    let list = getEl('inbox-list');
+    let btn = getEl('view-toggle-btn');
+    if (list) {
+        list.classList.remove('dense-view');
+        list.classList.toggle('grid-view', currentViewMode === 'grid');
+        if (currentViewMode === 'list') list.classList.add('dense-view');
+    }
+    const icons = { inbox: '⊟', list: '☰', grid: '⊞' };
+    const tips = { inbox: 'Switch to List', list: 'Switch to Grid', grid: 'Switch to Inbox' };
+    if (btn) {
+        btn.innerHTML = icons[currentViewMode];
+        btn.setAttribute('data-tooltip', tips[currentViewMode]);
+    }
+}
+
+function selectItemForNav(fdh) {
+    let item = (allActionItems || []).find(i => i.fdh === fdh);
+    if (item) {
+        openPane(item, null);
+        centerQueueCardByFdh(item.fdh, 'smooth');
+    }
+}
+
+function getActiveQueueItems() {
+    let reviewedFdhs = getReviewedFdhSet();
+    return (allActionItems || []).filter(item => !reviewedFdhs.has(String(item.fdh || '')));
+}
+
+function renderList(items) {
+    let list = getEl('inbox-list');
+    if (!list) return;
+    setTxt('inbox-count', items.length);
+    list.innerHTML = '';
+    let groupedSections = currentGroupBy !== 'none' ? getGroupedQueueSections(items) : [];
+
+    function appendListCard(item, targetEl) {
+        let rawFlags = (item.flags || "").split('\n').map(f => f.trim()).filter(f => f !== "");
+        let highestSev = "info";
+        let tagsHtml = '';
+        let tagParts = [];
+        let visibleTagLimit = isVendorTrackerLinked(item) ? 2 : 3;
+
+        if (isVendorTrackerLinked(item)) {
+            tagParts.push(renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' }));
+        }
+
+        rawFlags.slice(0, visibleTagLimit).forEach(f => {
+            let cleanText = cleanDiagnosticFlagText(f);
+            let tagCls = getDiagnosticTagClass(f);
+            if (tagCls === 'chip-admin' || tagCls === 'chip-warn') highestSev = "warn";
+            else if (tagCls === 'tag-red') highestSev = "crit";
+            else if (tagCls === 'chip-ghost' && highestSev !== "crit" && highestSev !== "warn") highestSev = "ghost";
+            tagParts.push(`<span class="tag ${tagCls}">${cleanText}</span>`);
+        });
+        if (rawFlags.length > visibleTagLimit) tagParts.push(`<span class="tag chip-muted">+${rawFlags.length - visibleTagLimit}</span>`);
+        tagsHtml = tagParts.join('');
+
+        let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
+        let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+        if (item.flags.includes("MISSING QB STATUS") && !item.flags.includes("NOT IN QB REFERENCE")) combinedPill = "MISSING QB STATUS";
+
+        let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+
+        let card = document.createElement('div');
+        card.className = `email-card ${highestSev}`;
+        card.id = `card-${item.fdh}`;
+        card.setAttribute('data-fdh', item.fdh);
+        card.onclick = () => { openPane(item, card); };
+        card.innerHTML = `
+           <div class="em-header">
+              <div style="display: flex; align-items: baseline; gap: 8px; min-width: 0;">
+                  <div class="em-fdh" style="flex-shrink: 0;">${item.fdh}</div><div class="em-vendor" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.vendor}</div>
+              </div>
+              <div class="em-pill-stack">
+                  <span class="glass-pill ${pillCls}" style="flex-shrink: 0;">${combinedPill}</span>
+              </div>
+           </div><div class="em-tags">${tagsHtml}</div>`;
+        targetEl.appendChild(card);
+    }
+
+    function appendGridCard(item, targetEl) {
+        let pivot = getEl('sidebar-pivot-select')?.value || 'schedule';
+        let today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
+        let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+        let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+
+        let pEnd = safeDate(item.cxEnd);
+        let daysLeft = pEnd ? Math.ceil((pEnd - new Date()) / 86400000) : 0;
+        let isComplete = (item.stage || "").toLowerCase().includes('ofs') || (item.status || "").toLowerCase().includes('complete');
+        let isPermit = (item.stage || "").toLowerCase().includes('permit');
+        let isOnHold = (item.status || "").toLowerCase().includes('hold');
+        let isOverdue = pEnd && today > pEnd && !isComplete && !isOnHold && !isPermit;
+
+        let bodyHtml = '';
+        if (pivot === 'schedule') {
+            let sColor = "#facc15";
+            if (isComplete) sColor = "#22c55e";
+            else if (isPermit) sColor = "#a855f7";
+            else if (isOnHold) sColor = "#94a3b8";
+            else if (isOverdue) sColor = "#ef4444";
+            let pStart = safeDate(item.cxStart);
+            let pct = 0;
+            if (pStart && pEnd && pEnd - pStart > 0) pct = Math.max(0, Math.min(100, ((new Date() - pStart) / (pEnd - pStart)) * 100));
+            let xingBadge = item.isXing ? `<div style="position:absolute; bottom:4px; right:4px; background:#171717; color:#facc15; padding:1px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #facc15;">X-ING</div>` : '';
+            bodyHtml = `
+                <div class="qb-time-labels" style="margin-top:0; margin-bottom:4px;">
+                    <span>START: <span style="color:var(--text-main);">${item.cxStart ? formatDate(item.cxStart) : 'TBD'}</span></span>
+                    <span>END: <span style="color:var(--text-main);">${item.cxEnd ? formatDate(item.cxEnd) : 'TBD'}</span></span>
+                </div>
+                <div class="qb-time-bar" style="margin-bottom:12px;">
+                    <div class="qb-time-fill" style="width:${pct}%; background:${sColor};"></div>
+                    ${pct > 0 && pct < 100 ? `<div class="qb-time-bead" style="left:calc(${pct}% - 7px); border-color:${sColor}; display:block;"></div>` : ''}
+                </div>
+                <div class="qb-target-wrap ${item.isXing ? 'xing' : ''}" style="margin-top:auto;">
+                    <div class="qb-target-inner" style="border-radius:${item.isXing ? '9px 9px 0 0' : '12px 12px 0 0'}; padding:8px 6px; position:relative;">
+                        <div class="qb-target-label" style="font-size:9px;">Target Date</div>
+                        <div class="qb-target-date" style="color:${sColor}; font-size:14px;">${item.targetDate ? formatDate(item.targetDate) : 'TBD'}</div>
+                        ${xingBadge}
+                    </div>
+                </div>`;
+        } else if (pivot === 'velocity') {
+            let v = item.vel;
+            let ofsMonthStr = "TBD";
+            let isOFSMonth = false;
+            let ofsDate = safeDate(item.ofsDate) || safeDate(item.targetDate);
+            if (ofsDate && !isNaN(ofsDate.getTime())) {
+                ofsMonthStr = ofsDate.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+                if (ofsDate.getUTCMonth() === today.getMonth() && ofsDate.getUTCFullYear() === today.getFullYear()) isOFSMonth = true;
+            }
+            let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239, 246, 255, 0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--bg); border-color:var(--border);';
+            if (v) {
+                bodyHtml = `
+                    <div class="velocity-grid" style="align-content:flex-start; gap:8px; margin-bottom:8px; flex-grow:0;">
+                        ${buildVelocityBar('UG', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft)}
+                        ${buildVelocityBar('Aerial', v.ae.daily, v.ae.tot, v.ae.bom, 'AE', daysLeft)}
+                        ${buildVelocityBar('Fiber', v.fib.daily, v.fib.tot, v.fib.bom, 'FIB', daysLeft)}
+                        ${buildVelocityBar('Splicing', v.nap.daily, v.nap.tot, v.nap.bom, 'NAP', daysLeft)}
+                    </div>
+                    <div class="qb-vel-footer" style="margin-top:auto; border-top:1px solid var(--border); padding-top:8px;">
+                        <div style="font-size:9px; font-weight:900; color:var(--text-muted);">${daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`}</div>
+                        <div style="display:flex; gap:6px;">
+                            <div class="vel-footer-pill" style="font-size:8px; padding:2px 6px;">BSLS: ${item.bsls}</div>
+                            <div class="vel-footer-pill" style="font-size:8px; padding:2px 6px; ${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
+                        </div>
+                    </div>`;
+            } else {
+                bodyHtml = `<div style="font-style:italic; color:var(--text-muted); font-size:10px;">No velocity data</div>`;
+            }
+        }
+
+        let isSelected = (currentActiveItem && currentActiveItem.fdh === item.fdh) ? 'is-selected' : '';
+        let card = document.createElement('div');
+        card.className = `grid-card ${isSelected}`;
+        card.setAttribute('data-fdh', item.fdh);
+        card.id = `queue-grid-card-${item.fdh}`;
+        card.onclick = () => { openPane(item, card); };
+        card.innerHTML = `
+            <div class="grid-card-header" style="padding-bottom:6px;">
+                <div>
+                    <div style="font-size:14px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                    <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${item.vendor}</div>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
+                    <span class="glass-pill ${pillCls}" style="font-size:8px; padding:2px 6px;">${combinedPill}</span>
+                    ${renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                </div>
+            </div>
+            <div class="grid-card-body" style="gap:4px;">${bodyHtml}</div>`;
+        targetEl.appendChild(card);
+    }
+
+    function renderInto(targetEl, sectionItems) {
+        if (currentViewMode !== 'grid') {
+            sectionItems.forEach(function(item) { appendListCard(item, targetEl); });
+        } else {
+            sectionItems.forEach(function(item) { appendGridCard(item, targetEl); });
+        }
+    }
+
+    if (groupedSections.length > 0) {
+        groupedSections.forEach(function(section) {
+            let groupWrap = document.createElement('div');
+            groupWrap.className = 'queue-group';
+            let header = document.createElement('div');
+            header.className = 'queue-group-header';
+            header.onclick = function() { toggleQueueGroupSection(section.key); };
+            let collapsed = isQueueGroupCollapsed(section.key);
+            header.innerHTML = `
+                <div class="queue-group-title">
+                    <span class="queue-group-toggle">${collapsed ? '&#9656;' : '&#9662;'}</span>
+                    <span>${esc(section.label)}</span>
+                </div>
+                <span class="queue-group-count">${section.items.length}</span>`;
+            let body = document.createElement('div');
+            body.className = `queue-group-body${collapsed ? ' collapsed' : ''}`;
+            renderInto(body, section.items);
+            groupWrap.appendChild(header);
+            groupWrap.appendChild(body);
+            list.appendChild(groupWrap);
+        });
+    } else {
+        renderInto(list, items);
+    }
+
+    if (items.length > 0 && !currentActiveItem) openPane(items[0], getEl(`card-${items[0].fdh}`));
+}
+
+function renderDiagnosticStrip(rowArray) {
+    let strip = getEl('raw-data-strip');
+    if (!strip) return;
+    if (!rowArray || !rowArray.length) {
+        strip.innerHTML = '';
+        syncRawDataStripState();
+        return;
+    }
+    let html = `<table class="raw-table"><tr>`;
+    rowArray.forEach(entry => {
+        let safeH = (entry.h || '').replace(/"/g, '&quot;');
+        html += `<th data-header="${safeH}">${entry.h || ''}</th>`;
+    });
+    html += `</tr><tr>`;
+    rowArray.forEach(entry => {
+        let safeH = (entry.h || '').replace(/"/g, '&quot;');
+        let val = entry.v === null || entry.v === undefined ? '' : entry.v;
+        if (String(val).includes('T') && !isNaN(Date.parse(val))) {
+            val = formatDate(val);
+        }
+        html += `<td data-header="${safeH}">${val}</td>`;
+    });
+    html += `</tr></table>`;
+    strip.innerHTML = html;
+    syncRawDataStripState();
+}
+
+function generateSmartComment(item, daysLeft, isOverdue) {
+    let st = (item.stage || "").toLowerCase();
+    let stat = (item.status || "").toLowerCase();
+
+    if (st.includes('ofs') || stat.includes('complete')) {
+        return `Action: None. Project is ${item.status}.\nStatus: Tracking complete.`;
+    }
+
+    let parts = [];
+    let cleanDraft = (item.draft || "").replace(/\n*\[CD Intelligence\]:\s*[\s\S]*$/, '').trim();
+    if (cleanDraft !== "" && !cleanDraft.includes("No specific action") && !cleanDraft.includes("No Anomalies")) {
+        parts.push(cleanDraft);
+    }
+
+    let v = item.vel;
+    if (v) {
+        let todayParts = [];
+        if (v.ug.daily > 0) todayParts.push(`${v.ug.daily.toLocaleString()} ft UG`);
+        if (v.ae.daily > 0) todayParts.push(`${v.ae.daily.toLocaleString()} ft Strand`);
+        if (v.fib.daily > 0) todayParts.push(`${v.fib.daily.toLocaleString()} ft Fiber`);
+        if (v.nap.daily > 0) todayParts.push(`${v.nap.daily} NAPs`);
+        if (todayParts.length > 0) parts.push(`Vendor reported ${todayParts.join(', ')} today.`);
+
+        let paceAlerts = [];
+        [[v.ug, 'UG', 'ft', 450], [v.ae, 'Strand', 'ft', 5000], [v.nap, 'NAPs', '', 5]].forEach(([vel, label, unit, thresh]) => {
+            if (!vel || vel.bom <= 0 || vel.tot >= vel.bom) return;
+            let pct = Math.round((vel.tot / vel.bom) * 100);
+            let remaining = vel.bom - vel.tot;
+            let pace = daysLeft > 0 ? Math.round(remaining / daysLeft) : 0;
+            let paceStr = unit ? `${pace.toLocaleString()} ${unit}/day` : `${pace}/day`;
+            if (pace > thresh) paceAlerts.push(`${label} pace required ${paceStr} — above threshold.`);
+            else if (pct > 0) parts.push(`${label}: ${pct}% complete (${vel.tot.toLocaleString()} / ${vel.bom.toLocaleString()}${unit ? ' ' + unit : ''}).`);
+        });
+        paceAlerts.forEach(a => parts.push(a));
+    }
+
+    if (isOverdue) parts.push(`Project is OVERDUE by ${Math.abs(daysLeft)} days.`);
+    else if (daysLeft >= 0 && daysLeft <= 7) parts.push(`Closing in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — needs immediate attention.`);
+
+    let f = item.flags || "";
+    if (f.includes("ADMIN: CHECK CROSSINGS")) parts.push("Crossing check required before proceeding.");
+    if (f.includes("LIGHTING RISK")) parts.push("Pending light to cabinets is a delivery risk.");
+    if (f.includes("POSSIBLE REROUTE")) parts.push("Possible reroute detected — confirm scope with vendor.");
+    if (f.includes("NOT IN QB REFERENCE")) parts.push("Project missing from Reference Data export. Verify it exists in QuickBase.");
+
+    if (parts.length === 0) parts.push("No anomalies detected. Monitor progress.");
+
+    let actionText = parts.join(' ');
+    let statusText = item.vendorComment ? `Vendor states: "${item.vendorComment}"` : "Awaiting vendor updates.";
+    return `Action: ${actionText}\nStatus: ${statusText}`;
+}
+
+function buildVelocityBar(name, daily, tot, bom, typeKey, daysLeft) {
+    let dailyVal = daily || 0;
+    let rawTot = tot || 0;
+    let bomVal = bom || 0;
+    let totalVal = Math.max(rawTot, dailyVal);
+
+    if (bomVal === 0 && totalVal === 0 && dailyVal === 0) return '';
+    if (bomVal === 0 && totalVal > 0) bomVal = totalVal;
+
+    let totalPct = bomVal > 0 ? Math.min(100, (totalVal / bomVal) * 100) : 0;
+    let isDone = totalPct >= 100;
+    let colorDef = QB_STYLES[typeKey] || QB_STYLES["AE"];
+    let textCol = isDone ? QB_STYLES["DONE"].color : colorDef.color;
+
+    let bgStyle = isDone ? "#22c55e" : colorDef.bg;
+    if (!isDone) {
+        if (typeKey === 'AE') bgStyle = "var(--qb-ae-bg)";
+        else if (typeKey === 'FIB') bgStyle = "var(--qb-fib-bg)";
+        else if (typeKey === 'NAP') bgStyle = "var(--qb-nap-bg)";
+    }
+
+    let beadBorder = isDone ? QB_STYLES["DONE"].border : colorDef.border;
+    let beadShadow = "0 2px 4px rgba(0,0,0,0.2)";
+    if (typeKey === 'FIB' && !isDone) beadShadow = `0 0 10px ${beadBorder}`;
+    if (typeKey === 'NAP' && !isDone) beadShadow = `0 0 8px rgba(99, 102, 241, 0.6)`;
+
+    let paceDays = Math.max(1, daysLeft);
+    let paceVal = Math.max(0, bomVal - totalVal) / paceDays;
+    let paceColor = "var(--text-muted)";
+
+    if (!isDone && bomVal > 0) {
+        if (typeKey === 'UG' && paceVal > 450) paceColor = "#ef4444";
+        else if (typeKey === 'AE' && paceVal > 5000) paceColor = "#ef4444";
+        else if (typeKey === 'NAP' && paceVal > 5) paceColor = "#ef4444";
+        else paceColor = textCol;
+    }
+
+    let paceUnit = typeKey === 'NAP' ? 'NAPs/day' : 'ft/day';
+    let formattedPace = typeKey === 'NAP' ? Math.ceil(paceVal) : Math.round(paceVal);
+    let dailyLabel = typeKey === 'NAP'
+        ? 'Daily NAPs/Encl. Completed'
+        : `Daily ${typeKey === 'UG' ? 'UG' : typeKey === 'AE' ? 'Strand' : 'Fiber'} Footage`;
+    let dailyBadge = dailyVal > 0 ? `<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:4px; font-size:8px; border:1px solid #bbf7d0; display:inline-flex; align-items:center; line-height:1; white-space:nowrap; cursor:pointer;" onmouseenter="hl('${dailyLabel}')" onmouseleave="hl('')">+${dailyVal.toLocaleString()} TODAY</span>` : '';
+
+    let starStr = isDone ? `<span class="has-tooltip" data-tooltip="${name} 100% Complete" style="color:var(--starGold); margin-left:4px; font-size:12px; line-height:1;">★</span>` : '';
+    let barTrackBg = (typeKey === 'FIB' || typeKey === 'NAP') ? 'var(--border)' : 'var(--bg)';
+    let beadHtml = '';
+    if (!isDone && totalPct > 0) beadHtml = `<div class="qb-vel-bead" style="left: calc(${totalPct}% - 7px); border-color: ${beadBorder}; box-shadow: ${beadShadow};"></div>`;
+
+    let colMap = {
+        'UG': { tot: 'Total UG Footage Completed', bom: 'UG BOM Quantity' },
+        'AE': { tot: 'Total Strand Footage Complete?', bom: 'Strand BOM Quantity' },
+        'FIB': { tot: 'Total Fiber Footage Complete', bom: 'Fiber BOM Quantity' },
+        'NAP': { tot: 'Total NAPs Completed', bom: 'NAP/Encl. BOM Qty.' }
+    };
+    let cols = colMap[typeKey] || { tot: '', bom: '' };
+
+    return `
+    <div class="qb-vel-item">
+        <div class="qb-vel-labels" style="display:flex; justify-content:space-between; align-items:flex-end; gap:8px; margin-bottom:4px;">
+            <div style="display:flex; align-items:center; flex-wrap:nowrap; gap:6px;">
+                <span style="font-size:10px; font-weight:bold; color:var(--text-main);">${name}:</span>
+                <span style="color:${textCol}; font-family:monospace; font-size:10px; font-weight:bold; cursor:pointer;" onmouseenter="hl('${cols.tot}')" onmouseleave="hl('')">${totalVal.toLocaleString()}</span>
+                <span style="color:var(--text-muted); font-size:10px;">/</span>
+                <span style="color:${textCol}; font-family:monospace; font-size:10px; font-weight:bold; cursor:pointer;" onmouseenter="hl('${cols.bom}')" onmouseleave="hl('')">${bomVal.toLocaleString()}</span>
+                ${dailyBadge}
+            </div>
+            <div style="color:${textCol}; font-family:monospace; font-size:10px; font-weight:900; white-space:nowrap; flex-shrink:0;">${Math.round(totalPct)}% ${starStr}</div>
+        </div>
+        <div class="qb-vel-bar" style="background:${barTrackBg}; overflow:visible;"><div class="qb-vel-fill" style="width:${totalPct}%; background:${bgStyle};"></div>${beadHtml}</div>
+        <div style="font-size:9px; color:${paceColor}; font-weight:800; margin-top:2px;">PACE: ${formattedPace.toLocaleString()} ${paceUnit}</div>
+    </div>`;
+}
+
+function openPane(item, cardEl) {
+    safeExecute('openPane', () => {
+        currentActiveItem = item;
+        renderChangeLog();
+        currentQueueIndex = filteredItems.indexOf(item);
+        document.querySelectorAll('.email-card').forEach(c => c.classList.remove('selected'));
+        if (cardEl) cardEl.classList.add('selected');
+        document.querySelectorAll('.grid-card').forEach(c => c.classList.remove('is-selected'));
+        document.querySelectorAll(`.grid-card[data-fdh="${CSS.escape(String(item.fdh || ''))}"]`).forEach(c => c.classList.add('is-selected'));
+        centerQueueCardByFdh(item.fdh, 'smooth');
+
+        setStyle('welcome-screen', 'display', 'none');
+        setStyle('detail-layout', 'display', 'flex');
+
+        if (!isGridMode && !isDeckMode) {
+            setStyle('pane-content', 'display', 'flex');
+        }
+        if (window.innerWidth > 768 && !isGridMode && !isDeckMode) {
+            setAdminPanelOpen(shouldAutoOpenAdminPanel());
+        }
+
+        renderDiagnosticStrip(item.rawRow);
+
+        let _diagStrip = getEl('raw-data-strip');
+        if (_diagStrip) {
+            let _rawFlags = (item.flags || "").split('\n').filter(f => f.trim() !== '');
+            let _anomalyCount = _rawFlags.filter(f => f.startsWith('ADMIN:') || f.includes('MISMATCH') || f.includes('MISSING') || f.includes('🚨') || f.includes('🛑') || f.includes('🚩') || f.includes('⚠️')).length;
+            _diagStrip.style.opacity = _anomalyCount === 0 ? '0.4' : '1';
+            _diagStrip.style.pointerEvents = _anomalyCount === 0 ? 'none' : '';
+        }
+        syncRawDataStripState();
+
+        setTxt('p-fdh', item.fdh || "N/A");
+        setTxt('p-meta', item.city || "Unknown City");
+
+        let pill = getEl('p-status');
+        if (pill) {
+            let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
+            let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+            if (item.flags.includes("MISSING QB STATUS") && !item.flags.includes("NOT IN QB REFERENCE")) combinedPill = "MISSING QB STATUS";
+            pill.innerText = combinedPill;
+            pill.className = `glass-pill ${getQBStatusClass(item.stage, item.status, isNotInQb)}`;
+        }
+        let st = (item.stage || "").toLowerCase();
+        let stat = (item.status || "").toLowerCase();
+        let isOFS = st.includes('ofs');
+        let isPermit = st.includes('permit');
+        let isComplete = stat.includes('complete');
+        let isOnHold = stat.includes('hold') || stat.includes('assign');
+
+        let hasEnd = item.cxEnd && item.cxEnd !== "";
+        let isOverdue = false;
+        if (hasEnd) {
+            let end = safeDate(item.cxEnd);
+            let today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (end && today > end && !isOFS && !isComplete && !isOnHold && !isPermit) isOverdue = true;
+        }
+
+        let statusColor = "#facc15";
+        if (isOFS) statusColor = "#2563eb";
+        else if (isPermit) statusColor = "#a855f7";
+        else if (isComplete) statusColor = "#22c55e";
+        else if (isOnHold) statusColor = "#94a3b8";
+        else if (isOverdue) statusColor = "#ef4444";
+
+        let unifiedCard = getEl('main-qb-grid');
+        if (unifiedCard) {
+            unifiedCard.classList.remove('glow-ofs', 'glow-complete', 'glow-permit', 'glow-overdue', 'glow-active');
+            unifiedCard.style.boxShadow = '';
+            if (isOFS) unifiedCard.classList.add('glow-ofs');
+            else if (isComplete) unifiedCard.classList.add('glow-complete');
+            else if (isPermit) unifiedCard.classList.add('glow-permit');
+            else if (isOverdue) unifiedCard.classList.add('glow-overdue');
+            else unifiedCard.classList.add('glow-active');
+        }
+
+        let isMuted = isComplete || isOFS || isPermit;
+        let scheduleModule = getEl('project-schedule-card');
+        let velocityModule = getEl('velocity-production-card');
+        if (scheduleModule) {
+            let timeBar = scheduleModule.querySelector('.qb-time-bar');
+            if (timeBar) timeBar.classList.toggle('is-muted', isMuted);
+        }
+        if (velocityModule) {
+            let velGrid = velocityModule.querySelector('.velocity-grid');
+            if (velGrid) velGrid.classList.toggle('is-muted', isMuted);
+        }
+
+        let hasStart = item.cxStart && item.cxStart !== "";
+        setHtml('p-cx-start', `CX START: <span style="color:var(--text-main)">${hasStart ? formatDate(item.cxStart) : "TBD"}</span>`);
+        setHtml('p-cx-end', `CX COMPLETE: <span style="color:var(--text-main)">${hasEnd ? formatDate(item.cxEnd) : "TBD"}</span>`);
+
+        let scheduleFill = getEl('p-time-fill');
+        let scheduleTodayIndicator = getEl('p-today-indicator');
+        let scheduleTodayLine = getEl('p-today-line');
+        let scheduleTodayLabel = getEl('p-today-label');
+        let daysLeft = 0;
+        let pStart = safeDate(item.cxStart);
+        let pEnd = safeDate(item.cxEnd);
+
+        if (hasStart && hasEnd && pStart && pEnd && scheduleFill) {
+            let total = pEnd - pStart;
+            let elap = new Date() - pStart;
+            daysLeft = Math.ceil((pEnd - new Date()) / 86400000);
+            let pct = total > 0 ? Math.max(0, Math.min(100, (elap / total) * 100)) : 0;
+            scheduleFill.style.width = `${pct}%`;
+            scheduleFill.style.background = statusColor;
+        } else if (scheduleFill) {
+            scheduleFill.style.width = "0%";
+        }
+
+        let cardToday = getTimelineTodayIndicator(pStart, pEnd, new Date());
+        if (scheduleTodayIndicator && scheduleTodayLine && scheduleTodayLabel && cardToday) {
+            scheduleTodayIndicator.style.display = 'block';
+            scheduleTodayIndicator.style.left = `${cardToday.clampedPct}%`;
+            scheduleTodayIndicator.classList.toggle('is-muted', cardToday.isOutOfRange || isMuted);
+            scheduleTodayLine.style.opacity = cardToday.isOutOfRange ? '0.45' : '1';
+            scheduleTodayLabel.style.opacity = cardToday.isOutOfRange ? '0.8' : '1';
+        } else if (scheduleTodayIndicator) {
+            scheduleTodayIndicator.style.display = 'none';
+            scheduleTodayIndicator.classList.remove('is-muted');
+        }
+
+        const makeProjBead = (dateStr, icon, title, bgColor, borderColor, start, end) => {
+            let d = safeDate(dateStr);
+            if (!d) return "";
+            let pct = ((d - start) / (end - start)) * 100;
+            if (pct >= 0 && pct <= 100) return `<div class="proj-bead has-tooltip" data-tooltip="${title}" style="left:${pct}%; background:${bgColor}; border-color:${borderColor}; color:${borderColor};">${icon}</div>`;
+            return "";
+        };
+
+        let projBeadHtml = '';
+        let benchStr = item.bench || "";
+
+        if (pStart && pEnd && (pEnd - pStart > 0)) {
+            let locMatch = benchStr.match(/Loc:\s*([\d/]+)/);
+            if (locMatch && locMatch[1]) projBeadHtml += makeProjBead(locMatch[1], 'L', `Locates Called (${locMatch[1]})`, 'var(--card-bg)', '#3b82f6', pStart, pEnd);
+            let cabMatch = benchStr.match(/Cab:\s*([\d/]+)/);
+            if (cabMatch && cabMatch[1]) projBeadHtml += makeProjBead(cabMatch[1], 'C', `Cabinets Set (${cabMatch[1]})`, 'var(--card-bg)', '#a855f7', pStart, pEnd);
+            let litMatch = benchStr.match(/Lit:\s*([\d/]+)/);
+            if (litMatch && litMatch[1]) projBeadHtml += makeProjBead(litMatch[1], '⚡', `Light Present (${litMatch[1]})`, 'var(--card-bg)', '#eab308', pStart, pEnd);
+
+            let starMatch = benchStr.match(/(UG|AE|FIB|NAP):\s*[\d/]+\s*->\s*([\d/]+)\s*\(100%\)/g);
+            if (starMatch) {
+                starMatch.forEach(m => {
+                    let phase = m.split(':')[0];
+                    let dateExtract = m.match(/->\s*([\d/]+)\s*\(/);
+                    if (dateExtract && dateExtract[1]) {
+                        let starDate = new Date(dateExtract[1]);
+                        if (!isNaN(starDate)) {
+                            let starPct = ((starDate - pStart) / (pEnd - pStart)) * 100;
+                            if (starPct >= 0 && starPct <= 100) {
+                                let sCol = QB_STYLES[phase] ? QB_STYLES[phase].border : "#94a3b8";
+                                let sShadow = "0 1px 3px rgba(0,0,0,0.3)";
+                                if (phase === 'FIB') sShadow = `0 0 10px ${sCol}`;
+                                if (phase === 'NAP') sShadow = `0 0 8px rgba(99, 102, 241, 0.6)`;
+                                projBeadHtml += `<div class="proj-bead has-tooltip" data-tooltip="${phase} 100% Complete (${dateExtract[1]})" style="left:${starPct}%; background:rgba(255,255,255,0.85); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); border-color:${sCol}; color:${sCol}; box-shadow:${sShadow}; font-size:9px;">★</div>`;
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        setHtml('p-time-stars', projBeadHtml);
+
+        let targetWrap = getEl('p-target-wrap');
+        let targetInner = getEl('p-target-inner');
+        setHtml('p-target', (item.targetDate ? formatDate(item.targetDate) : "TBD") + (isComplete ? `<span style="color:var(--starGold); font-size:14px; margin-left:4px; line-height:1;">★</span>` : ""));
+        setStyle('p-target', 'color', statusColor);
+
+        if (item.isXing && targetWrap && targetInner) {
+            targetWrap.classList.add('xing');
+            targetInner.style.borderRadius = "9px 9px 0 0";
+            setStyle('p-xing', 'display', 'flex');
+        } else if (targetWrap && targetInner) {
+            targetWrap.classList.remove('xing');
+            targetInner.style.borderRadius = "12px 12px 0 0";
+            setStyle('p-xing', 'display', 'none');
+        }
+
+        let rawFlags = (item.flags || "").split('\n').map(f => f.trim()).filter(f => f !== "");
+        let tagsHtml = '';
+        let isCritical = false;
+        let isWarn = false;
+        let needsAdminCheck = false;
+        let needsQbSync = false;
+
+        rawFlags.forEach(f => {
+            let cleanText = cleanDiagnosticFlagText(f);
+            let tagCls = getDiagnosticTagClass(f);
+            if (tagCls === "chip-admin") {
+                isWarn = true;
+                if (f.includes("CHECK CROSSINGS")) needsAdminCheck = true;
+                tagsHtml += `<span class="tag ${tagCls} admin-flag-tag">${cleanText}</span>`;
+            } else if (tagCls === "chip-warn") {
+                isWarn = true;
+                if (f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) needsQbSync = true;
+                tagsHtml += `<span class="tag ${tagCls} status-flag-tag">${cleanText}</span>`;
+            } else if (tagCls === "tag-red") {
+                isCritical = true;
+                tagsHtml += `<span class="tag ${tagCls}">${cleanText}</span>`;
+            } else {
+                tagsHtml += `<span class="tag ${tagCls}">${cleanText}</span>`;
+            }
+        });
+
+        let nPath = getEl('p-network-path');
+        if (nPath) {
+            nPath.innerHTML = renderMiniSld(item);
+        }
+
+        let dGrid = getEl('p-deliverables-grid');
+        if (dGrid) {
+            dGrid.innerHTML = `
+               <div style='display: flex; align-items: center; gap: 8px;'>
+                  <div style='padding: 3px 10px; border-radius: 4px; font-size: 10px; font-weight: 900; background: rgba(240, 253, 244, 0.7); color: #166534; border: 1.5px solid #22c55e;'>DELIVERABLES</div>
+                  <div style='display: flex; flex-wrap: wrap; gap: 4px;'>
+                     ${renderDeliverableChip("SPLICING", item.hasSpliceDel)}
+                     ${renderDeliverableChip("STRAND", item.hasStandDel)}
+                     ${renderDeliverableChip("CD", item.hasCDDel)}
+                     ${renderDeliverableChip("BOM", item.hasBOMDel)}
+                  </div>
+               </div>
+               <div style='display: flex; align-items: center; gap: 8px;'>
+                  <div style='padding: 3px 10px; border-radius: 4px; font-size: 10px; font-weight: 900; background: rgba(239, 246, 255, 0.7); color: #1e40af; border: 1.5px solid #3b82f6;'>DISTRIBUTED</div>
+                  <div style='display: flex; flex-wrap: wrap; gap: 4px;'>
+                     ${renderDeliverableChip("STRAND", item.hasStrandDist)}
+                     ${renderDeliverableChip("CD", item.hasCDDist)}
+                     ${renderDeliverableChip("BOM/PO", item.hasBOMPo)}
+                     ${renderDeliverableChip("SOW", item.hasSOW)}
+                  </div>
+               </div>`;
+        }
+
+        let eeContainer = getEl('p-edit-engine');
+        if (eeContainer) {
+            if (item.rid) {
+                let engineUrl = `https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={'3'.EX.'${item.rid}'}`;
+                eeContainer.innerHTML = `<a href="${engineUrl}" target="_blank" style="text-decoration: none; font-size: 9px; font-weight: bold; color: var(--text-muted); background: var(--bg); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.02); display: inline-flex; align-items: center; transition: all 0.2s;">⚙ EDIT IN ENGINE</a>`;
+            } else {
+                eeContainer.innerHTML = '';
+            }
+        }
+
+        let vrContainer = getEl('p-view-record');
+        if (vrContainer) {
+            if (item.rid) {
+                vrContainer.innerHTML = `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=dr&rid=${item.rid}" target="_blank" class="btn" style="padding: 5px 12px; font-size: 9px; color: var(--text-main); background: var(--bg); border-color: var(--border); text-decoration: none;">VIEW RECORD</a>`;
+            } else {
+                vrContainer.innerHTML = '';
+            }
+        }
+
+        let vComment = item.vendorComment ? item.vendorComment.trim() : "";
+        let vBubble = getEl('p-vendor-bubble');
+        if (vBubble) {
+            if (vComment !== "") {
+                vBubble.style.display = 'flex';
+                setTxt('p-vendor-comment', `"${vComment}"`);
+            } else {
+                vBubble.style.display = 'none';
+            }
+        }
+
+        let cdIntelText = item.cdIntel || "";
+        let mainDraft = item.draft || "";
+        if (!cdIntelText) {
+            let cdMatch = mainDraft.match(/\n*\[CD Intelligence\]:\s*([\s\S]*)$/);
+            if (cdMatch) cdIntelText = cdMatch[1].trim();
+        }
+        mainDraft = mainDraft.replace(/\n*\[CD Intelligence\]:\s*[\s\S]*$/, '').trim();
+        let cdPanel = getEl('p-cd-intel');
+        if (cdPanel) {
+            cdPanel.style.display = cdIntelText ? 'flex' : 'none';
+            if (cdIntelText) {
+                setTxt('p-cd-intel-text', cdIntelText);
+                cdPanel.classList.toggle('has-xing', !!item.isXing);
+            }
+        }
+
+        let actionBox = getEl('p-action');
+        if (actionBox) {
+            actionBox.className = 'action-box hover-trigger';
+            if (isCritical) actionBox.classList.add('crit');
+            else if (isWarn) actionBox.classList.add('warn');
+            else if (item.flags === "MISSING DAILY REPORT") actionBox.classList.add('ghost');
+
+            let draftMain = mainDraft ? `<div style="font-weight:normal; color:var(--text-main); line-height:1.4;">${mainDraft.replace(/\n/g, '<br>')}</div>` : "<div style='font-style:italic; font-weight:normal; color:var(--text-muted);'>No specific action flagged.</div>";
+            let xingCardHtml = "";
+            if (needsAdminCheck) {
+                let xVal = item.rawSpecialX || "—";
+                let xDet = item.specXDetails ? `<div style="font-size:10px; color:var(--text-muted); margin-top:3px; line-height:1.4;">${item.specXDetails}</div>` : "";
+                xingCardHtml = `<div style="margin-bottom:8px; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px;">
+                    <div style="font-size:9px; font-weight:900; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">Special X-ings Data</div>
+                    <div style="font-size:11px; font-weight:700;">Special Crossings? <span style="color:var(--text-main);">${xVal}</span></div>
+                    ${xDet}
+                </div>`;
+            }
+            let adminBtn = needsAdminCheck ? `<button class="btn hover-trigger" id="btn-admin-check" onclick="markChecked('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#0f172a; color:#ffffff; border-color:#0f172a; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🛡️ VERIFY CROSSINGS</button>` : "";
+            let qbBtn = needsQbSync ? `<button class="btn hover-trigger" id="btn-qb-update" onclick="markQbUpdated('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#2563eb; color:#ffffff; border-color:#1d4ed8; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🛠️ MARK QB UPDATED</button>` : "";
+            let btnContainer = (adminBtn !== "" || qbBtn !== "") ? `<div style="display:flex; gap:8px; margin-top:8px; margin-left:auto; width:fit-content;">${adminBtn}${qbBtn}</div>` : "";
+            actionBox.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px;">${tagsHtml}</div>${xingCardHtml}${draftMain}${btnContainer}`;
+        }
+
+        let barsHtml = '';
+        let v = item.vel;
+        if (v) {
+            barsHtml += buildVelocityBar('Underground', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft);
+            barsHtml += buildVelocityBar('Aerial', v.ae.daily, v.ae.tot, v.ae.bom, 'AE', daysLeft);
+            barsHtml += buildVelocityBar('Fiber', v.fib.daily, v.fib.tot, v.fib.bom, 'FIB', daysLeft);
+            barsHtml += buildVelocityBar('Splicing', v.nap.daily, v.nap.tot, v.nap.bom, 'NAP', daysLeft);
+        }
+        setHtml('p-prod-bars', barsHtml || "<div style='font-size:11px; color:var(--text-muted); font-style:italic; grid-column:span 2;'>No active production tracking.</div>");
+
+        let effectiveLight = item.isLight || st.includes('ofs') || stat.includes('complete');
+        let lightHtml = effectiveLight ? `<span style="height:6px; width:6px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px #22c55e;"></span> <span style="color:#22c55e;">LIGHT PRESENT</span>` : `<span style="height:6px; width:6px; background:#94a3b8; border-radius:50%;"></span> <span style="color:#94a3b8;">PENDING LIGHT</span>`;
+        setHtml('p-light-pill', lightHtml);
+        let trackerFooter = getEl('p-tracker-pill');
+        if (trackerFooter) {
+            trackerFooter.style.display = isVendorTrackerLinked(item) ? 'inline-flex' : 'none';
+            trackerFooter.innerHTML = isVendorTrackerLinked(item) ? renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' }) : '';
+        }
+
+        let ofsMonthStr = "TBD";
+        let isOFSMonth = false;
+
+        if (item.ofsDate && item.ofsDate !== "-" && item.ofsDate !== "Unknown") {
+            let d = safeDate(item.ofsDate);
+            if (d && !isNaN(d.getTime())) {
+                ofsMonthStr = d.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+                let today = new Date();
+                if (d.getUTCMonth() === today.getMonth() && d.getUTCFullYear() === today.getFullYear()) {
+                    isOFSMonth = true;
+                }
+            }
+        }
+
+        setTxt('p-days-left', daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`);
+        setTxt('p-bsls', `BSLS: ${item.bsls}`);
+        let pOfs = getEl('p-ofs');
+        if (pOfs) {
+            pOfs.style.display = 'inline-flex';
+            pOfs.innerText = `OFS: ${ofsMonthStr}`;
+            if (isOFSMonth) {
+                pOfs.style.color = '#2563eb';
+                pOfs.style.background = 'rgba(239, 246, 255, 0.7)';
+                pOfs.style.borderColor = '#2563eb';
+            } else {
+                pOfs.style.color = 'var(--text-main)';
+                pOfs.style.background = 'var(--bg)';
+                pOfs.style.borderColor = 'var(--border)';
+            }
+        }
+
+        let chkMatch = (item.gaps || "").match(/\[Chk:\s*([^\]]+)\]/);
+        let lastCheckedStr = chkMatch ? chkMatch[1] : "NEVER";
+        let d = new Date();
+        let dateStr = (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear().toString().slice(-2);
+
+        setTxt('p-date', `REPORT DATE: ${item.reportDate ? formatDate(item.reportDate) : dateStr}`);
+        setTxt('p-last-check', `LAST CHECKED: ${lastCheckedStr === 'NEVER' ? 'NEVER' : formatDate(lastCheckedStr)}`);
+        updateRefDataIndicator();
+
+        let smartNote = item.geminiInsight ? item.geminiInsight : generateSmartComment(item, daysLeft, isOverdue);
+        let pComment = getEl('p-comment');
+        if (pComment) {
+            pComment.value = item.comment || smartNote;
+            pComment.dataset.generated = item.comment ? 'false' : 'true';
+        }
+
+        let pGeminiDate = getEl('p-gemini-date');
+        if (pGeminiDate) {
+            pGeminiDate.innerText = item.geminiDate ? `Drafted: ${formatDate(item.geminiDate)}` : "";
+        }
+
+        let ganttArea = currentWorkspaceView === 'gantt' ? getEl('gantt-area-main') : null;
+        if (ganttArea) {
+            ganttArea.classList.add('has-focus');
+            document.querySelectorAll('.gantt-row').forEach(r => r.classList.remove('is-active'));
+            syncGanttIslandState();
+            let gRow = getEl(`gantt-row-${item.fdh}`);
+            if (gRow) {
+                gRow.classList.add('is-active');
+                let scrollContainer = getEl('gantt-scroll');
+                if (scrollContainer) {
+                    let rowTop = gRow.offsetTop;
+                    let containerHalfH = scrollContainer.clientHeight / 2;
+                    let rowHalfH = gRow.clientHeight / 2;
+                    let scrollTopTarget = rowTop - containerHalfH + rowHalfH;
+                    let scrollLeftTarget = scrollContainer.scrollLeft;
+                    let todayLine = ganttArea.querySelector('.gantt-today-line');
+                    if (todayLine) {
+                        let leftPct = parseFloat(todayLine.style.left);
+                        let chartWidth = ganttArea.querySelector('.gantt-grid-container').offsetWidth;
+                        let barOffset = chartWidth * (leftPct / 100) + 140;
+                        scrollLeftTarget = Math.max(0, barOffset - (scrollContainer.clientWidth / 2));
+                    }
+                    scrollContainer.scrollTo({ top: scrollTopTarget, left: scrollLeftTarget, behavior: 'smooth' });
+                }
+            }
+            let exitBtn = getEl('btn-exit-theater');
+            if (exitBtn) exitBtn.style.display = 'inline-flex';
+        }
+
+        if (currentWorkspaceView === 'detail' && isDeckMode) {
+            renderDeckStage();
+        }
+    });
+}
+
+function advanceAfterAction() {
+    setHtml('raw-data-strip', '');
+    exitTheaterMode();
+    applyFilters();
+    renderOutbox();
+    if (allActionItems.length === 0) {
+        setStyle('pane-content', 'display', 'none');
+        setStyle('detail-layout', 'display', 'none');
+        setStyle('welcome-screen', 'display', 'block');
+        let rp = document.querySelector('.reading-pane');
+        if (rp) rp.classList.remove('admin-open');
+        let op = getEl('outbox-pane');
+        if (op) op.classList.remove('open');
+        let ov = getEl('outbox-overlay');
+        if (ov) ov.classList.remove('open');
+        setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px;">All Clear ✓</div>`);
+    }
+    syncRawDataStripState();
+}
+</script>

@@ -1,0 +1,625 @@
+<script>
+// ============================================================
+// FILE: _module_gantt.html
+// ROLE: Gantt render engine, Gantt-local session state, focus
+//   helpers, and hover HUD helpers extracted from WebApp.html
+// DEPENDS ON: _state_queue.html, _state_router.html,
+//   _utils_shared.html, _module_queue_state.html
+// DEPENDED ON BY: WebApp.html bootstrap anchors, detail-pane
+//   Gantt entry points, and workspace render flows
+// MOBILE NOTES: Desktop Gantt focus/fullscreen behaviors remain
+//   here; any mobile timeline should adapt data helpers without
+//   reusing this layout directly
+// AGENT NOTES: Keep row-header rendering bundled with
+//   renderGantt(). Do not move quick-peek write flows, shared KPI
+//   HUD helpers, or workspace dock orchestration into this file.
+// ============================================================
+// STATE: ganttHasMounted
+// READS: Gantt render lifecycle
+// WRITES: ensureGanttRendered
+let ganttHasMounted = false;
+// STATE: ganttNeedsRender
+// READS: Gantt render lifecycle
+// WRITES: applyFilters, ensureGanttRendered
+let ganttNeedsRender = true;
+// STATE: ganttFocusedFdh
+// READS: Gantt focus helpers and restore
+// WRITES: Gantt focus interactions
+let ganttFocusedFdh = null;
+// STATE: ganttScrollState
+// READS: viewport restore helpers
+// WRITES: captureGanttScrollState, openGanttView
+let ganttScrollState = { top: 0, left: 0 };
+// STATE: ganttHasVisited
+// READS: viewport/focus restore helpers
+// WRITES: captureGanttScrollState, ensureGanttRendered
+let ganttHasVisited = false;
+// STATE: hudLocked
+// READS: gantt HUD visibility helpers
+// WRITES: HUD lock toggles and theater exit
+let hudLocked = false;
+
+function persistGanttViewSession() {
+    try {
+        sessionStorage.setItem(GANTT_VIEW_SCROLL_SESSION_KEY, JSON.stringify(ganttScrollState || { top: 0, left: 0 }));
+        if (ganttFocusedFdh) sessionStorage.setItem(GANTT_VIEW_FOCUS_SESSION_KEY, ganttFocusedFdh);
+        else sessionStorage.removeItem(GANTT_VIEW_FOCUS_SESSION_KEY);
+    } catch (e) {}
+}
+
+function restoreGanttViewSession() {
+    try {
+        let rawScroll = sessionStorage.getItem(GANTT_VIEW_SCROLL_SESSION_KEY);
+        if (rawScroll) {
+            let parsed = JSON.parse(rawScroll);
+            ganttScrollState = {
+                top: Number(parsed && parsed.top) || 0,
+                left: Number(parsed && parsed.left) || 0
+            };
+        }
+        ganttFocusedFdh = sessionStorage.getItem(GANTT_VIEW_FOCUS_SESSION_KEY) || null;
+        ganttHasVisited = !!(ganttFocusedFdh || ganttScrollState.top || ganttScrollState.left);
+    } catch (e) {}
+}
+
+function captureGanttScrollState() {
+    let scroll = getEl('gantt-scroll');
+    if (!scroll) return;
+    ganttScrollState = { top: scroll.scrollTop || 0, left: scroll.scrollLeft || 0 };
+    ganttHasVisited = true;
+    persistGanttViewSession();
+}
+
+function restoreGanttViewport() {
+    let scroll = getEl('gantt-scroll');
+    if (!scroll) return;
+    scroll.scrollTo({
+        top: Math.max(0, ganttScrollState.top || 0),
+        left: Math.max(0, ganttScrollState.left || 0),
+        behavior: 'auto'
+    });
+}
+
+function syncGanttViewportLayout() {
+    let nav = document.querySelector('.top-nav');
+    let topOffset = nav ? Math.ceil(nav.getBoundingClientRect().bottom) : 72;
+    let dock = getEl('filter-strip');
+    if (dock && getComputedStyle(dock).display !== 'none') {
+        if (currentWorkspaceView !== 'gantt') {
+            topOffset = Math.max(topOffset, Math.ceil(dock.getBoundingClientRect().bottom + 10));
+        }
+    }
+    let pills = getEl('active-filter-pills');
+    if (pills && pills.childElementCount > 0 && getComputedStyle(pills).display !== 'none') {
+        topOffset = Math.max(topOffset, Math.ceil(pills.getBoundingClientRect().bottom + 10));
+    }
+    document.documentElement.style.setProperty('--gantt-top-offset', `${Math.max(0, topOffset)}px`);
+    document.documentElement.style.setProperty('--gantt-bottom-offset', '0px');
+}
+
+function applyGanttFocusState(behavior) {
+    let ganttArea = getEl('gantt-area-main');
+    if (!ganttArea) return;
+    document.querySelectorAll('.gantt-row').forEach(r => r.classList.remove('is-active'));
+    closeQuickPeek();
+    if (!ganttFocusedFdh) {
+        ganttArea.classList.remove('has-focus');
+        syncGanttIslandState();
+        return;
+    }
+
+    ganttArea.classList.add('has-focus');
+    let row = getEl(`gantt-row-${ganttFocusedFdh}`);
+    let scroll = getEl('gantt-scroll');
+    if (row) {
+        row.classList.add('is-active');
+        if (scroll) {
+            let topTarget = row.offsetTop - (scroll.clientHeight / 2) + (row.clientHeight / 2);
+            let grid = ganttArea.querySelector('.gantt-grid-container');
+            let chartWidth = grid ? grid.offsetWidth : 0;
+            let leftTarget = scroll.scrollLeft;
+            if (chartWidth) {
+                let todayLine = ganttArea.querySelector('.gantt-today-line');
+                if (todayLine) {
+                    let todayPct = parseFloat(todayLine.style.left) || 0;
+                    leftTarget = Math.max(0, (chartWidth * (todayPct / 100)) + 140 - (scroll.clientWidth / 2));
+                } else {
+                    let bar = row.querySelector('.gantt-bar-fill');
+                    if (bar) leftTarget = Math.max(0, bar.offsetLeft + (bar.offsetWidth / 2) - (scroll.clientWidth / 2));
+                }
+            }
+            scroll.scrollTo({ top: Math.max(0, topTarget), left: Math.max(0, leftTarget), behavior: behavior || 'smooth' });
+        }
+    }
+    syncGanttIslandState();
+    persistGanttViewSession();
+}
+
+function ensureGanttRendered(options) {
+    let opts = options || {};
+    let focusFdh = Object.prototype.hasOwnProperty.call(opts, 'focusFdh') ? opts.focusFdh : ganttFocusedFdh;
+    if (typeof focusFdh !== 'undefined') ganttFocusedFdh = focusFdh;
+    if (ganttFocusedFdh && !(filteredItems || []).some(item => String(item.fdh || '') === String(ganttFocusedFdh || ''))) {
+        ganttFocusedFdh = null;
+    }
+
+    let container = getEl('gantt-container');
+    if (!container) return;
+    if (!ganttHasMounted) {
+        container.innerHTML = `<div class="empty-msg" style="margin-top:20px;">Loading Timeline...</div>`;
+        ganttHasMounted = true;
+    }
+
+    let finish = function() {
+        if (ganttNeedsRender) {
+            renderGantt(filteredItems || []);
+            ganttNeedsRender = false;
+        }
+        let scroll = getEl('gantt-scroll');
+        if (scroll && !scroll.dataset.boundScrollState) {
+            scroll.addEventListener('scroll', captureGanttScrollState, { passive: true });
+            scroll.dataset.boundScrollState = '1';
+        }
+        if (ganttFocusedFdh) applyGanttFocusState(ganttHasVisited ? 'smooth' : 'auto');
+        else if (ganttHasVisited) restoreGanttViewport();
+        else scrollGanttToToday();
+        ganttHasVisited = true;
+        persistGanttViewSession();
+    };
+
+    if (opts.defer !== false && !opts.immediate) {
+        requestAnimationFrame(() => setTimeout(finish, ganttNeedsRender ? 80 : 0));
+    } else {
+        finish();
+    }
+}
+
+function openGanttView(fdh) {
+    ganttFocusedFdh = fdh || null;
+    if (!fdh) {
+        ganttScrollState = { top: 0, left: 0 };
+        ganttHasVisited = false;
+    }
+    persistGanttViewSession();
+    switchWorkspaceView('gantt');
+}
+
+function clearGanttFocus() {
+    ganttFocusedFdh = null;
+    persistGanttViewSession();
+    let ganttArea = getEl('gantt-area-main');
+    if (ganttArea) ganttArea.classList.remove('has-focus');
+    document.querySelectorAll('.gantt-row').forEach(r => r.classList.remove('is-active'));
+    closeQuickPeek();
+    if (ganttHasVisited) restoreGanttViewport();
+    syncGanttIslandState();
+}
+
+function syncGanttIslandState() {
+    const isFs = currentWorkspaceView === 'gantt';
+    const hasFocus = getEl('gantt-area-main')?.classList.contains('has-focus');
+
+    const btnFs = getEl('dock-btn-exit-fs');
+    const btnFocus = getEl('dock-btn-exit-theater');
+    const ganttZone = getEl('dock-gantt-actions-zone');
+    const filtersZone = getEl('dock-filters-zone');
+    const groupZone = getEl('dock-group-zone');
+    const pivotZone = getEl('dock-pivot-zone');
+    const focusZone = getEl('dock-focus-zone');
+    const clearZone = getEl('dock-clear-zone');
+    const isGrid = currentWorkspaceView === 'grid';
+    const isDeck = isDeckMode;
+    const isDetail = currentWorkspaceView === 'detail';
+    const showFocusZone = isDetail;
+    const slideDeck = getEl('slide-action-deck');
+
+    if (btnFs) btnFs.classList.add('collapsed');
+    if (btnFocus) btnFocus.classList.toggle('collapsed', !(isFs && hasFocus));
+    if (ganttZone) ganttZone.classList.toggle('collapsed', !(isFs || hasFocus));
+    const btnFocusPill = document.getElementById('btn-exit-theater');
+    if (btnFocusPill) btnFocusPill.style.display = (!isFs && hasFocus) ? 'inline-flex' : 'none';
+
+    if (isFs) {
+        if (filtersZone) filtersZone.classList.remove('collapsed');
+        if (groupZone) groupZone.classList.remove('collapsed');
+        if (pivotZone) pivotZone.classList.add('collapsed');
+        if (focusZone) focusZone.classList.add('collapsed');
+        if (clearZone) clearZone.classList.toggle('collapsed', getEl('btn-clear-filters')?.classList.contains('collapsed') !== false);
+        if (slideDeck) slideDeck.classList.remove('visible');
+    } else if (isPresentationMode) {
+        if (filtersZone) filtersZone.classList.toggle('collapsed', isDeck);
+        if (groupZone) groupZone.classList.toggle('collapsed', isDeck);
+        if (pivotZone) pivotZone.classList.add('collapsed');
+        if (focusZone) focusZone.classList.toggle('collapsed', !showFocusZone);
+        if (clearZone) clearZone.classList.add('collapsed');
+        const tBtn = getEl('dock-btn-slide-theme');
+        if (tBtn) syncSlideThemeButton();
+        if (slideDeck) slideDeck.classList.toggle('visible', isDeck);
+    } else {
+        if (filtersZone) filtersZone.classList.remove('collapsed');
+        if (groupZone) groupZone.classList.remove('collapsed');
+        if (pivotZone) pivotZone.classList.toggle('collapsed', !isGrid);
+        if (focusZone) focusZone.classList.toggle('collapsed', !showFocusZone);
+        if (clearZone) clearZone.classList.toggle('collapsed', getEl('btn-clear-filters')?.classList.contains('collapsed') !== false);
+        const tBtn = getEl('dock-btn-slide-theme');
+        if (tBtn) syncSlideThemeButton();
+        if (slideDeck) slideDeck.classList.toggle('visible', isDeck);
+    }
+    syncDockLayoutSpacing();
+    updateFloatingPillsPosition();
+    syncDockClearanceState();
+}
+
+function handleGanttClick(fdh) {
+    if (currentWorkspaceView !== 'gantt') {
+        openGanttView(fdh);
+        return;
+    }
+    const item = allActionItems.find(i => i.fdh === fdh);
+    if (!item) return;
+    ganttFocusedFdh = fdh;
+    persistGanttViewSession();
+
+    document.querySelectorAll('.gantt-row').forEach(r => r.classList.remove('is-active'));
+    const row = document.querySelector(`#gantt-row-${fdh}`);
+    if (row) row.classList.add('is-active');
+
+    const ganttArea = getEl('gantt-area-main');
+    if (ganttArea) ganttArea.classList.add('has-focus');
+    applyGanttFocusState('smooth');
+    syncGanttIslandState();
+
+    if (typeof currentActiveItem !== 'undefined') currentActiveItem = item;
+
+    renderQuickPeek(item);
+    requestAnimationFrame(() => {
+        getEl('gantt-quick-peek').classList.add('open');
+    });
+}
+
+function handleGanttLabelClick(fdh) {
+    if (currentWorkspaceView !== 'gantt') {
+        openGanttView(fdh);
+        return;
+    }
+    handleGanttClick(fdh);
+}
+
+function toggleHudLock(e) {
+    if (e) e.stopPropagation();
+    hudLocked = !hudLocked;
+    let hud = getEl('gantt-hud');
+    if (hudLocked && hud) {
+        hud.style.pointerEvents = 'auto';
+        hud.style.boxShadow = '0 0 0 2px var(--color-insight), 0 10px 25px rgba(0,0,0,0.5)';
+    } else if (hud) {
+        hud.style.pointerEvents = 'none';
+        hud.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+        hideHUD();
+    }
+}
+
+function positionHUD(e, hud) {
+    let x = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : window.innerWidth / 2);
+    let y = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : window.innerHeight / 2);
+    x += 15;
+    y += 15;
+    if (x + 250 > window.innerWidth) x = Math.max(0, window.innerWidth - 265);
+    if (y + hud.offsetHeight > window.innerHeight) y = Math.max(0, window.innerHeight - hud.offsetHeight - 15);
+    hud.style.left = x + 'px';
+    hud.style.top = y + 'px';
+}
+
+function showHUD(e, fdh) {
+    if (hudLocked || !allActionItems) return;
+    let item = allActionItems.find(i => i.fdh === fdh);
+    if (!item) return;
+    let hud = getEl('gantt-hud');
+    if (!hud) return;
+    let html = `<div style="font-size:14px; font-weight:900; color:#fff; border-bottom:1px solid #333338; padding-bottom:4px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;"><span>${item.fdh}</span><span style="color:#a1a1aa; font-size:11px;">${item.vendor}</span></div><div style="font-size:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px;"><div><span style="color:#a1a1aa;">CX START:</span><br/>${item.cxStart || "TBD"}</div><div><span style="color:#a1a1aa;">TARGET:</span><br/>${item.targetDate || "TBD"}</div></div>`;
+    if (item.vel) {
+        let vels = [];
+        if (item.vel.ug.bom > 0) vels.push(`<span style="color:var(--qb-ug);">UG: ${Math.round((item.vel.ug.tot / item.vel.ug.bom) * 100)}%</span>`);
+        if (item.vel.ae.bom > 0) vels.push(`<span style="color:#cbd5e1;">AE: ${Math.round((item.vel.ae.tot / item.vel.ae.bom) * 100)}%</span>`);
+        if (item.vel.fib.bom > 0) vels.push(`<span style="color:#ef4444;">FIB: ${Math.round((item.vel.fib.tot / item.vel.fib.bom) * 100)}%</span>`);
+        if (item.vel.nap.bom > 0) vels.push(`<span style="color:#6366f1;">NAP: ${Math.round((item.vel.nap.tot / item.vel.nap.bom) * 100)}%</span>`);
+        if (vels.length > 0) html += `<div style="font-size:10px; border-top:1px solid #333338; padding-top:6px; margin-top:4px; display:flex; gap:8px; flex-wrap:wrap;">${vels.join(' | ')}</div>`;
+    }
+    let flags = (item.flags || "").split('\n').filter(f => f.trim() !== "").slice(0, 3);
+    if (flags.length > 0 && flags[0] !== "✅ No Anomalies") {
+        html += `<div style="display:flex; flex-direction:column; gap:4px; margin-top:6px; border-top:1px solid #333338; padding-top:6px;">`;
+        flags.forEach(f => {
+            let cleanText = cleanDiagnosticFlagText(f);
+            let tagCls = getDiagnosticTagClass(f);
+            let color = tagCls === 'chip-complete' ? 'var(--pill-complete-txt)' :
+                tagCls === 'chip-magic' ? '#a855f7' :
+                tagCls === 'tag-red' ? '#fca5a5' :
+                'var(--color-review)';
+            html += `<span style="font-size:9px; font-weight:bold; color:${color};">⚠️ ${cleanText}</span>`;
+        });
+        html += `</div>`;
+    }
+    hud.dataset.mode = 'project';
+    hud.innerHTML = html;
+    hud.style.display = 'flex';
+    positionHUD(e, hud);
+}
+
+function hideHUD() {
+    if (hudLocked) return;
+    let hud = getEl('gantt-hud');
+    if (hud) {
+        hud.style.display = 'none';
+        hud.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+        hud.style.pointerEvents = 'none';
+        hud.dataset.mode = '';
+    }
+}
+
+function moveHUD(e) {
+    if (hudLocked) return;
+    let hud = getEl('gantt-hud');
+    if (hud && hud.style.display === 'flex') positionHUD(e, hud);
+}
+
+function showSpikeHUD(e, dateKey) {
+    if (hudLocked) return;
+    let data = globalEndCounts[dateKey];
+    if (!data) return;
+    let hud = getEl('gantt-hud');
+    if (!hud) return;
+    let vendorHtml = '';
+    for (let v in data.vendors) {
+        let projs = data.projects.filter(p => p.vendor === v).map(p => p.fdh).join(', ');
+        vendorHtml += `<div style="margin-top:6px;"><span style="color:var(--starGold); font-weight:bold;">${v} (${data.vendors[v]}):</span><br/><span style="color:#a1a1aa; font-size:9px; line-height:1.2; display:block; margin-top:2px;">${projs}</span></div>`;
+    }
+    let dArr = dateKey.split('-');
+    let fDate = `${dArr[1]}/${dArr[2]}/${dArr[0]}`;
+    let html = `<div style="font-size:12px; font-weight:900; color:#facc15; border-bottom:1px solid #333338; padding-bottom:6px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;"><span>🔥 CLOSEOUT SURGE</span><span style="color:#a1a1aa; font-size:10px;">${fDate}</span></div><div style="font-size:11px; display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#a1a1aa;">Total Projects: <b style="color:#fff;">${data.total}</b></span><span style="color:#a1a1aa;">Projected BSLs: <b style="color:#fff;">${data.bsls.toLocaleString()}</b></span></div><div style="border-top:1px solid #333338; padding-top:2px; max-height:300px; overflow-y:auto; padding-right:4px;">${vendorHtml}</div>`;
+    hud.dataset.mode = 'spike';
+    hud.innerHTML = html;
+    hud.style.display = 'flex';
+    positionHUD(e, hud);
+}
+
+function showTodayHUD(e) {
+    if (hudLocked) return;
+    let data = globalTodayData;
+    if (!data || data.total === 0) return;
+    let hud = getEl('gantt-hud');
+    if (!hud) return;
+    let vendorArr = Object.keys(data.vendors).sort((a, b) => data.vendors[b] - data.vendors[a]);
+    let colors = ['#3b82f6', '#a855f7', '#f59e0b', '#10b981', '#ec4899', '#06b6d4', '#6366f1'];
+    let conicStr = [];
+    let legendHtml = '';
+    let currentPct = 0;
+    vendorArr.forEach((v, idx) => {
+        let count = data.vendors[v];
+        let pct = (count / data.total) * 100;
+        let c = colors[idx % colors.length];
+        conicStr.push(`${c} ${currentPct}% ${currentPct + pct}%`);
+        currentPct += pct;
+        legendHtml += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:6px;"><div style="display:flex; align-items:center; gap:8px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${c};"></span><span style="color:#fafafa; font-weight:bold;">${v}</span></div><span style="color:#a1a1aa; font-weight:bold; font-family:monospace;">${count}</span></div>`;
+    });
+    let pieStyle = `background: conic-gradient(${conicStr.join(', ')}); border-radius: 50%; width: 120px; height: 120px;`;
+    let d = new Date();
+    let fDate = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+    let html = `<div style="min-width: 300px; padding: 6px;"><div style="font-size:14px; font-weight:900; color:#ef4444; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;"><span>📍 ACTIVE TODAY</span><span style="color:#a1a1aa; font-size:11px;">${fDate}</span></div><div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; text-align: center;"><div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;"><div style="font-size:18px; font-weight:900; color:#fff;">${data.total}</div><div style="font-size:9px; color:#a1a1aa; text-transform:uppercase; font-weight:bold; margin-top:2px;">Projects</div></div><div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;"><div style="font-size:18px; font-weight:900; color:#fff;">${data.activeBsls.toLocaleString()}</div><div style="font-size:9px; color:#a1a1aa; text-transform:uppercase; font-weight:bold; margin-top:2px;">BSLs</div></div><div style="background: rgba(239,68,68,0.1); padding: 8px; border-radius: 6px; border: 1px solid rgba(239,68,68,0.2);"><div style="font-size:18px; font-weight:900; color:#fca5a5;">${data.criticalCount}</div><div style="font-size:9px; color:#fca5a5; text-transform:uppercase; font-weight:bold; margin-top:2px;">Critical</div></div></div><div style="display:flex; gap: 20px; align-items: center; border-top: 1px solid #333338; padding-top: 16px;"><div style="${pieStyle} flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"></div><div style="flex-grow: 1; display:flex; flex-direction:column; max-height:220px; overflow-y:auto; padding-right:8px; gap:4px;">${legendHtml}</div></div></div>`;
+    hud.dataset.mode = 'today';
+    hud.innerHTML = html;
+    hud.style.display = 'flex';
+    positionHUD(e, hud);
+}
+
+function moveSpikeHUD(e) { moveHUD(e); }
+function hideSpikeHUD() { hideHUD(); }
+
+function renderGantt(items) {
+    let container = getEl('gantt-container');
+    if (!container) return;
+    if (items.length === 0) {
+        container.innerHTML = `<div class="empty-msg">No projects in the current timeline.</div>`;
+        return;
+    }
+
+    globalEndCounts = {};
+    globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 };
+    let today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let minDate = new Date("2099-01-01"), maxDate = new Date("2000-01-01");
+    let monthBsls = {};
+
+    items.forEach(item => {
+        let start = safeDate(item.cxStart) || safeDate(item.reportDate) || new Date(today);
+        let end = safeDate(item.cxEnd) || safeDate(item.targetDate) || new Date(start.getTime() + 86400000 * 30);
+        if (isNaN(start)) start = new Date(today);
+        if (isNaN(end)) end = new Date(start.getTime() + 86400000 * 7);
+        if (end < start) end = new Date(start.getTime() + 86400000);
+        if (start < minDate) minDate = new Date(start);
+        if (end > maxDate) maxDate = new Date(end);
+
+        let endKey = end.getFullYear() + "-" + (end.getMonth() + 1) + "-" + end.getDate();
+        let monthKey = end.getFullYear() + "-" + (end.getMonth() + 1);
+        let v = item.vendor || "Unknown";
+
+        if (!globalEndCounts[endKey]) globalEndCounts[endKey] = { total: 0, vendors: {}, bsls: 0, projects: [] };
+        globalEndCounts[endKey].total++;
+        globalEndCounts[endKey].vendors[v] = (globalEndCounts[endKey].vendors[v] || 0) + 1;
+
+        let bslStr = String(item.bsls).replace(/,/g, '');
+        let bslNum = parseInt(bslStr) || 0;
+        monthBsls[monthKey] = (monthBsls[monthKey] || 0) + bslNum;
+        globalEndCounts[endKey].bsls += bslNum;
+        globalEndCounts[endKey].projects.push({ fdh: item.fdh, vendor: v });
+
+        if (today >= start && today <= end) {
+            globalTodayData.total++;
+            globalTodayData.vendors[v] = (globalTodayData.vendors[v] || 0) + 1;
+            globalTodayData.activeBsls += bslNum;
+            if (getSeverity(item.flags) === 'crit') globalTodayData.criticalCount++;
+        }
+    });
+
+    let defaultPast = new Date(today);
+    defaultPast.setDate(today.getDate() - 14);
+    let defaultFuture = new Date(today);
+    defaultFuture.setDate(today.getDate() + 28);
+    if (minDate > defaultPast) minDate = defaultPast;
+    if (maxDate < defaultFuture) maxDate = defaultFuture;
+
+    let totalTime = maxDate - minDate;
+    let totalDays = Math.ceil(totalTime / 86400000);
+    let chartWidth = Math.max(1800, totalDays * 25);
+    let todayIndicator = getTimelineTodayIndicator(minDate, maxDate, today);
+    let todayPct = todayIndicator ? todayIndicator.clampedPct : 0;
+
+    let dateHtml = `
+      <div class="tl-header-bar" style="min-width:${chartWidth + 140}px; width:${chartWidth + 140}px;">
+          <div class="tl-header-corner"></div>
+          <div class="tl-header-dates" style="width:${chartWidth}px; flex-shrink:0;">
+    `;
+    let gridLines = `<div class="gantt-grid-container" style="width:${chartWidth}px; --gantt-total-days:${totalDays};">`;
+    let spikeCount = 0;
+
+    for (let i = 0; i <= totalDays; i++) {
+        let curr = new Date(minDate.getTime() + (i * 86400000));
+        let pct = (i / totalDays) * 100;
+        let currKey = curr.getFullYear() + "-" + (curr.getMonth() + 1) + "-" + curr.getDate();
+        let monthKey = curr.getFullYear() + "-" + (curr.getMonth() + 1);
+
+        let spikeData = globalEndCounts[currKey];
+        let isSpike = false;
+        let spikeText = "";
+        if (spikeData) {
+            let vendorSpikes = [];
+            for (let v in spikeData.vendors) {
+                if (spikeData.vendors[v] >= 3) vendorSpikes.push(`${spikeData.vendors[v]} ${v}`);
+            }
+            if (spikeData.total >= 5 || vendorSpikes.length > 0) {
+                isSpike = true;
+                let textParts = [];
+                if (spikeData.total >= 5) textParts.push(`${spikeData.total} TOTAL`);
+                if (vendorSpikes.length > 0) textParts.push(vendorSpikes.join(', '));
+                spikeText = textParts.join(' | ') + ` ENDING`;
+            }
+        }
+
+        let nextDay = new Date(curr.getTime() + 86400000);
+        let isEOM = nextDay.getDate() === 1;
+
+        if (isSpike) {
+            gridLines += `<div class="gantt-spike-bg" style="left:${pct}%;"></div>`;
+            let topLevels = [48, 66, 84];
+            let tPos = topLevels[spikeCount % 3];
+            let zIdx = 100 - (spikeCount % 3);
+            dateHtml += `<div class="gantt-spike-label" style="left:${pct}%; top:${tPos}px; z-index:${zIdx};" onmouseenter="showSpikeHUD(event, '${currKey}')" onmousemove="moveSpikeHUD(event)" onmouseleave="hideSpikeHUD()" onclick="toggleHudLock(event)">${spikeText}</div>`;
+            spikeCount++;
+        }
+        if (isEOM) {
+            let projBsl = monthBsls[monthKey] || 0;
+            gridLines += `<div class="gantt-eom-line" style="left:${pct}%;"></div>`;
+            if (pct >= 4) dateHtml += `<div class="gantt-eom-label" style="left:${pct}%; top:32px;">EOM | PROJECTED BSLs: ${projBsl.toLocaleString()}</div>`;
+        }
+
+        if (curr.getDay() === 1) {
+            dateHtml += `<div style="position:absolute; left:${pct}%; top:8px; font-size:10px; font-weight:900; color:var(--text-muted); transform:translateX(-50%); background:transparent; padding:0 4px; border-radius:4px;">${curr.getMonth() + 1}/${curr.getDate()}</div>`;
+        }
+    }
+
+    if (todayIndicator) {
+        dateHtml += `<div class="gantt-today-label" style="left:${todayPct}%;" onmouseenter="showTodayHUD(event)" onmousemove="moveHUD(event)" onmouseleave="hideHUD()" onclick="toggleHudLock(event)">TODAY</div>`;
+        gridLines += `<div class="gantt-today-line" style="left:${todayPct}%; opacity:${todayIndicator.isOutOfRange ? 0.35 : 1};"></div>`;
+    }
+    dateHtml += `</div></div>`;
+    gridLines += `</div>`;
+
+    let html = `<div class="gantt-area" id="gantt-area-main" style="width:${chartWidth + 140}px; min-width:${chartWidth + 140}px;">${gridLines}${dateHtml}<div style="height: 15px;"></div>`;
+    let rowsArray = [];
+
+    const makeBead = (dateStr, icon, title, bgColor, borderColor, start, end, itemFdh) => {
+        let d = new Date(dateStr);
+        if (isNaN(d)) return "";
+        let pct = ((d - start) / (end - start)) * 100;
+        if (pct >= 0 && pct <= 100) return `<div class="gantt-bead has-tooltip" data-tooltip="${title}" style="left:${pct}%; background:${bgColor}; border-color:${borderColor}; color:${borderColor};" onclick="handleGanttClick('${itemFdh}')">${icon}</div>`;
+        return "";
+    };
+
+    items.forEach(item => {
+        let start = safeDate(item.cxStart) || safeDate(item.reportDate) || new Date(today);
+        let end = safeDate(item.cxEnd) || safeDate(item.targetDate) || new Date(start.getTime() + 86400000 * 30);
+        if (isNaN(start)) start = new Date(today);
+        if (isNaN(end)) end = new Date(start.getTime() + 86400000 * 7);
+        if (end < start) end = new Date(start.getTime() + 86400000);
+
+        let leftPct = ((start - minDate) / totalTime) * 100;
+        let widthPct = Math.max(0.5, ((end - start) / totalTime) * 100);
+        let leftPx = Math.round(leftPct / 100 * chartWidth);
+        let widthPx = Math.max(9, Math.round(widthPct / 100 * chartWidth));
+        let isOverdue = (!isNaN(end) && today > end);
+        let ganttClass = getGanttClass(item.stage, item.status, isOverdue);
+        let pillStage = item.stage ? item.stage : "-";
+        let pillStatus = item.status ? item.status : "-";
+        let highestSev = getSeverity(item.flags);
+
+        let beadHtml = '';
+        let benchStr = item.bench || "";
+
+        let locMatch = benchStr.match(/Loc:\s*([\d/]+)/);
+        if (locMatch && locMatch[1]) beadHtml += makeBead(locMatch[1], 'L', `Locates Called (${locMatch[1]})`, 'var(--card-bg)', '#3b82f6', start, end, item.fdh);
+        let cabMatch = benchStr.match(/Cab:\s*([\d/]+)/);
+        if (cabMatch && cabMatch[1]) beadHtml += makeBead(cabMatch[1], 'C', `Cabinets Set (${cabMatch[1]})`, 'var(--card-bg)', '#a855f7', start, end, item.fdh);
+        let litMatch = benchStr.match(/Lit:\s*([\d/]+)/);
+        if (litMatch && litMatch[1]) beadHtml += makeBead(litMatch[1], '⚡', `Light Present (${litMatch[1]})`, 'var(--card-bg)', '#eab308', start, end, item.fdh);
+
+        let starMatch = benchStr.match(/(UG|AE|FIB|NAP):\s*[\d/]+\s*->\s*([\d/]+)\s*\(100%\)/g);
+        if (starMatch) {
+            starMatch.forEach(m => {
+                let phase = m.split(':')[0];
+                let dateExtract = m.match(/->\s*([\d/]+)\s*\(/);
+                if (dateExtract && dateExtract[1]) {
+                    let starDate = new Date(dateExtract[1]);
+                    if (!isNaN(starDate)) {
+                        let starPct = ((starDate - start) / (end - start)) * 100;
+                        if (starPct >= 0 && starPct <= 100) {
+                            let sCol = QB_STYLES[phase] ? QB_STYLES[phase].border : "#94a3b8";
+                            let sShadow = "0 1px 3px rgba(0,0,0,0.3)";
+                            if (phase === 'FIB') sShadow = `0 0 10px ${sCol}`;
+                            if (phase === 'NAP') sShadow = `0 0 8px rgba(99, 102, 241, 0.6)`;
+                            beadHtml += `<div class="gantt-bead has-tooltip" data-tooltip="${phase} 100% Complete (${dateExtract[1]})" style="left:${starPct}%; background:var(--card-bg); border-color:${sCol}; color:${sCol}; box-shadow:${sShadow}; font-size:9px;" onclick="handleGanttClick('${item.fdh}')">★</div>`;
+                        }
+                    }
+                }
+            });
+        }
+
+        let barLeft = 140 + leftPx;
+        rowsArray.push(`
+        <div class="gantt-row" id="gantt-row-${item.fdh}" style="width:${chartWidth + 140}px;">
+           <div class="gantt-label ${highestSev}" onclick="handleGanttLabelClick('${item.fdh}')">
+               <div class="gantt-label-fdh">${item.fdh}</div><div class="gantt-label-ven">${item.vendor || "UNKNOWN"}</div>
+           </div>
+           <div class="gantt-bar-fill ${ganttClass}" style="left:${barLeft}px; width:${widthPx}px; pointer-events:auto;" onclick="handleGanttClick('${item.fdh}')" onmouseenter="showHUD(event, '${item.fdh}')" onmousemove="moveHUD(event)" onmouseleave="hideHUD()">
+               <span class="gantt-bar-text">${item.fdh} • ${pillStage} | ${pillStatus}</span>
+           </div>
+           <div style="position:absolute; left:${barLeft}px; width:${widthPx}px; top:0; height:100%; pointer-events:none; z-index:8;">${beadHtml}</div>
+        </div>`);
+    });
+    html += rowsArray.join('') + `</div>`;
+    container.innerHTML = html;
+}
+
+function scrollGanttToToday() {
+    let scrollContainer = getEl('gantt-scroll');
+    if (!scrollContainer) return;
+    let ganttArea = document.getElementById('gantt-area-main');
+    if (!ganttArea) return;
+    let todayLine = ganttArea.querySelector('.gantt-today-line');
+    if (!todayLine) return;
+    let gridContainer = ganttArea.querySelector('.gantt-grid-container');
+    let chartW = gridContainer ? gridContainer.offsetWidth : (ganttArea.offsetWidth - 140);
+    let leftPct = parseFloat(todayLine.style.left) || 0;
+    let containerW = scrollContainer.clientWidth || window.innerWidth;
+    let centerOffset = (chartW * (leftPct / 100)) + 140 - (containerW / 2);
+    scrollContainer.scrollLeft = Math.max(0, centerOffset);
+}
+</script>

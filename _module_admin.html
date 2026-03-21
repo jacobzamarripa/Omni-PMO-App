@@ -1,0 +1,307 @@
+<script>
+// ============================================================
+// FILE: _module_admin.html
+// ROLE: Admin pane rendering, admin filter/panel helpers,
+//   reviewed tray helpers, and outbox rendering module
+//   extracted from WebApp.html
+// DEPENDS ON: _state_queue.html, _state_session.html,
+//   _utils_shared.html, _utils_notifications.html,
+//   _module_queue_state.html, _module_digest.html
+// DEPENDED ON BY: WebApp.html bootstrap anchors, applyFilters,
+//   deck staging flows, and admin/review workflows
+// MOBILE NOTES: The drawer/open-state helpers stay desktop-first;
+//   mobile rework should adapt these interactions rather than
+//   reusing them directly
+// AGENT NOTES: Keep function names/signatures stable. Read
+//   committedItems/currentActiveItem/allActionItems from owner
+//   state files. Crossings-specific UI/actions now live in
+//   _module_special_crossings.html.
+// ============================================================
+function toggleAdminFilter(type) {
+    activeAdminFilter = (activeAdminFilter === type) ? null : type;
+    let kpiC = getEl('kpi-admin-crossings'), kpiS = getEl('kpi-admin-status'), kpiB = getEl('kpi-admin-boms');
+    if (kpiC) kpiC.classList.toggle('active', activeAdminFilter === 'crossings');
+    if (kpiS) kpiS.classList.toggle('active', activeAdminFilter === 'status');
+    if (kpiB) kpiB.classList.toggle('active', activeAdminFilter === 'boms');
+    applyFilters();
+    renderAdminPane(getActiveQueueItems());
+}
+
+function toggleAdminPanel() {
+    let pane = getEl('outbox-pane');
+    let isOpen = pane && pane.classList.contains('open');
+    setAdminPanelOpen(!isOpen);
+}
+
+function shouldAutoOpenAdminPanel() {
+    return window.innerWidth > 768 && !isIPadLike();
+}
+
+function setAdminPanelOpen(open) {
+    let pane = getEl('outbox-pane');
+    let overlay = getEl('outbox-overlay');
+    let readingPane = document.querySelector('.reading-pane');
+
+    if (open) {
+        pane.style.display = 'flex';
+        setTimeout(() => {
+            pane.classList.add('open');
+            if (readingPane) readingPane.classList.add('admin-open');
+        }, 10);
+    } else {
+        pane.classList.remove('open');
+        if (readingPane) readingPane.classList.remove('admin-open');
+        setTimeout(() => {
+            if (!pane.classList.contains('open')) pane.style.display = 'none';
+        }, 300);
+    }
+
+    if (overlay) {
+        overlay.classList.toggle('open', open && window.innerWidth <= 768);
+    }
+}
+
+function syncAdminPanelForViewport() {
+    syncOutboxPanelMode();
+    setAdminPanelOpen(shouldAutoOpenAdminPanel());
+}
+
+function openAdminPanelByDefault() {
+    syncAdminPanelForViewport();
+}
+
+// TODO: MODULE CANDIDATE - admin module still mutates reviewed tray, currentActiveItem, queue filters, and shared queue state.
+function renderAdminPane(items) {
+    let pane = getEl('admin-pane-content');
+    if (!pane) return;
+    if (!items || items.length === 0) { pane.innerHTML = '<div class="empty-msg" style="padding:40px 20px;">No admin tasks.</div>'; return; }
+
+    let crossings = items.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS"));
+    let bomInput = items.filter(i => i.flags.includes("PLEASE INPUT BOM"));
+    let bomCheck = items.filter(i => i.flags.includes("CHECK BOM (UG/AE)"));
+    let status = items.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS"));
+    let bomsTotal = bomInput.length + bomCheck.length;
+
+    let totalAdmin = crossings.length + bomsTotal + status.length;
+    let badge = getEl('admin-badge');
+    if (badge) { badge.textContent = totalAdmin; badge.style.display = totalAdmin > 0 ? 'inline-flex' : 'none'; }
+
+    let kpiCv = getEl('kpi-crossings-val'), kpiSv = getEl('kpi-status-val'), kpiBv = getEl('kpi-boms-val');
+    if (kpiCv) kpiCv.textContent = crossings.length;
+    if (kpiSv) kpiSv.textContent = status.length;
+    if (kpiBv) kpiBv.textContent = bomsTotal;
+
+    let html = '';
+
+    if ((!activeAdminFilter || activeAdminFilter === 'crossings') && crossings.length > 0) {
+        html += renderSpecialCrossingsAdminSection(crossings);
+    }
+
+    if (!activeAdminFilter || activeAdminFilter === 'boms') {
+        html += _adminSection('BOMs to Input', bomInput, function(item) {
+            return `<div class="admin-list-card" onclick="selectItemForNav('${item.fdh}')">
+                <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor} · ${item.stage}</div>
+                <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">Enter BOM data in QuickBase, then re-sync reference data.</div>
+            </div>`;
+        });
+        html += _adminSection('BOMs to Check — UG/AE', bomCheck, function(item) {
+            return `<div class="admin-list-card" onclick="selectItemForNav('${item.fdh}')">
+                <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor} · ${item.stage}</div>
+                <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">UG and AE BOM quantities are 0 in QB. Verify main phase BOM setup.</div>
+            </div>`;
+        });
+    }
+
+    if ((!activeAdminFilter || activeAdminFilter === 'status') && status.length > 0) {
+        html += _adminSection('Status Mismatches', status, function(item) {
+            return `<div class="admin-list-card" onclick="selectItemForNav('${item.fdh}')">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+                    <div>
+                        <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
+                        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">QB Status: <span style="font-weight:bold; color:var(--text-main);">${item.status}</span></div>
+                    </div>
+                    <button class="btn" onclick="event.stopPropagation(); markQbUpdatedFromAdmin('${item.fdh}', this)" style="padding:5px 10px; font-size:10px; font-weight:900; background:#2563eb; color:#fff; border-color:#1d4ed8; white-space:nowrap; flex-shrink:0;">🛠 Updated</button>
+                </div>
+            </div>`;
+        });
+    }
+
+    if (html === '') html = '<div class="empty-msg" style="padding:40px 20px;">No items in this category.</div>';
+    pane.innerHTML = html;
+}
+
+function markQbUpdatedFromAdmin(fdhId, btn) {
+    if (btn) { btn.innerText = 'Saving...'; btn.disabled = true; }
+    google.script.run.withSuccessHandler(function() {
+        let item = (allActionItems || []).find(i => i.fdh === fdhId) || currentActiveItem;
+        if (item) {
+            item.flags = String(item.flags || '')
+                .replace('🚩 STATUS MISMATCH', '⚠️ ADMIN: REFRESH REF DATA')
+                .replace('🚩 MISSING QB STATUS', '⚠️ ADMIN: REFRESH REF DATA')
+                .trim();
+            item.comment = 'QB status updated; waiting on refreshed reference data.';
+            let wasCurrent = currentActiveItem && currentActiveItem.fdh === fdhId;
+            if (wasCurrent) currentActiveItem = null;
+            moveItemToReviewed(item, { comment: item.comment, action: 'admin-status' });
+            if (wasCurrent) advanceAfterAction();
+            else applyFilters();
+            showToast(`✓ ${fdhId} moved to Reviewed`);
+        }
+    }).withFailureHandler(function(err) {
+        alert('Failed to save: ' + err.message);
+        if (btn) { btn.innerText = '🛠 Updated'; btn.disabled = false; }
+    }).markStatusSyncComplete(fdhId);
+}
+
+function updateAdminBadge() {
+    if (!allActionItems) return;
+    let count = getActiveQueueItems().filter(i =>
+        i.flags.includes('ADMIN: CHECK CROSSINGS') ||
+        i.flags.includes('PLEASE INPUT BOM') ||
+        i.flags.includes('CHECK BOM (UG/AE)') ||
+        i.flags.includes('STATUS MISMATCH') ||
+        i.flags.includes('MISSING QB STATUS')
+    ).length;
+    let badge = getEl('admin-badge');
+    if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline-flex' : 'none'; }
+    let fabBadge = getEl('admin-fab-badge');
+    if (fabBadge) { fabBadge.textContent = count; fabBadge.style.display = count > 0 ? 'inline-flex' : 'none'; }
+}
+
+function persistReviewedTray() {
+    try { localStorage.setItem(REVIEWED_TRAY_STORAGE_KEY, JSON.stringify(committedItems || [])); } catch (e) {}
+}
+
+function loadReviewedTray() {
+    try {
+        let raw = localStorage.getItem(REVIEWED_TRAY_STORAGE_KEY);
+        let parsed = raw ? JSON.parse(raw) : [];
+        committedItems = Array.isArray(parsed) ? parsed.filter(i => i && i.fdh) : [];
+    } catch (e) {
+        committedItems = [];
+    }
+}
+
+function getReviewedFdhSet() {
+    return new Set((committedItems || []).map(i => String(i.fdh || '')));
+}
+
+function addToReviewedTray(item, meta) {
+    if (!item || !item.fdh) return;
+    let reviewedItem = JSON.parse(JSON.stringify(item));
+    reviewedItem.comment = meta && meta.comment !== undefined ? meta.comment : (reviewedItem.comment || '');
+    reviewedItem._reviewedAction = meta && meta.action ? meta.action : (reviewedItem._reviewedAction || 'reviewed');
+    reviewedItem._reviewedAt = meta && meta.reviewedAt ? meta.reviewedAt : Date.now();
+    committedItems = committedItems.filter(i => String(i.fdh || '') !== String(reviewedItem.fdh || ''));
+    committedItems.unshift(reviewedItem);
+    persistReviewedTray();
+}
+
+function clearReviewedTray(silent) {
+    committedItems = [];
+    persistReviewedTray();
+    updateAdminBadge();
+    renderAdminPane(getActiveQueueItems());
+    applyFilters();
+    renderOutbox();
+    if (!silent) showToast('Reviewed tray cleared');
+}
+
+function renderOutbox() {
+    const list = getEl('outbox-list');
+    if (!list) return;
+    if (typeof committedItems === 'undefined' || typeof stagedDeckItems === 'undefined') return;
+    const stagedItems = getStagedReviewItems();
+    const reviewedItems = committedItems || [];
+    const totalCount = stagedItems.length + reviewedItems.length;
+    setTxt('ob-count', totalCount);
+    let tabBadge = getEl('ob-count');
+    if (tabBadge) {
+        tabBadge.innerText = totalCount;
+        tabBadge.style.display = totalCount > 0 ? 'inline-flex' : 'none';
+    }
+    list.innerHTML = '';
+    if (totalCount === 0) {
+        list.innerHTML = `<div class="empty-msg">No staged or reviewed items.</div>`;
+        return;
+    }
+
+    const createSection = function(title, count, actions, items, type, opts) {
+        opts = opts || {};
+        let isCollapsible = !!opts.collapsible;
+        let isCollapsed = !!opts.collapsed;
+        let section = document.createElement('div');
+        if (type === 'staged') section.style.borderBottom = '1px solid var(--border)';
+
+        let header = document.createElement('div');
+        header.className = 'ob-header';
+        header.style.padding = '10px 16px';
+        if (isCollapsible) {
+            header.style.cursor = 'pointer';
+            header.onclick = function() { toggleStagedReviewSection(); };
+        }
+        let titleEl = document.createElement('div');
+        titleEl.style.cssText = 'font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px;';
+        titleEl.innerHTML = `${isCollapsible ? `<span style="display:inline-flex; align-items:center; justify-content:center; width:14px; color:var(--text-main); font-size:11px;">${isCollapsed ? '&#9656;' : '&#9662;'}</span>` : ''}<span>${title} <span style="margin-left:6px; color:var(--text-main);">${count}</span></span>`;
+        let actionWrap = document.createElement('div');
+        actionWrap.style.cssText = 'display:flex; gap:6px;';
+        actions.forEach(function(def) {
+            let btn = document.createElement('button');
+            btn.className = 'btn';
+            btn.style.cssText = 'font-size:10px; padding:3px 8px;';
+            btn.textContent = def.label;
+            btn.onclick = function(event) {
+                event.stopPropagation();
+                def.onClick();
+            };
+            actionWrap.appendChild(btn);
+        });
+        header.appendChild(titleEl);
+        header.appendChild(actionWrap);
+        section.appendChild(header);
+
+        let body = document.createElement('div');
+        body.style.display = isCollapsed ? 'none' : '';
+
+        if (!items.length) {
+            let empty = document.createElement('div');
+            empty.className = 'empty-msg';
+            empty.style.cssText = 'padding:14px 16px; margin:0; font-size:11px;';
+            empty.textContent = type === 'staged' ? 'No staged items.' : 'No reviewed items.';
+            body.appendChild(empty);
+            section.appendChild(body);
+            return section;
+        }
+
+        items.forEach(function(item) {
+            let card = document.createElement('div');
+            card.className = 'ob-card';
+            card.onclick = function() { openPane(item, null); };
+            card.innerHTML = `
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+                    <div style="font-weight:900; font-size:12px; color:var(--text-main);">${esc(item.fdh)}</div>
+                    <span class="tag ${type === 'staged' ? 'chip-magic' : 'chip-complete'}">${type === 'staged' ? 'STAGED' : 'REVIEWED'}</span>
+                </div>
+                <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">${esc(item.vendor || item.city || 'Unknown')}</div>
+                <div style="font-family:monospace; font-size:10px; color:var(--text-muted); margin-top:4px; max-height:30px; overflow:hidden;">${esc(type === 'staged' ? (item.comment || 'Ready for batch export') : (item.comment || 'Reviewed'))}</div>`;
+            body.appendChild(card);
+        });
+
+        section.appendChild(body);
+        return section;
+    };
+
+    list.appendChild(createSection('Staged', stagedItems.length, [
+        { label: '↑ Export Batch', onClick: function() { promptBatchDeckExport(); } },
+        { label: 'Clear', onClick: function() { clearStagedDeckItems(); } }
+    ], stagedItems, 'staged', { collapsible: true, collapsed: isStagedReviewCollapsed }));
+
+    list.appendChild(createSection('Reviewed', reviewedItems.length, [
+        { label: '↑ Export', onClick: function() { promptEmailExport(); } },
+        { label: 'Clear', onClick: function() { clearReviewedTray(); } }
+    ], reviewedItems, 'reviewed'));
+}
+</script>
