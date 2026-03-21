@@ -1855,7 +1855,7 @@
       .pane-content {
           flex: 1;
           overflow-y: auto;
-          padding: 92px 28px 28px !important;
+          padding: 88px 28px 24px !important;
           width: 100% !important;
           max-width: none !important;
           margin: 0 auto;
@@ -2960,7 +2960,7 @@
       }
       .pane-content {
           align-items: flex-start !important;
-          padding-top: 84px !important;
+          padding-top: 88px !important;
       }
       .qb-grid {
           width: 100% !important;
@@ -8094,6 +8094,11 @@
 
         function appendListCard(item, targetEl) {
             let rawFlags = (item.flags || "").split('\n').map(f => f.trim()).filter(f => f !== ""); let highestSev = "info", tagsHtml = '';
+            let tagParts = [];
+
+            if (isVendorTrackerLinked(item)) {
+                tagParts.push(renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' }));
+            }
 
             rawFlags.slice(0, 3).forEach(f => {
                 let cleanText = cleanDiagnosticFlagText(f);
@@ -8101,9 +8106,10 @@
                 if (tagCls === 'chip-admin' || tagCls === 'chip-warn') highestSev = "warn";
                 else if (tagCls === 'tag-red') highestSev = "crit";
                 else if (tagCls === 'chip-ghost' && highestSev !== "crit" && highestSev !== "warn") highestSev = "ghost";
-                tagsHtml += `<span class="tag ${tagCls}">${cleanText}</span>`;
+                tagParts.push(`<span class="tag ${tagCls}">${cleanText}</span>`);
             });
-            if(rawFlags.length > 3) tagsHtml += `<span class="tag chip-muted">+${rawFlags.length-3}</span>`;
+            if(rawFlags.length > 3) tagParts.push(`<span class="tag chip-muted">+${rawFlags.length-3}</span>`);
+            tagsHtml = tagParts.join('');
 
             let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
             let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
@@ -8121,7 +8127,6 @@
                   </div>
                   <div class="em-pill-stack">
                       <span class="glass-pill ${pillCls}" style="flex-shrink: 0;">${combinedPill}</span>
-                      ${renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
                   </div>
                </div><div class="em-tags">${tagsHtml}</div>`;
             targetEl.appendChild(card);
@@ -8656,7 +8661,10 @@
               
               let effectiveLight = item.isLight || st.includes('ofs') || stat.includes('complete');
               let lightHtml = effectiveLight ? `<span style="height:6px; width:6px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px #22c55e;"></span> <span style="color:#22c55e;">LIGHT PRESENT</span>` : `<span style="height:6px; width:6px; background:#94a3b8; border-radius:50%;"></span> <span style="color:#94a3b8;">PENDING LIGHT</span>`;
-              setHtml('p-light-pill', lightHtml);
+              let trackerLightHtml = isVendorTrackerLinked(item)
+                  ? `${renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}<span style="opacity:0.35; color:var(--text-muted);">|</span>`
+                  : '';
+              setHtml('p-light-pill', `${trackerLightHtml}${lightHtml}`);
 
               let ofsMonthStr = "TBD";
               let isOFSMonth = false;
