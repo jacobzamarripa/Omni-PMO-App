@@ -550,8 +550,8 @@
           border: 1px solid #000000 !important;
           box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2) !important;
           font-weight: 900 !important;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
+          text-transform: none !important;
+          letter-spacing: normal !important;
           padding-left: 16px !important;
           padding-right: 30px !important;
       }
@@ -563,9 +563,15 @@
           width: 104px !important;
           min-width: 104px !important;
           font-size: 10px !important;
-          text-transform: uppercase;
-          letter-spacing: 0.45px;
+          text-transform: none !important;
+          letter-spacing: normal !important;
           padding-right: 30px !important;
+      }
+      .filter-strip .btn,
+      .filter-strip select,
+      .filter-strip input[type="text"] {
+          text-transform: none !important;
+          letter-spacing: normal !important;
       }
       body.dark-mode #grid-pivot-select {
           background: #f8fafc !important;
@@ -4428,7 +4434,7 @@
                   if (val === '60_DAYS') label = '< 60 Days';
                   if (val === '90_DAYS') label = '< 90 Days';
                   pill.innerHTML = `
-                      <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px; text-transform: uppercase; letter-spacing: 0.5px;">${categories[cat] || cat}</span>
+                      <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px;">${categories[cat] || cat}</span>
                       <span style="font-weight: 900;">${esc(label)}</span>
                       <div class="remove-btn" onclick="toggleFilterValue('${cat}', '${escJs(val)}')">✕</div>
                   `;
@@ -4441,7 +4447,7 @@
               const color = getStageColor(activePieStageFilter);
               pill.style.borderLeft = `3px solid ${color}`;
               pill.innerHTML = `
-                  <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Stage</span>
+                  <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px;">Stage</span>
                   <span style="color:${color}; font-weight: 900;">${esc(activePieStageFilter)}</span>
                   <div class="remove-btn" onclick="togglePieStageFilter(null)">✕</div>
               `;
@@ -4451,7 +4457,7 @@
               const pill = document.createElement('div');
               pill.className = 'filter-pill';
               pill.innerHTML = `
-                  <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Group By</span>
+                  <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px;">Group by</span>
                   <span style="font-weight: 900;">${esc(getGroupByLabel(currentGroupBy))}</span>
                   <div class="remove-btn" onclick="setGroupBy('none')">✕</div>
               `;
@@ -4565,14 +4571,9 @@
               let navCenterRect = topNavCenter ? topNavCenter.getBoundingClientRect() : null;
               let navRightRect = topNavRight ? topNavRight.getBoundingClientRect() : null;
 
-              if (pills && pills.childElementCount > 0) {
-                  let pillsRect = pills.getBoundingClientRect();
-                  clearBottom = Math.max(clearBottom, pillsRect.bottom);
-              }
-
-              if (outboxPane && outboxPane.classList.contains('open') && getComputedStyle(outboxPane).display !== 'none') {
-                  rightRect = outboxPane.getBoundingClientRect();
-              } else if (fabAnchor && currentWorkspaceView === 'detail') {
+          if (outboxPane && outboxPane.classList.contains('open') && getComputedStyle(outboxPane).display !== 'none') {
+              rightRect = outboxPane.getBoundingClientRect();
+          } else if (fabAnchor && currentWorkspaceView === 'detail') {
                   rightRect = fabAnchor.getBoundingClientRect();
               }
 
