@@ -4599,9 +4599,10 @@
               if (shouldShift) {
                   let desiredTop = dockBottomInWorkspace + 18;
                   offset = Math.max(52, Math.ceil(desiredTop - 12));
+                  let deckAnchorTop = detailRect ? Math.ceil(detailRect.top + 16) : Math.ceil(dockRect.top);
                   breakoutTop = Math.max(
                       navRect ? Math.ceil(navRect.bottom + 10) : 0,
-                      Math.ceil(dockRect.top)
+                      isDeckFace ? deckAnchorTop : Math.ceil(dockRect.top)
                   );
               }
 
