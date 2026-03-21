@@ -560,8 +560,8 @@
           transform: translateY(0) !important;
       }
       #group-by-select {
-          width: 150px !important;
-          min-width: 150px !important;
+          width: 104px !important;
+          min-width: 104px !important;
           font-size: 10px !important;
           text-transform: uppercase;
           letter-spacing: 0.45px;
@@ -1941,7 +1941,7 @@
       body.deck-mode-active .inbox-sidebar {
           display: flex !important;
       }
-      body.deck-mode-active .inbox-list {
+      body.deck-mode-active .inbox-list.grid-view {
           padding: 14px;
           gap: 12px;
       }
@@ -3399,12 +3399,12 @@
             <div class="dock-zone" id="dock-group-zone">
                 <div class="dock-divider"></div>
                 <select id="group-by-select" onchange="setGroupBy(this.value)">
-                    <option value="none">Group By: None</option>
-                    <option value="vendor">Group By: Vendor</option>
-                    <option value="city">Group By: City</option>
-                    <option value="health">Group By: Health</option>
-                    <option value="stage">Group By: Stage</option>
-                    <option value="status">Group By: Status</option>
+                    <option value="none">Group By</option>
+                    <option value="vendor">Vendor</option>
+                    <option value="city">City</option>
+                    <option value="health">Health</option>
+                    <option value="stage">Stage</option>
+                    <option value="status">Status</option>
                 </select>
             </div>
 
@@ -4447,6 +4447,16 @@
               `;
               container.appendChild(pill);
           }
+          if (currentGroupBy && currentGroupBy !== 'none') {
+              const pill = document.createElement('div');
+              pill.className = 'filter-pill';
+              pill.innerHTML = `
+                  <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Group By</span>
+                  <span style="font-weight: 900;">${esc(getGroupByLabel(currentGroupBy))}</span>
+                  <div class="remove-btn" onclick="setGroupBy('none')">✕</div>
+              `;
+              container.appendChild(pill);
+          }
           updateFloatingPillsPosition();
       }
 
@@ -4683,7 +4693,7 @@
 
       function syncGanttViewportLayout() {
           let nav = document.querySelector('.top-nav');
-          let topOffset = nav ? Math.ceil(nav.getBoundingClientRect().bottom + 6) : 78;
+          let topOffset = nav ? Math.ceil(nav.getBoundingClientRect().bottom) : 72;
           let dock = getEl('filter-strip');
           if (dock && getComputedStyle(dock).display !== 'none') {
               if (currentWorkspaceView !== 'gantt') {
@@ -4694,7 +4704,7 @@
           if (pills && pills.childElementCount > 0 && getComputedStyle(pills).display !== 'none') {
               topOffset = Math.max(topOffset, Math.ceil(pills.getBoundingClientRect().bottom + 10));
           }
-          document.documentElement.style.setProperty('--gantt-top-offset', `${Math.max(64, topOffset)}px`);
+          document.documentElement.style.setProperty('--gantt-top-offset', `${Math.max(0, topOffset)}px`);
           document.documentElement.style.setProperty('--gantt-bottom-offset', '0px');
       }
 
@@ -5145,6 +5155,17 @@
               return `<a href="${href}" target="_blank" rel="noopener noreferrer" ${attrs}${click}>${label}</a>`;
           }
           return `<span ${attrs}>${label}</span>`;
+      }
+
+      function getGroupByLabel(value) {
+          let labels = {
+              vendor: 'Vendor',
+              city: 'City',
+              health: 'Health',
+              stage: 'Stage',
+              status: 'Status'
+          };
+          return labels[value] || 'Group By';
       }
 
       function getDiagnosticTagClass(flag) {
