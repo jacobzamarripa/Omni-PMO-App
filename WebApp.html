@@ -4514,8 +4514,22 @@
           let dock = getEl('filter-strip');
           let workspace = getEl('main-workspace');
           let pills = getEl('active-filter-pills');
+          let body = document.body;
+          let topNav = document.querySelector('.top-nav');
+          let navRect = topNav ? topNav.getBoundingClientRect() : null;
+          let isDeckFace = !!(isDeckMode || body.classList.contains('deck-mode-active'));
 
-          if (dock && workspace && window.innerWidth > 768 && window.innerWidth <= 1800 && currentWorkspaceView !== 'gantt' && currentWorkspaceView !== 'deck') {
+          if (navRect) {
+              document.documentElement.style.setProperty('--dock-clearance-top', `${Math.ceil(navRect.bottom + 10)}px`);
+          }
+
+          if (isDeckFace || !dock || !workspace || window.innerWidth <= 768 || window.innerWidth > 1800 || currentWorkspaceView === 'gantt') {
+              document.documentElement.style.setProperty('--dock-panel-offset', '0px');
+              body.classList.remove('dock-clearance-active');
+              return;
+          }
+
+          if (dock && workspace) {
               let workspaceRect = workspace.getBoundingClientRect();
               let dockRect = dock.getBoundingClientRect();
               let clearBottom = dockRect.bottom;
@@ -4523,14 +4537,12 @@
               let detailMain = workspace.querySelector('.detail-main');
               let outboxPane = getEl('outbox-pane');
               let fabAnchor = document.querySelector('.admin-fab-anchor');
-              let topNav = document.querySelector('.top-nav');
               let topNavLeft = document.querySelector('.top-nav-left');
               let topNavCenter = document.querySelector('.top-nav-center');
               let topNavRight = document.querySelector('.nav-actions');
               let leftRect = (leftRail && getComputedStyle(leftRail).display !== 'none') ? leftRail.getBoundingClientRect() : null;
               let detailRect = (detailMain && getComputedStyle(detailMain).display !== 'none') ? detailMain.getBoundingClientRect() : null;
               let rightRect = null;
-              let navRect = topNav ? topNav.getBoundingClientRect() : null;
               let navLeftRect = topNavLeft ? topNavLeft.getBoundingClientRect() : null;
               let navCenterRect = topNavCenter ? topNavCenter.getBoundingClientRect() : null;
               let navRightRect = topNavRight ? topNavRight.getBoundingClientRect() : null;
@@ -4578,16 +4590,11 @@
               if (shouldShift) {
                   let desiredTop = dockBottomInWorkspace + 18;
                   offset = Math.max(52, Math.ceil(desiredTop - 12));
-                  if (navRect) {
-                      document.documentElement.style.setProperty('--dock-clearance-top', `${Math.ceil(navRect.bottom + 10)}px`);
-                  }
-              } else if (navRect) {
-                  document.documentElement.style.setProperty('--dock-clearance-top', `${Math.ceil(navRect.bottom + 10)}px`);
               }
           }
 
           document.documentElement.style.setProperty('--dock-panel-offset', `${offset}px`);
-          document.body.classList.toggle('dock-clearance-active', shouldShift);
+          body.classList.toggle('dock-clearance-active', shouldShift);
       }
 
       function getActiveSortValue() {
