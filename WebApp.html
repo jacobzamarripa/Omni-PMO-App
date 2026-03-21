@@ -422,7 +422,7 @@
           scrollbar-width: none;
           transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease !important;
       }
-      body.dock-clearance-active .filter-strip {
+      body.dock-clearance-active:not(.deck-mode-active) .filter-strip {
           position: fixed !important;
           top: var(--dock-clearance-top) !important;
           left: 50% !important;
@@ -4517,13 +4517,11 @@
           let body = document.body;
           let topNav = document.querySelector('.top-nav');
           let navRect = topNav ? topNav.getBoundingClientRect() : null;
-          let isDeckFace = !!(isDeckMode || body.classList.contains('deck-mode-active'));
-
           if (navRect) {
               document.documentElement.style.setProperty('--dock-clearance-top', `${Math.ceil(navRect.bottom + 10)}px`);
           }
 
-          if (isDeckFace || !dock || !workspace || window.innerWidth <= 768 || window.innerWidth > 1800 || currentWorkspaceView === 'gantt') {
+          if (!dock || !workspace || window.innerWidth <= 768 || window.innerWidth > 1800 || currentWorkspaceView === 'gantt') {
               document.documentElement.style.setProperty('--dock-panel-offset', '0px');
               body.classList.remove('dock-clearance-active');
               return;
