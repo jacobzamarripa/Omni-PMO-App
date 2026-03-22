@@ -904,8 +904,19 @@ Started: March 21, 2026
   Severity outlines: crit=red border, warn=amber border on bars
   Files: `MobileApp.html` + `_styles_mobile.html` only
 
+- Phase 6: Admin tab — March 22, 2026
+  Three sub-tab chips: Crossings, QB Status, Missing BOMs with live counts
+  Data from mobileState.all filtered by flag strings (no new backend call)
+  Crossings: read-only cards, tap → Detail. Staged commit deferred.
+  QB Status: "Mark Updated" → local flag swap + markStatusSyncComplete(fdh) best-effort background write
+  Missing BOMs: instruction cards, tap → Detail
+  updateAdminBadge() called from applyQueueFilters() — badge stays live on refresh
+  renderAdminTab() called from setActiveTab('admin') + loadQueueData success
+  adminOpenDetail() handles items outside active queue filter via mobileState.all fallback
+  Empty state per sub-tab when no items outstanding
+  Files: MobileApp.html + _styles_mobile.html only
+
 ### Phases Remaining
-- Phase 6: Admin tab
 - Phase 7: Digest tab
 - Design Polish Pass: after Phase 7
 

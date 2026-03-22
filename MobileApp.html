@@ -126,14 +126,30 @@
         </section>
 
         <section id="tab-admin" class="tab-panel" data-tab="admin" aria-labelledby="tab-btn-admin">
-          <div class="tab-panel__placeholder">
-            <div class="tab-panel__kicker">Phase 1 Shell</div>
-            <div class="tab-panel__title">Admin</div>
-            <div class="tab-panel__body">This tab will own crossings, QB mismatches, and BOM issues, while the header FAB exposes Run Review, Sync QB, and Refresh.</div>
-            <div class="tab-panel__chips">
-              <div class="placeholder-chip">Crossings</div>
-              <div class="placeholder-chip">QB Mismatches</div>
-              <div class="placeholder-chip">Missing BOMs</div>
+          <!--
+          // PHASE 6 COMPLETE — Admin tab
+          // Data: mobileState.all filtered by flag strings
+          //   Crossings:   flags includes "ADMIN: CHECK CROSSINGS"
+          //   QB Status:   flags includes "STATUS MISMATCH" or "MISSING QB STATUS"
+          //   Missing BOMs: flags includes "PLEASE INPUT BOM" or "CHECK BOM (UG/AE)"
+          // Render: renderAdminTab() on tab switch + data load
+          // Badge: updateAdminBadge() from applyQueueFilters()
+          // Action: QB Status "Mark Updated" fires markStatusSyncComplete(fdh) best-effort
+          -->
+          <div class="admin-shell">
+            <div id="admin-subtab-bar" class="admin-subtab-bar">
+              <button class="admin-subtab-chip is-active" type="button" data-admin-subtab="crossings">
+                Crossings <span id="admin-count-crossings" class="admin-subtab-chip__count">0</span>
+              </button>
+              <button class="admin-subtab-chip" type="button" data-admin-subtab="qbstatus">
+                QB Status <span id="admin-count-qbstatus" class="admin-subtab-chip__count">0</span>
+              </button>
+              <button class="admin-subtab-chip" type="button" data-admin-subtab="boms">
+                Missing BOMs <span id="admin-count-boms" class="admin-subtab-chip__count">0</span>
+              </button>
+            </div>
+            <div id="admin-content" class="admin-content" aria-live="polite">
+              <div class="admin-empty"><span class="admin-empty__icon">📋</span>Loading admin data…</div>
             </div>
           </div>
         </section>
@@ -416,6 +432,7 @@
     let _orientationHintTimer = null;
     let ganttZoomMode = 'month';
     const GANTT_PX_PER_DAY = Object.freeze({ month: 22, week: 34 });
+    let adminSubTab = 'crossings';
 
     const dom = {};
 
@@ -450,6 +467,11 @@
       dom.orientationPromptIcon = dom.orientationPrompt ? dom.orientationPrompt.querySelector('.orientation-hint__icon') : null;
       dom.ganttScrollWrap = document.getElementById('gantt-scroll-wrap');
       dom.ganttTimelineInner = document.getElementById('gantt-timeline-inner');
+      dom.adminContent = document.getElementById('admin-content');
+      dom.adminBadge = document.getElementById('tab-badge-admin');
+      dom.adminCountCrossings = document.getElementById('admin-count-crossings');
+      dom.adminCountQbstatus = document.getElementById('admin-count-qbstatus');
+      dom.adminCountBoms = document.getElementById('admin-count-boms');
     }
 
     function setActiveTab(tabName) {
@@ -474,6 +496,9 @@
       checkOrientationForTab(tabName);
       if (tabName === 'gantt' && mobileState.filtered.length > 0) {
         renderGanttTimeline();
+      }
+      if (tabName === 'admin') {
+        renderAdminTab();
       }
     }
 
@@ -1291,6 +1316,7 @@
         if (activeIndex > -1) mobileState.activeIdx = activeIndex;
       }
       updateQueueBadge('ready', mobileState.all.filter(isActionableProject).length);
+      updateAdminBadge();
       renderQueueContent();
       renderDetailView();
     }
@@ -1335,6 +1361,9 @@
           if (mobileState.activeTab === 'gantt') {
             renderGanttTimeline();
           }
+          if (mobileState.activeTab === 'admin') {
+            renderAdminTab();
+          }
           showToast(mobileState.all.length + ' projects loaded', 'success');
           if (forceToast && dom.queuePullIndicator) {
             dom.queuePullIndicator.textContent = 'Queue refreshed';
@@ -1358,6 +1387,202 @@
         })
         .getDashboardData();
     }
+
+    // ================================================================
+    // PHASE 6 — ADMIN TAB
+    // ================================================================
+
+    function getAdminItems() {
+      var all = mobileState.all || [];
+      var crossings = all.filter(function(item) {
+        return String(item.flags || '').includes('ADMIN: CHECK CROSSINGS');
+      });
+      var qbStatus = all.filter(function(item) {
+        var f = String(item.flags || '');
+        return f.includes('STATUS MISMATCH') || f.includes('MISSING QB STATUS');
+      });
+      var boms = all.filter(function(item) {
+        var f = String(item.flags || '');
+        return f.includes('PLEASE INPUT BOM') || f.includes('CHECK BOM (UG/AE)');
+      });
+      return { crossings: crossings, qbStatus: qbStatus, boms: boms };
+    }
+
+    function updateAdminBadge() {
+      var items = getAdminItems();
+      var total = items.crossings.length + items.qbStatus.length + items.boms.length;
+      var badge = dom.adminBadge || document.getElementById('tab-badge-admin');
+      if (badge) {
+        badge.textContent = total;
+        badge.style.display = total > 0 ? 'inline-flex' : 'none';
+      }
+      var cc = dom.adminCountCrossings || document.getElementById('admin-count-crossings');
+      var cq = dom.adminCountQbstatus || document.getElementById('admin-count-qbstatus');
+      var cb = dom.adminCountBoms     || document.getElementById('admin-count-boms');
+      if (cc) cc.textContent = items.crossings.length;
+      if (cq) cq.textContent = items.qbStatus.length;
+      if (cb) cb.textContent = items.boms.length;
+      return items;
+    }
+
+    function adminOpenDetail(fdh) {
+      var idx = mobileState.filtered.findIndex(function(item) { return item.fdh === fdh; });
+      if (idx > -1) {
+        openQueueDetail(idx);
+      } else {
+        // Item may be outside active filter — find in mobileState.all and open directly
+        var item = mobileState.all.find(function(i) { return i.fdh === fdh; });
+        if (item) {
+          mobileState.activeItem = item;
+          mobileState.activeIdx = -1;
+          renderDetailView();
+          setActiveTab('detail');
+        }
+      }
+    }
+
+    function markQbStatusUpdatedMobile(fdh, btn) {
+      // 1 — Local state update first
+      var item = mobileState.all.find(function(i) { return i.fdh === fdh; });
+      if (item) {
+        item.flags = String(item.flags || '')
+          .replace('🚩 STATUS MISMATCH', '⚠️ ADMIN: REFRESH REF DATA')
+          .replace('STATUS MISMATCH', 'ADMIN: REFRESH REF DATA')
+          .replace('🚩 MISSING QB STATUS', '⚠️ ADMIN: REFRESH REF DATA')
+          .replace('MISSING QB STATUS', 'ADMIN: REFRESH REF DATA')
+          .trim();
+      }
+      if (btn) { btn.textContent = 'Saved'; btn.disabled = true; }
+      showToast('Status marked updated for ' + fdh, 'success');
+
+      // 2 — Re-render admin tab and badge with updated local state
+      updateAdminBadge();
+      renderAdminTab();
+
+      // 3 — Best-effort background write — no loading overlay
+      google.script.run
+        .withSuccessHandler(function() {
+          // silent success — local state already updated
+        })
+        .withFailureHandler(function(err) {
+          showToast('Backend sync failed for ' + fdh + (err && err.message ? ': ' + err.message : ''), 'error');
+        })
+        .markStatusSyncComplete(fdh);
+    }
+
+    function renderAdminCardList(items, type) {
+      if (!items || !items.length) {
+        var labelMap = { crossings: 'crossings', qbstatus: 'QB status mismatches', boms: 'BOM issues' };
+        return '<div class="admin-empty">' +
+          '<span class="admin-empty__icon">✅</span>' +
+          'No ' + (labelMap[type] || 'items') + ' outstanding' +
+          '</div>';
+      }
+
+      var html = '';
+      items.forEach(function(item) {
+        var fdh    = escapeHtml(item.fdh || 'Unknown');
+        var city   = escapeHtml(item.city || '');
+        var vendor = escapeHtml(getVendorOrFallback(item));
+        var stage  = escapeHtml(item.stage || '');
+        var meta   = [city, vendor, stage].filter(Boolean).join(' · ');
+
+        if (type === 'qbstatus') {
+          var status = escapeHtml(item.status || 'Unknown');
+          html +=
+            '<div class="admin-card" data-admin-fdh="' + fdh + '">' +
+              '<div class="admin-card__head">' +
+                '<div>' +
+                  '<div class="admin-card__id">' + fdh + '</div>' +
+                  '<div class="admin-card__meta">' + meta + '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="admin-card__status-row">' +
+                '<div>' +
+                  '<div class="admin-card__meta">QB Status: <span class="admin-card__status-val">' + status + '</span></div>' +
+                '</div>' +
+                '<button class="admin-action-btn" type="button" data-mark-fdh="' + fdh + '">Mark Updated</button>' +
+              '</div>' +
+            '</div>';
+        } else if (type === 'crossings') {
+          html +=
+            '<div class="admin-card" data-admin-fdh="' + fdh + '">' +
+              '<div class="admin-card__head">' +
+                '<div>' +
+                  '<div class="admin-card__id">' + fdh + '</div>' +
+                  '<div class="admin-card__meta">' + meta + '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="admin-card__instruction">Verify crossing data in QB, then re-sync. Tap to open detail.</div>' +
+            '</div>';
+        } else {
+          // boms
+          var isBomInput = String(item.flags || '').includes('PLEASE INPUT BOM');
+          var instruction = isBomInput
+            ? 'Enter BOM data in QuickBase, then re-sync reference data.'
+            : 'UG and AE BOM quantities are 0 in QB. Verify main phase BOM setup.';
+          html +=
+            '<div class="admin-card" data-admin-fdh="' + fdh + '">' +
+              '<div class="admin-card__head">' +
+                '<div>' +
+                  '<div class="admin-card__id">' + fdh + '</div>' +
+                  '<div class="admin-card__meta">' + meta + '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="admin-card__instruction">' + escapeHtml(instruction) + '</div>' +
+            '</div>';
+        }
+      });
+      return html;
+    }
+
+    function renderAdminTab() {
+      var content = dom.adminContent || document.getElementById('admin-content');
+      if (!content) return;
+
+      var adminItems = updateAdminBadge();
+      var listItems  = adminSubTab === 'crossings' ? adminItems.crossings
+                     : adminSubTab === 'qbstatus'  ? adminItems.qbStatus
+                     : adminItems.boms;
+
+      content.innerHTML = renderAdminCardList(listItems, adminSubTab);
+
+      // Bind card taps → Detail
+      content.querySelectorAll('.admin-card[data-admin-fdh]').forEach(function(card) {
+        card.addEventListener('click', function(e) {
+          // Don't navigate if the action button itself was clicked
+          if (e.target && e.target.classList.contains('admin-action-btn')) return;
+          adminOpenDetail(card.dataset.adminFdh);
+        });
+      });
+
+      // Bind QB Status "Mark Updated" buttons
+      content.querySelectorAll('[data-mark-fdh]').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (btn.disabled) return;
+          markQbStatusUpdatedMobile(btn.dataset.markFdh, btn);
+        });
+      });
+    }
+
+    function bindAdminSubTabs() {
+      document.querySelectorAll('[data-admin-subtab]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var tab = btn.dataset.adminSubtab;
+          if (adminSubTab === tab) return;
+          adminSubTab = tab;
+          document.querySelectorAll('[data-admin-subtab]').forEach(function(b) {
+            b.classList.toggle('is-active', b.dataset.adminSubtab === tab);
+          });
+          renderAdminTab();
+        });
+      });
+    }
+
+    // ================================================================
+    // END PHASE 6
+    // ================================================================
 
     // ================================================================
     // PHASE 5 — GANTT TIMELINE RENDERING
@@ -1724,6 +1949,7 @@
       });
 
       bindGanttZoom();
+      bindAdminSubTabs();
     }
 
     function initMobileShell() {
