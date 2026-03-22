@@ -258,12 +258,17 @@
           <div class="modal-header">
             <div>
               <div id="run-review-modal-title" class="modal-title">Run Review</div>
-              <div class="modal-subtitle">Date picker and execution flow will be added in Phase 4.</div>
+              <div class="modal-subtitle">Select a date to generate the daily review.</div>
             </div>
-            <button class="modal-close" type="button" data-close-modal="mobile-run-review-modal" aria-label="Close run review">×</button>
+            <button id="run-review-modal-close" class="modal-close" type="button" aria-label="Close run review">×</button>
           </div>
           <div class="modal-body">
-            <div class="tab-panel__body">Placeholder modal slot reserved for the touch-friendly Run Review experience.</div>
+            <label class="run-review-date-label" for="run-review-date-input">Review date</label>
+            <input id="run-review-date-input" class="run-review-date-input" type="date" aria-label="Select review date">
+          </div>
+          <div class="modal-actions">
+            <button id="run-review-cancel-btn" class="modal-action-btn modal-action-btn--ghost" type="button">Cancel</button>
+            <button id="run-review-confirm-btn" class="modal-action-btn modal-action-btn--commit" type="button">Run Review</button>
           </div>
         </div>
       </div>
@@ -798,6 +803,7 @@
             closeConfirmModal();
             if (action === 'commit-detail') commitActiveItemLocal();
             if (action === 'skip-detail') skipActiveItemLocal();
+            if (action === 'sync-qb-confirm') executeSyncQB();
           });
         }
       }
@@ -899,7 +905,7 @@
         '</section>' +
         '<section class="detail-section">' +
           '<div class="detail-section__title">PM Note</div>' +
-          '<div class="detail-note-copy">Local draft only in Phase 3.</div>' +
+          '<div class="detail-note-copy">Commit saves note to review log.</div>' +
           '<textarea id="detail-note-input" class="detail-note" placeholder="Add a PM note for this project...">' + escapeHtml(noteValue) + '</textarea>' +
           '<div class="detail-actions">' +
             '<button id="detail-gemini-button" class="detail-action-btn detail-action-btn--draft" type="button">Draft with Gemini</button>' +
@@ -990,14 +996,31 @@
 
     function commitActiveItemLocal() {
       if (!mobileState.activeItem) return;
-      if (!isCommitted(mobileState.activeItem)) {
-        mobileState.committed.push(mobileState.activeItem);
+      const item = mobileState.activeItem;
+      const noteText = getDetailNote(item);
+      if (!isCommitted(item)) {
+        mobileState.committed.push(item);
       }
-      showToast((mobileState.activeItem.fdh || 'Project') + ' reviewed', 'success');
+      showToast((item.fdh || 'Project') + ' reviewed', 'success');
       renderDetailView();
       const currentIndex = getCurrentActiveIndex();
       if (currentIndex > -1 && currentIndex < mobileState.filtered.length - 1) {
         advanceActiveItem(1);
+      }
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        const payload = [{
+          fdh: String(item.fdh || ''),
+          vendor: String(item.vendor || 'Unknown'),
+          flags: String(item.flags || ''),
+          comment: noteText
+        }];
+        google.script.run
+          .withSuccessHandler(function() {})
+          .withFailureHandler(function(error) {
+            const msg = error && error.message ? error.message : 'Log write failed';
+            showToast('Note saved locally — log write failed: ' + msg, 'error');
+          })
+          .commitBatchReviewsToLog(payload);
       }
     }
 
@@ -1009,6 +1032,101 @@
         advanceActiveItem(1);
       }
     }
+
+    // ── Phase 4: Action helpers ──────────────────────────────
+
+    function getTodayUTC() {
+      const now = new Date();
+      const y = now.getUTCFullYear();
+      const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(now.getUTCDate()).padStart(2, '0');
+      return y + '-' + m + '-' + d;
+    }
+
+    function getMinDateUTC() {
+      const now = new Date();
+      now.setUTCDate(now.getUTCDate() - 30);
+      const y = now.getUTCFullYear();
+      const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(now.getUTCDate()).padStart(2, '0');
+      return y + '-' + m + '-' + d;
+    }
+
+    function openRunReviewModal() {
+      const modal = document.getElementById('mobile-run-review-modal');
+      const dateInput = document.getElementById('run-review-date-input');
+      if (dateInput) {
+        const today = getTodayUTC();
+        dateInput.value = today;
+        dateInput.max = today;
+        dateInput.min = getMinDateUTC();
+      }
+      if (modal) {
+        modal.hidden = false;
+        requestAnimationFrame(function() { modal.classList.add('is-open'); });
+      }
+    }
+
+    function closeRunReviewModal() {
+      const modal = document.getElementById('mobile-run-review-modal');
+      if (!modal) return;
+      modal.classList.remove('is-open');
+      window.setTimeout(function() {
+        if (!modal.classList.contains('is-open')) modal.hidden = true;
+      }, 220);
+    }
+
+    function executeRunReview() {
+      const dateInput = document.getElementById('run-review-date-input');
+      const dateStr = dateInput && dateInput.value ? dateInput.value : getTodayUTC();
+      closeRunReviewModal();
+      showLoading('Running review for ' + dateStr + '…');
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        hideLoading();
+        showToast('google.script.run unavailable', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(data) {
+          hideLoading();
+          mobileState.all = data && data.actionItems ? data.actionItems : [];
+          applyQueueFilters();
+          showToast('Review complete — ' + mobileState.all.length + ' projects loaded', 'success');
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          const msg = error && error.message ? error.message : 'Unknown error';
+          showToast('Run Review failed: ' + msg, 'error');
+        })
+        .webAppTrigger3a(dateStr);
+    }
+
+    function executeSyncQB() {
+      showLoading('Syncing QuickBase…');
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        hideLoading();
+        showToast('google.script.run unavailable', 'error');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          if (result && result.success === false) {
+            showToast('QB sync failed: ' + (result.error || 'Unknown error'), 'error');
+            return;
+          }
+          showToast('QB sync complete — reloading queue', 'success');
+          loadQueueData(false);
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          const msg = error && error.message ? error.message : 'Sync failed';
+          showToast('QB sync failed: ' + msg, 'error');
+        })
+        .syncFromQBWebApp();
+    }
+
+    // ────────────────────────────────────────────────────────
 
     function getGroupedQueue(items) {
       if (mobileState.queueGroupBy === 'vendor') {
@@ -1308,8 +1426,7 @@
 
       if (dom.refreshButton) {
         dom.refreshButton.addEventListener('click', function() {
-          if (mobileState.activeTab === 'queue') loadQueueData(true);
-          else showToast('Refresh action scaffold is ready.', 'info');
+          loadQueueData(true);
         });
       }
 
@@ -1332,16 +1449,33 @@
         });
       });
 
+      const runReviewModalClose = document.getElementById('run-review-modal-close');
+      const runReviewCancelBtn  = document.getElementById('run-review-cancel-btn');
+      const runReviewConfirmBtn = document.getElementById('run-review-confirm-btn');
+      if (runReviewModalClose) runReviewModalClose.addEventListener('click', closeRunReviewModal);
+      if (runReviewCancelBtn)  runReviewCancelBtn.addEventListener('click', closeRunReviewModal);
+      if (runReviewConfirmBtn) runReviewConfirmBtn.addEventListener('click', executeRunReview);
+
       document.querySelectorAll('.action-item').forEach(function(button) {
         button.addEventListener('click', function() {
-          closeActionSheet();
-          const actionName = button.dataset.action || 'action';
-          const label = actionName === 'run-review'
-            ? 'Run Review'
-            : actionName === 'sync-qb'
-              ? 'Sync QB'
-              : 'Refresh';
-          showToast(label + ' is scaffolded for a later phase.', 'info');
+          const actionName = button.dataset.action || '';
+          if (actionName === 'run-review') {
+            closeActionSheet();
+            openRunReviewModal();
+          } else if (actionName === 'sync-qb') {
+            closeActionSheet();
+            openConfirmModal({
+              action: 'sync-qb-confirm',
+              title: 'Sync QB',
+              subtitle: 'Pull latest data from QuickBase',
+              body: 'This will sync QB data into the reference sheet and reload the queue. Continue?',
+              confirmLabel: 'Sync QB',
+              confirmClass: 'modal-action-btn--commit'
+            });
+          } else if (actionName === 'refresh') {
+            closeActionSheet();
+            loadQueueData(true);
+          }
         });
       });
 
