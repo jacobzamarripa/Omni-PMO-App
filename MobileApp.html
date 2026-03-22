@@ -101,14 +101,26 @@
         </section>
 
         <section id="tab-gantt" class="tab-panel" data-tab="gantt" aria-labelledby="tab-btn-gantt">
-          <div class="tab-panel__placeholder">
-            <div class="tab-panel__kicker">Phase 1 Shell</div>
-            <div class="tab-panel__title">Gantt</div>
-            <div class="tab-panel__body">This tab will host the mobile timeline with row labels, zoom controls, horizontal scroll, and project drill-in.</div>
-            <div class="tab-panel__chips">
-              <div class="placeholder-chip">Timeline</div>
-              <div class="placeholder-chip">Zoom</div>
-              <div class="placeholder-chip">Today Line</div>
+          <!--
+          // PHASE 5 COMPLETE — Gantt timeline tab
+          // Data: mobileState.filtered items with cxStart, cxEnd, fdh,
+          //   vendor, stage, status, flags, bsls
+          // Render: renderGanttTimeline() on tab switch + data load
+          // Zoom: Month (22px/day) | Week (34px/day) toggle chip
+          // Today line centered on render and zoom toggle
+          // EOM markers: faint line + BSL count at each month boundary
+          // Spike markers: tinted band + count when 5+ projects end same day
+          // Tap: openQueueDetail(idx) -> Detail tab
+          -->
+          <div class="gantt-shell">
+            <div id="gantt-zoom-bar" class="gantt-zoom-bar">
+              <button class="gantt-zoom-chip is-active" type="button" data-gantt-zoom="month">Month</button>
+              <button class="gantt-zoom-chip" type="button" data-gantt-zoom="week">Week</button>
+            </div>
+            <div id="gantt-scroll-wrap" class="gantt-scroll-wrap">
+              <div id="gantt-timeline-inner" class="gantt-timeline-inner" aria-live="polite">
+                <div class="gantt-empty">Loading timeline…</div>
+              </div>
             </div>
           </div>
         </section>
@@ -402,6 +414,8 @@
     let globalEndCounts = {};
     let globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 };
     let _orientationHintTimer = null;
+    let ganttZoomMode = 'month';
+    const GANTT_PX_PER_DAY = Object.freeze({ month: 22, week: 34 });
 
     const dom = {};
 
@@ -434,6 +448,8 @@
       dom.orientationPrompt = document.getElementById('mobile-orientation-prompt');
       dom.orientationPromptMessage = document.getElementById('orientation-prompt-message');
       dom.orientationPromptIcon = dom.orientationPrompt ? dom.orientationPrompt.querySelector('.orientation-hint__icon') : null;
+      dom.ganttScrollWrap = document.getElementById('gantt-scroll-wrap');
+      dom.ganttTimelineInner = document.getElementById('gantt-timeline-inner');
     }
 
     function setActiveTab(tabName) {
@@ -456,6 +472,9 @@
       if (dom.headerSubtitle) dom.headerSubtitle.textContent = meta.subtitle;
       if (dom.headerContext) dom.headerContext.textContent = meta.context;
       checkOrientationForTab(tabName);
+      if (tabName === 'gantt' && mobileState.filtered.length > 0) {
+        renderGanttTimeline();
+      }
     }
 
     function showToast(message, type) {
@@ -1313,6 +1332,9 @@
           }
           applyQueueFilters();
           renderDetailView();
+          if (mobileState.activeTab === 'gantt') {
+            renderGanttTimeline();
+          }
           showToast(mobileState.all.length + ' projects loaded', 'success');
           if (forceToast && dom.queuePullIndicator) {
             dom.queuePullIndicator.textContent = 'Queue refreshed';
@@ -1336,6 +1358,212 @@
         })
         .getDashboardData();
     }
+
+    // ================================================================
+    // PHASE 5 — GANTT TIMELINE RENDERING
+    // ================================================================
+
+    function renderGanttTimeline() {
+      const inner = dom.ganttTimelineInner || document.getElementById('gantt-timeline-inner');
+      if (!inner) return;
+
+      const items = mobileState.filtered;
+      if (!items || !items.length) {
+        inner.innerHTML = '<div class="gantt-empty">No projects in queue</div>';
+        return;
+      }
+
+      const pxPerDay = GANTT_PX_PER_DAY[ganttZoomMode] || 22;
+      const LABEL_W = 132;
+
+      // Compute date range from cxStart / cxEnd across all items
+      let minDate = null;
+      let maxDate = null;
+      items.forEach(function(item) {
+        var s = safeDate(item.cxStart);
+        var e = safeDate(item.cxEnd);
+        if (s && (!minDate || s < minDate)) minDate = s;
+        if (e && (!maxDate || e > maxDate)) maxDate = e;
+      });
+
+      // Fallback: 3 months back, 9 months forward
+      if (!minDate || !maxDate) {
+        var now = new Date();
+        minDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 3, 1));
+        maxDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 9, 0));
+      }
+
+      // Snap to month boundaries
+      var rangeStart = new Date(Date.UTC(minDate.getUTCFullYear(), minDate.getUTCMonth(), 1));
+      var rangeEnd   = new Date(Date.UTC(maxDate.getUTCFullYear(), maxDate.getUTCMonth() + 1, 0));
+
+      var totalDays  = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
+      var totalWidth = totalDays * pxPerDay;
+
+      // Today
+      var todayUTC = new Date();
+      todayUTC.setUTCHours(0, 0, 0, 0);
+      var todayOffset  = Math.round((todayUTC - rangeStart) / 86400000);
+      var todayX       = todayOffset * pxPerDay;
+      var todayInRange = todayOffset >= 0 && todayOffset < totalDays;
+
+      // Build header month cells and EOM marker data
+      var hdrHtml  = '';
+      var eomData  = []; // { x, bslCount }
+      var cursor   = new Date(rangeStart);
+
+      while (cursor <= rangeEnd) {
+        var mStart      = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), 1));
+        var mEnd        = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0));
+        var daysInMonth = Math.round((mEnd - mStart) / 86400000) + 1;
+        var mLabel      = new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' }).format(mStart);
+
+        hdrHtml += '<div class="gantt-hdr-month" style="width:' + (daysInMonth * pxPerDay) + 'px">' + escapeHtml(mLabel) + '</div>';
+
+        // EOM boundary line: at the first day of the next month
+        var nextMonthStart = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
+        if (nextMonthStart <= rangeEnd) {
+          var eomOffset = Math.round((nextMonthStart - rangeStart) / 86400000);
+          var bslCount  = 0;
+          var eomMon    = mEnd.getUTCMonth();
+          var eomYr     = mEnd.getUTCFullYear();
+          items.forEach(function(item) {
+            var e = safeDate(item.cxEnd);
+            if (e && e.getUTCMonth() === eomMon && e.getUTCFullYear() === eomYr) {
+              bslCount += (parseInt(item.bsls) || 0);
+            }
+          });
+          eomData.push({ x: eomOffset * pxPerDay, bslCount: bslCount });
+        }
+
+        cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
+      }
+
+      // Spike data: days where 5+ project cxEnd dates coincide
+      var spikeMap = {};
+      items.forEach(function(item) {
+        var e = safeDate(item.cxEnd);
+        if (!e) return;
+        var key = e.getUTCFullYear() + '-' + e.getUTCMonth() + '-' + e.getUTCDate();
+        if (!spikeMap[key]) spikeMap[key] = { date: e, count: 0 };
+        spikeMap[key].count++;
+      });
+      var spikes = [];
+      Object.keys(spikeMap).forEach(function(key) {
+        var entry = spikeMap[key];
+        if (entry.count >= 5) {
+          var spikeOffset = Math.round((entry.date - rangeStart) / 86400000);
+          spikes.push({ x: spikeOffset * pxPerDay, count: entry.count });
+        }
+      });
+
+      // Overlay HTML (today line + EOM lines + spike bands) — injected into each row track
+      function buildTrackOverlay() {
+        var html = '';
+        if (todayInRange) {
+          html += '<div class="gantt-today-line" style="left:' + todayX + 'px" aria-hidden="true"></div>';
+        }
+        eomData.forEach(function(eom) {
+          html += '<div class="gantt-eom-line" style="left:' + eom.x + 'px" aria-hidden="true">';
+          if (eom.bslCount > 0) {
+            html += '<div class="gantt-eom-label">' + eom.bslCount + ' BSL</div>';
+          }
+          html += '</div>';
+        });
+        spikes.forEach(function(spike) {
+          html += '<div class="gantt-spike-band" style="left:' + spike.x + 'px;width:' + pxPerDay + 'px" aria-hidden="true">' +
+            '<div class="gantt-spike-label">' + spike.count + '</div></div>';
+        });
+        return html;
+      }
+
+      // Build row HTML
+      var rowsHtml   = '';
+      var overlayHtml = buildTrackOverlay();
+
+      items.forEach(function(item, idx) {
+        var s          = safeDate(item.cxStart);
+        var e          = safeDate(item.cxEnd);
+        var fdh        = escapeHtml(item.fdh || 'Unknown');
+        var vendor     = escapeHtml(getVendorOrFallback(item));
+        var statusCls  = getQBStatusClass(item.stage, item.status, false);
+        var sev        = getSeverity(item.flags);
+        var sevCls     = sev === 'crit' ? 'gantt-bar--crit' : sev === 'warn' ? 'gantt-bar--warn' : '';
+        var barHtml    = '';
+
+        if (s && e) {
+          var barOff = Math.max(0, Math.round((s - rangeStart) / 86400000));
+          var barDays = Math.max(1, Math.round((e - s) / 86400000) + 1);
+          var barL   = barOff * pxPerDay;
+          var barW   = Math.max(8, barDays * pxPerDay - 2);
+          barHtml =
+            '<button class="gantt-bar ' + statusCls + ' ' + sevCls + '" ' +
+              'style="left:' + barL + 'px;width:' + barW + 'px" ' +
+              'data-gantt-idx="' + idx + '" ' +
+              'aria-label="' + fdh + ' — open detail" ' +
+              'type="button"></button>';
+        }
+
+        rowsHtml +=
+          '<div class="gantt-row">' +
+            '<div class="gantt-row-label">' +
+              '<div class="gantt-row-fdh">' + fdh + '</div>' +
+              '<div class="gantt-row-vendor">' + vendor + '</div>' +
+            '</div>' +
+            '<div class="gantt-row-track" style="width:' + totalWidth + 'px">' +
+              overlayHtml +
+              barHtml +
+            '</div>' +
+          '</div>';
+      });
+
+      // Render
+      inner.innerHTML =
+        '<div class="gantt-hdr-row">' +
+          '<div class="gantt-hdr-corner"></div>' +
+          '<div class="gantt-hdr-dates" style="width:' + totalWidth + 'px">' +
+            hdrHtml +
+          '</div>' +
+        '</div>' +
+        '<div class="gantt-rows">' +
+          rowsHtml +
+        '</div>';
+
+      // Center today on load / zoom toggle
+      var wrap = dom.ganttScrollWrap || document.getElementById('gantt-scroll-wrap');
+      if (wrap && todayInRange) {
+        requestAnimationFrame(function() {
+          var center = Math.max(0, todayX - (wrap.clientWidth - LABEL_W) / 2);
+          wrap.scrollLeft = center;
+        });
+      }
+
+      // Bar tap → openQueueDetail
+      inner.querySelectorAll('.gantt-bar').forEach(function(bar) {
+        bar.addEventListener('click', function() {
+          var idx = parseInt(bar.dataset.ganttIdx);
+          if (!isNaN(idx)) openQueueDetail(idx);
+        });
+      });
+    }
+
+    function bindGanttZoom() {
+      document.querySelectorAll('[data-gantt-zoom]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var zoom = btn.dataset.ganttZoom;
+          if (ganttZoomMode === zoom) return;
+          ganttZoomMode = zoom;
+          document.querySelectorAll('[data-gantt-zoom]').forEach(function(b) {
+            b.classList.toggle('is-active', b.dataset.ganttZoom === zoom);
+          });
+          renderGanttTimeline();
+        });
+      });
+    }
+
+    // ================================================================
+    // END PHASE 5
+    // ================================================================
 
     function bindShellEvents() {
       let queuePullStartY = 0;
@@ -1494,6 +1722,8 @@
         mobileState.orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
         checkOrientationForTab(mobileState.activeTab);
       });
+
+      bindGanttZoom();
     }
 
     function initMobileShell() {

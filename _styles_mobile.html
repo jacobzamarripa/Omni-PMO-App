@@ -1765,4 +1765,261 @@
     outline: 2px solid rgba(59, 130, 246, 0.5);
     outline-offset: 2px;
   }
+
+  /* ===================================================================
+     PHASE 5 — GANTT TIMELINE
+     =================================================================== */
+
+  .gantt-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Zoom chip bar */
+  .gantt-zoom-bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    z-index: 2;
+  }
+
+  .gantt-zoom-chip {
+    padding: 6px 18px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--card-bg-2);
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+
+  .gantt-zoom-chip.is-active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+
+  /* Scroll container */
+  .gantt-scroll-wrap {
+    flex: 1;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+  }
+
+  .gantt-timeline-inner {
+    min-width: fit-content;
+    position: relative;
+  }
+
+  /* Empty / loading state */
+  .gantt-empty {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  /* Header row */
+  .gantt-hdr-row {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    height: 40px;
+  }
+
+  .gantt-hdr-corner {
+    width: 132px;
+    flex-shrink: 0;
+    position: sticky;
+    left: 0;
+    z-index: 11;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+  }
+
+  .gantt-hdr-dates {
+    display: flex;
+    height: 40px;
+  }
+
+  .gantt-hdr-month {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  /* Project rows */
+  .gantt-rows {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .gantt-row {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    min-height: 48px;
+  }
+
+  .gantt-row:last-child {
+    border-bottom: none;
+  }
+
+  .gantt-row-label {
+    width: 132px;
+    flex-shrink: 0;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .gantt-row-fdh {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.3;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .gantt-row-vendor {
+    font-size: 10px;
+    color: var(--text-muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* Track area (bar canvas) */
+  .gantt-row-track {
+    position: relative;
+    height: 48px;
+    flex-shrink: 0;
+  }
+
+  /* Gantt bars */
+  .gantt-bar {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 20px;
+    border-radius: 4px;
+    background: #f97316;
+    border: none;
+    padding: 0;
+    min-width: 8px;
+    cursor: pointer;
+    opacity: 0.9;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.1s, transform 0.12s;
+  }
+
+  .gantt-bar:active {
+    opacity: 0.65;
+    transform: translateY(-50%) scaleY(0.88);
+  }
+
+  /* Bar colors — keyed to existing chip token names */
+  .gantt-bar.chip-active   { background: #f97316; }
+  .gantt-bar.chip-ofs      { background: #3b82f6; }
+  .gantt-bar.chip-permit   { background: #8b5cf6; }
+  .gantt-bar.chip-complete { background: #22c55e; }
+  .gantt-bar.chip-hold     { background: #94a3b8; }
+  .gantt-bar.chip-missing  { background: #ef4444; }
+
+  /* Severity outlines */
+  .gantt-bar.gantt-bar--crit {
+    outline: 2px solid #ef4444;
+    outline-offset: 1px;
+  }
+  .gantt-bar.gantt-bar--warn {
+    outline: 2px solid #f59e0b;
+    outline-offset: 1px;
+  }
+
+  /* Today line */
+  .gantt-today-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #ef4444;
+    opacity: 0.8;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  /* EOM marker */
+  .gantt-eom-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .gantt-eom-label {
+    position: absolute;
+    top: 4px;
+    left: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  /* Spike band (5+ projects end same day) */
+  .gantt-spike-band {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: rgba(239, 68, 68, 0.08);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .gantt-spike-label {
+    position: absolute;
+    bottom: 4px;
+    left: 2px;
+    font-size: 9px;
+    font-weight: 900;
+    color: #ef4444;
+    white-space: nowrap;
+    line-height: 1;
+    pointer-events: none;
+  }
 </style>

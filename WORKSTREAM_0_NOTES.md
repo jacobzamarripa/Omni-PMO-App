@@ -892,16 +892,26 @@ Started: March 21, 2026
   best-effort after local state advance
   All actions: loading overlay + success/error toasts
   All google.script.run calls have withSuccessHandler + withFailureHandler
+- Phase 5: Gantt timeline — March 22, 2026
+  Single overflow: auto container, row labels sticky-left 132px, date header sticky-top
+  Month (22px/day) and Week (34px/day) zoom toggle chip below tab bar
+  Today line centered on render and zoom toggle via requestAnimationFrame
+  EOM markers: faint vertical line + BSL count at each month boundary
+  Spike markers: tinted band + count label when 5+ projects end same day
+  Bar tap: `openQueueDetail(idx)` → Detail tab, same pattern as queue cards
+  Orientation hint (landscape) fires on tab switch, auto-dismisses 3s
+  Render triggered by: setActiveTab('gantt'), loadQueueData success, zoom toggle
+  Severity outlines: crit=red border, warn=amber border on bars
+  Files: `MobileApp.html` + `_styles_mobile.html` only
 
 ### Phases Remaining
-- Phase 5: Gantt timeline (plan approved — see below)
 - Phase 6: Admin tab
 - Phase 7: Digest tab
 - Design Polish Pass: after Phase 7
 
 ---
 
-## Phase 5 Plan (Approved — Pending Build)
+## Phase 5 Plan (Approved — Built March 22, 2026)
 
 Data fields: `item.cxStart` (bar start), `item.cxEnd`
 (bar end), `item.fdh` (row label), `item.vendor` (sub-label),
