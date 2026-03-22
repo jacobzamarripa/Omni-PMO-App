@@ -904,7 +904,7 @@ Started: March 21, 2026
   Severity outlines: crit=red border, warn=amber border on bars
   Files: `MobileApp.html` + `_styles_mobile.html` only
 
-- Phase 6: Admin tab — March 22, 2026
+- Phase 6: Admin tab — commit 54a20ec — March 22, 2026
   Three sub-tab chips: Crossings, QB Status, Missing BOMs with live counts
   Data from mobileState.all filtered by flag strings (no new backend call)
   Crossings: read-only cards, tap → Detail. Staged commit deferred.
