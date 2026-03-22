@@ -883,9 +883,17 @@ Started: March 21, 2026
   Swipe navigation, back button, local commit/skip
   Orientation hint active for landscape requirement
   PM note scaffold, no backend writes
+- Phase 4: Actions — commit 4457b9a
+  Run Review: `webAppTrigger3a(dateStr)` with native date picker
+  (pre-filled UTC today, min 30 days ago, max today)
+  Sync QB: `syncFromQBWebApp()` with confirm modal, result.success guard
+  Refresh: `loadQueueData(true)` from any tab — no navigation
+  Detail Commit: `commitBatchReviewsToLog([{fdh,vendor,flags,comment}])`
+  best-effort after local state advance
+  All actions: loading overlay + success/error toasts
+  All google.script.run calls have withSuccessHandler + withFailureHandler
 
 ### Phases Remaining
-- Phase 4: Actions (Run Review, Sync QB, Refresh, backend commit bridge)
 - Phase 5: Gantt timeline
 - Phase 6: Admin tab
 - Phase 7: Digest tab
