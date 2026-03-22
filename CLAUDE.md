@@ -81,7 +81,7 @@ When executing any workstream in this project:
 
 ## File Map
 > Agent navigation index. Read this before opening any file.
-> Last updated: March 21, 2026
+> Last updated: March 22, 2026
 
 ### How to Use This Map
 - Check **Agent Notes** before editing any file
@@ -112,7 +112,7 @@ When executing any workstream in this project:
 | File | Role | Agent Notes | Mobile Notes |
 |---|---|---|---|
 | `WebApp.html` | Desktop HtmlService shell with extracted style/state/module partials, desktop nav FAB markup, and the remaining bootstrap anchors/shared runtime glue | **Massive file.** `initDashboard()` and `applyFilters()` remain the bootstrap anchors in the shell. Shared quick-peek paths, shared KPI HUD helpers, nav FAB toggle logic, and a few cross-module globals still live here. When extracting partials, use `<?!= include('filename') ?>`. | Desktop-only layout assumptions — flag any px widths before mobile work |
-| `MobileApp.html` | Mobile HtmlService app surface for narrow viewport routing | Routed from `02_Utilities.js` doGet(). Treat as separate surface from `WebApp.html` — changes that work on desktop may break mobile. | Primary mobile surface — touch targets, font sizes, and bottom dock behavior live here |
+| `MobileApp.html` | Mobile HtmlService app surface — phone and tablet. Phases 1-3 complete. CSS lives in `_styles_mobile.html` — never inline. Requires `?view=mobile` parameter. Bottom tab bar: Queue, Detail, Gantt, Admin, Digest. | Routed from `02_Utilities.js` doGet(). Treat as separate surface from `WebApp.html` — changes that work on desktop may break mobile. Read `_styles_mobile.html` before any CSS work here. | Primary mobile surface — touch targets, font sizes, and bottom tab bar behavior live here |
 | `Sidebar.html` | Sidebar dashboard view, anomaly cards, lightweight filtering | Isolated — safe to edit independently | N/A |
 | `DatePicker.html` | Modal date-picker partial used by GAS dialogs | Isolated modal — z-index range `999990–999999` | N/A |
 
@@ -127,6 +127,7 @@ When executing any workstream in this project:
 | `_styles_layout.html` | Structural page framing, panel positioning, and responsive layout scaffolding | Read with `WebApp.html` markup before changing workspace or pane structure. | Contains desktop-first pane widths and touch-device layout assumptions |
 | `_styles_components.html` | Non-Gantt component visuals, overlays, controls, and utility widget styling | Read after `_styles_base.html`; prefer existing component selectors over adding new ones. | Contains hover states, dense controls, and fixed-size widgets that are desktop-biased |
 | `_styles_gantt.html` | Gantt timeline, sticky headers, quick peek, HUD, and Gantt-owned styles | Read with Gantt markup/runtime before touching timeline visuals or layering. | Contains fixed row-header widths, hover HUD patterns, and fullscreen layout assumptions |
+| `_styles_mobile.html` | CSS partial for `MobileApp.html` — all mobile styles live here. Included via `<?!= include('_styles_mobile') ?>` in `MobileApp.html`. Never put large CSS blocks inline in `MobileApp.html`. | GAS sanitizes large inline style blocks and can silently break script execution — CSS must stay in this partial. Read before any mobile CSS work. | This IS the mobile CSS surface — all touch targets, tab bar, orientation hints, and mobile layout tokens live here |
 | `_state_queue.html` | Authoritative queue, selection, filter, grouping, and queue view-mode state owner | Load before shared utilities, modules, and the main runtime. Keeps queue globals on `window` via top-level declarations. | Any future mobile queue/filter surface should read from this shared state owner |
 | `_state_router.html` | Authoritative workspace routing, detail face, deck mode, deck index, and dock placement state owner | Load after `_state_queue.html` and before modules. Bottom-dock inversion behavior depends on this state staying global. | Dock-placement behavior will matter for any mobile surface that mirrors Gantt/dock patterns |
 | `_state_session.html` | Authoritative PM session memory, staged deck, ref-data date, and presentation mode state owner | Load after `_state_router.html`. Used by deck staging, export flows, PM memory, and ref-data indicators. | Any mobile surface showing ref-data age or staged deck status should read from this state owner |

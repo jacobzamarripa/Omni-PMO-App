@@ -864,3 +864,60 @@ directives without changing any function signatures, variable names, or
   - `applyFilters()` remains the shared render/orchestration anchor across queue, admin, grid, digest, and gantt
   - Deck/export flows still write back into queue/admin/reviewed state through shared runtime ownership
   - Gantt extraction is still partial; row-header-coupled render paths and shared workspace orchestration remain mixed into the shell
+
+---
+
+## Workstream 7 — Mobile Buildout (In Progress)
+Started: March 21, 2026
+
+### Phases Complete
+- Phase 1: Shell + tab bar + orientation system
+  CSS architecture fix: all CSS in `_styles_mobile.html`
+  via `include()` — GAS sanitizes large inline style blocks
+- Phase 2: Queue tab — commit 4a10674
+  Data: `getDashboardData()` → `mobileState.all`
+  Cards: fdh, city, vendor, status, health, days left, flags
+  Search, filter, group by, pull to refresh working
+- Phase 3: Detail view — commit 642d566
+  All major sections rendering
+  Swipe navigation, back button, local commit/skip
+  Orientation hint active for landscape requirement
+  PM note scaffold, no backend writes
+
+### Phases Remaining
+- Phase 4: Actions (Run Review, Sync QB, Refresh, backend commit bridge)
+- Phase 5: Gantt timeline
+- Phase 6: Admin tab
+- Phase 7: Digest tab
+- Design Polish Pass: after Phase 7
+
+### Known Issues / Deferrals
+- Auto device detection routing deferred to WS8
+- CSS must stay in `_styles_mobile.html` — never inline in `MobileApp.html`
+- Mobile URL requires `?view=mobile` parameter
+- Use dev URL for testing — no redeployment unless explicitly requested
+
+### Payload Field Names (getDashboardData)
+fdh, city, vendor, status, stage, ofsDate,
+targetDate, bsls, flags, vendorComment,
+fieldProduction, isTrackerLinked, cxStart,
+cxEnd, draft, vel, qbRef, rowNum, gaps,
+isXing, cdIntel, geminiInsight, geminiDate,
+specXDetails, isDrgTracked, drgTrackerUrl,
+rid, bench, rawRow
+
+### mobileState Structure
+- `mobileState.all` — full project list
+- `mobileState.committed` — locally reviewed items
+- `mobileState.activeItem` — selected project
+- `mobileState.activeIdx` — queue position
+- `mobileState.activeTab` — current tab
+- `mobileState.filtered` — filtered project list
+- `globalEndCounts` — matches registry contract
+- `globalTodayData` — matches registry contract
+
+### Orientation Map
+- Portrait only: Queue, Admin, Actions/FAB
+- Landscape only: Detail, Gantt
+- Either: Digest
+- Enforcement: floating pill hint, auto-dismisses after 3 seconds
