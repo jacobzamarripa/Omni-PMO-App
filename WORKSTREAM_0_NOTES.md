@@ -52,6 +52,7 @@
 ## Known Deferrals
 - `_module_tabs.html` deferred — router/fullscreen orchestration and overlay layering must be resolved first. Revisit after Workstream 6 router isolation pass.
 - `currentPanelTab` is still missing from `_state_router.html` — add it during the Workstream 6 router isolation pass before any tab extraction resumes.
+- Auto device detection routing deferred — mobile surface requires explicit `?view=mobile` parameter. Revisit in Workstream 8 using a server-side user-agent approach or a published standalone mobile URL.
 
 ## Known UI Bugs (Pre-Existing)
 - Admin panel close button — RESOLVED. Fixed via absolute positioning on `.panel-tab-close` in `_styles_components.html`. Minor cosmetic note: X button overlaps the Activity tab at narrow viewports — accepted for now.

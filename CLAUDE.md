@@ -10,7 +10,9 @@
 1. **No Node.js:** Do not suggest `npm install`, `require()`, or standard Node.js modules. Use `UrlFetchApp` for HTTP requests, `SpreadsheetApp` for database operations, and `CacheService` for caching.
 2. **Frontend Modifications:** `WebApp.html` and `MobileApp.html` are massive files. When making CSS/JS changes, search for existing `:root` variables and reuse them. Do not duplicate CSS classes.
 3. **Date Handling:** QuickBase sends dates with midnight timestamps (e.g., `00:00:00 GMT-0600`). Always normalize these on the frontend using standard UTC-locked formatting utilities to avoid timezone shifting bugs.
-4. **Z-Index Standards:** * Modals/Widgets (Calculator, Calendar, Digest): `999990` - `999999`
+4. **HtmlService Routing:** ALL HtmlService routes in `doGet()` must use `createTemplateFromFile('filename').evaluate()` — never `createHtmlOutputFromFile()`. The latter blocks script execution in some GAS iframe contexts. This applies to every current and future app surface.
+5. **Mobile CSS Includes:** `MobileApp.html` must never contain a large inline `<style>` block. All CSS must live in included partials (`_styles_mobile.html` etc.) and be pulled in via `<?!= include('_styles_mobile') ?>`. GAS HtmlService sanitizes large inline style blocks and can silently break script execution. This applies to any future mobile partials as well.
+6. **Z-Index Standards:** * Modals/Widgets (Calculator, Calendar, Digest): `999990` - `999999`
    * Help panel: `100021`
    * Help overlay: `100020`
    * Critical hub overlay: `100020`
@@ -18,7 +20,7 @@
    * Review Hub panel: `100010`
    * Floating Pills: `3000`
    * Deck/Cards: `5` - `100`
-5. **WebApp Template Serving:** `WebApp.html` must be served via `createTemplateFromFile('WebApp').evaluate()` in `02_Utilities.js`, never `createHtmlOutputFromFile()`. The latter will silently break all `<?!= include() ?>` directives.
+7. **WebApp Template Serving:** `WebApp.html` must be served via `createTemplateFromFile('WebApp').evaluate()` in `02_Utilities.js`, never `createHtmlOutputFromFile()`. The latter will silently break all `<?!= include() ?>` directives.
 
 ## Error Handling & Logging
 * Use the custom `logMsg()` function in `00_Config.js` instead of `console.log()` for backend logic, as it writes directly to the `System_Logs` sheet.

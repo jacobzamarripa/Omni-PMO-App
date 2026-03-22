@@ -49,7 +49,10 @@ function doGet(e) {
   var view = (e && e.parameter && e.parameter.view) ? e.parameter.view.toLowerCase() : 'web';
 
   if (view === 'mobile') {
-    return HtmlService.createHtmlOutputFromFile('MobileApp')
+    // Mobile surface — must use createTemplateFromFile
+    // not createHtmlOutputFromFile per Workstream 1 fix
+    return HtmlService.createTemplateFromFile('MobileApp')
+        .evaluate()
         .setTitle('Production Hub · Mobile')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
         .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
