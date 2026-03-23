@@ -432,6 +432,7 @@
     const mobileState = {
       all: [],
       committed: [],
+      stagedCrossings: [],
       activeItem: null,
       activeIdx: -1,
       activeTab: 'queue',
@@ -876,10 +877,20 @@
         if (acceptButton) {
           acceptButton.addEventListener('click', function() {
             const action = mobileState.pendingConfirmAction;
-            closeConfirmModal();
-            if (action === 'commit-detail') commitActiveItemLocal();
-            if (action === 'skip-detail') skipActiveItemLocal();
-            if (action === 'sync-qb-confirm') executeSyncQB();
+            if (action === 'commit-detail') {
+              closeConfirmModal();
+              commitActiveItemLocal();
+            }
+            else if (action === 'skip-detail') {
+              closeConfirmModal();
+              skipActiveItemLocal();
+            }
+            else if (action === 'sync-qb-confirm') {
+              closeConfirmModal();
+              executeSyncQB();
+            }
+            else if (action === 'commit-staged-crossings') executeCommitStagedCrossings();
+            else closeConfirmModal();
           });
         }
       }
@@ -1767,6 +1778,133 @@
         .markStatusSyncComplete(fdh);
     }
 
+    function getStagedCrossing(fdh) {
+      return (mobileState.stagedCrossings || []).find(function(entry) {
+        return entry && entry.fdh === fdh;
+      }) || null;
+    }
+
+    function stageCrossingVerification(fdh, verifiedDate) {
+      if (!fdh || !verifiedDate) return;
+      if (!Array.isArray(mobileState.stagedCrossings)) {
+        mobileState.stagedCrossings = [];
+      }
+      var existingIndex = mobileState.stagedCrossings.findIndex(function(entry) {
+        return entry && entry.fdh === fdh;
+      });
+      var nextEntry = { fdh: fdh, verifiedDate: verifiedDate };
+      if (existingIndex > -1) {
+        mobileState.stagedCrossings[existingIndex] = nextEntry;
+      } else {
+        mobileState.stagedCrossings.push(nextEntry);
+      }
+    }
+
+    function verifyCrossingMobile(fdh, btn) {
+      if (!fdh || (btn && btn.disabled)) return;
+      var item = mobileState.all.find(function(candidate) { return candidate.fdh === fdh; });
+      var originalLabel = btn ? btn.textContent : 'Verify';
+      if (btn) {
+        btn.textContent = 'Verifying...';
+        btn.disabled = true;
+      }
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        if (btn) {
+          btn.textContent = originalLabel;
+          btn.disabled = false;
+        }
+        showToast('Crossing verify unavailable in this context', 'error');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(dateStr) {
+          if (!dateStr) {
+            if (btn) {
+              btn.textContent = originalLabel;
+              btn.disabled = false;
+            }
+            showToast('Crossing verify failed for ' + fdh, 'error');
+            return;
+          }
+          stageCrossingVerification(fdh, dateStr);
+          if (item) item.crossingVerifiedDate = dateStr;
+          showToast(fdh + ' crossing verified', 'success');
+          renderAdminTab();
+        })
+        .withFailureHandler(function(err) {
+          if (btn) {
+            btn.textContent = originalLabel;
+            btn.disabled = false;
+          }
+          showToast('Crossing verify failed for ' + fdh + (err && err.message ? ': ' + err.message : ''), 'error');
+        })
+        .verifySpecialCrossings(fdh);
+    }
+
+    function commitStagedCrossingsMobile() {
+      var staged = mobileState.stagedCrossings || [];
+      var count = staged.length;
+      if (!count) return;
+      openConfirmModal({
+        action: 'commit-staged-crossings',
+        title: 'Commit Staged Crossings',
+        subtitle: 'Commit ' + count + ' verified crossings to log?',
+        body: 'Commit ' + count + ' verified crossings to log?',
+        confirmLabel: 'Commit ' + count,
+        confirmClass: 'modal-action-btn--commit'
+      });
+    }
+
+    function executeCommitStagedCrossings() {
+      var staged = mobileState.stagedCrossings || [];
+      var count = staged.length;
+      var acceptButton = document.getElementById('confirm-accept-button');
+      if (!count) {
+        closeConfirmModal();
+        return;
+      }
+      if (acceptButton) {
+        acceptButton.textContent = 'Committing...';
+        acceptButton.disabled = true;
+      }
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        if (acceptButton) {
+          acceptButton.textContent = 'Commit ' + count;
+          acceptButton.disabled = false;
+        }
+        showToast('Commit unavailable in this context', 'error');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || result.success === false) {
+            if (acceptButton) {
+              acceptButton.textContent = 'Commit ' + count;
+              acceptButton.disabled = false;
+            }
+            showToast('Crossings commit failed' + (result && result.error ? ': ' + result.error : ''), 'error');
+            return;
+          }
+          mobileState.stagedCrossings = [];
+          closeConfirmModal();
+          renderAdminTab();
+          loadQueueData(false);
+          showToast((result.count || count) + ' crossings committed', 'success');
+        })
+        .withFailureHandler(function(err) {
+          if (acceptButton) {
+            acceptButton.textContent = 'Commit ' + count;
+            acceptButton.disabled = false;
+          }
+          showToast('Crossings commit failed' + (err && err.message ? ': ' + err.message : ''), 'error');
+        })
+        .commitToQueueWebApp();
+    }
+
     function renderAdminCardList(items, type) {
       if (!items || !items.length) {
         var labelMap = { crossings: 'crossings', qbstatus: 'QB status mismatches', boms: 'BOM issues' };
@@ -1802,6 +1940,8 @@
               '</div>' +
             '</div>';
         } else if (type === 'crossings') {
+          var staged = getStagedCrossing(item.fdh);
+          var verifiedDate = escapeHtml(staged && staged.verifiedDate ? staged.verifiedDate : '');
           html +=
             '<div class="admin-card" data-admin-fdh="' + fdh + '">' +
               '<div class="admin-card__head">' +
@@ -1811,6 +1951,12 @@
                 '</div>' +
               '</div>' +
               '<div class="admin-card__instruction">Verify crossing data in QB, then re-sync. Tap to open detail.</div>' +
+              '<div class="admin-card__status-row">' +
+                '<div>' +
+                  '<div class="admin-card__meta">' + (verifiedDate ? 'Verified ' + verifiedDate : 'Not verified yet') + '</div>' +
+                '</div>' +
+                '<button class="admin-action-btn admin-action-btn--verify" type="button" data-verify-fdh="' + fdh + '"' + (verifiedDate ? ' disabled' : '') + '>' + (verifiedDate ? 'Verified' : 'Verify') + '</button>' +
+              '</div>' +
             '</div>';
         } else {
           // boms
@@ -1841,8 +1987,16 @@
       var listItems  = adminSubTab === 'crossings' ? adminItems.crossings
                      : adminSubTab === 'qbstatus'  ? adminItems.qbStatus
                      : adminItems.boms;
+      var stagedCount = mobileState.stagedCrossings ? mobileState.stagedCrossings.length : 0;
+      var stagedBar = '';
+      if (adminSubTab === 'crossings' && stagedCount > 0) {
+        stagedBar = '<div class="admin-staged-bar">' +
+          '<div class="admin-staged-bar__meta">' + stagedCount + ' verified crossing' + (stagedCount === 1 ? '' : 's') + ' staged</div>' +
+          '<button class="admin-action-btn admin-action-btn--commit-staged" type="button" data-commit-staged>Commit Staged (' + stagedCount + ')</button>' +
+        '</div>';
+      }
 
-      content.innerHTML = renderAdminCardList(listItems, adminSubTab);
+      content.innerHTML = stagedBar + renderAdminCardList(listItems, adminSubTab);
 
       // Bind card taps → Detail
       content.querySelectorAll('.admin-card[data-admin-fdh]').forEach(function(card) {
@@ -1861,6 +2015,22 @@
           markQbStatusUpdatedMobile(btn.dataset.markFdh, btn);
         });
       });
+
+      content.querySelectorAll('[data-verify-fdh]').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          verifyCrossingMobile(btn.dataset.verifyFdh, btn);
+        });
+      });
+
+      var commitButton = content.querySelector('[data-commit-staged]');
+      if (commitButton) {
+        commitButton.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (commitButton.disabled) return;
+          commitStagedCrossingsMobile();
+        });
+      }
     }
 
     function bindAdminSubTabs() {
