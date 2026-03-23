@@ -916,9 +916,18 @@ Started: March 21, 2026
   Empty state per sub-tab when no items outstanding
   Files: MobileApp.html + _styles_mobile.html only
 
+- Phase 7: Digest tab -- March 23, 2026
+  Summary stats: pipeline count, BSL total, critical count from mobileState.all
+  Stage breakdown: grouped by item.stage with proportional fill bars
+  Vendor leaderboard: top 10 by BSL total with daily velocity and goal vs actual
+  Activity feed: 25 most recent globalLogs sorted by timestampObj descending
+  Feed taps: adminOpenDetail(fdh) for matched projects; muted system style for unmatched
+  globalLogs + vendorGoals captured from existing getDashboardData() payload -- no new call
+  renderDigestTab() triggered on setActiveTab('digest') + loadQueueData success
+  Files: MobileApp.html + _styles_mobile.html only
+
 ### Phases Remaining
-- Phase 7: Digest tab
-- Design Polish Pass: after Phase 7
+- Design Polish Pass
 
 ---
 

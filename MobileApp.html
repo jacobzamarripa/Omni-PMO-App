@@ -155,14 +155,17 @@
         </section>
 
         <section id="tab-digest" class="tab-panel" data-tab="digest" aria-labelledby="tab-btn-digest">
-          <div class="tab-panel__placeholder">
-            <div class="tab-panel__kicker">Phase 1 Shell</div>
-            <div class="tab-panel__title">Digest</div>
-            <div class="tab-panel__body">This tab will become the mobile analytics surface for summary metrics, stage mix, vendor leaderboard, and morning briefing.</div>
-            <div class="tab-panel__chips">
-              <div class="placeholder-chip">Analytics</div>
-              <div class="placeholder-chip">Leaderboard</div>
-              <div class="placeholder-chip">Briefing</div>
+          <!--
+          // PHASE 7 COMPLETE -- Digest tab
+          // Data: mobileState.all (stats/stage/vendors) + mobileState.globalLogs (feed)
+          //   + mobileState.vendorGoals (goal comparison)
+          // Render: renderDigestTab() on tab switch + data load
+          // Sections: Summary stats, Stage breakdown, Vendor leaderboard, Activity feed
+          // Feed taps: adminOpenDetail(fdh) for matched projects, muted for system events
+          -->
+          <div class="digest-shell">
+            <div id="digest-content" class="digest-content" aria-live="polite">
+              <div class="digest-empty">Loading digest data...</div>
             </div>
           </div>
         </section>
@@ -418,6 +421,8 @@
       queueError: '',
       queueSearch: '',
       queueGroupBy: 'none',
+      globalLogs: [],
+      vendorGoals: {},
       detailNotes: {},
       pendingConfirmAction: '',
       actionSheetOpen: false,
@@ -472,6 +477,7 @@
       dom.adminCountCrossings = document.getElementById('admin-count-crossings');
       dom.adminCountQbstatus = document.getElementById('admin-count-qbstatus');
       dom.adminCountBoms = document.getElementById('admin-count-boms');
+      dom.digestContent = document.getElementById('digest-content');
     }
 
     function setActiveTab(tabName) {
@@ -499,6 +505,9 @@
       }
       if (tabName === 'admin') {
         renderAdminTab();
+      }
+      if (tabName === 'digest') {
+        renderDigestTab();
       }
     }
 
@@ -1134,6 +1143,8 @@
         .withSuccessHandler(function(data) {
           hideLoading();
           mobileState.all = data && data.actionItems ? data.actionItems : [];
+          mobileState.globalLogs = data && data.globalLogs ? data.globalLogs : [];
+          mobileState.vendorGoals = data && data.vendorGoals ? data.vendorGoals : {};
           applyQueueFilters();
           showToast('Review complete — ' + mobileState.all.length + ' projects loaded', 'success');
         })
@@ -1364,6 +1375,9 @@
           if (mobileState.activeTab === 'admin') {
             renderAdminTab();
           }
+          if (mobileState.activeTab === 'digest') {
+            renderDigestTab();
+          }
           showToast(mobileState.all.length + ' projects loaded', 'success');
           if (forceToast && dom.queuePullIndicator) {
             dom.queuePullIndicator.textContent = 'Queue refreshed';
@@ -1387,6 +1401,186 @@
         })
         .getDashboardData();
     }
+
+    // ================================================================
+    // PHASE 7 -- DIGEST TAB
+    // ================================================================
+
+    function renderDigestSummary(items) {
+      if (!items || !items.length) {
+        return '<div class="digest-section"><div class="digest-section__title">Summary</div>' +
+          '<div class="digest-empty">No project data loaded</div></div>';
+      }
+      var pipeline = items.length;
+      var bslTotal = 0;
+      var critical = 0;
+      items.forEach(function(item) {
+        bslTotal += (parseInt(item.bsls) || 0);
+        if (getSeverity(item.flags) === 'crit') critical++;
+      });
+      return '<div class="digest-section">' +
+        '<div class="digest-section__title">Summary</div>' +
+        '<div class="digest-stat-row">' +
+          '<div class="digest-stat-card">' +
+            '<div class="digest-stat-card__value">' + pipeline + '</div>' +
+            '<div class="digest-stat-card__label">Pipeline</div>' +
+          '</div>' +
+          '<div class="digest-stat-card">' +
+            '<div class="digest-stat-card__value">' + bslTotal.toLocaleString() + '</div>' +
+            '<div class="digest-stat-card__label">Active BSLs</div>' +
+          '</div>' +
+          '<div class="digest-stat-card digest-stat-card--critical">' +
+            '<div class="digest-stat-card__value">' + critical + '</div>' +
+            '<div class="digest-stat-card__label">Critical</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function renderDigestStageBreakdown(items) {
+      if (!items || !items.length) {
+        return '<div class="digest-section"><div class="digest-section__title">Stage Breakdown</div>' +
+          '<div class="digest-empty">No stage data available</div></div>';
+      }
+      var stageCounts = {};
+      items.forEach(function(item) {
+        var stage = String(item.stage || 'Unknown').trim() || 'Unknown';
+        stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+      });
+      var stages = Object.keys(stageCounts).sort(function(a, b) {
+        return stageCounts[b] - stageCounts[a];
+      });
+      var maxCount = stageCounts[stages[0]] || 1;
+      var rowsHtml = '';
+      stages.forEach(function(stage) {
+        var count = stageCounts[stage];
+        var pct = Math.round((count / maxCount) * 100);
+        var cls = getQBStatusClass(stage, '', false);
+        rowsHtml +=
+          '<div class="digest-stage-row">' +
+            '<div class="digest-stage-label">' + escapeHtml(stage) + '</div>' +
+            '<div class="digest-stage-track">' +
+              '<div class="digest-stage-fill ' + cls + '" style="width:' + pct + '%"></div>' +
+            '</div>' +
+            '<div class="digest-stage-count">' + count + '</div>' +
+          '</div>';
+      });
+      return '<div class="digest-section">' +
+        '<div class="digest-section__title">Stage Breakdown</div>' +
+        rowsHtml +
+      '</div>';
+    }
+
+    function renderDigestVendorLeaderboard(items, vendorGoals) {
+      if (!items || !items.length) {
+        return '<div class="digest-section"><div class="digest-section__title">Vendor Leaderboard</div>' +
+          '<div class="digest-empty">No vendor data available</div></div>';
+      }
+      var vendorMap = {};
+      items.forEach(function(item) {
+        var vendor = getVendorOrFallback(item);
+        if (!vendorMap[vendor]) vendorMap[vendor] = { projects: 0, bsls: 0, dailyVel: 0 };
+        vendorMap[vendor].projects++;
+        vendorMap[vendor].bsls += (parseInt(item.bsls) || 0);
+        if (item.vel) {
+          vendorMap[vendor].dailyVel += (parseFloat((item.vel.ug && item.vel.ug.daily) || 0));
+          vendorMap[vendor].dailyVel += (parseFloat((item.vel.ae && item.vel.ae.daily) || 0));
+        }
+      });
+      var vendors = Object.keys(vendorMap)
+        .sort(function(a, b) { return vendorMap[b].bsls - vendorMap[a].bsls; })
+        .slice(0, 10);
+      if (!vendors.length) {
+        return '<div class="digest-section"><div class="digest-section__title">Vendor Leaderboard</div>' +
+          '<div class="digest-empty">No vendor data available</div></div>';
+      }
+      var goals = vendorGoals || {};
+      var rowsHtml = '';
+      vendors.forEach(function(vendor, i) {
+        var vd = vendorMap[vendor];
+        var goal = goals[vendor];
+        var dailyStr = vd.dailyVel > 0 ? Math.round(vd.dailyVel) + '/day' : '---';
+        var bslStr = vd.bsls > 0 ? vd.bsls.toLocaleString() + ' BSLs' : 'No BSLs';
+        var goalHtml = '';
+        if (goal) {
+          var actual = Math.round(vd.dailyVel);
+          var cls = vd.dailyVel >= goal ? 'is-met' : 'is-behind';
+          goalHtml = '<div class="digest-vendor-goal">Goal: <span class="digest-vendor-goal__val ' + cls + '">' +
+            actual + ' / ' + goal + '</span></div>';
+        }
+        rowsHtml +=
+          '<div class="digest-vendor-row">' +
+            '<div class="digest-vendor-rank">' + (i + 1) + '</div>' +
+            '<div class="digest-vendor-info">' +
+              '<div class="digest-vendor-name">' + escapeHtml(vendor) + '</div>' +
+              '<div class="digest-vendor-meta">' + vd.projects + ' projects \u00b7 ' + bslStr + ' \u00b7 ' + dailyStr + '</div>' +
+              goalHtml +
+            '</div>' +
+          '</div>';
+      });
+      return '<div class="digest-section">' +
+        '<div class="digest-section__title">Vendor Leaderboard <span class="digest-section__sub">Top 10 by BSL</span></div>' +
+        rowsHtml +
+      '</div>';
+    }
+
+    function renderDigestActivityFeed(logs, items) {
+      if (!logs || !logs.length) {
+        return '<div class="digest-section"><div class="digest-section__title">Recent Activity</div>' +
+          '<div class="digest-empty">No recent activity</div></div>';
+      }
+      var fdhSet = {};
+      (items || []).forEach(function(item) { if (item.fdh) fdhSet[item.fdh] = true; });
+      var sorted = (logs.slice()).sort(function(a, b) {
+        return ((b.timestampObj || 0) - (a.timestampObj || 0));
+      }).slice(0, 25);
+      var entriesHtml = '';
+      sorted.forEach(function(entry) {
+        var fdh  = String(entry.fdh  || '').trim();
+        var type = escapeHtml(entry.type || '');
+        var val  = escapeHtml(entry.val  || '');
+        var time = escapeHtml(entry.time || '');
+        var user = escapeHtml(entry.user || 'System');
+        var isLinked = fdh && fdhSet[fdh];
+        var fdhSpan = fdh ? '<span class="digest-feed-entry__fdh">' + escapeHtml(fdh) + '</span>' : '';
+        var typeSpan = type ? '<span class="digest-feed-entry__type">' + type + '</span>' : '';
+        var cls = isLinked ? 'digest-feed-entry--tappable' : 'digest-feed-entry--system';
+        var dataAttr = isLinked ? ' data-feed-fdh="' + escapeHtml(fdh) + '"' : '';
+        entriesHtml +=
+          '<div class="digest-feed-entry ' + cls + '"' + dataAttr + '>' +
+            '<div class="digest-feed-entry__head">' + fdhSpan + typeSpan + '</div>' +
+            '<div class="digest-feed-entry__body">' + val + '</div>' +
+            '<div class="digest-feed-entry__meta">' + user + ' \u00b7 ' + time + '</div>' +
+          '</div>';
+      });
+      return '<div class="digest-section">' +
+        '<div class="digest-section__title">Recent Activity <span class="digest-section__sub">Last 25</span></div>' +
+        entriesHtml +
+      '</div>';
+    }
+
+    function renderDigestTab() {
+      var content = dom.digestContent || document.getElementById('digest-content');
+      if (!content) return;
+      var items = mobileState.all || [];
+      var logs  = mobileState.globalLogs || [];
+      var goals = mobileState.vendorGoals || {};
+      content.innerHTML =
+        renderDigestSummary(items) +
+        renderDigestStageBreakdown(items) +
+        renderDigestVendorLeaderboard(items, goals) +
+        renderDigestActivityFeed(logs, items);
+      // Bind tappable feed entries
+      content.querySelectorAll('.digest-feed-entry--tappable[data-feed-fdh]').forEach(function(entry) {
+        entry.addEventListener('click', function() {
+          adminOpenDetail(entry.dataset.feedFdh);
+        });
+      });
+    }
+
+    // ================================================================
+    // END PHASE 7
+    // ================================================================
 
     // ================================================================
     // PHASE 6 — ADMIN TAB

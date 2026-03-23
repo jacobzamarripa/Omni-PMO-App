@@ -1767,6 +1767,52 @@
   }
 
   /* ===================================================================
+     PHASE 7 — DIGEST TAB
+     =================================================================== */
+
+  .digest-shell{display:flex;flex-direction:column;height:100%;overflow:hidden}
+  .digest-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 100px;display:flex;flex-direction:column;gap:20px}
+  .digest-section{display:flex;flex-direction:column;gap:10px}
+  .digest-section__title{font-size:13px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:baseline;gap:8px}
+  .digest-section__sub{font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;opacity:.7}
+  .digest-empty{padding:24px 0;text-align:center;color:var(--text-muted);font-size:13px}
+  .digest-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .digest-stat-card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .digest-stat-card__value{font-size:26px;font-weight:900;color:var(--text-main);line-height:1}
+  .digest-stat-card__label{font-size:11px;font-weight:600;color:var(--text-muted);text-align:center;letter-spacing:.03em}
+  .digest-stat-card--critical .digest-stat-card__value{color:#ef4444}
+  .digest-stage-row{display:flex;align-items:center;gap:10px;min-height:28px}
+  .digest-stage-label{width:90px;flex-shrink:0;font-size:11px;font-weight:700;color:var(--text-muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:right}
+  .digest-stage-track{flex:1;height:10px;background:var(--card-bg-2);border-radius:5px;overflow:hidden}
+  .digest-stage-fill{height:100%;border-radius:5px;background:#f97316;transition:width .3s ease-out}
+  .digest-stage-fill.chip-active{background:#f97316}
+  .digest-stage-fill.chip-ofs{background:#3b82f6}
+  .digest-stage-fill.chip-permit{background:#8b5cf6}
+  .digest-stage-fill.chip-complete{background:#22c55e}
+  .digest-stage-fill.chip-hold{background:#94a3b8}
+  .digest-stage-fill.chip-missing{background:#ef4444}
+  .digest-stage-count{width:28px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--text-main);text-align:right}
+  .digest-vendor-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .digest-vendor-row:last-child{border-bottom:none}
+  .digest-vendor-rank{width:22px;flex-shrink:0;font-size:13px;font-weight:900;color:var(--text-muted);padding-top:1px;text-align:center}
+  .digest-vendor-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .digest-vendor-name{font-size:13px;font-weight:700;color:var(--text-main);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .digest-vendor-meta{font-size:11px;color:var(--text-muted)}
+  .digest-vendor-goal{font-size:11px;color:var(--text-muted);margin-top:2px}
+  .digest-vendor-goal__val{font-weight:700}
+  .digest-vendor-goal__val.is-met{color:#22c55e}
+  .digest-vendor-goal__val.is-behind{color:#f59e0b}
+  .digest-feed-entry{padding:10px 12px;border-radius:10px;background:var(--card-bg);border:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
+  .digest-feed-entry--tappable{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+  .digest-feed-entry--tappable:active{background:var(--card-bg-2)}
+  .digest-feed-entry--system{opacity:.55}
+  .digest-feed-entry__head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .digest-feed-entry__fdh{font-size:12px;font-weight:900;color:var(--text-main)}
+  .digest-feed-entry__type{font-size:10px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;background:rgba(59,130,246,.1);padding:1px 6px;border-radius:4px}
+  .digest-feed-entry__body{font-size:12px;color:var(--text-muted);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .digest-feed-entry__meta{font-size:10px;color:var(--text-muted);opacity:.7}
+
+    /* ===================================================================
      PHASE 6 — ADMIN TAB
      =================================================================== */
 
