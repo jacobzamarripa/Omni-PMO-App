@@ -1,4 +1,6 @@
 # Gemini — Google Apps Script Guidelines
+> Extends: ~/.gemini/GEMINI.md
+> Read global GEMINI.md first, then this file.
 > Read this before editing any .gs file in 
 > this project.
 
