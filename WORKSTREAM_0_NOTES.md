@@ -867,8 +867,9 @@ directives without changing any function signatures, variable names, or
 
 ---
 
-## Workstream 7 — Mobile Buildout (In Progress)
+## Workstream 7 — Mobile Buildout (Complete)
 Started: March 21, 2026
+Completed: March 23, 2026
 
 ### Phases Complete
 - Phase 1: Shell + tab bar + orientation system
@@ -926,14 +927,45 @@ Started: March 21, 2026
   renderDigestTab() triggered on setActiveTab('digest') + loadQueueData success
   Files: MobileApp.html + _styles_mobile.html only
 
-### Phases Remaining
-- Design Polish Pass (next)
+- Design Polish Pass -- commits d5066e9 (Phase A), 056053a (Phase B) -- March 23, 2026
+  Phase A (token cleanup): 39 hardcoded colors → tokens; 5 new overlay tokens + --text-inverse added
+  Phase B (visual consistency): Admin/Digest card radius → 16px; admin card padding → 16px;
+  digest stat card padding → 14px 16px; admin FDH title → 16px; admin sub-tab chips → 11px/800;
+  gantt + digest secondary text weight → 600
+  Files: _styles_mobile.html only — no markup changes
 
-### Workstream 7 Feature Phases Complete
-Phases 1-7 complete as of March 23, 2026. All five mobile tab surfaces built.
-Design Polish Pass is the final step before Workstream 7 closeout commit.
+### Workstream 7 Complete
+All 7 feature phases + Design Polish Pass complete as of March 23, 2026.
+Five mobile tab surfaces built and polished. Token system complete.
 
 ---
+
+---
+
+## Workstream 8 Recommendation
+Priority items deferred from WS7 and prior workstreams:
+
+### Deferred from WS7
+- **Auto device detection routing** — mobile surface requires explicit `?view=mobile` parameter.
+  Implement server-side user-agent detection in `doGet()` (`02_Utilities.js`) to route automatically.
+- **PWA / home screen install support** — add Web App Manifest and service worker registration
+  so the mobile URL can be saved to the iOS/Android home screen with full-screen launch.
+- **Push notifications via GAS triggers** — time-based GAS triggers can call a notification
+  endpoint; requires a registered push subscription on the client.
+- **Offline queue caching** — cache last-loaded `mobileState` in localStorage so the queue
+  renders stale data when the device is offline.
+
+### Deferred from WS6
+- **Crossings staged commit on mobile Admin** — Admin Crossings sub-tab currently shows
+  read-only cards. Staged commit workflow (verify → commit → CSV export) was deferred from
+  Phase 6. Reference `_module_special_crossings.html` for the desktop implementation contract.
+- **`_module_tabs.html` fullscreen bleed-through diagnosis** — tab badge fullscreen bleed-through
+  documented but unresolved. Needs diagnosis in the mobile context as well.
+
+### Deferred from WS5
+- **Gantt quick peek** — bar tap currently navigates to Detail tab. A slide-up quick-peek panel
+  (showing key fields inline without tab switch) was deferred. Reference desktop `renderQuickPeek()`
+  contract in `WebApp.html` for field set.
 
 ## Phase 5 Plan (Approved — Built March 22, 2026)
 
