@@ -105,7 +105,7 @@ function getSurfaceHTML(isMobile) {
 function serveMobile() {
   return HtmlService.createTemplateFromFile('MobileApp')
       .evaluate()
-      .setTitle('Production Hub · Mobile')
+  .setTitle('Omni PMO')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
 }

@@ -55,7 +55,7 @@
               </svg>
             </button>
             <button id="header-fab-btn" class="fab-btn" type="button" aria-label="Open actions">
-              <span class="fab-btn__symbol" aria-hidden="true">☰</span>
+              <span class="fab-btn__symbol" aria-hidden="true"></span>
             </button>
           </div>
         </div>
@@ -68,8 +68,8 @@
         <span id="stale-banner-text">
           Showing cached data
         </span>
-        <button onclick="loadQueueData(true)">
-          Retry ↻
+        <button id="stale-retry-button" onclick="loadQueueData(true)">
+          Retry
         </button>
       </div>
 
@@ -168,7 +168,7 @@
               </button>
             </div>
             <div id="admin-content" class="admin-content" aria-live="polite">
-              <div class="admin-empty"><span class="admin-empty__icon">📋</span>Loading admin data…</div>
+              <div class="admin-empty"><span class="admin-empty__icon"></span>Loading admin data…</div>
             </div>
           </div>
         </section>
@@ -256,6 +256,19 @@
       </button>
     </nav>
 
+    <div class="landscape-fab landscape-fab--left">
+      <button id="landscape-back-btn" class="landscape-btn" type="button" onclick="setActiveTab('queue')" aria-label="Back to queue"></button>
+    </div>
+
+    <div class="landscape-fab landscape-fab--right">
+      <button id="landscape-menu-btn" class="landscape-btn" type="button" onclick="toggleActionSheet()" aria-label="Actions"></button>
+    </div>
+
+    <div class="landscape-fab landscape-fab--center" id="gantt-zoom-fab">
+      <button class="zoom-chip is-active" type="button" data-gantt-zoom-fab="month" onclick="setGanttZoom('month')">Month</button>
+      <button class="zoom-chip" type="button" data-gantt-zoom-fab="week" onclick="setGanttZoom('week')">Week</button>
+    </div>
+
     <div class="overlay-root">
       <div id="mobile-global-loading" class="loading-overlay" hidden>
         <div class="loading-card">
@@ -273,30 +286,37 @@
               <div id="action-sheet-title" class="sheet-title">Quick Actions</div>
               <div class="sheet-subtitle">Desktop-consistent header actions for the mobile shell.</div>
             </div>
-            <button id="action-sheet-close" class="sheet-close" type="button" aria-label="Close actions">×</button>
+            <button id="action-sheet-close" class="sheet-close" type="button" aria-label="Close actions"></button>
           </div>
           <div class="sheet-body">
             <div class="action-list">
+              <button class="action-item" type="button" data-action="toggle-theme">
+                <span class="action-item__text">
+                  <span id="action-theme-label" class="action-item__label">Dark Mode</span>
+                  <span id="action-theme-meta" class="action-item__meta">Follow system theme until manually toggled.</span>
+                </span>
+                <span id="action-theme-glyph" class="action-item__glyph"></span>
+              </button>
               <button class="action-item" type="button" data-action="run-review">
                 <span class="action-item__text">
                   <span class="action-item__label">Run Review</span>
                   <span class="action-item__meta">Touch-friendly review execution flow will mount here.</span>
                 </span>
-                <span class="action-item__glyph">R</span>
+                <span class="action-item__glyph"></span>
               </button>
               <button class="action-item" type="button" data-action="sync-qb">
                 <span class="action-item__text">
                   <span class="action-item__label">Sync QB</span>
                   <span class="action-item__meta">QuickBase sync action placeholder for the next phases.</span>
                 </span>
-                <span class="action-item__glyph">S</span>
+                <span class="action-item__glyph"></span>
               </button>
               <button class="action-item" type="button" data-action="refresh">
                 <span class="action-item__text">
                   <span class="action-item__label">Refresh</span>
                   <span class="action-item__meta">Shell-level refresh feedback placeholder.</span>
                 </span>
-                <span class="action-item__glyph">↻</span>
+                <span class="action-item__glyph"></span>
               </button>
             </div>
           </div>
@@ -310,7 +330,7 @@
               <div id="run-review-modal-title" class="modal-title">Run Review</div>
               <div class="modal-subtitle">Select a date to generate the daily review.</div>
             </div>
-            <button id="run-review-modal-close" class="modal-close" type="button" aria-label="Close run review">×</button>
+            <button id="run-review-modal-close" class="modal-close" type="button" aria-label="Close run review"></button>
           </div>
           <div class="modal-body">
             <label class="run-review-date-label" for="run-review-date-input">Review date</label>
@@ -331,7 +351,7 @@
               <div id="search-sheet-title" class="sheet-title">Search</div>
               <div class="sheet-subtitle">Queue search and filters will mount here in Phase 2.</div>
             </div>
-            <button class="sheet-close" type="button" data-close-sheet="mobile-search-sheet" aria-label="Close search">×</button>
+            <button class="sheet-close" type="button" data-close-sheet="mobile-search-sheet" aria-label="Close search"></button>
           </div>
           <div class="sheet-body">
             <div class="tab-panel__body">The queue search experience has been reserved as a dedicated mobile sheet.</div>
@@ -346,7 +366,7 @@
               <div id="confirm-modal-title" class="modal-title">Confirm Action</div>
               <div id="confirm-modal-subtitle" class="modal-subtitle">Reusable confirmation slot for commit, skip, and admin actions.</div>
             </div>
-            <button class="modal-close" type="button" data-close-modal="mobile-confirm-modal" aria-label="Close confirmation">×</button>
+            <button class="modal-close" type="button" data-close-modal="mobile-confirm-modal" aria-label="Close confirmation"></button>
           </div>
           <div id="confirm-modal-body" class="modal-body">
             <div class="tab-panel__body">Confirmation content will mount here in later phases.</div>
@@ -362,7 +382,7 @@
               <div id="detail-gemini-title" class="modal-title">Draft with Gemini</div>
               <div class="modal-subtitle">Scaffold only in Phase 3.</div>
             </div>
-            <button class="modal-close" type="button" data-close-modal="detail-gemini-modal" aria-label="Close Gemini scaffold">×</button>
+            <button class="modal-close" type="button" data-close-modal="detail-gemini-modal" aria-label="Close Gemini scaffold"></button>
           </div>
           <div class="modal-body">
             <div class="tab-panel__body">Gemini drafting stays local-only in Phase 3. The backend bridge lands in Phase 4.</div>
@@ -378,7 +398,7 @@
               <div id="project-picker-title" class="sheet-title">Project Picker</div>
               <div class="sheet-subtitle">Reserved slot for fast project navigation if needed.</div>
             </div>
-            <button class="sheet-close" type="button" data-close-sheet="mobile-project-picker-sheet" aria-label="Close project picker">×</button>
+            <button class="sheet-close" type="button" data-close-sheet="mobile-project-picker-sheet" aria-label="Close project picker"></button>
           </div>
           <div class="sheet-body">
             <div class="tab-panel__body">No project picker logic is active yet.</div>
@@ -396,6 +416,33 @@
   </div>
 
   <script>
+    const ICONS = {
+      queue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+      detail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>',
+      gantt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><rect x="3" y="9" width="10" height="3" rx="1"/><rect x="8" y="14" width="13" height="3" rx="1"/><line x1="3" y1="20" x2="21" y2="20"/></svg>',
+      admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+      digest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+      refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+      menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
+      back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
+      check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+      skip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+      warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      critical: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+      search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+      close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+      sync: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>',
+      run: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+      sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
+      moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+    };
+
+    function icon(name, size) {
+      var s = size || 20;
+      var svg = ICONS[name] || '';
+      return svg.replace('<svg ', '<svg width="' + s + '" height="' + s + '" aria-hidden="true" ');
+    }
+
     const TAB_META = Object.freeze({
       queue: Object.freeze({
         title: 'Queue',
@@ -446,6 +493,7 @@
       detailNotes: {},
       pendingConfirmAction: '',
       actionSheetOpen: false,
+      themeOverride: null,
       loading: false,
       loadingMessage: '',
       orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait',
@@ -455,6 +503,7 @@
     const CACHE_KEY = 'omni_pmo_queue_cache';
     const CACHE_META_KEY = 'omni_pmo_cache_meta';
     const CACHE_MAX_AGE_MS = 4 * 60 * 60 * 1000;
+    const systemThemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
 
     let globalEndCounts = {};
     let globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 };
@@ -464,6 +513,60 @@
     let adminSubTab = 'crossings';
 
     const dom = {};
+
+    function hydrateIconography() {
+      if (dom.refreshButton) {
+        dom.refreshButton.innerHTML = icon('refresh', 20);
+      }
+      var fabSymbol = document.querySelector('.fab-btn__symbol');
+      if (fabSymbol) {
+        fabSymbol.innerHTML = icon('menu', 20);
+      }
+      var retryButton = document.getElementById('stale-retry-button');
+      if (retryButton) {
+        retryButton.innerHTML = 'Retry ' + icon('refresh', 14);
+      }
+      document.querySelectorAll('.sheet-close, .modal-close').forEach(function(button) {
+        button.innerHTML = icon('close', 18);
+      });
+      document.querySelectorAll('.action-item').forEach(function(button) {
+        var glyph = button.querySelector('.action-item__glyph');
+        if (!glyph) return;
+        var actionName = button.dataset.action || '';
+        if (actionName === 'run-review') glyph.innerHTML = icon('run', 18);
+        else if (actionName === 'sync-qb') glyph.innerHTML = icon('sync', 18);
+        else if (actionName === 'refresh') glyph.innerHTML = icon('refresh', 18);
+      });
+      document.querySelectorAll('.admin-empty__icon').forEach(function(el) {
+        el.innerHTML = icon('warning', 16);
+      });
+      if (dom.orientationPromptIcon) {
+        dom.orientationPromptIcon.innerHTML = icon('refresh', 18);
+      }
+
+      var landscapeBack = document.getElementById('landscape-back-btn');
+      if (landscapeBack) {
+        landscapeBack.innerHTML = icon('back', 24);
+      }
+      var landscapeMenu = document.getElementById('landscape-menu-btn');
+      if (landscapeMenu) {
+        landscapeMenu.innerHTML = icon('menu', 24);
+      }
+
+      var tabIconMap = {
+        'tab-btn-queue': 'queue',
+        'tab-btn-detail': 'detail',
+        'tab-btn-gantt': 'gantt',
+        'tab-btn-admin': 'admin',
+        'tab-btn-digest': 'digest'
+      };
+      Object.keys(tabIconMap).forEach(function(id) {
+        var button = document.getElementById(id);
+        if (!button) return;
+        var iconHost = button.querySelector('.mobile-tabbar__icon');
+        if (iconHost) iconHost.innerHTML = icon(tabIconMap[id], 20);
+      });
+    }
 
     function cacheDom() {
       dom.headerTitle = document.getElementById('mobile-header-title');
@@ -483,6 +586,9 @@
       dom.actionSheetClose = document.getElementById('action-sheet-close');
       dom.fabButton = document.getElementById('header-fab-btn');
       dom.refreshButton = document.getElementById('header-refresh-btn');
+      dom.actionThemeLabel = document.getElementById('action-theme-label');
+      dom.actionThemeMeta = document.getElementById('action-theme-meta');
+      dom.actionThemeGlyph = document.getElementById('action-theme-glyph');
       dom.loadingOverlay = document.getElementById('mobile-global-loading');
       dom.loadingMessage = document.getElementById('mobile-global-loading-message');
       dom.toastStack = document.getElementById('mobile-toast-stack');
@@ -502,6 +608,25 @@
       dom.adminCountQbstatus = document.getElementById('admin-count-qbstatus');
       dom.adminCountBoms = document.getElementById('admin-count-boms');
       dom.digestContent = document.getElementById('digest-content');
+      dom.ganttZoomFab = document.getElementById('gantt-zoom-fab');
+    }
+
+    function getOrientation() {
+      return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+    }
+
+    function applyOrientationMode() {
+      var tab = mobileState.activeTab;
+      var orient = getOrientation();
+      var landscapeTabs = ['gantt', 'detail'];
+      var isLandscape = orient === 'landscape' && landscapeTabs.includes(tab);
+
+      document.body.classList.toggle('mode-landscape', isLandscape);
+      document.body.classList.toggle('mode-portrait', !isLandscape);
+
+      if (dom.ganttZoomFab) {
+        dom.ganttZoomFab.classList.toggle('visible', isLandscape && tab === 'gantt');
+      }
     }
 
     function setActiveTab(tabName) {
@@ -523,6 +648,7 @@
       if (dom.headerTitle) dom.headerTitle.textContent = meta.title;
       if (dom.headerSubtitle) dom.headerSubtitle.textContent = meta.subtitle;
       if (dom.headerContext) dom.headerContext.textContent = meta.context;
+      applyOrientationMode();
       checkOrientationForTab(tabName);
       if (tabName === 'gantt' && mobileState.filtered.length > 0) {
         renderGanttTimeline();
@@ -533,6 +659,34 @@
       if (tabName === 'digest') {
         renderDigestTab();
       }
+    }
+
+    function applyTheme(dark, hasManualOverride) {
+      document.body.classList.toggle('dark-mode', !!dark);
+      if (!dom.actionThemeLabel || !dom.actionThemeMeta || !dom.actionThemeGlyph) return;
+      dom.actionThemeLabel.textContent = dark ? 'Light Mode' : 'Dark Mode';
+      dom.actionThemeGlyph.innerHTML = dark ? icon('sun', 18) : icon('moon', 18);
+      dom.actionThemeMeta.textContent = hasManualOverride
+        ? 'Manual override active for this session.'
+        : 'Following system appearance.';
+    }
+
+    function initializeTheme() {
+      applyTheme(systemThemeMedia.matches, false);
+      if (systemThemeMedia && typeof systemThemeMedia.addEventListener === 'function') {
+        systemThemeMedia.addEventListener('change', function(event) {
+          if (mobileState.themeOverride == null) {
+            applyTheme(event.matches, false);
+          }
+        });
+      }
+    }
+
+    function toggleDarkMode() {
+      const currentlyDark = document.body.classList.contains('dark-mode');
+      const nextDark = !currentlyDark;
+      mobileState.themeOverride = nextDark;
+      applyTheme(nextDark, true);
     }
 
     function showToast(message, type) {
@@ -594,17 +748,22 @@
       }, 220);
     }
 
+    function toggleActionSheet() {
+      if (mobileState.actionSheetOpen) closeActionSheet();
+      else openActionSheet();
+    }
+
     function showOrientationPrompt(needed) {
       const el = dom.orientationPrompt || document.getElementById('mobile-orientation-prompt');
       const msg = dom.orientationPromptMessage || document.getElementById('orientation-prompt-message');
-      const icon = dom.orientationPromptIcon || (el ? el.querySelector('.orientation-hint__icon') : null);
+      const iconEl = dom.orientationPromptIcon || (el ? el.querySelector('.orientation-hint__icon') : null);
       if (!el) return;
       if (msg) {
         msg.textContent = needed === 'portrait'
           ? 'Rotate to portrait for best experience'
           : 'Rotate to landscape for best experience';
       }
-      if (icon) icon.textContent = '🔄';
+      if (iconEl) iconEl.innerHTML = icon('refresh', 18);
       el.hidden = false;
       if (_orientationHintTimer) {
         clearTimeout(_orientationHintTimer);
@@ -689,10 +848,10 @@
         .filter(Boolean);
       let highestSev = 'info';
       rawFlags.forEach(function(flag) {
-        if (flag.includes('🚨') || flag.includes('🛑') || flag.includes('🚩')) highestSev = 'crit';
+        if (flag.includes('\u{1F6A8}') || flag.includes('\u{1F6D1}') || flag.includes('\u{1F6A9}')) highestSev = 'crit';
         else if (flag.includes('ADMIN: CHECK CROSSINGS') || flag.includes('ADMIN: REFRESH REF DATA') || flag.includes('STATUS MISMATCH') || flag.includes('MISSING QB STATUS')) {
           if (highestSev !== 'crit') highestSev = 'warn';
-        } else if (flag.includes('⚠️') || flag.includes('🖍️') || flag.includes('🚧')) {
+        } else if (flag.includes('\u26A0\uFE0F') || flag.includes('\u{1F58D}\uFE0F') || flag.includes('\u{1F6A7}')) {
           if (highestSev !== 'crit') highestSev = 'warn';
         }
       });
@@ -711,8 +870,60 @@
       return 'chip-active';
     }
 
+    function getGanttBarClass(item, statusClass) {
+      if (statusClass === 'chip-permit') return 'gantt-bar--permit';
+      if (statusClass === 'chip-hold') return 'gantt-bar--hold';
+      if (statusClass === 'chip-complete' || statusClass === 'chip-ofs') return 'gantt-bar--done';
+
+      if (statusClass === 'chip-active') {
+        const stage = String(item && item.stage || '').toLowerCase();
+        const status = String(item && item.status || '').toLowerCase();
+        const combined = stage + ' ' + status;
+
+        if (/\bnap\b|splicing complete/.test(combined)) return 'gantt-bar--nap';
+        if (/\bfib\b|fiber|splic|underground fiber/.test(combined)) return 'gantt-bar--fib';
+        if (/\bae\b|aerial|overhead/.test(combined)) return 'gantt-bar--ae';
+        if (/\bug\b|drill|underground/.test(combined)) return 'gantt-bar--ug';
+
+        return 'gantt-bar--ug';
+      }
+
+      return 'gantt-bar--ug';
+    }
+
+    function getGanttBarColor(item) {
+      var stage = String(item && item.stage || '').toLowerCase();
+      var status = String(item && item.status || '').toLowerCase();
+      var flags = String(item && item.flags || '');
+
+      var isCritical = flags.includes('CRITICAL') || getSeverity(flags) === 'crit';
+
+      var color;
+
+      if (status.includes('complete') || status.includes('ofs')) {
+        color = 'var(--qb-done)';
+      } else if (status.includes('hold') || status.includes('on hold')) {
+        color = 'var(--pill-hold-bdr)';
+      } else if (status.includes('permit')) {
+        color = 'var(--pill-permitting-bdr)';
+      } else if (stage.includes('ae') || stage.includes('aerial')) {
+        color = 'var(--qb-ae)';
+      } else if (stage.includes('fiber') || stage.includes('splice')) {
+        color = 'var(--qb-fib)';
+      } else if (stage.includes('nap') || stage.includes('splicing complete')) {
+        color = 'var(--qb-nap)';
+      } else {
+        color = 'var(--qb-ug)';
+      }
+
+      return {
+        background: color,
+        outline: isCritical ? '2px solid var(--flag-critical)' : 'none'
+      };
+    }
+
     function cleanDiagnosticFlagText(flag) {
-      return String(flag || '').replace(/[🚨🛑🚩⚠️🖍️🚧🪄🟣🔵🟢⚪]/g, '').trim();
+      return String(flag || '').replace(/[\u{1F6A8}\u{1F6D1}\u{1F6A9}\u26A0\uFE0F\u{1F58D}\u{1F6A7}\u{1FA84}\u{1F7E3}\u{1F535}\u{1F7E2}\u26AA]/gu, '').trim();
     }
 
     function getItemFlags(item) {
@@ -726,6 +937,42 @@
       return getItemFlags(item).length > 0;
     }
 
+    function parseDiagnosticStrip(text) {
+      if (!text) return '';
+      const emojiRegex = /[\u{1F6A8}\u{1F6D1}\u{1F6A9}\u26A0\uFE0F\u{1F58D}\u{1F6A7}\u{1FA84}\u{1F9EF}\u{1F7E3}\u{1F535}\u{1F7E2}\u26AA\u2705\u274C]/gu;
+      const segments = String(text).split('|').map(function(s) { return s.trim(); }).filter(Boolean);
+      
+      return segments.map(function(segment) {
+        // Check if segment has ✕ delimiter (e.g., "✕ SOW ✕ CD ✕ BOM")
+        if (/✕/.test(segment)) {
+          const items = segment.split(/\s*✕\s*/).map(function(item) { 
+            return item.replace(emojiRegex, '').trim(); 
+          }).filter(Boolean);
+          if (items.length >= 1) {
+            // Create individual error chips for each item
+            return items.map(function(item) {
+              return '<span class="chip chip--error">' + icon('close', 12) + ' ' + escapeHtml(item) + '</span>';
+            }).join('');
+          }
+        }
+        
+        // Single item: process with existing logic
+        var cleanSegment = segment.replace(emojiRegex, '').trim();
+        if (!cleanSegment) return '';
+        
+        if (/^\[Chk:\s*NEVER\]/i.test(cleanSegment)) {
+          return '<span class="chip chip--warning">' + icon('warning', 12) + ' Last Check: Never</span>';
+        } else if (/^\[Chk:\s*(\d{1,2}\/\d{1,2})/i.test(cleanSegment)) {
+          var label = cleanSegment.replace(/^\[Chk:\s*/i, 'Checked: ').replace(/\].*/, '');
+          return '<span class="chip chip--ok">' + icon('check', 12) + ' ' + escapeHtml(label) + '</span>';
+        } else if (/X[\-–—]ING UNCHECKED/i.test(cleanSegment)) {
+          return '<span class="chip chip--critical">' + icon('critical', 12) + ' Crossings Unchecked</span>';
+        }
+        
+        return '<span class="chip">' + escapeHtml(cleanSegment) + '</span>';
+      }).join('');
+    }
+
     function daysLeftLabel(item) {
       const target = safeDate(item && item.targetDate);
       if (!target) return { label: 'No target', value: '—' };
@@ -735,6 +982,26 @@
       if (diff < 0) return { label: 'Past target', value: String(Math.abs(diff)) };
       if (diff === 0) return { label: 'Due today', value: '0' };
       return { label: 'Days left', value: String(diff) };
+    }
+
+    function getDayBadgeTone(daysMeta) {
+      const label = String(daysMeta && daysMeta.label || '');
+      const value = Number(daysMeta && daysMeta.value);
+      if (label === 'Past target') return 'is-overdue';
+      if (label === 'Due today') return 'is-due-today';
+      if (label === 'No target') return 'is-no-target';
+      if (!isNaN(value) && value <= 7) return 'is-soon';
+      if (!isNaN(value) && value <= 21) return 'is-watch';
+      return 'is-healthy';
+    }
+
+    function getStageStatusLabel(item) {
+      const stage = String(item && item.stage || '').trim();
+      const status = String(item && item.status || '').trim();
+      if (stage && status) return stage + ' | ' + status;
+      if (stage) return stage;
+      if (status) return status;
+      return 'Unspecified';
     }
 
     function getHealthMeta(item) {
@@ -920,7 +1187,7 @@
           '<div class="detail-empty">' +
             '<div class="detail-title">No project selected</div>' +
             '<div class="detail-body">Choose a project from the Queue tab to open its mobile detail view.</div>' +
-            '<button id="detail-empty-back" class="detail-back" type="button">Back to Queue</button>' +
+            '<button id="detail-empty-back" class="detail-back" type="button">Open Queue</button>' +
           '</div>';
         const emptyBack = document.getElementById('detail-empty-back');
         if (emptyBack) emptyBack.addEventListener('click', function() { setActiveTab('queue'); });
@@ -938,11 +1205,12 @@
       const prevDisabled = currentIndex <= 0;
       const nextDisabled = currentIndex < 0 || currentIndex >= mobileState.filtered.length - 1;
       const committedBadge = isCommitted(item) ? '<span class="detail-pill is-health-ok">Reviewed</span>' : '';
+      const gapChips = item.gaps ? parseDiagnosticStrip(item.gaps) : '';
 
       dom.detailContent.innerHTML =
         '<section class="detail-header-card">' +
           '<div class="detail-header-top">' +
-            '<button id="detail-back-button" class="detail-back" type="button">Back to Queue</button>' +
+            '<button id="detail-back-button" class="detail-back-btn" type="button">' + icon('back', 16) + ' Queue</button>' +
             '<div class="detail-countdown">' +
               '<div class="detail-countdown__label">' + escapeHtml(countdown.label) + '</div>' +
               '<div class="detail-countdown__value ' + (countdown.overdue ? 'is-overdue' : '') + '">' + escapeHtml(countdown.value) + '</div>' +
@@ -956,7 +1224,7 @@
             '</div>' +
           '</div>' +
           '<div class="detail-pill-row">' +
-            '<span class="detail-pill ' + escapeHtml(statusClass) + '">' + escapeHtml((item.stage || '-') + ' | ' + (item.status || '-')) + '</span>' +
+            '<span class="detail-pill ' + escapeHtml(statusClass) + '">' + escapeHtml(getStageStatusLabel(item)) + '</span>' +
             '<span class="detail-pill is-health-' + escapeHtml(health.className.replace('is-', '')) + '">' + escapeHtml(health.label) + '</span>' +
             (item.isTrackerLinked ? '<span class="detail-pill chip-ofs">Tracker Linked</span>' : '') +
             committedBadge +
@@ -969,14 +1237,13 @@
                 return '<span class="detail-flag ' + escapeHtml(getFlagTone(flag)) + '">' + escapeHtml(flag) + '</span>';
               }).join('') + '</div>'
             : '<div class="detail-body">No active diagnostic flags on this project.</div>') +
-          (item.gaps ? '<div class="detail-body">' + escapeHtml(item.gaps) + '</div>' : '') +
         '</section>' +
         '<section class="detail-section">' +
           '<div class="detail-section__title">Milestones & Countdown</div>' +
-          '<div class="detail-section__row"><div class="detail-label">Target completion</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.targetDate)) + '</div></div>' +
+          '<div class="detail-section__row"><div class="detail-label">Target Completion</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.targetDate)) + '</div></div>' +
           '<div class="detail-section__row"><div class="detail-label">Target OFS</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.ofsDate)) + '</div></div>' +
-          '<div class="detail-section__row"><div class="detail-label">CX start</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.cxStart)) + '</div></div>' +
-          '<div class="detail-section__row"><div class="detail-label">CX complete</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.cxEnd)) + '</div></div>' +
+          '<div class="detail-section__row"><div class="detail-label">CX Start</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.cxStart)) + '</div></div>' +
+          '<div class="detail-section__row"><div class="detail-label">CX Complete</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.cxEnd)) + '</div></div>' +
         '</section>' +
         '<section class="detail-section">' +
           '<div class="detail-section__title">Vendor Update</div>' +
@@ -988,11 +1255,11 @@
             '<div class="detail-kpi"><div class="detail-kpi__label">BSLs</div><div class="detail-kpi__value">' + escapeHtml(String(item.bsls || '0')) + '</div></div>' +
             '<div class="detail-kpi"><div class="detail-kpi__label">Daily Velocity</div><div class="detail-kpi__value">' + escapeHtml(productionSummary || 'No daily run') + '</div></div>' +
           '</div>' +
-          '<div class="detail-body">' + escapeHtml(item.fieldProduction || 'No field production summary available.') + '</div>' +
+          (gapChips ? '<div class="detail-diagnostic-chips">' + gapChips + '</div>' : '<div class="detail-body">No production gaps identified.</div>') +
         '</section>' +
         '<section class="detail-section">' +
           '<div class="detail-section__title">PM Note</div>' +
-          '<div class="detail-note-copy">Commit saves note to review log.</div>' +
+          '<div class="detail-note-copy">Your note is saved when you commit this project.</div>' +
           '<textarea id="detail-note-input" class="detail-note" placeholder="Add a PM note for this project...">' + escapeHtml(noteValue) + '</textarea>' +
           '<div class="detail-actions">' +
             '<button id="detail-gemini-button" class="detail-action-btn detail-action-btn--draft" type="button">Draft with Gemini</button>' +
@@ -1006,7 +1273,7 @@
             '<button id="detail-prev-button" class="detail-action-btn detail-action-btn--ghost" type="button"' + (prevDisabled ? ' disabled' : '') + '>Previous</button>' +
             '<button id="detail-next-button" class="detail-action-btn detail-action-btn--ghost" type="button"' + (nextDisabled ? ' disabled' : '') + '>Next</button>' +
           '</div>' +
-          '<div class="detail-note-copy">Swipe left or right across this screen to move between queue projects.</div>' +
+          '<div class="detail-note-copy">Use Previous and Next to move through queue projects.</div>' +
         '</section>' +
         '<section class="detail-section">' +
           '<div class="detail-section__title">Reviewed</div>' +
@@ -1247,21 +1514,27 @@
       const statusClass = getQBStatusClass(item.stage, item.status, false);
       const flags = getItemFlags(item).slice(0, 3);
       const days = daysLeftLabel(item);
+      const dayTone = getDayBadgeTone(days);
       const prodSummary = summarizeVelocity(item);
       const commentSummary = String(item.vendorComment || item.fieldProduction || '').trim();
+      const hasProductionSignal = !!(prodSummary || commentSummary);
+      const cardHealthClass = health.className === 'is-critical'
+        ? 'queue-card--critical'
+        : (health.className === 'is-warning' ? 'queue-card--warning' : 'queue-card--ok');
       const trackerChip = item && item.isTrackerLinked
         ? '<span class="queue-flag is-admin">Tracker Linked</span>'
         : '';
       const ofsLabel = item && item.ofsDate ? 'Target OFS ' + formatDateUTC(item.ofsDate) : 'Target OFS TBD';
       return '' +
-        '<button class="queue-card" type="button" data-queue-open="' + escapeHtml(String(filteredIndex)) + '">' +
+        '<button class="queue-card ' + cardHealthClass + '" type="button" data-queue-open="' + escapeHtml(String(filteredIndex)) + '">' +
           '<div class="queue-card__top">' +
             '<div class="queue-card__identity">' +
               '<div class="queue-card__fdh">' + escapeHtml(item.fdh || 'Unknown FDH') + '</div>' +
-              '<div class="queue-card__city">' + escapeHtml(item.city || 'Unknown city') + '</div>' +
-              '<div class="queue-card__vendor">' + escapeHtml(getVendorOrFallback(item)) + '</div>' +
+              '<div class="queue-card__city-vendor">' +
+                escapeHtml(item.city || 'Unknown city') + ' · ' + escapeHtml(getVendorOrFallback(item)) +
+              '</div>' +
             '</div>' +
-            '<div class="queue-card__days">' +
+            '<div class="queue-card__days queue-card__day-badge ' + dayTone + '">' +
               '<div class="queue-card__days-label">' + escapeHtml(days.label) + '</div>' +
               '<div class="queue-card__days-value">' + escapeHtml(days.value) + '</div>' +
             '</div>' +
@@ -1288,7 +1561,10 @@
               (item.cxStart ? '<span>CX ' + escapeHtml(formatDateUTC(item.cxStart)) + '</span>' : '') +
               (item.cxEnd ? '<span>Done ' + escapeHtml(formatDateUTC(item.cxEnd)) + '</span>' : '') +
             '</div>' +
-            '<div class="queue-card__summary">' + escapeHtml(prodSummary || commentSummary || 'No daily production summary yet') + '</div>' +
+            '<div class="queue-card__prodline">' +
+              '<span class="queue-card__prod-dot ' + (hasProductionSignal ? 'is-live' : 'is-idle') + '" aria-hidden="true"></span>' +
+              '<div class="queue-card__summary">' + escapeHtml(prodSummary || commentSummary || '') + '</div>' +
+            '</div>' +
           '</div>' +
         '</button>';
     }
@@ -1482,6 +1758,16 @@
           mobileState.queueError = '';
           hideStaleBanner();
           applyDashboardPayload(data);
+          if (dom.headerContext) {
+            dom.headerContext.textContent = '';
+            dom.headerContext.style.display = 'none';
+          }
+          console.log('STAGE/STATUS SAMPLE:',
+            mobileState.all[0] && {
+              fdh: mobileState.all[0].fdh,
+              stage: mobileState.all[0].stage,
+              status: mobileState.all[0].status
+            });
           showToast(mobileState.all.length + ' projects loaded', 'success');
           if (forceToast && dom.queuePullIndicator) {
             dom.queuePullIndicator.textContent = 'Queue refreshed';
@@ -1754,9 +2040,9 @@
       var item = mobileState.all.find(function(i) { return i.fdh === fdh; });
       if (item) {
         item.flags = String(item.flags || '')
-          .replace('🚩 STATUS MISMATCH', '⚠️ ADMIN: REFRESH REF DATA')
+          .replace('\u{1F6A9} STATUS MISMATCH', '\u26A0\uFE0F ADMIN: REFRESH REF DATA')
           .replace('STATUS MISMATCH', 'ADMIN: REFRESH REF DATA')
-          .replace('🚩 MISSING QB STATUS', '⚠️ ADMIN: REFRESH REF DATA')
+          .replace('\u{1F6A9} MISSING QB STATUS', '\u26A0\uFE0F ADMIN: REFRESH REF DATA')
           .replace('MISSING QB STATUS', 'ADMIN: REFRESH REF DATA')
           .trim();
       }
@@ -1909,7 +2195,7 @@
       if (!items || !items.length) {
         var labelMap = { crossings: 'crossings', qbstatus: 'QB status mismatches', boms: 'BOM issues' };
         return '<div class="admin-empty">' +
-          '<span class="admin-empty__icon">✅</span>' +
+          '<span class="admin-empty__icon">' + icon('check', 16) + '</span>' +
           'No ' + (labelMap[type] || 'items') + ' outstanding' +
           '</div>';
       }
@@ -2150,14 +2436,18 @@
       });
 
       // Overlay HTML (today line + EOM lines + spike bands) — injected into each row track
-      function buildTrackOverlay() {
+      function buildTrackOverlay(showTodayLabel, showEomLabels) {
         var html = '';
         if (todayInRange) {
-          html += '<div class="gantt-today-line" style="left:' + todayX + 'px" aria-hidden="true"></div>';
+          html += '<div class="gantt-today-line" style="left:' + todayX + 'px" aria-hidden="true">';
+          if (showTodayLabel) {
+            html += '<div class="gantt-today-label">TODAY</div>';
+          }
+          html += '</div>';
         }
         eomData.forEach(function(eom) {
           html += '<div class="gantt-eom-line" style="left:' + eom.x + 'px" aria-hidden="true">';
-          if (eom.bslCount > 0) {
+          if (showEomLabels && eom.bslCount > 0) {
             html += '<div class="gantt-eom-label">' + eom.bslCount + ' BSL</div>';
           }
           html += '</div>';
@@ -2171,7 +2461,6 @@
 
       // Build row HTML
       var rowsHtml   = '';
-      var overlayHtml = buildTrackOverlay();
 
       items.forEach(function(item, idx) {
         var s          = safeDate(item.cxStart);
@@ -2179,9 +2468,9 @@
         var fdh        = escapeHtml(item.fdh || 'Unknown');
         var vendor     = escapeHtml(getVendorOrFallback(item));
         var statusCls  = getQBStatusClass(item.stage, item.status, false);
-        var sev        = getSeverity(item.flags);
-        var sevCls     = sev === 'crit' ? 'gantt-bar--crit' : sev === 'warn' ? 'gantt-bar--warn' : '';
+        var barColor   = getGanttBarColor(item);
         var barHtml    = '';
+        var overlayHtml = buildTrackOverlay(idx === 0, idx === 0);
 
         if (s && e) {
           var barOff = Math.max(0, Math.round((s - rangeStart) / 86400000));
@@ -2189,15 +2478,15 @@
           var barL   = barOff * pxPerDay;
           var barW   = Math.max(8, barDays * pxPerDay - 2);
           barHtml =
-            '<button class="gantt-bar ' + statusCls + ' ' + sevCls + '" ' +
-              'style="left:' + barL + 'px;width:' + barW + 'px" ' +
+            '<button class="gantt-bar ' + statusCls + '" ' +
+              'style="left:' + barL + 'px;width:' + barW + 'px;background:' + barColor.background + ';outline:' + barColor.outline + '" ' +
               'data-gantt-idx="' + idx + '" ' +
               'aria-label="' + fdh + ' — open detail" ' +
               'type="button"></button>';
         }
 
         rowsHtml +=
-          '<div class="gantt-row">' +
+          '<div class="gantt-row ' + (idx % 2 === 1 ? 'is-even' : 'is-odd') + '">' +
             '<div class="gantt-row-label">' +
               '<div class="gantt-row-fdh">' + fdh + '</div>' +
               '<div class="gantt-row-vendor">' + vendor + '</div>' +
@@ -2243,14 +2532,24 @@
       document.querySelectorAll('[data-gantt-zoom]').forEach(function(btn) {
         btn.addEventListener('click', function() {
           var zoom = btn.dataset.ganttZoom;
-          if (ganttZoomMode === zoom) return;
-          ganttZoomMode = zoom;
-          document.querySelectorAll('[data-gantt-zoom]').forEach(function(b) {
-            b.classList.toggle('is-active', b.dataset.ganttZoom === zoom);
-          });
-          renderGanttTimeline();
+          setGanttZoom(zoom);
         });
       });
+    }
+
+    function setGanttZoom(zoom) {
+      if (!GANTT_PX_PER_DAY[zoom]) return;
+      if (ganttZoomMode === zoom) return;
+      ganttZoomMode = zoom;
+
+      document.querySelectorAll('[data-gantt-zoom]').forEach(function(b) {
+        b.classList.toggle('is-active', b.dataset.ganttZoom === zoom);
+      });
+      document.querySelectorAll('[data-gantt-zoom-fab]').forEach(function(b) {
+        b.classList.toggle('is-active', b.dataset.ganttZoomFab === zoom);
+      });
+
+      renderGanttTimeline();
     }
 
     // ================================================================
@@ -2392,6 +2691,9 @@
               confirmLabel: 'Sync QB',
               confirmClass: 'modal-action-btn--commit'
             });
+          } else if (actionName === 'toggle-theme') {
+            closeActionSheet();
+            toggleDarkMode();
           } else if (actionName === 'refresh') {
             closeActionSheet();
             loadQueueData(true);
@@ -2411,7 +2713,8 @@
       });
 
       window.addEventListener('resize', function() {
-        mobileState.orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+        mobileState.orientation = getOrientation();
+        applyOrientationMode();
         checkOrientationForTab(mobileState.activeTab);
       });
 
@@ -2422,8 +2725,12 @@
     function initMobileShell() {
       try {
         cacheDom();
+        hydrateIconography();
+        initializeTheme();
         bindShellEvents();
+        mobileState.orientation = getOrientation();
         setActiveTab(mobileState.activeTab);
+        applyOrientationMode();
         checkOrientationForTab(mobileState.activeTab);
         hideLoading();
         var initialCache = loadQueueCache();
@@ -2448,6 +2755,8 @@
     }
 
     window.dismissOrientationPrompt = dismissOrientationPrompt;
+    window.toggleActionSheet = toggleActionSheet;
+    window.setGanttZoom = setGanttZoom;
   </script>
 </body>
 </html>
