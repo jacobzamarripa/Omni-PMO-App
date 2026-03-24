@@ -20,6 +20,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <?!= include('_styles_mobile') ?>
+  <?!= include('_utils_shared') ?>
+  <?!= include('_state_queue') ?>
+  <?!= include('_state_session') ?>
+  <?!= include('_render_status_pill') ?>
+  <?!= include('_render_flag_badge') ?>
+  <?!= include('_render_queue_card') ?>
 </head>
 <body>
   <!--
@@ -76,12 +82,12 @@
       <main id="mobile-main" class="mobile-main">
         <!--
         // PHASE 2 COMPLETE — Queue tab
-        // Data: getDashboardData() -> mobileState.all
+        // Data: getDashboardData() -> allActionItems
         // Card fields: fdh, city, vendor, status, stage,
         //   ofsDate, targetDate, bsls, flags, vendorComment
         // Health: computed from flags severity
         // Days left: computed from targetDate UTC diff
-        // Navigation: tap card -> mobileState.activeItem
+        // Navigation: tap card -> currentActiveItem
         //   + setActiveTab('detail')
         -->
         <section id="tab-queue" class="tab-panel is-active" data-tab="queue" aria-labelledby="tab-btn-queue">
@@ -108,6 +114,20 @@
             </div>
 
             <div id="queue-pull-indicator" class="queue-pull-indicator">Pull down to refresh</div>
+            <div class="view-mode-bar" id="view-mode-bar">
+              <button class="view-mode-chip active" id="vmc-inbox" onclick="setQueueViewMode('inbox')">Inbox</button>
+              <button class="view-mode-chip" id="vmc-list" onclick="setQueueViewMode('list')">List</button>
+              <button class="view-mode-chip" id="vmc-grid" onclick="setQueueViewMode('grid')">Grid</button>
+            </div>
+            <div id="queue-hud" class="queue-hud">
+              <button class="queue-hud__toggle" id="queue-hud-toggle" onclick="toggleQueueHud()" aria-label="Toggle KPI summary">
+                <span id="queue-hud-toggle-label">▲ Summary</span>
+              </button>
+              <div class="queue-hud__body" id="queue-hud-body">
+                <div class="queue-hud__stats" id="queue-hud-stats"></div>
+                <div class="queue-hud__chips" id="queue-hud-chips"></div>
+              </div>
+            </div>
             <div id="queue-content" class="queue-content" aria-live="polite"></div>
           </div>
         </section>
@@ -117,12 +137,22 @@
           <!-- Network path dependency section deferred here on purpose. -->
           <!-- TODO(ws7-phase3): Add dependency/network path section only when payload access is clean and stable. -->
           <div id="detail-content" class="detail-shell" aria-live="polite"></div>
+          <div class="detail-gemini-section" id="detail-gemini-section">
+            <button class="btn-gemini-draft" id="btn-gemini-draft" onclick="triggerGeminiDraft()">
+              <span class="spinner"></span>
+              <span class="btn-label">Draft with AI</span>
+            </button>
+            <div class="detail-draft-output" id="detail-draft-output"></div>
+            <div class="detail-save-note-row" id="detail-save-note-row" style="display:none">
+              <button class="btn-save-note" onclick="saveDetailNote()">Save Note</button>
+            </div>
+          </div>
         </section>
 
         <section id="tab-gantt" class="tab-panel" data-tab="gantt" aria-labelledby="tab-btn-gantt">
           <!--
           // PHASE 5 COMPLETE — Gantt timeline tab
-          // Data: mobileState.filtered items with cxStart, cxEnd, fdh,
+          // Data: filteredItems items with cxStart, cxEnd, fdh,
           //   vendor, stage, status, flags, bsls
           // Render: renderGanttTimeline() on tab switch + data load
           // Zoom: Month (22px/day) | Week (34px/day) toggle chip
@@ -147,7 +177,7 @@
         <section id="tab-admin" class="tab-panel" data-tab="admin" aria-labelledby="tab-btn-admin">
           <!--
           // PHASE 6 COMPLETE — Admin tab
-          // Data: mobileState.all filtered by flag strings
+          // Data: allActionItems filtered by flag strings
           //   Crossings:   flags includes "ADMIN: CHECK CROSSINGS"
           //   QB Status:   flags includes "STATUS MISMATCH" or "MISSING QB STATUS"
           //   Missing BOMs: flags includes "PLEASE INPUT BOM" or "CHECK BOM (UG/AE)"
@@ -176,7 +206,7 @@
         <section id="tab-digest" class="tab-panel" data-tab="digest" aria-labelledby="tab-btn-digest">
           <!--
           // PHASE 7 COMPLETE -- Digest tab
-          // Data: mobileState.all (stats/stage/vendors) + mobileState.globalLogs (feed)
+          // Data: allActionItems (stats/stage/vendors) + mobileState.globalLogs (feed)
           //   + mobileState.vendorGoals (goal comparison)
           // Render: renderDigestTab() on tab switch + data load
           // Sections: Summary stats, Stage breakdown, Vendor leaderboard, Activity feed
@@ -205,6 +235,7 @@
         </span>
         <span class="mobile-tabbar__label">Queue</span>
         <span id="tab-badge-queue" class="mobile-tabbar__badge queue-tab-badge">0</span>
+        <span id="tab-badge-critical" class="mobile-tabbar__badge critical-tab-badge" style="display:none;">0</span>
       </button>
 
       <button id="tab-btn-detail" class="mobile-tabbar__tab" type="button" data-tab-target="detail">
@@ -253,6 +284,7 @@
           </svg>
         </span>
         <span class="mobile-tabbar__label">Digest</span>
+        <span id="tab-badge-digest" class="mobile-tabbar__badge changelog-pulse-badge"></span>
       </button>
     </nav>
 
@@ -477,13 +509,10 @@
     });
 
     const mobileState = {
-      all: [],
       committed: [],
       stagedCrossings: [],
-      activeItem: null,
       activeIdx: -1,
       activeTab: 'queue',
-      filtered: [],
       queueLoading: false,
       queueError: '',
       queueSearch: '',
@@ -497,7 +526,10 @@
       loading: false,
       loadingMessage: '',
       orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait',
-      toastCounter: 0
+      toastCounter: 0,
+      queueStageFilter: '',
+      hudCollapsed: false,
+      criticalHubShowAcknowledged: false
     };
 
     const CACHE_KEY = 'omni_pmo_queue_cache';
@@ -508,9 +540,214 @@
     let globalEndCounts = {};
     let globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 };
     let _orientationHintTimer = null;
+    var mobileViewMode = 'inbox'; // 'inbox' | 'list' | 'grid'
     let ganttZoomMode = 'month';
     const GANTT_PX_PER_DAY = Object.freeze({ month: 22, week: 34 });
     let adminSubTab = 'crossings';
+    const CRITICAL_ACK_KEY = 'omni_pmo_critical_ack';
+    let acknowledgedCriticalFdhs = [];
+
+    var CHANGELOG_PULSE_KEY = 'omni_pmo_changelog_pulse';
+
+    var MOBILE_DECK_STAGED_KEY = 'omni_pmo_deck_staged';
+    var mobileDeckStaged = (function() {
+      try { return JSON.parse(sessionStorage.getItem(MOBILE_DECK_STAGED_KEY) || '[]'); } catch(e) { return []; }
+    })();
+
+    function getDateGroupLabel(tsMs) {
+      if (!tsMs) return 'Unknown Date';
+      var d = new Date(Number(tsMs));
+      var today = new Date(); today.setHours(0,0,0,0);
+      var yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+      var entryDay = new Date(d); entryDay.setHours(0,0,0,0);
+      if (entryDay.getTime() === today.getTime()) return 'Today';
+      if (entryDay.getTime() === yesterday.getTime()) return 'Yesterday';
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function updateChangelogPulse() {
+      var logs = mobileState.globalLogs || [];
+      var badge = document.getElementById('tab-badge-digest');
+      if (!badge) return;
+      if (!logs.length) { badge.classList.remove('has-value'); return; }
+      var latestTs = Math.max.apply(null, logs.map(function(l) { return Number(l.timestampObj || 0); }));
+      var seenTs = Number(sessionStorage.getItem(CHANGELOG_PULSE_KEY) || 0);
+      if (latestTs > seenTs) {
+        badge.classList.add('has-value');
+      } else {
+        badge.classList.remove('has-value');
+      }
+    }
+
+    function clearChangelogPulse() {
+      var logs = mobileState.globalLogs || [];
+      if (logs.length) {
+        var latestTs = Math.max.apply(null, logs.map(function(l) { return Number(l.timestampObj || 0); }));
+        try { sessionStorage.setItem(CHANGELOG_PULSE_KEY, String(latestTs)); } catch(e) {}
+      }
+      var badge = document.getElementById('tab-badge-digest');
+      if (badge) badge.classList.remove('has-value');
+    }
+
+    function openChangelogHub() {
+      var overlay = document.getElementById('changelog-overlay');
+      if (!overlay) return;
+      overlay.classList.add('changelog-open');
+      clearChangelogPulse();
+      renderChangelogHub('');
+    }
+
+    function closeChangelogHub() {
+      var overlay = document.getElementById('changelog-overlay');
+      if (overlay) overlay.classList.remove('changelog-open');
+    }
+
+    function renderChangelogHub(searchTerm) {
+      var content = document.getElementById('changelog-content');
+      if (!content) return;
+      var logs = (mobileState.globalLogs || []).slice();
+      var term = String(searchTerm || '').trim().toLowerCase();
+      if (term) {
+        logs = logs.filter(function(l) {
+          return String(l.fdh || '').toLowerCase().includes(term) ||
+                 String(l.user || '').toLowerCase().includes(term) ||
+                 String(l.type || '').toLowerCase().includes(term);
+        });
+      }
+      logs.sort(function(a, b) { return Number(b.timestampObj || 0) - Number(a.timestampObj || 0); });
+
+      var fdhSet = {};
+      (allActionItems || []).forEach(function(item) { if (item.fdh) fdhSet[item.fdh] = true; });
+
+      var listHtml = '';
+      if (!logs.length) {
+        listHtml = '<div class="clhub-empty">No activity' + (term ? ' matching "' + escapeHtml(term) + '"' : '') + '</div>';
+      } else {
+        var groups = [];
+        var groupMap = {};
+        logs.forEach(function(entry) {
+          var label = getDateGroupLabel(entry.timestampObj);
+          if (!groupMap[label]) {
+            groupMap[label] = [];
+            groups.push(label);
+          }
+          groupMap[label].push(entry);
+        });
+        groups.forEach(function(label) {
+          listHtml += '<div class="clhub-date-group"><div class="clhub-date-label">' + escapeHtml(label) + '</div>';
+          groupMap[label].forEach(function(entry) {
+            var fdh = String(entry.fdh || '').trim();
+            var cleanVal = String(entry.val || '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '').trim();
+            var isLinked = fdh && fdhSet[fdh];
+            listHtml += '' +
+              '<div class="clhub-entry' + (isLinked ? ' clhub-entry--tappable' : '') + '"' +
+                (isLinked ? ' data-clhub-nav="' + escapeHtml(fdh) + '"' : '') + '>' +
+                '<div class="clhub-entry__top">' +
+                  (fdh ? '<span class="clhub-entry__fdh">' + escapeHtml(fdh) + '</span>' : '') +
+                  (entry.type ? '<span class="clhub-entry__type">' + escapeHtml(entry.type) + '</span>' : '') +
+                '</div>' +
+                (cleanVal ? '<div class="clhub-entry__val">' + escapeHtml(cleanVal) + '</div>' : '') +
+                '<div class="clhub-entry__meta">' +
+                  escapeHtml(entry.user || 'System') + ' \u00b7 ' + escapeHtml(entry.time || '') +
+                '</div>' +
+              '</div>';
+          });
+          listHtml += '</div>';
+        });
+      }
+
+      content.innerHTML = '' +
+        '<div class="clhub-header">' +
+          '<div class="clhub-header__title">Changelog</div>' +
+          '<div class="clhub-header__count">' + logs.length + ' entries</div>' +
+          '<button class="chub-close" onclick="closeChangelogHub()">✕</button>' +
+        '</div>' +
+        '<div class="clhub-search-bar">' +
+          '<input id="clhub-search-input" class="clhub-search" type="search" placeholder="Search FDH, user, or type…" autocomplete="off" value="' + escapeHtml(term) + '">' +
+        '</div>' +
+        '<div class="clhub-list">' + listHtml + '</div>';
+
+      var input = document.getElementById('clhub-search-input');
+      if (input) {
+        input.addEventListener('input', function() {
+          renderChangelogHub(input.value);
+        });
+        if (term) { input.focus(); input.setSelectionRange(term.length, term.length); }
+      }
+      content.querySelectorAll('[data-clhub-nav]').forEach(function(entry) {
+        entry.addEventListener('click', function() {
+          closeChangelogHub();
+          adminOpenDetail(entry.dataset.clhubNav);
+        });
+      });
+    }
+
+    function toggleMobileDeckStage(fdh) {
+      var key = String(fdh || '');
+      if (!key) return;
+      var idx = mobileDeckStaged.indexOf(key);
+      if (idx > -1) {
+        mobileDeckStaged.splice(idx, 1);
+        showToast('Removed from batch', 'info');
+      } else {
+        mobileDeckStaged.push(key);
+        showToast('Staged for batch', 'success');
+      }
+      try { sessionStorage.setItem(MOBILE_DECK_STAGED_KEY, JSON.stringify(mobileDeckStaged)); } catch(e) {}
+      var btn = document.getElementById('detail-stage-btn');
+      if (btn) btn.textContent = mobileDeckStaged.includes(key) ? 'Unstage' : 'Stage';
+      updateDeckStageBar();
+    }
+
+    function updateDeckStageBar() {
+      var bar = document.getElementById('detail-deck-bar');
+      if (!bar) return;
+      var count = mobileDeckStaged.length;
+      bar.style.display = count > 0 ? 'flex' : 'none';
+      var label = bar.querySelector('.detail-deck-bar__label');
+      if (label) label.textContent = count + ' project' + (count !== 1 ? 's' : '') + ' staged';
+    }
+
+    function promptMobileBatchExport() {
+      if (!mobileDeckStaged.length) { showToast('No projects staged', 'info'); return; }
+      var email = window.prompt(
+        'Email Batch Report (' + mobileDeckStaged.length + ' project' + (mobileDeckStaged.length !== 1 ? 's' : '') + ')\n\nEnter destination email:',
+        ''
+      );
+      if (!email || !email.trim()) return;
+
+      var now = new Date();
+      var dateStr = (now.getMonth() + 1) + '/' + now.getDate() + '/' + now.getFullYear();
+      var payloads = [];
+      var combinedText = 'DAILY PM BATCH REPORT\nGenerated: ' + dateStr + '\n\n';
+
+      mobileDeckStaged.forEach(function(fdh) {
+        var item = (allActionItems || []).find(function(i) { return i.fdh === fdh; });
+        if (!item) return;
+        var note = String(mobileState.detailNotes[fdh] || '');
+        payloads.push({ fdh: item.fdh, vendor: item.vendor || '', targetDate: item.targetDate || item.cxEnd || 'TBD', note: note, answers: {} });
+        combinedText += '==================================================\n';
+        combinedText += 'PROJECT: ' + item.fdh + ' (' + (item.vendor || 'Unknown') + ' \u2014 ' + (item.city || 'Unknown') + ')\n';
+        combinedText += 'Stage: ' + (item.stage || '-') + ' | Status: ' + (item.status || '-') + '\n';
+        combinedText += 'Manager Note: ' + (note || 'No note provided.') + '\n\n';
+      });
+
+      if (!payloads.length) { showToast('No matching items found', 'error'); return; }
+      showToast('Exporting ' + payloads.length + ' projects\u2026', 'info');
+
+      google.script.run
+        .withSuccessHandler(function(count) {
+          showToast('Emailed & saved ' + count + ' projects!', 'success');
+          mobileDeckStaged = [];
+          try { sessionStorage.removeItem(MOBILE_DECK_STAGED_KEY); } catch(e) {}
+          updateDeckStageBar();
+          renderDetailView();
+        })
+        .withFailureHandler(function(err) {
+          showToast('Export failed: ' + (err.message || err), 'error');
+        })
+        .processBatchDeckExport(payloads, email.trim(), combinedText);
+    }
 
     const dom = {};
 
@@ -580,7 +817,12 @@
       dom.queueSummaryCount = document.getElementById('queue-summary-count');
       dom.queueSummarySub = document.getElementById('queue-summary-sub');
       dom.queuePullIndicator = document.getElementById('queue-pull-indicator');
+      dom.queueHudBody = document.getElementById('queue-hud-body');
+      dom.queueHudToggleLabel = document.getElementById('queue-hud-toggle-label');
+      dom.queueHudStats = document.getElementById('queue-hud-stats');
+      dom.queueHudChips = document.getElementById('queue-hud-chips');
       dom.queueBadge = document.getElementById('tab-badge-queue');
+      dom.criticalBadge = document.getElementById('tab-badge-critical');
       dom.detailContent = document.getElementById('detail-content');
       dom.actionSheet = document.getElementById('mobile-action-sheet');
       dom.actionSheetClose = document.getElementById('action-sheet-close');
@@ -650,7 +892,7 @@
       if (dom.headerContext) dom.headerContext.textContent = meta.context;
       applyOrientationMode();
       checkOrientationForTab(tabName);
-      if (tabName === 'gantt' && mobileState.filtered.length > 0) {
+      if (tabName === 'gantt' && filteredItems.length > 0) {
         renderGanttTimeline();
       }
       if (tabName === 'admin') {
@@ -659,6 +901,208 @@
       if (tabName === 'digest') {
         renderDigestTab();
       }
+    }
+
+    function setQueueViewMode(mode) {
+      mobileViewMode = mode;
+      ['inbox', 'list', 'grid'].forEach(function(m) {
+        var chip = document.getElementById('vmc-' + m);
+        if (chip) chip.classList.toggle('active', m === mode);
+      });
+      renderQueueContent();
+    }
+
+    function getCriticalType(item) {
+      var severity = getSeverity(item && item.flags);
+      return severity === 'crit' ? 'crit' : 'warning';
+    }
+
+    function updateCriticalBadge() {
+      var criticalCount = filteredItems.filter(function(item) {
+        return getSeverity(item.flags) === 'crit';
+      }).length;
+      if (!dom.criticalBadge) return;
+      if (criticalCount > 0) {
+        dom.criticalBadge.textContent = String(criticalCount);
+        dom.criticalBadge.style.display = 'inline-flex';
+      } else {
+        dom.criticalBadge.style.display = 'none';
+      }
+    }
+
+    function openCriticalHub() {
+      try {
+        var stored = localStorage.getItem(CRITICAL_ACK_KEY);
+        acknowledgedCriticalFdhs = stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        acknowledgedCriticalFdhs = [];
+      }
+      mobileState.criticalHubShowAcknowledged = false;
+      renderCriticalHub();
+      var overlay = document.getElementById('chub-overlay');
+      if (overlay) {
+        overlay.hidden = false;
+        requestAnimationFrame(function() {
+          overlay.classList.add('chub-open');
+        });
+      }
+    }
+
+    function closeCriticalHub() {
+      var overlay = document.getElementById('chub-overlay');
+      if (overlay) {
+        overlay.classList.remove('chub-open');
+        window.setTimeout(function() {
+          if (!overlay.classList.contains('chub-open')) overlay.hidden = true;
+        }, 220);
+      }
+    }
+
+    function acknowledgeCriticalItem(fdh) {
+      if (!fdh || acknowledgedCriticalFdhs.indexOf(fdh) !== -1) return;
+      acknowledgedCriticalFdhs.push(fdh);
+      try {
+        localStorage.setItem(CRITICAL_ACK_KEY, JSON.stringify(acknowledgedCriticalFdhs));
+      } catch (e) {}
+      renderCriticalHub();
+      updateCriticalBadge();
+    }
+
+    function renderCriticalHub() {
+      var overlay = document.getElementById('chub-overlay');
+      var sheet = overlay ? overlay.querySelector('.chub-sheet') : null;
+      if (!sheet) return;
+
+      var all = allActionItems || [];
+      var criticalItems = all.filter(function(item) {
+        return getSeverity(item.flags) === 'crit';
+      });
+      var unacknowledged = criticalItems.filter(function(item) {
+        return acknowledgedCriticalFdhs.indexOf(item.fdh) === -1;
+      });
+      var acknowledged = criticalItems.filter(function(item) {
+        return acknowledgedCriticalFdhs.indexOf(item.fdh) !== -1;
+      });
+
+      var listHtml = '';
+      var itemsToShow = mobileState.criticalHubShowAcknowledged ? acknowledged : unacknowledged;
+
+      if (!itemsToShow.length) {
+        listHtml = '<div class="chub-empty">' +
+          (mobileState.criticalHubShowAcknowledged ? 'No acknowledged critical items' : 'No critical items') +
+          '</div>';
+      } else {
+        listHtml = '<div class="chub-list">' + itemsToShow.map(function(item) {
+          var flags = getItemFlags(item);
+          var vendor = escapeHtml(getVendorOrFallback(item));
+          var fdh = escapeHtml(item.fdh || 'Unknown');
+          var flagsHtml = flags.slice(0, 2).map(function(flag) {
+            var tone = getFlagTone(flag);
+            return '<span class="chub-flag ' + escapeHtml(tone) + '">' + escapeHtml(flag) + '</span>';
+          }).join('');
+
+          var ackBtn = mobileState.criticalHubShowAcknowledged
+            ? '<button class="chub-item-action" type="button" disabled>Acknowledged</button>'
+            : '<button class="chub-item-action" type="button" onclick="acknowledgeCriticalItem(' + JSON.stringify(fdh) + ')" >Acknowledge</button>';
+
+          return '<button class="chub-item" type="button" data-chub-fdh="' + fdh + '">' +
+            '<div class="chub-item-head">' +
+              '<div class="chub-item-fdh">' + fdh + '</div>' +
+              '<div class="chub-item-vendor">' + vendor + '</div>' +
+            '</div>' +
+            (flagsHtml ? '<div class="chub-item-flags">' + flagsHtml + '</div>' : '') +
+            '<div class="chub-item-footer">' +
+              ackBtn +
+            '</div>' +
+          '</button>';
+        }).join('') + '</div>';
+      }
+
+      var tabButton = '';
+      if (acknowledged.length > 0) {
+        var unackCount = unacknowledged.length;
+        var ackCount = acknowledged.length;
+        tabButton = '<div class="chub-tab-control">' +
+          '<button class="chub-tab ' + (!mobileState.criticalHubShowAcknowledged ? 'is-active' : '') + '" type="button" onclick="mobileState.criticalHubShowAcknowledged = false; renderCriticalHub();">Outstanding (' + unackCount + ')</button>' +
+          '<button class="chub-tab ' + (mobileState.criticalHubShowAcknowledged ? 'is-active' : '') + '" type="button" onclick="mobileState.criticalHubShowAcknowledged = true; renderCriticalHub();">Acknowledged (' + ackCount + ')</button>' +
+          '</div>';
+      }
+
+      var content = document.getElementById('chub-content');
+      if (content) {
+        content.innerHTML = tabButton + listHtml;
+        content.querySelectorAll('.chub-item[data-chub-fdh]').forEach(function(item) {
+          item.addEventListener('click', function(e) {
+            if (e.target.classList.contains('chub-item-action')) return;
+            adminOpenDetail(item.dataset.chubFdh);
+            closeCriticalHub();
+          });
+        });
+      }
+    }
+
+
+    function toggleQueueHud() {
+      mobileState.hudCollapsed = !mobileState.hudCollapsed;
+      var hud = document.getElementById('queue-hud');
+      if (hud) hud.classList.toggle('is-collapsed', mobileState.hudCollapsed);
+      if (dom.queueHudToggleLabel) {
+        dom.queueHudToggleLabel.textContent = mobileState.hudCollapsed ? '▼ Summary' : '▲ Summary';
+      }
+    }
+
+    function renderQueueHud() {
+      if (!dom.queueHudStats || !dom.queueHudChips) return;
+      var items = filteredItems;
+      var all = allActionItems;
+      var pipeline = items.length;
+      var bslTotal = 0;
+      var criticalCount = 0;
+      items.forEach(function(item) {
+        bslTotal += (parseInt(item.bsls, 10) || 0);
+        if (getSeverity(item.flags) === 'crit') criticalCount++;
+      });
+      dom.queueHudStats.innerHTML = '' +
+        '<div class="queue-hud__stat">' +
+          '<div class="queue-hud__stat-value">' + pipeline + '</div>' +
+          '<div class="queue-hud__stat-label">Pipeline</div>' +
+        '</div>' +
+        '<div class="queue-hud__stat">' +
+          '<div class="queue-hud__stat-value">' + bslTotal.toLocaleString() + '</div>' +
+          '<div class="queue-hud__stat-label">BSLs</div>' +
+        '</div>' +
+        '<div class="queue-hud__stat' + (criticalCount > 0 ? ' queue-hud__stat--critical' : '') + '" style="cursor:pointer;" onclick="openCriticalHub()">' +
+          '<div class="queue-hud__stat-value">' + criticalCount + '</div>' +
+          '<div class="queue-hud__stat-label">Critical</div>' +
+        '</div>';
+
+      var stageCounts = {};
+      all.forEach(function(item) {
+        var stage = String(item.stage || 'Unknown').trim() || 'Unknown';
+        stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+      });
+      var stages = Object.keys(stageCounts).sort(function(a, b) {
+        return stageCounts[b] - stageCounts[a];
+      });
+
+      var chipsHtml = '<button class="queue-hud__chip' + (!mobileState.queueStageFilter ? ' is-active' : '') +
+        '" data-hud-stage="">All <span class="queue-hud__chip-count">' + all.length + '</span></button>';
+      stages.forEach(function(stage) {
+        var cls = getQBStatusClass(stage, '', false);
+        var isActive = mobileState.queueStageFilter === stage;
+        chipsHtml += '<button class="queue-hud__chip ' + escapeHtml(cls) + (isActive ? ' is-active' : '') +
+          '" data-hud-stage="' + escapeHtml(stage) + '">' +
+          escapeHtml(stage) + ' <span class="queue-hud__chip-count">' + stageCounts[stage] + '</span>' +
+          '</button>';
+      });
+      dom.queueHudChips.innerHTML = chipsHtml;
+      dom.queueHudChips.querySelectorAll('[data-hud-stage]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var stage = btn.dataset.hudStage;
+          mobileState.queueStageFilter = (mobileState.queueStageFilter === stage && stage !== '') ? '' : stage;
+          applyQueueFilters();
+        });
+      });
     }
 
     function applyTheme(dark, hasManualOverride) {
@@ -715,6 +1159,10 @@
           if (toast.parentNode) toast.parentNode.removeChild(toast);
         }, 220);
       }, 2400);
+    }
+
+    function showMobileToast(message, type) {
+      showToast(message, type);
     }
 
     function showLoading(message) {
@@ -815,61 +1263,6 @@
         .replace(/'/g, '&#39;');
     }
 
-    function safeDate(value) {
-      if (!value || value === 'TBD' || value === '-' || value === 'Unknown') return null;
-      if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
-      const str = String(value).trim();
-      let match = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-      if (match) return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-      match = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
-      if (match) {
-        const year = match[3].length === 2 ? Number('20' + match[3]) : Number(match[3]);
-        return new Date(Date.UTC(year, Number(match[1]) - 1, Number(match[2])));
-      }
-      const parsed = new Date(str);
-      return isNaN(parsed.getTime()) ? null : parsed;
-    }
-
-    function formatDateUTC(value) {
-      const date = safeDate(value);
-      if (!date) return 'TBD';
-      return new Intl.DateTimeFormat('en-US', {
-        month: '2-digit',
-        day: '2-digit',
-        year: '2-digit',
-        timeZone: 'UTC'
-      }).format(date);
-    }
-
-    function getSeverity(flagsStr) {
-      const rawFlags = String(flagsStr || '')
-        .split('\n')
-        .map(function(flag) { return flag.trim(); })
-        .filter(Boolean);
-      let highestSev = 'info';
-      rawFlags.forEach(function(flag) {
-        if (flag.includes('\u{1F6A8}') || flag.includes('\u{1F6D1}') || flag.includes('\u{1F6A9}')) highestSev = 'crit';
-        else if (flag.includes('ADMIN: CHECK CROSSINGS') || flag.includes('ADMIN: REFRESH REF DATA') || flag.includes('STATUS MISMATCH') || flag.includes('MISSING QB STATUS')) {
-          if (highestSev !== 'crit') highestSev = 'warn';
-        } else if (flag.includes('\u26A0\uFE0F') || flag.includes('\u{1F58D}\uFE0F') || flag.includes('\u{1F6A7}')) {
-          if (highestSev !== 'crit') highestSev = 'warn';
-        }
-      });
-      if (highestSev === 'info' && rawFlags.some(function(flag) { return flag === 'MISSING DAILY REPORT'; })) highestSev = 'ghost';
-      return highestSev;
-    }
-
-    function getQBStatusClass(stage, status, isMissing) {
-      if (isMissing) return 'chip-missing';
-      const normalizedStage = String(stage || '').toLowerCase();
-      const normalizedStatus = String(status || '').toLowerCase();
-      if (normalizedStage.includes('ofs')) return 'chip-ofs';
-      if (normalizedStage.includes('permit')) return 'chip-permit';
-      if (normalizedStatus.includes('complete')) return 'chip-complete';
-      if (normalizedStatus.includes('hold') || normalizedStatus.includes('assign')) return 'chip-hold';
-      return 'chip-active';
-    }
-
     function getGanttBarClass(item, statusClass) {
       if (statusClass === 'chip-permit') return 'gantt-bar--permit';
       if (statusClass === 'chip-hold') return 'gantt-bar--hold';
@@ -920,10 +1313,6 @@
         background: color,
         outline: isCritical ? '2px solid var(--flag-critical)' : 'none'
       };
-    }
-
-    function cleanDiagnosticFlagText(flag) {
-      return String(flag || '').replace(/[\u{1F6A8}\u{1F6D1}\u{1F6A9}\u26A0\uFE0F\u{1F58D}\u{1F6A7}\u{1FA84}\u{1F7E3}\u{1F535}\u{1F7E2}\u26AA]/gu, '').trim();
     }
 
     function getItemFlags(item) {
@@ -1092,9 +1481,9 @@
     }
 
     function getCurrentActiveIndex() {
-      if (!mobileState.activeItem) return -1;
-      return mobileState.filtered.findIndex(function(item) {
-        return item && mobileState.activeItem && item.fdh === mobileState.activeItem.fdh;
+      if (!currentActiveItem) return -1;
+      return filteredItems.findIndex(function(item) {
+        return item && currentActiveItem && item.fdh === currentActiveItem.fdh;
       });
     }
 
@@ -1182,7 +1571,7 @@
 
     function renderDetailView() {
       if (!dom.detailContent) return;
-      if (!mobileState.activeItem) {
+      if (!currentActiveItem) {
         dom.detailContent.innerHTML =
           '<div class="detail-empty">' +
             '<div class="detail-title">No project selected</div>' +
@@ -1194,16 +1583,15 @@
         return;
       }
 
-      const item = mobileState.activeItem;
+      const item = currentActiveItem;
       const flags = getItemFlags(item);
       const health = getHealthMeta(item);
-      const statusClass = getQBStatusClass(item.stage, item.status, false);
       const countdown = getCountdownMeta(item);
       const productionSummary = summarizeVelocity(item);
       const noteValue = getDetailNote(item);
       const currentIndex = getCurrentActiveIndex();
       const prevDisabled = currentIndex <= 0;
-      const nextDisabled = currentIndex < 0 || currentIndex >= mobileState.filtered.length - 1;
+      const nextDisabled = currentIndex < 0 || currentIndex >= filteredItems.length - 1;
       const committedBadge = isCommitted(item) ? '<span class="detail-pill is-health-ok">Reviewed</span>' : '';
       const gapChips = item.gaps ? parseDiagnosticStrip(item.gaps) : '';
 
@@ -1224,7 +1612,7 @@
             '</div>' +
           '</div>' +
           '<div class="detail-pill-row">' +
-            '<span class="detail-pill ' + escapeHtml(statusClass) + '">' + escapeHtml(getStageStatusLabel(item)) + '</span>' +
+            buildStatusPill(getStageStatusLabel(item)) +
             '<span class="detail-pill is-health-' + escapeHtml(health.className.replace('is-', '')) + '">' + escapeHtml(health.label) + '</span>' +
             (item.isTrackerLinked ? '<span class="detail-pill chip-ofs">Tracker Linked</span>' : '') +
             committedBadge +
@@ -1240,10 +1628,10 @@
         '</section>' +
         '<section class="detail-section">' +
           '<div class="detail-section__title">Milestones & Countdown</div>' +
-          '<div class="detail-section__row"><div class="detail-label">Target Completion</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.targetDate)) + '</div></div>' +
-          '<div class="detail-section__row"><div class="detail-label">Target OFS</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.ofsDate)) + '</div></div>' +
-          '<div class="detail-section__row"><div class="detail-label">CX Start</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.cxStart)) + '</div></div>' +
-          '<div class="detail-section__row"><div class="detail-label">CX Complete</div><div class="detail-value">' + escapeHtml(formatDateUTC(item.cxEnd)) + '</div></div>' +
+          '<div class="detail-section__row"><div class="detail-label">Target Completion</div><div class="detail-value">' + escapeHtml(formatDate(item.targetDate)) + '</div></div>' +
+          '<div class="detail-section__row"><div class="detail-label">Target OFS</div><div class="detail-value">' + escapeHtml(formatDate(item.ofsDate)) + '</div></div>' +
+          '<div class="detail-section__row"><div class="detail-label">CX Start</div><div class="detail-value">' + escapeHtml(formatDate(item.cxStart)) + '</div></div>' +
+          '<div class="detail-section__row"><div class="detail-label">CX Complete</div><div class="detail-value">' + escapeHtml(formatDate(item.cxEnd)) + '</div></div>' +
         '</section>' +
         '<section class="detail-section">' +
           '<div class="detail-section__title">Vendor Update</div>' +
@@ -1262,7 +1650,10 @@
           '<div class="detail-note-copy">Your note is saved when you commit this project.</div>' +
           '<textarea id="detail-note-input" class="detail-note" placeholder="Add a PM note for this project...">' + escapeHtml(noteValue) + '</textarea>' +
           '<div class="detail-actions">' +
-            '<button id="detail-gemini-button" class="detail-action-btn detail-action-btn--draft" type="button">Draft with Gemini</button>' +
+            '<button id="detail-stage-btn" class="detail-action-btn detail-action-btn--stage" type="button">' +
+              (mobileDeckStaged.includes(String(item.fdh || '')) ? 'Unstage' : 'Stage') +
+            '</button>' +
+            '<button id="detail-gemini-button" class="detail-action-btn detail-action-btn--draft" type="button">Draft with AI</button>' +
             '<button id="detail-skip-button" class="detail-action-btn detail-action-btn--skip" type="button">Skip</button>' +
             '<button id="detail-commit-button" class="detail-action-btn detail-action-btn--commit" type="button">Commit</button>' +
           '</div>' +
@@ -1274,6 +1665,14 @@
             '<button id="detail-next-button" class="detail-action-btn detail-action-btn--ghost" type="button"' + (nextDisabled ? ' disabled' : '') + '>Next</button>' +
           '</div>' +
           '<div class="detail-note-copy">Use Previous and Next to move through queue projects.</div>' +
+        '</section>' +
+        '<section id="detail-deck-section" class="detail-section" style="padding:0;">' +
+          '<div id="detail-deck-bar" class="detail-deck-bar" style="display:' + (mobileDeckStaged.length > 0 ? 'flex' : 'none') + ';">' +
+            '<span class="detail-deck-bar__label">' +
+              mobileDeckStaged.length + ' project' + (mobileDeckStaged.length !== 1 ? 's' : '') + ' staged' +
+            '</span>' +
+            '<button id="detail-deck-export-btn" class="detail-deck-bar__btn" type="button">Export Batch</button>' +
+          '</div>' +
         '</section>' +
         '<section class="detail-section">' +
           '<div class="detail-section__title">Reviewed</div>' +
@@ -1287,6 +1686,8 @@
       const commitButton = document.getElementById('detail-commit-button');
       const prevButton = document.getElementById('detail-prev-button');
       const nextButton = document.getElementById('detail-next-button');
+      var stageBtn = document.getElementById('detail-stage-btn');
+      var exportBtn = document.getElementById('detail-deck-export-btn');
 
       if (backButton) backButton.addEventListener('click', function() { setActiveTab('queue'); });
       if (noteInput) {
@@ -1328,10 +1729,12 @@
       }
       if (prevButton && !prevDisabled) prevButton.addEventListener('click', function() { advanceActiveItem(-1); });
       if (nextButton && !nextDisabled) nextButton.addEventListener('click', function() { advanceActiveItem(1); });
+      if (stageBtn) stageBtn.addEventListener('click', function() { toggleMobileDeckStage(item.fdh); });
+      if (exportBtn) exportBtn.addEventListener('click', function() { promptMobileBatchExport(); });
       dom.detailContent.querySelectorAll('[data-reviewed-open]').forEach(function(button) {
         button.addEventListener('click', function() {
           const fdh = button.dataset.reviewedOpen;
-          const index = mobileState.filtered.findIndex(function(candidate) { return candidate.fdh === fdh; });
+          const index = filteredItems.findIndex(function(candidate) { return candidate.fdh === fdh; });
           if (index > -1) openQueueDetail(index);
         });
       });
@@ -1344,13 +1747,13 @@
     function advanceActiveItem(direction) {
       const currentIndex = getCurrentActiveIndex();
       const nextIndex = currentIndex + direction;
-      if (nextIndex < 0 || nextIndex >= mobileState.filtered.length) return;
+      if (nextIndex < 0 || nextIndex >= filteredItems.length) return;
       openQueueDetail(nextIndex);
     }
 
     function commitActiveItemLocal() {
-      if (!mobileState.activeItem) return;
-      const item = mobileState.activeItem;
+      if (!currentActiveItem) return;
+      const item = currentActiveItem;
       const noteText = getDetailNote(item);
       if (!isCommitted(item)) {
         mobileState.committed.push(item);
@@ -1358,7 +1761,7 @@
       showToast((item.fdh || 'Project') + ' reviewed', 'success');
       renderDetailView();
       const currentIndex = getCurrentActiveIndex();
-      if (currentIndex > -1 && currentIndex < mobileState.filtered.length - 1) {
+      if (currentIndex > -1 && currentIndex < filteredItems.length - 1) {
         advanceActiveItem(1);
       }
       if (typeof google !== 'undefined' && google.script && google.script.run) {
@@ -1379,10 +1782,10 @@
     }
 
     function skipActiveItemLocal() {
-      if (!mobileState.activeItem) return;
+      if (!currentActiveItem) return;
       showToast('Skipped to next project', 'info');
       const currentIndex = getCurrentActiveIndex();
-      if (currentIndex > -1 && currentIndex < mobileState.filtered.length - 1) {
+      if (currentIndex > -1 && currentIndex < filteredItems.length - 1) {
         advanceActiveItem(1);
       }
     }
@@ -1443,11 +1846,11 @@
       google.script.run
         .withSuccessHandler(function(data) {
           hideLoading();
-          mobileState.all = data && data.actionItems ? data.actionItems : [];
+          allActionItems = data && data.actionItems ? data.actionItems : [];
           mobileState.globalLogs = data && data.globalLogs ? data.globalLogs : [];
           mobileState.vendorGoals = data && data.vendorGoals ? data.vendorGoals : {};
           applyQueueFilters();
-          showToast('Review complete — ' + mobileState.all.length + ' projects loaded', 'success');
+          showToast('Review complete — ' + allActionItems.length + ' projects loaded', 'success');
         })
         .withFailureHandler(function(error) {
           hideLoading();
@@ -1509,143 +1912,86 @@
       return [{ label: '', items: items }];
     }
 
-    function renderQueueCard(item, filteredIndex) {
-      const health = getHealthMeta(item);
-      const statusClass = getQBStatusClass(item.stage, item.status, false);
-      const flags = getItemFlags(item).slice(0, 3);
-      const days = daysLeftLabel(item);
-      const dayTone = getDayBadgeTone(days);
-      const prodSummary = summarizeVelocity(item);
-      const commentSummary = String(item.vendorComment || item.fieldProduction || '').trim();
-      const hasProductionSignal = !!(prodSummary || commentSummary);
-      const cardHealthClass = health.className === 'is-critical'
-        ? 'queue-card--critical'
-        : (health.className === 'is-warning' ? 'queue-card--warning' : 'queue-card--ok');
-      const trackerChip = item && item.isTrackerLinked
-        ? '<span class="queue-flag is-admin">Tracker Linked</span>'
-        : '';
-      const ofsLabel = item && item.ofsDate ? 'Target OFS ' + formatDateUTC(item.ofsDate) : 'Target OFS TBD';
-      return '' +
-        '<button class="queue-card ' + cardHealthClass + '" type="button" data-queue-open="' + escapeHtml(String(filteredIndex)) + '">' +
-          '<div class="queue-card__top">' +
-            '<div class="queue-card__identity">' +
-              '<div class="queue-card__fdh">' + escapeHtml(item.fdh || 'Unknown FDH') + '</div>' +
-              '<div class="queue-card__city-vendor">' +
-                escapeHtml(item.city || 'Unknown city') + ' · ' + escapeHtml(getVendorOrFallback(item)) +
-              '</div>' +
-            '</div>' +
-            '<div class="queue-card__days queue-card__day-badge ' + dayTone + '">' +
-              '<div class="queue-card__days-label">' + escapeHtml(days.label) + '</div>' +
-              '<div class="queue-card__days-value">' + escapeHtml(days.value) + '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="queue-pill-row">' +
-            '<span class="queue-pill queue-pill--status ' + escapeHtml(statusClass) + '">' + escapeHtml((item.stage || '-') + ' | ' + (item.status || '-')) + '</span>' +
-            '<span class="queue-pill queue-pill--health ' + escapeHtml(health.className) + '">' + escapeHtml(health.label) + '</span>' +
-          '</div>' +
-          '<div class="queue-card__mid">' +
-            '<div class="queue-card__summary">' + escapeHtml(ofsLabel) + '</div>' +
-          '</div>' +
-          ((flags.length || trackerChip)
-            ? '<div class="queue-flag-row">' +
-                flags.map(function(flag) {
-                  const tone = getFlagTone(flag);
-                  return '<span class="queue-flag ' + escapeHtml(tone) + '">' + escapeHtml(flag) + '</span>';
-                }).join('') +
-                trackerChip +
-              '</div>'
-            : '') +
-          '<div class="queue-card__footer">' +
-            '<div class="queue-card__submeta">' +
-              '<span>BSLs ' + escapeHtml(String(item.bsls || '0')) + '</span>' +
-              (item.cxStart ? '<span>CX ' + escapeHtml(formatDateUTC(item.cxStart)) + '</span>' : '') +
-              (item.cxEnd ? '<span>Done ' + escapeHtml(formatDateUTC(item.cxEnd)) + '</span>' : '') +
-            '</div>' +
-            '<div class="queue-card__prodline">' +
-              '<span class="queue-card__prod-dot ' + (hasProductionSignal ? 'is-live' : 'is-idle') + '" aria-hidden="true"></span>' +
-              '<div class="queue-card__summary">' + escapeHtml(prodSummary || commentSummary || '') + '</div>' +
-            '</div>' +
-          '</div>' +
-        '</button>';
-    }
-
     function renderQueueContent() {
       if (!dom.queueContent) return;
-      if (mobileState.queueLoading) {
-        renderQueueSkeleton();
-        return;
-      }
-      if (mobileState.queueError) {
-        renderQueueError(mobileState.queueError);
-        return;
-      }
-      if (!mobileState.filtered.length) {
-        renderQueueEmpty();
-        return;
-      }
+      if (mobileState.queueLoading) { renderQueueSkeleton(); return; }
+      if (mobileState.queueError) { renderQueueError(mobileState.queueError); return; }
+      if (!filteredItems.length) { renderQueueEmpty(); return; }
 
-      const groups = getGroupedQueue(mobileState.filtered);
-      const html = '<div class="queue-list">' + groups.map(function(group) {
-        if (!group.label) {
-          return group.items.map(function(item) {
-            const index = mobileState.filtered.findIndex(function(candidate) { return candidate === item; });
-            return renderQueueCard(item, index);
+      const isGrid = mobileViewMode === 'grid';
+      const isList = mobileViewMode === 'list';
+      const renderItem = isGrid ? renderQueueGridCard
+        : isList ? renderQueueListItem
+        : renderQueueCard;
+
+      const groups = getGroupedQueue(filteredItems);
+      const allUngrouped = groups.length === 1 && !groups[0].label;
+
+      let html;
+      if (allUngrouped) {
+        const wrapClass = isGrid ? 'queue-grid' : 'queue-list';
+        html = '<div class="' + wrapClass + '">' +
+          groups[0].items.map(function(item) {
+            const index = filteredItems.findIndex(function(c) { return c === item; });
+            return renderItem(item, index);
+          }).join('') +
+        '</div>';
+      } else {
+        html = '<div class="queue-list">' + groups.map(function(group) {
+          const itemsHtml = group.items.map(function(item) {
+            const index = filteredItems.findIndex(function(c) { return c === item; });
+            return renderItem(item, index);
           }).join('');
-        }
-        return '' +
-          '<section class="queue-group">' +
-            '<div class="queue-group__header">' +
-              '<div class="queue-group__title">' + escapeHtml(group.label) + '</div>' +
-              '<div class="queue-group__count">' + escapeHtml(String(group.items.length)) + '</div>' +
-            '</div>' +
-            '<div class="queue-group__items">' +
-              group.items.map(function(item) {
-                const index = mobileState.filtered.findIndex(function(candidate) { return candidate === item; });
-                return renderQueueCard(item, index);
-              }).join('') +
-            '</div>' +
-          '</section>';
-      }).join('') + '</div>';
+          if (!group.label) return itemsHtml;
+          const innerClass = isGrid ? 'queue-grid' : 'queue-group__items';
+          return '' +
+            '<section class="queue-group">' +
+              '<div class="queue-group__header">' +
+                '<div class="queue-group__title">' + escapeHtml(group.label) + '</div>' +
+                '<div class="queue-group__count">' + escapeHtml(String(group.items.length)) + '</div>' +
+              '</div>' +
+              '<div class="' + innerClass + '">' + itemsHtml + '</div>' +
+            '</section>';
+        }).join('') + '</div>';
+      }
       dom.queueContent.innerHTML = html;
       dom.queueContent.querySelectorAll('[data-queue-open]').forEach(function(button) {
         button.addEventListener('click', function() {
-          const index = Number(button.dataset.queueOpen);
-          openQueueDetail(index);
+          openQueueDetail(Number(button.dataset.queueOpen));
         });
       });
     }
 
     function applyQueueFilters() {
       const term = String(mobileState.queueSearch || '').trim().toLowerCase();
-      mobileState.filtered = mobileState.all.filter(function(item) {
-        if (!term) return true;
-        return [
-          item.fdh,
-          item.city,
-          item.vendor
-        ].some(function(value) {
-          return String(value || '').toLowerCase().includes(term);
-        });
+      filteredItems = allActionItems.filter(function(item) {
+        if (term && ![item.fdh, item.city, item.vendor].some(function(v) {
+          return String(v || '').toLowerCase().includes(term);
+        })) return false;
+        if (mobileState.queueStageFilter && String(item.stage || '').trim() !== mobileState.queueStageFilter) return false;
+        return true;
       });
 
-      if (dom.queueSummaryCount) dom.queueSummaryCount.textContent = getQueueSummaryText(mobileState.filtered);
+      if (dom.queueSummaryCount) dom.queueSummaryCount.textContent = getQueueSummaryText(filteredItems);
       if (dom.queueSummarySub) dom.queueSummarySub.textContent = mobileState.queueGroupBy === 'none'
         ? 'Tap a card for detail'
         : 'Grouped by ' + mobileState.queueGroupBy;
-      if (mobileState.activeItem) {
+      if (currentActiveItem) {
         const activeIndex = getCurrentActiveIndex();
         if (activeIndex > -1) mobileState.activeIdx = activeIndex;
       }
-      updateQueueBadge('ready', mobileState.all.filter(isActionableProject).length);
+      updateQueueBadge('ready', allActionItems.filter(isActionableProject).length);
       updateAdminBadge();
       renderQueueContent();
+      renderQueueHud();
+      updateCriticalBadge();
       renderDetailView();
     }
 
     function openQueueDetail(index) {
-      const item = mobileState.filtered[index];
+      const item = filteredItems[index];
       if (!item) return;
-      mobileState.activeItem = item;
+      currentActiveItem = item;
       mobileState.activeIdx = index;
       renderDetailView();
       setActiveTab('detail');
@@ -1704,13 +2050,14 @@
     }
 
     function applyDashboardPayload(data) {
-      mobileState.all = data && data.actionItems ? data.actionItems : [];
+      allActionItems = data && data.actionItems ? data.actionItems : [];
       mobileState.globalLogs = data && data.globalLogs ? data.globalLogs : [];
+      updateChangelogPulse();
       mobileState.vendorGoals = data && data.vendorGoals ? data.vendorGoals : {};
       globalEndCounts = data && data.globalEndCounts ? data.globalEndCounts : globalEndCounts || {};
       globalTodayData = data && data.globalTodayData ? data.globalTodayData : globalTodayData || { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 };
-      if (!mobileState.activeItem && mobileState.all.length) {
-        mobileState.activeItem = mobileState.all[0];
+      if (!currentActiveItem && allActionItems.length) {
+        currentActiveItem = allActionItems[0];
       }
       applyQueueFilters();
       renderDetailView();
@@ -1740,7 +2087,7 @@
           mobileState.queueError = '';
           applyDashboardPayload(unavailableCache.data);
           showStaleBanner(unavailableCache.savedAt);
-          showToast('Loaded cached queue (' + (unavailableCache.count || mobileState.all.length) + ' projects)', 'info');
+          showToast('Loaded cached queue (' + (unavailableCache.count || allActionItems.length) + ' projects)', 'info');
           return;
         }
         mobileState.queueLoading = false;
@@ -1763,12 +2110,12 @@
             dom.headerContext.style.display = 'none';
           }
           console.log('STAGE/STATUS SAMPLE:',
-            mobileState.all[0] && {
-              fdh: mobileState.all[0].fdh,
-              stage: mobileState.all[0].stage,
-              status: mobileState.all[0].status
+            allActionItems[0] && {
+              fdh: allActionItems[0].fdh,
+              stage: allActionItems[0].stage,
+              status: allActionItems[0].status
             });
-          showToast(mobileState.all.length + ' projects loaded', 'success');
+          showToast(allActionItems.length + ' projects loaded', 'success');
           if (forceToast && dom.queuePullIndicator) {
             dom.queuePullIndicator.textContent = 'Queue refreshed';
             dom.queuePullIndicator.classList.add('is-visible');
@@ -1787,7 +2134,7 @@
             mobileState.queueError = '';
             applyDashboardPayload(cached.data);
             showStaleBanner(cached.savedAt);
-            showToast('Loaded cached queue (' + (cached.count || mobileState.all.length) + ' projects)', 'info');
+            showToast('Loaded cached queue (' + (cached.count || allActionItems.length) + ' projects)', 'info');
             return;
           }
           mobileState.queueLoading = false;
@@ -1954,7 +2301,9 @@
           '</div>';
       });
       return '<div class="digest-section">' +
-        '<div class="digest-section__title">Recent Activity <span class="digest-section__sub">Last 25</span></div>' +
+        '<div class="digest-section__title">Recent Activity <span class="digest-section__sub">Last 25</span>' +
+          '<button class="digest-viewall-btn" onclick="openChangelogHub()">View All \u2192</button>' +
+        '</div>' +
         entriesHtml +
       '</div>';
     }
@@ -1962,7 +2311,7 @@
     function renderDigestTab() {
       var content = dom.digestContent || document.getElementById('digest-content');
       if (!content) return;
-      var items = mobileState.all || [];
+      var items = allActionItems || [];
       var logs  = mobileState.globalLogs || [];
       var goals = mobileState.vendorGoals || {};
       content.innerHTML =
@@ -1987,7 +2336,7 @@
     // ================================================================
 
     function getAdminItems() {
-      var all = mobileState.all || [];
+      var all = allActionItems || [];
       var crossings = all.filter(function(item) {
         return String(item.flags || '').includes('ADMIN: CHECK CROSSINGS');
       });
@@ -2020,14 +2369,14 @@
     }
 
     function adminOpenDetail(fdh) {
-      var idx = mobileState.filtered.findIndex(function(item) { return item.fdh === fdh; });
+      var idx = filteredItems.findIndex(function(item) { return item.fdh === fdh; });
       if (idx > -1) {
         openQueueDetail(idx);
       } else {
-        // Item may be outside active filter — find in mobileState.all and open directly
-        var item = mobileState.all.find(function(i) { return i.fdh === fdh; });
+        // Item may be outside active filter — find in allActionItems and open directly
+        var item = allActionItems.find(function(i) { return i.fdh === fdh; });
         if (item) {
-          mobileState.activeItem = item;
+          currentActiveItem = item;
           mobileState.activeIdx = -1;
           renderDetailView();
           setActiveTab('detail');
@@ -2037,7 +2386,7 @@
 
     function markQbStatusUpdatedMobile(fdh, btn) {
       // 1 — Local state update first
-      var item = mobileState.all.find(function(i) { return i.fdh === fdh; });
+      var item = allActionItems.find(function(i) { return i.fdh === fdh; });
       if (item) {
         item.flags = String(item.flags || '')
           .replace('\u{1F6A9} STATUS MISMATCH', '\u26A0\uFE0F ADMIN: REFRESH REF DATA')
@@ -2088,7 +2437,7 @@
 
     function verifyCrossingMobile(fdh, btn) {
       if (!fdh || (btn && btn.disabled)) return;
-      var item = mobileState.all.find(function(candidate) { return candidate.fdh === fdh; });
+      var item = allActionItems.find(function(candidate) { return candidate.fdh === fdh; });
       var originalLabel = btn ? btn.textContent : 'Verify';
       if (btn) {
         btn.textContent = 'Verifying...';
@@ -2345,7 +2694,7 @@
       const inner = dom.ganttTimelineInner || document.getElementById('gantt-timeline-inner');
       if (!inner) return;
 
-      const items = mobileState.filtered;
+      const items = filteredItems;
       if (!items || !items.length) {
         inner.innerHTML = '<div class="gantt-empty">No projects in queue</div>';
         return;
@@ -2519,14 +2868,230 @@
         });
       }
 
-      // Bar tap → openQueueDetail
+      // Bar tap → openGanttPeek
       inner.querySelectorAll('.gantt-bar').forEach(function(bar) {
         bar.addEventListener('click', function() {
           var idx = parseInt(bar.dataset.ganttIdx);
-          if (!isNaN(idx)) openQueueDetail(idx);
+          if (!isNaN(idx)) openGanttPeek(items[idx]);
         });
       });
     }
+
+    function openGanttPeek(item) {
+      if (!item) return;
+      document.getElementById('peek-ai-output').classList.remove('visible');
+      var peekAiBtn = document.getElementById('btn-peek-ai');
+      if (peekAiBtn) { peekAiBtn.disabled = false; peekAiBtn.classList.remove('loading'); }
+      document.getElementById('peek-fdh').textContent = item.fdh || '—';
+      document.getElementById('peek-vendor').textContent = item.vendor || '—';
+      document.getElementById('peek-city').textContent = item.city || '—';
+      document.getElementById('peek-status').textContent = item.status || item.stage || '—';
+      document.getElementById('peek-target').textContent = item.targetDate || '—';
+      var flags = item.flags || '';
+      document.getElementById('peek-flags').textContent = flags || '—';
+      document.getElementById('peek-flags-row').style.display = flags ? '' : 'none';
+      var comment = item.vendorComment || '';
+      document.getElementById('peek-comment').textContent = comment || '—';
+      document.getElementById('peek-comment-row').style.display = comment ? '' : 'none';
+      mobileState._peekItem = item;
+      document.getElementById('gantt-peek-overlay').classList.add('gantt-peek-open');
+      document.getElementById('gantt-peek-sheet').classList.add('gantt-peek-open');
+    }
+
+    function closeGanttPeek() {
+      document.getElementById('gantt-peek-overlay').classList.remove('gantt-peek-open');
+      document.getElementById('gantt-peek-sheet').classList.remove('gantt-peek-open');
+    }
+
+    function peekOpenDetail() {
+      var item = mobileState._peekItem;
+      if (!item) return;
+      closeGanttPeek();
+      var idx = filteredItems.findIndex(function(x) { return x.fdh === item.fdh; });
+      if (idx === -1) idx = allActionItems.findIndex(function(x) { return x.fdh === item.fdh; });
+      if (idx !== -1) openQueueDetail(idx);
+    }
+
+    function triggerGanttPeekAI() {
+      var item = mobileState._peekItem;
+      if (!item) return;
+      var btn = document.getElementById('btn-peek-ai');
+      var output = document.getElementById('peek-ai-output');
+      btn.disabled = true;
+      btn.classList.add('loading');
+      output.classList.remove('visible');
+      var payload = {
+        fdh: item.fdh,
+        vendor: item.vendor,
+        status: (item.stage || '') + ' | ' + (item.status || ''),
+        targetDate: item.targetDate || '',
+        flags: item.flags || '',
+        vendorComment: item.vendorComment || '',
+        history: item.bench || '',
+        productionToday: item.summary || ''
+      };
+      google.script.run
+        .withSuccessHandler(function(response) {
+          btn.disabled = false;
+          btn.classList.remove('loading');
+          if (response && response.text) {
+            output.textContent = response.text;
+            output.classList.add('visible');
+          } else {
+            showMobileToast('AI Peek returned empty. Try again.', 'error');
+          }
+        })
+        .withFailureHandler(function() {
+          btn.disabled = false;
+          btn.classList.remove('loading');
+          showMobileToast('AI Peek failed. Check connection.', 'error');
+        })
+        .generateAndSaveFDHNarrative(payload);
+    }
+
+    function triggerGeminiDraft() {
+      var item = currentActiveItem;
+      if (!item) return;
+      var btn = document.getElementById('btn-gemini-draft');
+      var output = document.getElementById('detail-draft-output');
+      var saveRow = document.getElementById('detail-save-note-row');
+      btn.disabled = true;
+      btn.classList.add('loading');
+      output.classList.remove('visible');
+      saveRow.style.display = 'none';
+      var payload = {
+        fdh: item.fdh,
+        vendor: item.vendor,
+        status: (item.stage || '') + ' | ' + (item.status || ''),
+        targetDate: item.targetDate || '',
+        flags: item.flags || '',
+        vendorComment: item.vendorComment || '',
+        history: item.bench || '',
+        productionToday: item.summary || ''
+      };
+      google.script.run
+        .withSuccessHandler(function(response) {
+          btn.disabled = false;
+          btn.classList.remove('loading');
+          if (response && response.text) {
+            output.textContent = response.text;
+            output.classList.add('visible');
+            saveRow.style.display = 'flex';
+          } else {
+            showMobileToast('Draft returned empty. Try again.', 'error');
+          }
+        })
+        .withFailureHandler(function() {
+          btn.disabled = false;
+          btn.classList.remove('loading');
+          showMobileToast('Draft failed. Check connection.', 'error');
+        })
+        .generateAndSaveFDHNarrative(payload);
+    }
+
+    function saveDetailNote() {
+      var item = currentActiveItem;
+      var output = document.getElementById('detail-draft-output');
+      if (!item || !output.textContent) return;
+      var saveBtn = document.querySelector('.btn-save-note');
+      saveBtn.disabled = true;
+      var payload = {
+        fdh: item.fdh,
+        vendor: item.vendor || '',
+        targetDate: item.targetDate || item.cxEnd || 'TBD',
+        note: output.textContent,
+        answers: {}
+      };
+      google.script.run
+        .withSuccessHandler(function() {
+          saveBtn.disabled = false;
+          showMobileToast('Note saved.', 'success');
+        })
+        .withFailureHandler(function() {
+          saveBtn.disabled = false;
+          showMobileToast('Save failed. Check connection.', 'error');
+        })
+        .saveDeckAnswers(payload);
+    }
+
+    (function() {
+      function createGeminiSection() {
+        var section = document.createElement('div');
+        section.className = 'detail-gemini-section';
+        section.id = 'detail-gemini-section';
+        section.innerHTML = '' +
+          '<button class="btn-gemini-draft" id="btn-gemini-draft" onclick="triggerGeminiDraft()">' +
+            '<span class="spinner"></span>' +
+            '<span class="btn-label">Draft with AI</span>' +
+          '</button>' +
+          '<div class="detail-draft-output" id="detail-draft-output"></div>' +
+          '<div class="detail-save-note-row" id="detail-save-note-row" style="display:none">' +
+            '<button class="btn-save-note" onclick="saveDetailNote()">Save Note</button>' +
+          '</div>';
+        return section;
+      }
+
+      function mountDetailGeminiSection() {
+        var detailContent = document.getElementById('detail-content');
+        if (!detailContent) return;
+        var geminiSection = document.getElementById('detail-gemini-section');
+        if (!geminiSection) {
+          geminiSection = createGeminiSection();
+        }
+        if (geminiSection.parentElement !== detailContent) detailContent.appendChild(geminiSection);
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        mountDetailGeminiSection();
+        var detailContent = document.getElementById('detail-content');
+        if (!detailContent) return;
+        var observer = new MutationObserver(function() {
+          mountDetailGeminiSection();
+        });
+        observer.observe(detailContent, { childList: true, subtree: false });
+      });
+    })();
+
+    (function() {
+      var sheet, startY, currentY, isDragging;
+      var DISMISS_THRESHOLD = 80;
+
+      function onTouchStart(e) {
+        var touch = e.touches[0];
+        startY = touch.clientY;
+        currentY = 0;
+        isDragging = true;
+        sheet.style.transition = 'none';
+      }
+
+      function onTouchMove(e) {
+        if (!isDragging) return;
+        var touch = e.touches[0];
+        currentY = touch.clientY - startY;
+        if (currentY < 0) currentY = 0;
+        sheet.style.transform = 'translateY(' + currentY + 'px)';
+      }
+
+      function onTouchEnd() {
+        if (!isDragging) return;
+        isDragging = false;
+        sheet.style.transition = '';
+        if (currentY > DISMISS_THRESHOLD) {
+          closeGanttPeek();
+          sheet.style.transform = '';
+        } else {
+          sheet.style.transform = '';
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        sheet = document.getElementById('gantt-peek-sheet');
+        if (!sheet) return;
+        sheet.addEventListener('touchstart', onTouchStart, { passive: true });
+        sheet.addEventListener('touchmove', onTouchMove, { passive: true });
+        sheet.addEventListener('touchend', onTouchEnd);
+      });
+    })();
 
     function bindGanttZoom() {
       document.querySelectorAll('[data-gantt-zoom]').forEach(function(btn) {
@@ -2758,5 +3323,44 @@
     window.toggleActionSheet = toggleActionSheet;
     window.setGanttZoom = setGanttZoom;
   </script>
+
+  <div class="changelog-overlay" id="changelog-overlay" onclick="closeChangelogHub()">
+    <div class="changelog-sheet" onclick="event.stopPropagation()">
+      <div class="chub-handle"></div>
+      <div id="changelog-content" class="changelog-content"></div>
+    </div>
+  </div>
+
+  <div class="chub-overlay" id="chub-overlay" hidden>
+    <div class="chub-sheet">
+      <div class="chub-header">
+        <div class="chub-title">Critical Items</div>
+        <button class="chub-close" type="button" onclick="closeCriticalHub()">✕</button>
+      </div>
+      <div class="chub-content" id="chub-content"></div>
+    </div>
+  </div>
+
+  <div class="gantt-peek-overlay" id="gantt-peek-overlay" onclick="closeGanttPeek()"></div>
+  <div class="gantt-peek-sheet" id="gantt-peek-sheet">
+    <div class="gantt-peek-handle"></div>
+    <div class="gantt-peek-body">
+      <div class="gantt-peek-row"><span class="gantt-peek-label">FDH</span><span class="gantt-peek-value" id="peek-fdh">—</span></div>
+      <div class="gantt-peek-row"><span class="gantt-peek-label">Vendor</span><span class="gantt-peek-value" id="peek-vendor">—</span></div>
+      <div class="gantt-peek-row"><span class="gantt-peek-label">City</span><span class="gantt-peek-value" id="peek-city">—</span></div>
+      <div class="gantt-peek-row"><span class="gantt-peek-label">Status</span><span class="gantt-peek-value" id="peek-status">—</span></div>
+      <div class="gantt-peek-row"><span class="gantt-peek-label">Target Date</span><span class="gantt-peek-value" id="peek-target">—</span></div>
+      <div class="gantt-peek-row" id="peek-flags-row"><span class="gantt-peek-label">Flags</span><span class="gantt-peek-value" id="peek-flags">—</span></div>
+      <div class="gantt-peek-row" id="peek-comment-row"><span class="gantt-peek-label">Comment</span><span class="gantt-peek-value" id="peek-comment">—</span></div>
+      <div class="peek-ai-output" id="peek-ai-output"></div>
+      <div class="gantt-peek-actions">
+        <button class="btn-peek-ai" id="btn-peek-ai" onclick="triggerGanttPeekAI()">
+          <span class="spinner"></span>
+          <span class="btn-label">AI Peek</span>
+        </button>
+        <button class="btn-peek-detail" onclick="peekOpenDetail()">Open Full Detail</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

@@ -1,0 +1,93 @@
+<script>
+// ============================================================
+// FILE: _render_queue_card.html | ROLE: Shared mobile queue card builders
+// DEPENDS ON: _utils_shared.html, _render_status_pill.html
+// DEPENDED ON BY: MobileApp.html (WebApp.html cutover deferred to WS11)
+// MOBILE/AGENT NOTES: Pure functions — no DOM access, no state reads.
+//   Return HTML strings only. Layout classes are mobile-specific.
+//   Class reconciliation with desktop deferred to WS11 visual pass.
+// ============================================================
+
+function renderQueueCard(item, filteredIndex) {
+  const health = getHealthMeta(item);
+  const flags = getItemFlags(item).slice(0, 3);
+  const days = daysLeftLabel(item);
+  const dayTone = getDayBadgeTone(days);
+  const prodSummary = summarizeVelocity(item);
+  const commentSummary = String(item.vendorComment || item.fieldProduction || '').trim();
+  const hasProductionSignal = !!(prodSummary || commentSummary);
+  const cardHealthClass = health.className === 'is-critical'
+    ? 'queue-card--critical'
+    : (health.className === 'is-warning' ? 'queue-card--warning' : 'queue-card--ok');
+  const trackerChip = item && item.isTrackerLinked
+    ? '<span class="queue-flag is-admin">Tracker Linked</span>'
+    : '';
+  const ofsLabel = item && item.ofsDate ? 'Target OFS ' + formatDate(item.ofsDate) : 'Target OFS TBD';
+  return '' +
+    '<button class="queue-card ' + cardHealthClass + '" type="button" data-queue-open="' + escapeHtml(String(filteredIndex)) + '">' +
+      '<div class="queue-card__top">' +
+        '<div class="queue-card__identity">' +
+          '<div class="queue-card__fdh">' + escapeHtml(item.fdh || 'Unknown FDH') + '</div>' +
+          '<div class="queue-card__city-vendor">' +
+            escapeHtml(item.city || 'Unknown city') + ' · ' + escapeHtml(getVendorOrFallback(item)) +
+          '</div>' +
+        '</div>' +
+        '<div class="queue-card__days queue-card__day-badge ' + dayTone + '">' +
+          '<div class="queue-card__days-label">' + escapeHtml(days.label) + '</div>' +
+          '<div class="queue-card__days-value">' + escapeHtml(days.value) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="queue-pill-row">' +
+        buildStatusPill(getStageStatusLabel(item)) +
+        '<span class="queue-pill queue-pill--health ' + escapeHtml(health.className) + '">' + escapeHtml(health.label) + '</span>' +
+      '</div>' +
+      '<div class="queue-card__mid">' +
+        '<div class="queue-card__summary">' + escapeHtml(ofsLabel) + '</div>' +
+      '</div>' +
+      ((flags.length || trackerChip)
+        ? '<div class="queue-flag-row">' +
+            flags.map(function(flag) {
+              const tone = getFlagTone(flag);
+              return '<span class="queue-flag ' + escapeHtml(tone) + '">' + escapeHtml(flag) + '</span>';
+            }).join('') +
+            trackerChip +
+          '</div>'
+        : '') +
+      '<div class="queue-card__footer">' +
+        '<div class="queue-card__submeta">' +
+          '<span>BSLs ' + escapeHtml(String(item.bsls || '0')) + '</span>' +
+          (item.cxStart ? '<span>CX ' + escapeHtml(formatDate(item.cxStart)) + '</span>' : '') +
+          (item.cxEnd ? '<span>Done ' + escapeHtml(formatDate(item.cxEnd)) + '</span>' : '') +
+        '</div>' +
+        '<div class="queue-card__prodline">' +
+          '<span class="queue-card__prod-dot ' + (hasProductionSignal ? 'is-live' : 'is-idle') + '" aria-hidden="true"></span>' +
+          '<div class="queue-card__summary">' + escapeHtml(prodSummary || commentSummary || '') + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</button>';
+}
+
+function renderQueueListItem(item, filteredIndex) {
+  const health = getHealthMeta(item);
+  const statusClass = getQBStatusClass(item.stage, item.status, false);
+  return '' +
+    '<button class="queue-list-item" type="button" data-queue-open="' + escapeHtml(String(filteredIndex)) + '">' +
+      '<span class="queue-list-dot ' + escapeHtml(health.className) + '" aria-hidden="true"></span>' +
+      '<span class="queue-list-fdh">' + escapeHtml(item.fdh || 'Unknown FDH') + '</span>' +
+      '<span class="queue-list-vendor">' + escapeHtml(getVendorOrFallback(item)) + '</span>' +
+      '<span class="queue-list-status">' + escapeHtml((item.stage || '-') + ' | ' + (item.status || '-')) + '</span>' +
+    '</button>';
+}
+
+function renderQueueGridCard(item, filteredIndex) {
+  const health = getHealthMeta(item);
+  const healthMod = health.className === 'is-critical' ? ' queue-grid-card--critical'
+    : health.className === 'is-warning' ? ' queue-grid-card--warning' : '';
+  return '' +
+    '<button class="queue-grid-card' + healthMod + '" type="button" data-queue-open="' + escapeHtml(String(filteredIndex)) + '">' +
+      '<div class="queue-grid-fdh">' + escapeHtml(item.fdh || 'Unknown FDH') + '</div>' +
+      '<div class="queue-grid-vendor">' + escapeHtml(getVendorOrFallback(item)) + '</div>' +
+      buildStatusPill(item.status || item.stage) +
+    '</button>';
+}
+</script>

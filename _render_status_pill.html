@@ -1,0 +1,22 @@
+<script>
+// ============================================================
+// FILE: _render_status_pill.html | ROLE: Shared status pill builder
+// DEPENDS ON: _utils_shared.html
+// DEPENDED ON BY: WebApp.html, MobileApp.html
+// MOBILE/AGENT NOTES: Pure function — no DOM access, no state reads.
+//   Returns HTML string only. Both surfaces include and call this.
+// ============================================================
+
+/**
+ * buildStatusPill(status)
+ * Returns an HTML string for a status pill badge.
+ * @param {string} status
+ * @returns {string}
+ */
+function buildStatusPill(status) {
+  var s = String(status || '').trim();
+  if (!s) return '';
+  var cls = 'status-pill status-pill--' + s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
+  return '<span class="' + cls + '">' + escapeHtml(s) + '</span>';
+}
+</script>

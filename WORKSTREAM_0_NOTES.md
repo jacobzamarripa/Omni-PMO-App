@@ -17,6 +17,8 @@
 > Workstream 5 complete March 21, 2026. High-risk modules extracted with smoke tests passed after each phase; `_module_tabs.html` deferred, `_module_gantt.html` partially extracted, and `WebApp.html` reduced to bootstrap anchors plus remaining shared runtime.
 > Workstream 6 complete March 21, 2026. Router isolation and tabs extraction landed, pre-existing UI bugs were resolved, and the desktop FAB dropdown shipped for Sync QB / Run Review / Refresh.
 > Workstream 8 complete March 23, 2026. Auto-routing, PWA closeout, offline queue caching, and mobile Admin crossings staged commit shipped. Next: Workstream 9 mobile polish and deferred UX/platform items.
+> Workstream 9 complete March 24, 2026. Mobile UI overhaul with system dark/light mode via prefers-color-scheme, SVG icon system replacing all emoji, polymorphic orientation dock (portrait tab bar / landscape floating), Queue card redesign (compact, color-coded, production indicator), Gantt bar colors by status, and Detail view cleanup. MobileApp.html and _styles_mobile.html updated; changes pushed to HEAD dev URL.
+> Workstream 10 complete March 24, 2026. Full mobile feature parity achieved across 10 phases: Gantt quick peek, Gemini on mobile, shared utility partials, queue view modes (List/Grid), KPI HUD, Critical Hub, Changelog/Review Hub, Deck workspace, state contract alignment (mobileState.all/filtered/activeItem → allActionItems/filteredItems/currentActiveItem), and shared rendering primitives (_render_status_pill.html, _render_flag_badge.html, _render_queue_card.html extracted). Key deferred items: flag badge call-site swap (mobile uses queue-flag/detail-flag — class reconciliation deferred to WS11), WebApp.html queue card cutover deferred to WS11 visual pass. Next: Workstream 11 visual redesign pass.
 
 ---
 
@@ -1053,4 +1055,129 @@ rid, bench, rawRow
 - Portrait only: Queue, Admin, Actions/FAB
 - Landscape only: Detail, Gantt
 - Either: Digest
+
+---
+
+## Workstream 10 Plan
+> Planned March 24, 2026
+> Goal: Near full feature parity between mobile and desktop, then shared rendering architecture. Visual redesign deferred to WS11.
+> Phase 1 complete March 24, 2026. Gantt quick peek bottom sheet — slide-up on bar tap, drag-to-dismiss, safe area padding. Smoke test passed.
+> Phase 2 complete March 24, 2026. Gemini on mobile — Draft button in Detail tab, AI Peek in Gantt quick peek sheet, Save Note. Fixed: backend calls `generateAndSaveFDHNarrative(payload)` and `saveDeckAnswers(payload)` — not `askGeminiForDraft`/`askGeminiForQuickPeek` (those are desktop-only client wrappers). Smoke test passed.
+> Phase 3 complete March 24, 2026. Shared utility partials — `_utils_shared.html` included in `MobileApp.html`. Removed duplicate `safeDate`, `formatDateUTC`, `getSeverity`, `getQBStatusClass`, `cleanDiagnosticFlagText`. Updated shared `cleanDiagnosticFlagText` to use unicode `u` flag. Renamed all `formatDateUTC` calls to `formatDate`. Smoke test passed.
+> Phase 4 complete March 24, 2026. Queue view modes (Inbox / List / Grid) — toggle chip UI, styles, and rendering logic complete. List: condensed single-row with health dot, FDH, vendor, stage|status. Grid: 2-col card with FDH, vendor, stage badge, health border. renderQueueContent() branches on mobileViewMode; groupBy preserved across all modes. Fixed: setQueueViewMode was calling undefined renderQueueTab() — corrected to renderQueueContent(). Smoke test passed.
+> Phase 5 complete March 24, 2026. KPI HUD strip — collapsible panel above queue list. Stats: Pipeline count, BSL total, Critical count (red accent when > 0). Stage chips: derived from mobileState.all, scrollable, tap to filter, All chip clears. applyQueueFilters() extended with queueStageFilter state. renderQueueHud() called after every filter update. Toggle collapses/expands body. Smoke test passed.
+> Phase 6 complete March 24, 2026. Critical Hub — slide-up overlay sheet. Red badge on Queue tab (unacknowledged count, tappable). Critical stat tile in HUD opens hub. Items: FDH, city·vendor·type (getCriticalType), flags (getFlagTone), stage|status pill, target date. Navigate → adminOpenDetail(fdh). Acknowledge → sessionStorage-backed acknowledgedCriticalFdhs, badge decrements. Show/Hide Acked toggle + Reset. updateCriticalBadge() called from applyQueueFilters(). Smoke test passed.
+> Phase 7 complete March 24, 2026. Changelog / Review Hub — slide-up sheet (z-index 9200-9201). Pulse badge on Digest tab (accent dot, clears on open, sessionStorage-backed). "View All →" button in Digest activity feed header. Full log list date-grouped (Today/Yesterday/date), search by FDH/user/type, tappable linked entries navigate via adminOpenDetail(). updateChangelogPulse() fires on data load. Smoke test passed.
+> Phase 8 complete March 24, 2026. Deck staging + batch export in Detail tab. mobileDeckStaged (sessionStorage-backed). Stage/Unstage button (purple) in PM Note actions row. Staging bar (count + Export Batch) visible when staged > 0. promptMobileBatchExport() → window.prompt for email → processBatchDeckExport(payloads, email, combinedText). Payloads built from mobileState.all + mobileState.detailNotes. Smoke test passed.
+
+### Design System (from ui-ux-pro-max audit — March 24, 2026)
+- **Style:** Data-Dense Dashboard + Dark Mode OLED
+- **Pattern:** Drill-Down Analytics (queue → detail → quick peek)
+- **UX rules:** 44px min touch targets, 8px+ gap between targets, `touch-action: manipulation`, `overscroll-behavior: contain`
+- **Micro-interactions:** 50–100ms state feedback, `navigator.vibrate(10)` on confirm actions
+- **Anti-patterns to avoid:** HUD/Sci-Fi FUI, emoji icons (SVG done in WS9 ✓)
+- **Typography (WS11):** Fira Code for FDH identifiers / technical values; system stack retained until visual pass
+- **Visual redesign items deferred to WS11:** transition standardization (150–200ms), drill-down slide animations, Digest chart depth, 3-level card surface depth, haptic polish
+
+### Phase Overview
+
+| Phase | Scope | Surface | Risk | Prerequisite |
+|---|---|---|---|---|
+| 1 | Gantt quick peek slide-up panel | Mobile | Low | None |
+| 2 | Gemini on mobile (draft, quick peek, save) | Mobile | Low–Med | Phase 1 for peek |
+| 3 | Shared utility partials (DRY pass) | Architecture | Low | None |
+| 4 | Queue view modes (List + Grid) | Mobile | Low | None |
+| 5 | KPI HUD strip on mobile | Mobile | Low | None |
+| 6 | Critical Hub on mobile | Mobile | Med | None |
+| 7 | Changelog / Review Hub on mobile | Mobile | Low | None |
+| 8 | Deck workspace on mobile | Mobile | Med | Phase 3 helps |
+| 9 | State contract alignment ✅ | Architecture | High | Phases 1–8 complete |
+| 10 | Shared rendering primitives ✅ | Architecture | High | Phase 9 |
+
+### Phase 1 — Gantt Quick Peek
+- Bottom sheet slide-up on Gantt bar tap — no tab switch required
+- Content: FDH, vendor, city, status pill, target date, flags, comment
+- Dismiss: drag-down gesture or tap-outside overlay
+- "Open Full Detail" CTA → tab switch (opt-in)
+- Z-index: above Gantt content, below modals (`999990`)
+- Files: `MobileApp.html` + `_styles_mobile.html` only
+
+### Phase 2 — Gemini on Mobile
+- `askGeminiForDraft` → "Draft" button in Detail tab → writes to comment field
+- `askGeminiForQuickPeek` → "AI Peek" button inside Phase 1 quick peek sheet
+- `saveQuickPeek` → save note from Detail tab
+- All three: loading overlay + success/error toast (matches Phase 4 actions pattern)
+- Files: `MobileApp.html` + `_styles_mobile.html` only
+
+### Phase 3 — Shared Utility Partials
+- Audit `_utils_shared.html` exports vs. inline re-implementations in `MobileApp.html`
+- Extract duplicated logic (date formatters, QB status classifiers, flag cleaners, pill builders) into shared partials consumed by both surfaces via `<?!= include() ?>`
+- `MobileApp.html` drops inline re-implementations and calls shared helpers
+- Zero visual change, zero feature change — pure DRY pass
+- Possible new file: `_utils_mobile_bridge.html` if a thin adapter is needed
+- Files: `MobileApp.html`, `_utils_shared.html`, possibly `_utils_mobile_bridge.html`
+
+### Phase 4 — Queue View Mode Parity
+- View mode toggle chip in Queue tab header: Inbox / List / Grid
+- List mode: condensed single-row items, status dot, no expanded card body
+- Grid mode: 2-col card grid, thumbnail-style with FDH + vendor + status badge
+- Filter/grouping state preserved across mode switches
+- Matches `currentViewMode` contract from `_state_queue.html`
+- Files: `MobileApp.html` + `_styles_mobile.html`
+
+### Phase 5 — KPI HUD on Mobile
+- Collapsible strip above Queue tab: pipeline count, BSL total, critical count
+- Stage breakdown chips — tap to filter (same semantic as desktop)
+- Synced with `applyQueueFilters()` output — no new backend call
+- Ties into active filter pill display (already partial in mobile)
+- Files: `MobileApp.html` + `_styles_mobile.html`
+
+### Phase 6 — Critical Hub on Mobile
+- Badge on tab bar (Queue tab) when critical items exist
+- Full-screen overlay sheet: critical items list, severity tiers, acknowledge action
+- Acknowledge flow: local state swap + best-effort backend (mirrors desktop pattern)
+- Acknowledged FDH list persisted via `sessionStorage`
+- Files: `MobileApp.html` + `_styles_mobile.html`
+
+### Phase 7 — Changelog / Review Hub on Mobile
+- Expand Digest activity feed into full changelog surface (date-grouped, filterable)
+- "Review Hub" sheet: log entries + pulse badge — matches desktop panel semantics
+- Adapt rendering logic from `_module_changelog.html` as reference — do not include desktop partial directly
+- Files: `MobileApp.html` + `_styles_mobile.html`
+
+### Phase 8 — Deck Workspace on Mobile
+- Swipeable card stack in Detail tab (not a separate workspace — context-preserving)
+- PM memory notes per card (persisted to `pmSessionMemory` contract)
+- Stage selection and batch export flow via `promptBatchDeckExport` or `promptEmailExport`
+- Presentation/theater mode deferred to WS11
+- Files: `MobileApp.html` + `_styles_mobile.html`
+
+### Phase 9 — State Contract Alignment
+- Migrate `mobileState.all / .filtered / .activeItem` to match `allActionItems / filteredItems / currentActiveItem` contracts exactly
+- Mobile begins reading from `_state_queue.html` and `_state_session.html` directly via includes
+- `applyQueueFilters()` on mobile aligns with `applyFilters()` contract (same input/output shape)
+- No feature change — surfaces identical behavior through shared contract
+- Files: `MobileApp.html`, `_state_queue.html` (possible mobile-compat extension)
+
+### Phase 10 — Shared Rendering Primitives
+- Extract queue card HTML builder → `_render_queue_card.html` (consumed by both surfaces)
+- Extract status pill builder → `_render_status_pill.html`
+- Extract flag badge builder → `_render_flag_badge.html`
+- Both `WebApp.html` and `MobileApp.html` include and call same builders
+- Visual output identical; layout wrappers remain surface-specific
+- Files: 3–4 new shared partials, both shells updated
+
+### WS11 Deferred Items (Visual Redesign Pass)
+- Transition standardization: 150–200ms across all interactive elements
+- Drill-down slide animation: Queue → Detail (slide-right, not instant switch)
+- Digest chart depth: proportional fill bars with gradient treatment
+- Typography upgrade: Fira Code for FDH / technical value fields
+- Dark mode depth: enforce 3-level card surface distinction via existing tokens
+- Haptic feedback: `navigator.vibrate(10)` on commit/confirm actions
+- Presentation/theater mode on mobile (deck workspace)
+
+### Known Issues Carried Forward into WS10
+- `_module_tabs.html` fullscreen bleed-through — desktop shell issue, unresolved since WS5. Diagnose independently, does not block WS10 phases.
+- Push notifications — deferred from WS8, requires GAS trigger + client subscription design. Not in WS10 scope.
+- External thin wrapper for home screen icon — deferred from WS8, requires external hosting. Not in WS10 scope.
 - Enforcement: floating pill hint, auto-dismisses after 3 seconds

@@ -1,0 +1,40 @@
+<script>
+// ============================================================
+// FILE: _render_flag_badge.html | ROLE: Shared flag badge builder
+// DEPENDS ON: _utils_shared.html
+// DEPENDED ON BY: WebApp.html, MobileApp.html
+// MOBILE/AGENT NOTES: Pure function — no DOM access, no state reads.
+//   Returns HTML string only. Call cleanDiagnosticFlagText() on each
+//   flag string before passing to this builder.
+// ============================================================
+
+/**
+ * buildFlagBadge(flagText, severityClass)
+ * Returns an HTML string for a single flag badge.
+ * @param {string} flagText - already-cleaned display text
+ * @param {string} [severityClass] - optional CSS modifier (e.g. 'critical', 'review')
+ * @returns {string}
+ */
+function buildFlagBadge(flagText, severityClass) {
+  var text = String(flagText || '').trim();
+  if (!text) return '';
+  var base = 'flag-badge';
+  var cls = severityClass ? base + ' ' + base + '--' + severityClass : base;
+  return '<span class="' + cls + '">' + escapeHtml(text) + '</span>';
+}
+
+/**
+ * buildFlagBadges(flags)
+ * Renders an array of flag strings as a joined badge strip.
+ * @param {string[]} flags
+ * @returns {string}
+ */
+function buildFlagBadges(flags) {
+  if (!Array.isArray(flags) || !flags.length) return '';
+  return flags.map(function(f) {
+    var clean = cleanDiagnosticFlagText(f);
+    var sev = /critical/i.test(f) ? 'critical' : /review/i.test(f) ? 'review' : '';
+    return buildFlagBadge(clean, sev);
+  }).join('');
+}
+</script>
