@@ -20,7 +20,7 @@ function renderQueueCard(item, filteredIndex) {
     ? 'queue-card--critical'
     : (health.className === 'is-warning' ? 'queue-card--warning' : 'queue-card--ok');
   const trackerChip = item && item.isTrackerLinked
-    ? '<span class="queue-flag is-admin">Tracker Linked</span>'
+    ? buildFlagBadge('Tracker Linked', 'admin')
     : '';
   const ofsLabel = item && item.ofsDate ? 'Target OFS ' + formatDate(item.ofsDate) : 'Target OFS TBD';
   return '' +
@@ -46,10 +46,7 @@ function renderQueueCard(item, filteredIndex) {
       '</div>' +
       ((flags.length || trackerChip)
         ? '<div class="queue-flag-row">' +
-            flags.map(function(flag) {
-              const tone = getFlagTone(flag);
-              return '<span class="queue-flag ' + escapeHtml(tone) + '">' + escapeHtml(flag) + '</span>';
-            }).join('') +
+            buildFlagBadges(flags) +
             trackerChip +
           '</div>'
         : '') +

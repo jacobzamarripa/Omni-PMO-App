@@ -33,7 +33,10 @@ function buildFlagBadges(flags) {
   if (!Array.isArray(flags) || !flags.length) return '';
   return flags.map(function(f) {
     var clean = cleanDiagnosticFlagText(f);
-    var sev = /critical/i.test(f) ? 'critical' : /review/i.test(f) ? 'review' : '';
+    var sev = /critical|missing/i.test(f) ? 'critical'
+      : /review|mismatch|missing.?qb/i.test(f) ? 'review'
+      : /crossings|refresh.?ref/i.test(f) ? 'admin'
+      : '';
     return buildFlagBadge(clean, sev);
   }).join('');
 }

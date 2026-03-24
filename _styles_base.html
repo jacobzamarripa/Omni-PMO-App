@@ -27,6 +27,8 @@
         --pill-hold-txt: #475569;     --pill-hold-bg: rgba(148,163,184,0.15);    --pill-hold-bdr: #94a3b8;
         --pill-missing-txt: #b91c1c;  --pill-missing-bg: rgba(239,68,68,0.15);   --pill-missing-bdr: #ef4444;
         --pill-drg-txt: #0f766e;      --pill-drg-bg: rgba(20,184,166,0.14);      --pill-drg-bdr: #14b8a6;
+        --transition-fast: 150ms ease;
+        --transition-std: 200ms ease;
       }
 
       /* 🧠 ENHANCED OBSIDIAN ZINC DARK MODE */
@@ -35,5 +37,5 @@
         --qb-ae-bg: repeating-linear-gradient(115deg, #3f3f46, #3f3f46 3px, #27272a 3px, #27272a 6px);
       }
       
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background-color 0.3s, color 0.3s;}
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background-color var(--transition-std), color var(--transition-std);}
 </style>

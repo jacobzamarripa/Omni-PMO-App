@@ -1621,9 +1621,7 @@
         '<section class="detail-section">' +
           '<div class="detail-section__title">Flags & Diagnostics</div>' +
           (flags.length
-            ? '<div class="detail-flags">' + flags.map(function(flag) {
-                return '<span class="detail-flag ' + escapeHtml(getFlagTone(flag)) + '">' + escapeHtml(flag) + '</span>';
-              }).join('') + '</div>'
+            ? '<div class="detail-flags">' + buildFlagBadges(flags) + '</div>'
             : '<div class="detail-body">No active diagnostic flags on this project.</div>') +
         '</section>' +
         '<section class="detail-section">' +
@@ -1994,7 +1992,15 @@
       currentActiveItem = item;
       mobileState.activeIdx = index;
       renderDetailView();
+      const detailPanel = document.getElementById('tab-detail');
+      if (detailPanel) detailPanel.classList.add('slide-from-right');
       setActiveTab('detail');
+      if (detailPanel) {
+        detailPanel.addEventListener('animationend', function onEnd() {
+          detailPanel.classList.remove('slide-from-right');
+          detailPanel.removeEventListener('animationend', onEnd);
+        }, { once: true });
+      }
     }
 
     function saveQueueCache(data) {
