@@ -22,6 +22,41 @@
 
 ---
 
+## Session Close Protocol (Required at every workstream close)
+
+Run these steps in order after every workstream's final smoke test passes:
+
+1. **Update phase table** — mark completed phases `✅` in the Phase Overview table above
+2. **Append closeout line** — add `> Workstream N complete [date]. [summary]. Next: Workstream N+1.` to the header block
+3. **Update AGENT_LOG.md** — append `> [!info] YYYY-MM-DD: WS[N] Complete` entry with phases, lessons, deferred items, and commit reference
+4. **Update PRD.md** — check `[x]` for all completed phases; add `[ ]` stubs for next workstream if known
+5. **Commit** — `git add` all modified/new files; use `refactor(ws[N]): summary` format per CLAUDE.md
+6. **Output cold-start prompt** — paste-ready message for next session (see template below)
+
+### Cold-Start Prompt Template
+
+```
+Handoff — DPA WS[N+1], resuming at Phase 1
+
+Resume DPA WS[N+1]. Check memory and WORKSTREAM_0_NOTES.md for resume point.
+
+Project: Daily_Production_Analyzer
+Path: /Users/jacobzamarripa.omni/Library/Mobile Documents/com~apple~CloudDocs/App Script/Daily_Production_Analyzer
+
+WS[N+1] scope: [one-line goal]
+
+Protocol:
+- You write one Copilot prompt at a time
+- I paste into Copilot, smoke test, report pass/fail
+- You update WORKSTREAM_0_NOTES.md after each pass
+- Prefix every response with [Turn: X/25]
+
+---
+WS[N] done. Clean session reset. Go.
+```
+
+---
+
 ## What Was Done (Workstream 0)
 
 ### Originally completed — preserved verbatim:
@@ -1167,14 +1202,17 @@ rid, bench, rawRow
 - Visual output identical; layout wrappers remain surface-specific
 - Files: 3–4 new shared partials, both shells updated
 
-### WS11 Deferred Items (Visual Redesign Pass)
-- Transition standardization: 150–200ms across all interactive elements
-- Drill-down slide animation: Queue → Detail (slide-right, not instant switch)
-- Digest chart depth: proportional fill bars with gradient treatment
-- Typography upgrade: Fira Code for FDH / technical value fields
-- Dark mode depth: enforce 3-level card surface distinction via existing tokens
-- Haptic feedback: `navigator.vibrate(10)` on commit/confirm actions
-- Presentation/theater mode on mobile (deck workspace)
+### WS11 — Visual Redesign Pass
+
+| Phase | Scope | Status |
+|---|---|---|
+| 1 — Transition token standardization | `--transition-fast`/`--transition-std` tokens in `_styles_base.html`; all durations normalized in `_styles_mobile.html` | ✅ 2026-03-24 |
+| 2 — Drill-down slide animation | Queue → Detail slide-right on mobile | ✅ 2026-03-24 |
+| 3 — Flag badge class reconciliation | `buildFlagBadges()` ↔ `queue-flag`/`detail-flag` on mobile | ✅ 2026-03-24 |
+| 4 — Typography upgrade | Fira Code for FDH / technical value fields | ✅ 2026-03-24 |
+| 5 — Dark mode 3-level card depth | Enforce surface depth via existing tokens | ✅ 2026-03-24 |
+| 6 — `_render_queue_card.html` WebApp cutover | Wire shared card builder into `WebApp.html` | ⛔ DEFERRED — desktop queue renderer is a separate architecture (email-card/DOM nodes). Do not touch during visual pass. |
+| 7 — Digest chart depth | Proportional fill bars with gradient treatment | ✅ 2026-03-24 |
 
 ### Known Issues Carried Forward into WS10
 - `_module_tabs.html` fullscreen bleed-through — desktop shell issue, unresolved since WS5. Diagnose independently, does not block WS10 phases.
