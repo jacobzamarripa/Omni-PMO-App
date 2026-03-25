@@ -9,7 +9,7 @@
     <?!= include('_styles_components') ?>
     <?!= include('_styles_gantt') ?>
   </head>
-  <body>
+    <body data-mview="queue">
     <div id="frosted-loader" class="frosted-loader">
       <div class="frosted-card">
         <div id="frosted-core" class="frosted-data-core core-sync">
@@ -3949,20 +3949,11 @@
           badge.style.display = 'inline';
       }
       function checkViewportHandOff() {
-          const currentUrl = new URL(window.location.href);
-          const isPhoneWidth = window.innerWidth <= 430;
-          const isMobileView = (currentUrl.searchParams.get('view') || '').toLowerCase() === 'mobile';
-          if (isPhoneWidth && !isMobileView) {
-              currentUrl.searchParams.set('view', 'mobile');
-              window.location.replace(currentUrl.toString());
-              return true;
-          }
           return false;
       }
-      window.addEventListener('resize', checkViewportHandOff);
       // BOOTSTRAP ANCHOR: owns first payload fetch, viewport handoff, splash timeout, and startup error UI
       window.onload = function() {
-          if (checkViewportHandOff() || window.innerWidth <= 430) return;
+          if (checkViewportHandOff()) return;
 
           /* Keyboard avoidance: float dock above iOS software keyboard */
           if (window.visualViewport) {
@@ -6855,6 +6846,89 @@ ${item.comment || 'No notes provided.'}
       }
 
     </style>
+
+                <!-- WS12 Mobile Bottom Nav -->
+                <nav class="m-bottom-nav" id="m-bottom-nav">
+                    <button class="m-tab-btn active" data-mview="queue" onclick="mSwitchView('queue',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+ stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18"
+ x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18"
+ x2="3.01" y2="18"/></svg>
+                        <span>Queue</span>
+                    </button>
+                    <button class="m-tab-btn" data-mview="detail" onclick="mSwitchView('detail',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+ stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                        <span>Detail</span>
+                    </button>
+                    <button class="m-tab-btn" data-mview="gantt" onclick="mSwitchView('gantt',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+ stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18"
+ x2="18" y2="18"/></svg>
+                        <span>Gantt</span>
+                    </button>
+                    <button class="m-tab-btn" data-mview="admin" onclick="mSwitchView('admin',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+ stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2
+ 9.27l6.91-1.01L12 2z"/></svg>
+                        <span>Admin</span>
+                    </button>
+                    <button class="m-tab-btn" data-mview="digest" onclick="mSwitchView('digest',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+ stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16"
+ x2="12.01" y2="16"/></svg>
+                        <span>Digest</span>
+                    </button>
+                </nav>
+
+                                <script>
+                                // WS12 Mobile view switcher
+                                function mSwitchView(view, btn) {
+                                    if (window.innerWidth > 480) return;
+                                    // Active tab state
+                                    document.querySelectorAll('.m-tab-btn').forEach(function(b) {
+                                        b.classList.remove('active');
+                                    });
+                                    if (btn) btn.classList.add('active');
+                                    document.body.setAttribute('data-mview', view);
+                                    // Get real panel elements
+                                    var inbox   = document.querySelector('.inbox-sidebar');
+                                    var reading = document.querySelector('.reading-pane');
+                                    var gantt   = document.getElementById('gantt-panel');
+                                    // Reset all
+                                    [inbox, reading, gantt].forEach(function(el) {
+                                        if (el) el.style.setProperty('display', 'none', 'important');
+                                    });
+                                    // Show correct panel + wire router
+                                    if (view === 'queue') {
+                                        if (inbox) inbox.style.setProperty('display', 'flex', 'important');
+                                    } else if (view === 'gantt') {
+                                        if (gantt) gantt.style.setProperty('display', 'flex', 'important');
+                                        if (typeof switchWorkspaceView === 'function') switchWorkspaceView('gantt');
+                                    } else if (view === 'admin') {
+                                        if (reading) reading.style.setProperty('display', 'flex', 'important');
+                                        if (typeof switchWorkspaceView === 'function') switchWorkspaceView('detail');
+                                        setTimeout(function() {
+                                            if (typeof setAdminPanelOpen === 'function') setAdminPanelOpen(true);
+                                        }, 80);
+                                    } else if (view === 'digest') {
+                                        if (reading) reading.style.setProperty('display', 'flex', 'important');
+                                        if (typeof switchWorkspaceView === 'function') switchWorkspaceView('digest');
+                                    } else {
+                                        // detail
+                                        if (reading) reading.style.setProperty('display', 'flex', 'important');
+                                        if (typeof switchWorkspaceView === 'function') switchWorkspaceView('detail');
+                                    }
+                                }
+
+                                // Init: show queue panel on mobile load
+                                (function() {
+                                    if (window.innerWidth <= 480) {
+                                        var inbox = document.querySelector('.inbox-sidebar');
+                                        if (inbox) inbox.style.setProperty('display', 'flex', 'important');
+                                    }
+                                })();
+                                </script>
 
   </body>
 </html>

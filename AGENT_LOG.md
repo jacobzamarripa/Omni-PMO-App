@@ -5,6 +5,19 @@
 
 ---
 
+> [!info] 2026-03-25: WS12 Phase 3 — Panel Full-Screen (IN PROGRESS, unresolved)
+> **What was done:**
+> - Diagnosed Block 1 (Phase 2) vs Block 2 (WS12) conflict on `.inbox-sidebar`: `max-height: 45vh`, `min-height: 220px`, `margin: 8px`, `border-radius: 16px` were not cleared in Block 2
+> - Added `max-height: unset`, `min-height: unset`, `margin: 0`, `border-radius: 0` to `.inbox-sidebar` Block 2 rule in `_styles_layout.html`
+> - Push tested — panels still not filling full screen; root cause not yet resolved
+> **Suspects for next session:**
+> - `#main-workspace` height: `calc(100svh - 84px - 80px)` — `svh` unit may not be supported in GAS iframe context; try fallback to `100vh` or explicit `height: 100%` + flex on body
+> - `position: absolute; inset: 0` may not be resolving because `#main-workspace` context is `display: block` without correct height propagation from body
+> - JS IIFE timing — runs at end of body, but styles may not have fully applied when `display: flex` is set
+> - Additional CSS conflict not yet located — need fresh audit of all desktop `.inbox-sidebar` base rules
+> **Files changed:** `_styles_layout.html`
+> **Phase 3 status:** 🔄 STILL IN PROGRESS
+
 > [!info] 2026-03-24: WS11 Complete — Visual Redesign Pass (Mobile)
 > **Phases completed (all smoke tested):**
 > - Phase 1: Transition token standardization — `--transition-fast`/`--transition-std` in `_styles_base.html`; all durations normalized in `_styles_mobile.html`

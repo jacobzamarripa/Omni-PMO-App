@@ -18,6 +18,7 @@
 > Workstream 6 complete March 21, 2026. Router isolation and tabs extraction landed, pre-existing UI bugs were resolved, and the desktop FAB dropdown shipped for Sync QB / Run Review / Refresh.
 > Workstream 8 complete March 23, 2026. Auto-routing, PWA closeout, offline queue caching, and mobile Admin crossings staged commit shipped. Next: Workstream 9 mobile polish and deferred UX/platform items.
 > Workstream 9 complete March 24, 2026. Mobile UI overhaul with system dark/light mode via prefers-color-scheme, SVG icon system replacing all emoji, polymorphic orientation dock (portrait tab bar / landscape floating), Queue card redesign (compact, color-coded, production indicator), Gantt bar colors by status, and Detail view cleanup. MobileApp.html and _styles_mobile.html updated; changes pushed to HEAD dev URL.
+> Workstream 12 in progress March 25, 2026. doGet() now serves WebApp directly (no thin loader). checkViewportHandOff() neutered. Floating glassmorphism dock added, 2-row compact header working, mSwitchView() wired. Panels not yet fully full-screen — resume at Phase 3 completion. New workflow: Claude Code makes direct file edits, no Copilot intermediary. Real selectors confirmed: .inbox-sidebar (queue), .reading-pane (right panel), #gantt-panel (sibling outside #main-workspace).
 > Workstream 10 complete March 24, 2026. Full mobile feature parity achieved across 10 phases: Gantt quick peek, Gemini on mobile, shared utility partials, queue view modes (List/Grid), KPI HUD, Critical Hub, Changelog/Review Hub, Deck workspace, state contract alignment (mobileState.all/filtered/activeItem → allActionItems/filteredItems/currentActiveItem), and shared rendering primitives (_render_status_pill.html, _render_flag_badge.html, _render_queue_card.html extracted). Key deferred items: flag badge call-site swap (mobile uses queue-flag/detail-flag — class reconciliation deferred to WS11), WebApp.html queue card cutover deferred to WS11 visual pass. Next: Workstream 11 visual redesign pass.
 
 ---
@@ -1201,6 +1202,59 @@ rid, bench, rawRow
 - Both `WebApp.html` and `MobileApp.html` include and call same builders
 - Visual output identical; layout wrappers remain surface-specific
 - Files: 3–4 new shared partials, both shells updated
+
+### WS12 — Responsive Retrofit (Retire MobileApp.html)
+
+**Goal:** Make WebApp.html fully responsive for phone/tablet. Retire MobileApp.html entirely.
+**Scope:** Mobile-only CSS changes + routing cleanup. Zero logic changes. Zero desktop regressions.
+**Protocol:** One Copilot prompt per phase. Smoke test before advancing.
+
+**Key existing foundations (do not duplicate):**
+- Tablet breakpoint already at `@media (pointer: coarse) and (min-width: 769px)` — sets `--inbox-panel-width: 280px`
+- `#main-workspace` `.workspace` → `.upper-workspace` → `.detail-main` structure is column-stackable
+- Detail card already stacks on narrow windows — verify, tweak only if needed
+- `02_Utilities.js` `getSurfaceHTML(isMobile)` is the routing entry point to remove
+- `--inbox-panel-width: 380px` is the desktop default token to override at phone breakpoint
+
+**Phone target (≤480px) — layout map:**
+| Surface | Desktop | Phone |
+|---|---|---|
+| Diagnostic Queue | Left sidebar panel | Full-width top pane, collapsible |
+| Detail card | Right panel, auto-stacks | Full-width, scrollable |
+| Admin panel | Right panel | Full-width, scrollable |
+| Digest | Right panel | Full-width, scrollable |
+| Gantt | Full right panel | Landscape only — portrait shows rotate hint |
+| Grid view | Right panel | Hidden (disabled) |
+| Nav | Top header | Compact header + bottom tab bar |
+| Review Hub | Slide-in right panel | Full-screen modal |
+| FAB | Bottom-right fixed | Keep, reposition above bottom nav |
+
+**Tablet target (481–768px):**
+- Queue + Detail side by side (queue at 260px, detail fills rest)
+- All workspaces visible
+- Gantt works both orientations
+
+| Phase | Scope | Files | Status |
+|---|---|---|---|
+| 1 — Breakpoint tokens + routing cleanup | Add `--bp-phone`/`--bp-tablet` to `:root`; `getSurfaceHTML()` always returns WebApp | `_styles_base.html`, `02_Utilities.js` | ✅ 2026-03-25 |
+| 2 — Phone layout stacking | `.workspace` stacks vertically at ≤480px; queue full-width, detail full-width | `_styles_layout.html` | ✅ 2026-03-25 |
+| 3 — Panels + Header + Dock wiring | Mobile panel switching, compact header, and floating dock wiring at ≤480px | `_styles_layout.html`, `_styles_components.html`, `WebApp.html` | ✅ 2026-03-25 |
+| 4 — Touch targets + compact header | Min 44px interactive targets; hide non-essential header buttons at phone width | `_styles_components.html`, `_styles_layout.html` | - |
+| 5 — Gantt landscape / portrait placeholder | Show Gantt in landscape only; portrait shows rotate message | `_styles_gantt.html`, `_module_gantt.html` | - |
+| 6 — Grid hide + detail/admin scroll audit | Disable grid at ≤768px; verify detail card stacks correctly; admin scrollable | `_styles_components.html`, `_styles_layout.html` | - |
+| 7 — Archive mobile files + routing | Remove `MobileApp.html` routing from `doGet()`/`getSurfaceHTML()`; archive mobile-only files | `02_Utilities.js`, CLAUDE.md file map | - |
+
+**Files to archive after WS12 Phase 7:**
+- `MobileApp.html` → archive
+- `_styles_mobile.html` → archive (tokens already promoted where useful)
+- `_render_queue_card.html` → archive (mobile-only card builder)
+
+**Guard rails:**
+- NEVER change `initDashboard()` or `applyFilters()` in WebApp.html
+- NEVER change desktop layout at screen widths above 768px
+- NEVER change any `.gs` backend files
+- All CSS goes in the existing style partials — no inline style blocks
+- Responsive CSS = `@media (max-width: Npx)` only — do not change base rules
 
 ### WS11 — Visual Redesign Pass
 

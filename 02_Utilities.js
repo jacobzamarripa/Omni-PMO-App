@@ -46,60 +46,17 @@ function onOpen() {
 }
 
 function doGet(e) {
-  var view = (e && e.parameter && e.parameter.view) 
-    ? e.parameter.view.toLowerCase() : null;
-
-  if (view === 'mobile') return serveMobile();
-  if (view === 'web') return serveDesktop();
-
-  var html = '<!DOCTYPE html><html><head>' +
-    '<meta charset="UTF-8">' +
-    '<meta name="viewport" content="width=device-width, ' +
-    'initial-scale=1.0, maximum-scale=1.0, ' +
-    'user-scalable=no, viewport-fit=cover">' +
-    '<title>Production Hub</title>' +
-    '<style>body{background:#0f172a;display:flex;' +
-    'justify-content:center;align-items:center;' +
-    'height:100vh;margin:0;font-family:sans-serif;' +
-    'color:#64748b;font-size:14px;}</style>' +
-    '</head><body>' +
-    '<div id="loader">Loading...</div>' +
-    '<script>' +
-    'var isMob=window.innerWidth<=768||' +
-    '/android|iphone|ipad|ipod/i.test(navigator.userAgent);' +
-    'google.script.run' +
-    '.withSuccessHandler(function(html){' +
-    'document.open();' +
-    'document.write(html);' +
-    'document.close();' +
-    '})' +
-    '.withFailureHandler(function(e){' +
-    'document.getElementById("loader").textContent=' +
-    '"Load failed. Please try again.";' +
-    '})' +
-    '.getSurfaceHTML(isMob);' +
-    '<\/script>' +
-    '</body></html>';
-
-  return HtmlService.createHtmlOutput(html)
+  return HtmlService.createTemplateFromFile('WebApp')
+    .evaluate()
     .setTitle('Production Hub')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 
-      'width=device-width, initial-scale=1.0, ' +
-      'maximum-scale=1.0, user-scalable=no, ' +
-      'viewport-fit=cover');
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
 
 function getSurfaceHTML(isMobile) {
-  if (isMobile) {
-    return HtmlService.createTemplateFromFile('MobileApp')
-      .evaluate()
-      .getContent();
-  } else {
-    return HtmlService.createTemplateFromFile('WebApp')
-      .evaluate()
-      .getContent();
-  }
+  return HtmlService.createTemplateFromFile('WebApp')
+    .evaluate()
+    .getContent();
 }
 
 function serveMobile() {

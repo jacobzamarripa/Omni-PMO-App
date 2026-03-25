@@ -68,6 +68,39 @@
       }
       .touch-tablet { --inbox-panel-width: 280px; }
 
+      /* 📱 PHONE (≤480px) — vertical stack layout */
+      @media screen and (max-width: 480px) {
+          :root { --inbox-panel-width: 100vw; }
+
+          .workspace {
+              flex-direction: column !important;
+              gap: 0 !important;
+              overflow-y: auto !important;
+              overflow-x: hidden !important;
+          }
+
+          .inbox-sidebar {
+              width: 100% !important;
+              min-width: 0 !important;
+              max-width: 100% !important;
+              height: auto !important;
+              min-height: 220px !important;
+              max-height: 45vh !important;
+              margin: 8px 8px 0 8px !important;
+              box-sizing: border-box !important;
+              border-radius: 16px !important;
+              flex-shrink: 0 !important;
+              overflow-y: auto !important;
+          }
+
+          .reading-pane {
+              width: 100% !important;
+              min-width: 0 !important;
+              flex: 1 1 auto !important;
+              overflow-y: auto !important;
+          }
+      }
+
       /* 🧠 MORPHING PANEL STYLING */
       .outbox-pane {
           display: none; /* Controlled by JS to prevent layout shifts */
@@ -179,4 +212,225 @@
       #grid-content, #welcome-screen {
           padding-top: 80px !important;
       }
+
+                                                                                                                                                                                                /* ── WS12 Phone portrait (≤480px) ─────────────────────────── */
+                                                                                                                                                                                                @media (max-width: 480px) {
+
+                                                                                                                                                                                                    /* Prevent page scroll — panels scroll internally */
+                                                                                                                                                                                                    html, body {
+                                                                                                                                                                                                        overflow: hidden !important;
+                                                                                                                                                                                                        height: 100% !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    body { padding-bottom: 0 !important; }
+
+                                                                                                                                                                                                    /* ── Header: 2 rows ─────────────────────────────────────── */
+                                                                                                                                                                                                    .top-nav {
+                                                                                                                                                                                                        flex-wrap: wrap !important;
+                                                                                                                                                                                                        height: auto !important;
+                                                                                                                                                                                                        min-height: 84px !important;
+                                                                                                                                                                                                        padding: 0 8px !important;
+                                                                                                                                                                                                        align-content: flex-start !important;
+                                                                                                                                                                                                        position: relative !important;
+                                                                                                                                                                                                        z-index: 100015 !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    /* Break .top-nav-left out so brand + kpi are direct flex children */
+                                                                                                                                                                                                    .top-nav-left { display: contents !important; }
+
+                                                                                                                                                                                                    /* Row 1: brand (left) + nav-actions (right) — 48px */
+                                                                                                                                                                                                    .nav-brand {
+                                                                                                                                                                                                        order: 1 !important;
+                                                                                                                                                                                                        flex: 1 1 auto !important;
+                                                                                                                                                                                                        height: 48px !important;
+                                                                                                                                                                                                        line-height: 48px !important;
+                                                                                                                                                                                                        font-size: 13px !important;
+                                                                                                                                                                                                        white-space: nowrap !important;
+                                                                                                                                                                                                        overflow: hidden !important;
+                                                                                                                                                                                                        text-overflow: ellipsis !important;
+                                                                                                                                                                                                        min-width: 0 !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    .nav-actions {
+                                                                                                                                                                                                        order: 2 !important;
+                                                                                                                                                                                                        flex: 0 0 auto !important;
+                                                                                                                                                                                                        height: 48px !important;
+                                                                                                                                                                                                        display: flex !important;
+                                                                                                                                                                                                        align-items: center !important;
+                                                                                                                                                                                                        gap: 0 !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    /* Row 2: KPI pills full-width scrollable — 36px */
+                                                                                                                                                                                                    .kpi-nav-container {
+                                                                                                                                                                                                        order: 3 !important;
+                                                                                                                                                                                                        flex: 0 0 100% !important;
+                                                                                                                                                                                                        height: 36px !important;
+                                                                                                                                                                                                        overflow-x: auto !important;
+                                                                                                                                                                                                        overflow-y: hidden !important;
+                                                                                                                                                                                                        scrollbar-width: none !important;
+                                                                                                                                                                                                        padding: 0 4px 6px !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    .kpi-nav-container::-webkit-scrollbar { display: none !important; }
+                                                                                                                                                                                                    .kpi-hud-group {
+                                                                                                                                                                                                        display: flex !important;
+                                                                                                                                                                                                        gap: 6px !important;
+                                                                                                                                                                                                        align-items: center !important;
+                                                                                                                                                                                                        flex-wrap: nowrap !important;
+                                                                                                                                                                                                        height: 30px !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    .kpi-hud-label  { display: none !important; }
+                                                                                                                                                                                                    .kpi-expand-wrap { display: none !important; }
+                                                                                                                                                                                                    #bsls-pie-hud, #projects-pie-hud { display: none !important; }
+                                                                                                                                                                                                    .kpi-nav-box {
+                                                                                                                                                                                                        padding: 2px 10px !important;
+                                                                                                                                                                                                        height: 28px !important;
+                                                                                                                                                                                                        border-radius: 8px !important;
+                                                                                                                                                                                                        flex-shrink: 0 !important;
+                                                                                                                                                                                                        cursor: default !important;
+                                                                                                                                                                                                        pointer-events: none !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    .kpi-val   { font-size: 13px !important; line-height: 1.1 !important; }
+                                                                                                                                                                                                    .kpi-label { font-size: 8px !important;  line-height: 1.1 !important; }
+
+                                                                                                                                                                                                    /* Hide desktop-only header elements */
+                                                                                                                                                                                                    .top-nav-center, .nav-fab-hide, #btn-nav-fab,
+                                                                                                                                                                                                    .nav-fab-dropdown, .gemini-badge, #nav-ref-age, .ref-age-badge {
+                                                                                                                                                                                                        display: none !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    /* Keep hamburger, theme, help */
+                                                                                                                                                                                                    #btn-hamburger, #btn-theme, #btn-help {
+                                                                                                                                                                                                        display: flex !important;
+                                                                                                                                                                                                        align-items: center !important;
+                                                                                                                                                                                                        justify-content: center !important;
+                                                                                                                                                                                                        min-width: 40px !important;
+                                                                                                                                                                                                        min-height: 40px !important;
+                                                                                                                                                                                                        flex-shrink: 0 !important;
+                                                                                                                                                                                                    }
+
+                                                                                                                                                                                                    /* ── Workspace container ────────────────────────────────── */
+                                                                                                                                                                                                    #main-workspace {
+                                                                                                                                                                                                        position: relative !important;
+                                                                                                                                                                                                        width: 100vw !important;
+                                                                                                                                                                                                        height: calc(100svh - 84px - 80px) !important;
+                                                                                                                                                                                                        overflow: hidden !important;
+                                                                                                                                                                                                        display: block !important;
+                                                                                                                                                                                                        flex-direction: unset !important;
+                                                                                                                                                                                                    }
+
+                                                                                                                                                                                                    /* ── Queue sidebar: full-screen ─────────────────────────── */
+                                                                                                                                                                                                    .inbox-sidebar {
+                                                                                                                                                                                                        position: absolute !important;
+                                                                                                                                                                                                        inset: 0 !important;
+                                                                                                                                                                                                        width: 100% !important;
+                                                                                                                                                                                                        height: 100% !important;
+                                                                                                                                                                                                        max-width: unset !important;
+                                                                                                                                                                                                        border-right: none !important;
+                                                                                                                                                                                                        overflow-y: auto !important;
+                                                                                                                                                                                                        -webkit-overflow-scrolling: touch !important;
+                                                                                                                                                                                                        display: none !important;
+                                                                                                                                                                                                        flex-direction: column !important;
+                                                                                                                                                                                                        max-height: unset !important;
+                                                                                                                                                                                                        min-height: unset !important;
+                                                                                                                                                                                                        margin: 0 !important;
+                                                                                                                                                                                                        border-radius: 0 !important;
+                                                                                                                                                                                                        flex: unset !important;
+                                                                                                                                                                                                    }
+
+                                                                                                                                                                                                    /* ── Reading pane (detail/admin/digest): full-screen ───── */
+                                                                                                                                                                                                    .reading-pane {
+                                                                                                                                                                                                        position: absolute !important;
+                                                                                                                                                                                                        inset: 0 !important;
+                                                                                                                                                                                                        width: 100% !important;
+                                                                                                                                                                                                        height: 100% !important;
+                                                                                                                                                                                                        overflow: hidden !important;
+                                                                                                                                                                                                        display: none !important;
+                                                                                                                                                                                                        flex-direction: column !important;
+                                                                                                                                                                                                        flex: unset !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    .upper-workspace, #detail-layout, .detail-main {
+                                                                                                                                                                                                        width: 100% !important;
+                                                                                                                                                                                                        height: 100% !important;
+                                                                                                                                                                                                        max-width: unset !important;
+                                                                                                                                                                                                        min-width: unset !important;
+                                                                                                                                                                                                        flex: 1 1 auto !important;
+                                                                                                                                                                                                        overflow-y: auto !important;
+                                                                                                                                                                                                    }
+
+                                                                                                                                                                                                    /* ── Gantt panel: full-screen overlay ───────────────────── */
+                                                                                                                                                                                                    #gantt-panel {
+                                                                                                                                                                                                        position: fixed !important;
+                                                                                                                                                                                                        top: 84px !important;
+                                                                                                                                                                                                        left: 0 !important;
+                                                                                                                                                                                                        right: 0 !important;
+                                                                                                                                                                                                        bottom: 80px !important;
+                                                                                                                                                                                                        width: 100vw !important;
+                                                                                                                                                                                                        z-index: 200 !important;
+                                                                                                                                                                                                        overflow: auto !important;
+                                                                                                                                                                                                        display: none !important;
+                                                                                                                                                                                                    }
+
+                                                                                                                                                                                                    /* ── Floating glassmorphism dock ────────────────────────── */
+                                                                                                                                                                                                    .m-bottom-nav {
+                                                                                                                                                                                                        display: flex !important;
+                                                                                                                                                                                                        position: fixed !important;
+                                                                                                                                                                                                        bottom: 12px !important;
+                                                                                                                                                                                                        left: 50% !important;
+                                                                                                                                                                                                        transform: translateX(-50%) !important;
+                                                                                                                                                                                                        width: calc(100% - 32px) !important;
+                                                                                                                                                                                                        max-width: 400px !important;
+                                                                                                                                                                                                        height: 60px !important;
+                                                                                                                                                                                                        background: rgba(255,255,255,0.65) !important;
+                                                                                                                                                                                                        backdrop-filter: blur(32px) saturate(200%) !important;
+                                                                                                                                                                                                        -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
+                                                                                                                                                                                                        border: 1px solid rgba(255,255,255,0.8) !important;
+                                                                                                                                                                                                        border-radius: 34px !important;
+                                                                                                                                                                                                        box-shadow: 0 16px 40px rgba(15,23,42,0.1),
+                                                                                                                                                                                                                                inset 0 1px 1px rgba(255,255,255,1) !important;
+                                                                                                                                                                                                        align-items: center !important;
+                                                                                                                                                                                                        justify-content: space-around !important;
+                                                                                                                                                                                                        padding: 0 12px !important;
+                                                                                                                                                                                                        z-index: 3000 !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    .m-tab-btn {
+                                                                                                                                                                                                        flex: 1 !important;
+                                                                                                                                                                                                        display: flex !important;
+                                                                                                                                                                                                        flex-direction: column !important;
+                                                                                                                                                                                                        align-items: center !important;
+                                                                                                                                                                                                        justify-content: center !important;
+                                                                                                                                                                                                        gap: 3px !important;
+                                                                                                                                                                                                        background: none !important;
+                                                                                                                                                                                                        border: none !important;
+                                                                                                                                                                                                        color: rgba(100,116,139,0.8) !important;
+                                                                                                                                                                                                        font-size: 9px !important;
+                                                                                                                                                                                                        cursor: pointer !important;
+                                                                                                                                                                                                        padding: 6px 4px !important;
+                                                                                                                                                                                                        border-radius: 14px !important;
+                                                                                                                                                                                                        min-height: 44px !important;
+                                                                                                                                                                                                        transition: color 0.15s, background 0.15s !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    .m-tab-btn svg { width: 20px !important; height: 20px !important; }
+                                                                                                                                                                                                    .m-tab-btn.active {
+                                                                                                                                                                                                        color: #0ea5e9 !important;
+                                                                                                                                                                                                        background: rgba(14,165,233,0.1) !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                }
+
+                                                                                                                                                                                                /* ── Gantt tab hidden in portrait ───────────────────────────── */
+                                                                                                                                                                                                @media (max-width: 480px) and (orientation: portrait) {
+                                                                                                                                                                                                    .m-tab-btn[data-mview="gantt"] { display: none !important; }
+                                                                                                                                                                                                }
+
+                                                                                                                                                                                                /* ── Dark mode dock ─────────────────────────────────────────── */
+                                                                                                                                                                                                @media (max-width: 480px) {
+                                                                                                                                                                                                    body.dark-mode .m-bottom-nav {
+                                                                                                                                                                                                        background: rgba(24,24,27,0.75) !important;
+                                                                                                                                                                                                        border: 1px solid rgba(255,255,255,0.1) !important;
+                                                                                                                                                                                                        box-shadow: 0 16px 40px rgba(0,0,0,0.45),
+                                                                                                                                                                                                                                inset 0 1px 1px rgba(255,255,255,0.06) !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    body.dark-mode .m-tab-btn { color: rgba(148,163,184,0.7) !important; }
+                                                                                                                                                                                                    body.dark-mode .m-tab-btn.active {
+                                                                                                                                                                                                        color: #38bdf8 !important;
+                                                                                                                                                                                                        background: rgba(56,189,248,0.12) !important;
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                }
+
+                                                                                                                                                                                                /* Dock hidden on desktop */
+                                                                                                                                                                                                .m-bottom-nav { display: none; }
 </style>
