@@ -3,6 +3,31 @@
 > Format: Obsidian Callouts `> [!info] YYYY-MM-DD: [Action]`
 > One entry per workstream close or major milestone.
 
+## [2026-03-25] — Morning Brief Widget
+
+### Accomplishment
+- Implemented a new "Morning Brief" utility widget for the Web App.
+- Added a new icon to the top navigation (next to calc/calendar) to trigger the brief.
+- Refactored widget drag logic in `_module_tools_widgets.html` to support multiple draggable tool widgets.
+- The widget displays the Fiber Miles Leaderboard, providing quick access to cumulative production data.
+
+### Lesson Learned
+- Abstracting widget drag logic into a generic handler simplifies the addition of new floating tools.
+- Utility widgets are a more accessible way to surface high-level KPIs than full-workspace views for quick checks.
+
+---
+
+## [2026-03-25] — Vendor Fiber Mileage Tracker
+
+### Accomplishment
+- Implemented a "Fiber Miles Leaderboard" in the Web App's Digest workspace.
+- Added backend logic to aggregate and convert fiber footage from `2-Master_Archive` into miles grouped by vendor.
+- Successfully pushed the updated project to Google Apps Script using `clasp`.
+
+### Lesson Learned
+- Aggregating historical data from `HISTORY_SHEET` is more efficient for cumulative KPIs than relying on the `MIRROR_SHEET` alone.
+- Converting footage (ft) to miles (mi) early in the backend reduces processing overhead in the frontend.
+
 ---
 
 > [!info] 2026-03-25: WS12 Phase 3 — Panel Full-Screen (IN PROGRESS, unresolved)

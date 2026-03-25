@@ -100,89 +100,137 @@
       applyToolWidgetPosition(widget, window.innerWidth - widget.offsetWidth - 32, 88);
   }
 
-  function syncCalcWidgetToViewport() {
-      var widget = document.getElementById('calc-widget');
-      if (!widget) return;
-      var saved = loadCalcWidgetPosition();
-      if (saved) {
-          var pos = clampToolWidgetPosition(widget, saved.left, saved.top);
-          widget.style.left = pos.left + 'px';
-          widget.style.top = pos.top + 'px';
-          saveCalcWidgetPosition(pos.left, pos.top);
-          return;
-      }
-      if (widget.classList.contains('open') && widget.style.left && widget.style.top) {
-          var currentLeft = parseFloat(widget.style.left);
-          var currentTop = parseFloat(widget.style.top);
-          if (!isNaN(currentLeft) && !isNaN(currentTop)) {
-              applyToolWidgetPosition(widget, currentLeft, currentTop);
-          }
-      }
-  }
+  var activeDragWidgetId = null;
+  var widgetDragStates = {};
 
-  function startCalcWidgetDrag(e) {
-      var widget = document.getElementById('calc-widget');
+  function startWidgetDrag(e, id) {
+      var widget = document.getElementById(id);
       if (!widget || !widget.classList.contains('open')) return;
       if (e.target && e.target.closest('.tool-close')) return;
+      
       var point = e.touches && e.touches[0] ? e.touches[0] : e;
       var rect = widget.getBoundingClientRect();
-      calcWidgetDragState = {
+      
+      widgetDragStates[id] = {
           pointerId: e.pointerId,
           offsetX: point.clientX - rect.left,
           offsetY: point.clientY - rect.top
       };
+      
+      activeDragWidgetId = id;
       widget.classList.add('dragging');
       if (typeof e.preventDefault === 'function') e.preventDefault();
   }
 
-  function moveCalcWidgetDrag(e) {
-      if (!calcWidgetDragState) return;
-      if (calcWidgetDragState.pointerId !== undefined && e.pointerId !== undefined && e.pointerId !== calcWidgetDragState.pointerId) return;
-      var widget = document.getElementById('calc-widget');
+  function moveWidgetDrag(e) {
+      if (!activeDragWidgetId) return;
+      var state = widgetDragStates[activeDragWidgetId];
+      if (state.pointerId !== undefined && e.pointerId !== undefined && e.pointerId !== state.pointerId) return;
+      
+      var widget = document.getElementById(activeDragWidgetId);
       if (!widget) return;
-      var nextLeft = e.clientX - calcWidgetDragState.offsetX;
-      var nextTop = e.clientY - calcWidgetDragState.offsetY;
+      
+      var nextLeft = e.clientX - state.offsetX;
+      var nextTop = e.clientY - state.offsetY;
       applyToolWidgetPosition(widget, nextLeft, nextTop);
       if (typeof e.preventDefault === 'function') e.preventDefault();
   }
 
-  function endCalcWidgetDrag() {
-      if (!calcWidgetDragState) return;
-      var widget = document.getElementById('calc-widget');
+  function endWidgetDrag() {
+      if (!activeDragWidgetId) return;
+      var widget = document.getElementById(activeDragWidgetId);
       if (widget) {
           widget.classList.remove('dragging');
           var left = parseFloat(widget.style.left);
           var top = parseFloat(widget.style.top);
-          if (!isNaN(left) && !isNaN(top)) saveCalcWidgetPosition(left, top);
+          if (!isNaN(left) && !isNaN(top)) {
+              if (activeDragWidgetId === 'calc-widget') saveCalcWidgetPosition(left, top);
+          }
       }
-      calcWidgetDragState = null;
+      activeDragWidgetId = null;
+  }
+
+  function syncWidgetsToViewport() {
+      syncCalcWidgetToViewport();
+      var brief = document.getElementById('brief-widget');
+      if (brief && brief.classList.contains('open') && brief.style.left && brief.style.top) {
+          applyToolWidgetPosition(brief, parseFloat(brief.style.left), parseFloat(brief.style.top));
+      }
   }
 
   function initCalcWidgetDrag() {
-      var header = document.getElementById('calc-widget-header');
-      if (!header) return;
-      header.addEventListener('pointerdown', startCalcWidgetDrag);
-      window.addEventListener('pointermove', moveCalcWidgetDrag);
-      window.addEventListener('pointerup', endCalcWidgetDrag);
-      window.addEventListener('pointercancel', endCalcWidgetDrag);
-      window.addEventListener('resize', syncCalcWidgetToViewport);
+      var calcHeader = document.getElementById('calc-widget-header');
+      if (calcHeader) {
+          calcHeader.addEventListener('pointerdown', function(e) { startWidgetDrag(e, 'calc-widget'); });
+      }
+      
+      var briefHeader = document.getElementById('brief-widget-header');
+      if (briefHeader) {
+          briefHeader.addEventListener('pointerdown', function(e) { startWidgetDrag(e, 'brief-widget'); });
+      }
+
+      window.addEventListener('pointermove', moveWidgetDrag);
+      window.addEventListener('pointerup', endWidgetDrag);
+      window.addEventListener('pointercancel', endWidgetDrag);
+      window.addEventListener('resize', syncWidgetsToViewport);
+  }
+
+  function renderMorningBrief() {
+      var content = document.getElementById('brief-content');
+      if (!content) return;
+      
+      var fiberStats = (window._lastDashboardPayload && window._lastDashboardPayload.fiberStats) || {};
+      if (Object.keys(fiberStats).length === 0) {
+          content.innerHTML = '<div class="digest-panel-empty">No historical fiber production data found.</div>';
+          return;
+      }
+      
+      var sortedVendors = Object.keys(fiberStats).sort(function(a, b) {
+          return fiberStats[b].miles - fiberStats[a].miles;
+      });
+
+      // Simple esc helper if not available
+      var esc = window.esc || function(s) {
+          if (!s) return "";
+          return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      };
+
+      var html = '<div style="display:flex; flex-direction:column; gap:12px;">';
+      html += '<div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); padding-bottom:6px;">Fiber Miles Leaderboard</div>';
+      
+      sortedVendors.forEach(function(v) {
+          var stats = fiberStats[v];
+          html += `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
+                  <span style="font-weight:800; font-size:12px; color:var(--text-main);">${esc(v)}</span>
+                  <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                      <span style="color:#ef4444; font-weight:900; font-size:13px;">${stats.miles.toLocaleString()} mi</span>
+                      <span style="color:var(--text-muted); font-size:9px; font-weight:600;">${stats.footage.toLocaleString()} ft</span>
+                  </div>
+              </div>
+          `;
+      });
+      html += '</div>';
+      content.innerHTML = html;
   }
 
   // MODULE CANDIDATE: _module_tools_widgets.html
   // STATE DEPS: calcWidgetDragState, currentCalDate, calcState
   // EXTRACT ORDER: 1
   function toggleWidget(id, event) {
-      ['cal-widget', 'calc-widget'].forEach(function(w) {
-          if (w !== id) {
-              document.getElementById(w).classList.remove('open');
-              if (w === 'calc-widget') endCalcWidgetDrag();
+      ['cal-widget', 'calc-widget', 'brief-widget'].forEach(function(w) {
+          var el = document.getElementById(w);
+          if (el && w !== id) {
+              el.classList.remove('open');
+              if (w === 'calc-widget' || w === 'brief-widget') endWidgetDrag();
           }
       });
       var widget = document.getElementById(id);
+      if (!widget) return;
       var isOpen = widget.classList.toggle('open');
 
-      if (id === 'calc-widget' && !isOpen) {
-          endCalcWidgetDrag();
+      if ((id === 'calc-widget' || id === 'brief-widget') && !isOpen) {
+          endWidgetDrag();
       }
 
       if (isOpen && id === 'calc-widget') {
@@ -192,6 +240,7 @@
       }
 
       if (id === 'cal-widget' && isOpen) renderCalendar();
+      if (id === 'brief-widget' && isOpen) renderMorningBrief();
   }
 
   function renderCalendar() {

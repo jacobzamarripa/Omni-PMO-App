@@ -720,12 +720,32 @@ function renderDigestProjectDetail(data) {
     </div>`;
 }
 
+function renderFiberMileageLeaderboard(fiberStats) {
+    if (!fiberStats || Object.keys(fiberStats).length === 0) return '<div class="digest-panel-empty">No historical fiber production data found.</div>';
+    
+    let sortedVendors = Object.keys(fiberStats).sort(function(a, b) {
+        return fiberStats[b].miles - fiberStats[a].miles;
+    });
+
+    return sortedVendors.map(function(v) {
+        let stats = fiberStats[v];
+        return `<div class="digest-stat-row">
+            <span style="font-weight:800;font-size:11px;">${esc(v)}</span>
+            <div style="display:flex;gap:8px;align-items:center;font-size:11px;">
+                <span style="color:#ef4444;font-weight:800;">${stats.miles.toLocaleString()} miles</span>
+                <span style="color:var(--text-muted);font-size:9px;">(${stats.footage.toLocaleString()} ft)</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
 // TODO: MODULE CANDIDATE - digest workspace still depends on allActionItems, filteredItems, admin panel docking, and shared selection state.
 function renderDigestWorkspace() {
     let ws = getEl('digest-workspace');
     if (!ws) return;
     clearDigestPulseAutoScroll();
     let data = buildDigestCommandCenterData();
+    let fiberStats = (window._lastDashboardPayload && window._lastDashboardPayload.fiberStats) || {};
     let dateStr = data.now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
     let deltaTone = data.summary.deltaChanges > 0 ? 'pill-complete' : (data.summary.deltaChanges < 0 ? 'pill-missing' : 'pill-default');
     let deltaSign = data.summary.deltaChanges > 0 ? '+' : '';
@@ -802,6 +822,15 @@ function renderDigestWorkspace() {
                         </div>
                     </div>
                     <div class="digest-card-body" style="padding:12px 14px;">${renderDigestStageSummary(data)}</div>
+                </div>
+                <div class="digest-card">
+                    <div class="digest-card-head">
+                        <div>
+                            <div class="digest-section-label" style="margin:0 0 4px 0;">Fiber Miles Leaderboard</div>
+                            <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Total cumulative fiber laid by vendor</div>
+                        </div>
+                    </div>
+                    <div class="digest-card-body" style="padding:0 14px 4px;">${renderFiberMileageLeaderboard(fiberStats)}</div>
                 </div>
                 <div class="digest-card">
                     <div class="digest-card-head">

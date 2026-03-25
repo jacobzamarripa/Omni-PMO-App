@@ -2,6 +2,37 @@
  * FILE: 02_Utilities.gs
  */
 
+function getVendorFiberStats() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const historySheet = ss.getSheetByName(HISTORY_SHEET);
+  if (!historySheet || historySheet.getLastRow() < 2) return {};
+
+  const data = historySheet.getDataRange().getValues();
+  const headers = data[0];
+  const contractorIdx = headers.indexOf("Contractor");
+  const fiberFootageIdx = headers.indexOf("Daily Fiber Footage");
+
+  if (contractorIdx === -1 || fiberFootageIdx === -1) return {};
+
+  let stats = {};
+  for (let i = 1; i < data.length; i++) {
+    let vendor = String(data[i][contractorIdx] || '').trim();
+    if (!vendor || vendor === '-') continue;
+    
+    let footage = Number(data[i][fiberFootageIdx]) || 0;
+    if (footage === 0) continue;
+
+    if (!stats[vendor]) stats[vendor] = { footage: 0, miles: 0 };
+    stats[vendor].footage += footage;
+  }
+
+  for (let vendor in stats) {
+    stats[vendor].miles = Number((stats[vendor].footage / FT_PER_MILE).toFixed(2));
+  }
+
+  return stats;
+}
+
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
@@ -140,6 +171,7 @@ function getDashboardData() {
   const refDict = getReferenceDictionary();
   const vendorGoals = getVendorDailyGoals();
   const cityCoordinates = getCityCoordinates();
+  const fiberStats = getVendorFiberStats();
 
   const data = mirrorSheet.getDataRange().getValues();
   const headers = data[0].map(String); // Force strings
@@ -255,23 +287,26 @@ function getDashboardData() {
              .map((cell, idx) => ({ h: headers[idx], v: (cell instanceof Date) ? cell.toISOString() : String(cell || "") }))
              .filter(({ v }) => v !== '');
 
+         let vendorName = vendorIdx > -1 ? String(data[i][vendorIdx] || "").trim() : "";
+         let stats = fiberStats[vendorName] || { footage: 0, miles: 0 };
+
          actionItems.push({
-             fdh: fdhIdx > -1 ? String(data[i][fdhIdx] || "") : "", 
-             vendor: vendorIdx > -1 ? String(data[i][vendorIdx] || "") : "", 
+             fdh: fdhIdx > -1 ? String(data[i][fdhIdx] || "") : "",
+             vendor: vendorName,
              city: cityIdx > -1 ? String(data[i][cityIdx] || "") : "",
-             stage: stageIdx > -1 ? String(data[i][stageIdx] || "") : "", 
-             status: statusIdx > -1 ? String(data[i][statusIdx] || "") : "", 
+             stage: stageIdx > -1 ? String(data[i][stageIdx] || "") : "",
+             status: statusIdx > -1 ? String(data[i][statusIdx] || "") : "",
              bsls: bslsIdx > -1 ? String(data[i][bslsIdx] || "-") : "-",
              isLight: lightIdx > -1 ? (data[i][lightIdx] === true || String(data[i][lightIdx]).toLowerCase() === 'true') : false,
-             ofsDate: parseDate(ofsIdx > -1 ? data[i][ofsIdx] : ""), 
-             reportDate: parseDate(dateIdx > -1 ? data[i][dateIdx] : ""), 
+             ofsDate: parseDate(ofsIdx > -1 ? data[i][ofsIdx] : ""),
+             reportDate: parseDate(dateIdx > -1 ? data[i][dateIdx] : ""),
              targetDate: parseDate(targetIdx > -1 ? data[i][targetIdx] : ""),
-             cxStart: parseDate(cxStartIdx > -1 ? data[i][cxStartIdx] : ""), 
+             cxStart: parseDate(cxStartIdx > -1 ? data[i][cxStartIdx] : ""),
              cxEnd: parseDate(cxEndIdx > -1 ? data[i][cxEndIdx] : ""),
-             isXing: xingIdx > -1 && String(data[i][xingIdx]).includes("X-ING YES"), 
-             gaps: xingIdx > -1 ? String(data[i][xingIdx] || "") : "", 
-             flags: flags, 
-             draft: draftIdx > -1 ? String(data[i][draftIdx] || "") : "", 
+             isXing: xingIdx > -1 && String(data[i][xingIdx]).includes("X-ING YES"),
+             gaps: xingIdx > -1 ? String(data[i][xingIdx] || "") : "",
+             flags: flags,
+             draft: draftIdx > -1 ? String(data[i][draftIdx] || "") : "",
              fieldProduction: fieldProduction,
              bench: benchIdx > -1 ? String(data[i][benchIdx] || "") : "",
              vendorComment: vcIdx > -1 ? String(data[i][vcIdx] || "") : "",
@@ -294,8 +329,8 @@ function getDashboardData() {
              hasBOMPo: refData ? refData.hasBOMPo : false,
              hasSOW: refData ? refData.hasSOW : false,
              qbRef: refData ? (refData.qbRef || {}) : {},
-             vel: {
-                 ug: { tot: parseNum(data[i][ugTotIdx]), bom: parseNum(data[i][ugBomIdx]), daily: parseNum(data[i][ugDailyIdx]) },
+             fiberTotalMiles: stats.miles,
+             vel: {                 ug: { tot: parseNum(data[i][ugTotIdx]), bom: parseNum(data[i][ugBomIdx]), daily: parseNum(data[i][ugDailyIdx]) },
                  ae: { tot: parseNum(data[i][aeTotIdx]), bom: parseNum(data[i][aeBomIdx]), daily: parseNum(data[i][aeDailyIdx]) },
                  fib: { tot: parseNum(data[i][fibTotIdx]), bom: parseNum(data[i][fibBomIdx]), daily: parseNum(data[i][fibDailyIdx]) },
                  nap: { tot: parseNum(data[i][napTotIdx]), bom: parseNum(data[i][napBomIdx]), daily: parseNum(data[i][napDailyIdx]) }
@@ -318,7 +353,8 @@ function getDashboardData() {
     totalRows: data.length - 1,
     headers: headers,
     refDataDate: refDataDate,
-    allFdhIds: Object.keys(refDict)
+    allFdhIds: Object.keys(refDict),
+    fiberStats: fiberStats
   };
   try { cache.put(CACHE_KEY, JSON.stringify(payload), 1800); } catch(e) {}
   return payload;

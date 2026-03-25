@@ -148,6 +148,9 @@
               </button>
           </div>
           <div class="view-segment-group view-tools">
+              <button class="view-segment-btn" onclick="toggleWidget('brief-widget', event)" title="Morning Brief">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10l4 4v12a2 2 0 0 1-2 2z"></path><polyline points="14 4 14 8 19 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              </button>
               <button class="view-segment-btn" onclick="toggleWidget('calc-widget', event)" title="Benny Calculator">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="14"></line><line x1="16" y1="18" x2="16" y2="18"></line><line x1="8" y1="14" x2="8" y2="14"></line><line x1="8" y1="18" x2="8" y2="18"></line><line x1="12" y1="14" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>
               </button>
@@ -175,6 +178,13 @@
         <button class="btn-nav" onclick="toggleHelpPanel()" id="btn-help">?</button>
         <button class="btn-icon mobile-menu-toggle" id="btn-hamburger" onclick="toggleMobileMenu()" title="Menu" style="font-size:18px;">☰</button>
       </div>
+    </div>
+
+    <div id="brief-widget" class="tool-widget">
+        <div class="tool-header" id="brief-widget-header">Morning Briefing<button class="tool-close" onclick="toggleWidget('brief-widget')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div>
+        <div id="brief-content" style="padding: 16px; overflow-y: auto; max-height: 400px;">
+            <div class="digest-panel-empty">Loading production stats...</div>
+        </div>
     </div>
 
     <div id="cal-widget" class="tool-widget">
@@ -4014,6 +4024,7 @@
       // Extract last, after all consumers are modularized.
       // BOOTSTRAP ANCHOR: hydrates allActionItems/global payload state and fans out to every major desktop surface
       function initDashboard(data) {
+        window._lastDashboardPayload = data;
         safeExecute('initDashboard', () => {
             hideSplash();
             restoreGanttViewSession();

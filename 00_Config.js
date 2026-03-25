@@ -108,6 +108,7 @@ const NUMERIC_COLUMNS = ["Daily UG Footage", "Total UG Footage Completed", "UG B
 const DATE_COLUMNS = ["Date", "Target Completion Date", "CX Start", "CX Complete"];
 
 const OVERAGE_THRESHOLD = 1.05;
+const FT_PER_MILE = 5280;
 
 const ROW_THEMES = { PERMITTING: { bg: "#faf5ff", text: "#a855f7", label: "🟣 PERMITTING" }, OFS: { bg: "#eff6ff", text: "#2563eb", label: "🔵 OFS" }, COMPLETE: { bg: "#f0fdf4", text: "#22c55e", label: "🟢 COMPLETE" }, ON_HOLD: { bg: "#f8fafc", text: "#94a3b8", label: "⚪ ON HOLD" }, ACTIVE: { bg: null, text: null, label: "" } };
 const BENNY_COLORS = { RED: { bg: "#fee2e2", text: "#ef4444", name: "warn" }, YELLOW: { bg: "#fef08a", text: "#b45309", name: "mismatch" }, UG: { bg: "#ffedd5", text: "#ea580c", name: "ug" }, AE: { bg: "#f1f5f9", text: "#475569", name: "ae" }, FIB: { bg: "#ffe4e6", text: "#e11d48", name: "fib" }, NAP: { bg: "#e0e7ff", text: "#4f46e5", name: "nap" }, CLEAN: { bg: null, text: "#166534", name: "clean" }, GHOST: { bg: "#f1f5f9", text: "#64748b", name: "ghost" } };
