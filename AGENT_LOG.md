@@ -103,6 +103,25 @@
 
 ---
 
+## [2026-03-26 09:34:48 CDT] — Pre-Refactor Snapshot Commit + Tag (Codex)
+
+### Accomplishments
+- Prepared a full rollback checkpoint before the major refactor.
+- Captured the current working changes in Git history instead of tagging only the previous commit.
+- Replaced the temporary tag-only checkpoint note with a committed snapshot record.
+
+### Snapshot Contents
+- `WORKSTREAM_0_NOTES.md`: advanced WS12 notes to reflect March 26 mobile dock/layout progress and next validation target.
+- `WebApp.html`: promoted mobile dock to direct tabs for Queue, Detail, Gantt, Digest, Admin, and Search.
+- `_styles_components.html`: added WS12 mobile breakpoint rules for touch targets, dock behavior, panel spacing, and card stacking.
+- `_styles_layout.html`: refined compact mobile header and shifted queue/detail panels below the fixed header.
+- `AGENT_LOG.md`: recorded this checkpoint for future restore and handoff clarity.
+
+### Restore Command
+- `git checkout pre-major-refactor-2026-03-26`
+
+---
+
 ## [2026-03-25] — Mobile Maintenance & WS12 Prep (Architect: Claude)
 
 ### Accomplishments

@@ -2829,30 +2829,108 @@
         color: #93c5fd;
     }
 
-/* ── WS12 Phase 4: Touch targets (≤768px) ───────────── */
+/* ── WS12 Phase 4: Mobile responsive breakpoints (≤768px) ── */
 @media (max-width: 768px) {
 
-    .smart-dock .btn {
+    /* Touch targets */
+    .smart-dock .btn,
+    .filter-strip .btn {
         min-height: 44px !important;
         height: 44px !important;
     }
-
     .slide-action-deck .btn,
     .slide-action-deck .dock-arrow {
         min-height: 44px !important;
         height: 44px !important;
         min-width: 44px !important;
     }
-
-    .filter-strip .btn {
-        min-height: 44px !important;
-        height: 44px !important;
-    }
-
     .filter-strip input[type="text"],
     .filter-strip select {
         min-height: 44px !important;
         height: 44px !important;
+    }
+
+    /* ── Hide desktop smart-dock — mobile uses m-search-sheet ── */
+    .filter-strip.smart-dock {
+        display: none !important;
+    }
+
+    /* ── Inbox sidebar: sticky header + bottom dock clearance ── */
+    .inbox-header {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 10 !important;
+        background: var(--bg) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+    }
+    .inbox-list {
+        padding-bottom: 24px !important;
+    }
+
+    /* ── Detail pane: clear desktop top offset ── */
+    .pane-content {
+        padding-top: 12px !important;
+        padding-bottom: 24px !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+    #grid-content {
+        padding-top: 0 !important;
+        padding-bottom: 24px !important;
+    }
+    #welcome-screen {
+        padding-top: 20px !important;
+        padding-bottom: 24px !important;
+    }
+
+    /* ── Admin tab: contextual — only in detail view or when staged ── */
+    .m-tab-btn[data-mview="admin"] {
+        display: none !important;
+    }
+    body[data-mview="detail"] .m-tab-btn[data-mview="admin"],
+    body[data-mview="admin"] .m-tab-btn[data-mview="admin"],
+    body.has-staged .m-tab-btn[data-mview="admin"] {
+        display: flex !important;
+    }
+
+    /* ── qb-top-row: single-column card stack ── */
+    #project-schedule-card {
+        flex-basis: 100% !important;
+        min-width: 0 !important;
+        border-right: none !important;
+        border-bottom: 1px solid var(--border) !important;
+    }
+    #velocity-production-card {
+        flex-basis: 100% !important;
+        min-width: 0 !important;
+    }
+
+    /* ── Dock tab active state — Centric-Ops spring lift ── */
+    .m-tab-btn.active {
+        transform: translateY(-3px) !important;
+        background: rgba(59, 130, 246, 0.1) !important;
+        border-radius: 14px !important;
+        padding: 6px 10px !important;
+    }
+    .m-tab-btn {
+        transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s ease !important;
+    }
+    /* Dock scrollable for 6 tabs */
+    .m-dock-nav {
+        overflow-x: auto !important;
+        scrollbar-width: none !important;
+        justify-content: flex-start !important;
+        gap: 4px !important;
+        padding: 0 4px !important;
+    }
+    .m-dock-nav::-webkit-scrollbar { display: none !important; }
+
+    /* ── interaction-split: stack at phone width ── */
+    .col-left-vendor,
+    .col-right-note {
+        min-width: 0 !important;
+        flex-basis: 100% !important;
     }
 }
 
