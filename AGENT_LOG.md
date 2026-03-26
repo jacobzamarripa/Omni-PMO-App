@@ -3,17 +3,19 @@
 > Format: Obsidian Callouts `> [!info] YYYY-MM-DD: [Action]`
 > One entry per workstream close or major milestone.
 
-## [2026-03-25] — Pre-Refactor Backup
+## [2026-03-25] — Pre-Refactor Backup (Final)
 
-> [!info] 2026-03-25: Pre-Refactor Git Backup Created
-> - Committed all unstaged changes — commit `639bf94`
-> - Created immutable tag: `pre-refactor-backup`
-> - Created backup branch: `backup/pre-refactor`
+> [!info] 2026-03-25: Pre-Refactor Git Backup Updated — Final State
+> - Final feature added post-initial snapshot; tag moved to new commit `fd147a7`
+> - Files included in final snapshot: `02_Utilities.js`, `AGENT_LOG.md`, `WebApp.html`, `_module_tools_widgets.html`, `_styles_components.html`
+> - Tag `pre-refactor-backup` now points to `fd147a7`
+> - Branch `backup/pre-refactor` updated to match
 > - **Rollback command:** `git reset --hard pre-refactor-backup`
 > - Logged to Obsidian: `01_Projects/Omni PMO App/AGENT_LOG.md`
 
 ### Lesson Learned
 - Tag + branch combo gives both an immutable rollback point and a browsable backup branch — use this pattern before any major refactor.
+- If a last-minute change is needed after tagging, force-move the tag (`git tag -f`) rather than creating a second tag — keeps the rollback reference clean.
 
 ---
 

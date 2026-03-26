@@ -1,0 +1,1157 @@
+<!-- JS_Modules.html: Global JavaScript for WebApp -->
+<script>
+  // ASSEMBLING FULL JS LOGIC FROM WEBAPP.HTML
+  
+  // BOOT SEQUENCE CONTROLLER
+  let bootInterval;
+  function runBootSequence() {
+      const bootSteps = [
+          "Connecting to QuickBase API...",
+          "Authenticating Benny Diagnostics Engine...",
+          "Loading Master Archive records...",
+          "Cross-referencing vendor production data...",
+          "Calculating network topology & light paths...",
+          "Running AI heuristic models...",
+          "Compiling executive dashboard..."
+      ];
+      let stepIdx = 0;
+      let progress = 0;
+      const textEl = document.getElementById('boot-text');
+      const barEl = document.getElementById('boot-progress');
+      if (!textEl || !barEl) return;
+      bootInterval = setInterval(() => {
+          progress += Math.random() * 15;
+          if (progress >= 100) {
+              progress = 99;
+          } else if (progress > (stepIdx + 1) * (100 / bootSteps.length) && stepIdx < bootSteps.length - 1) {
+              stepIdx++;
+              textEl.innerText = bootSteps[stepIdx];
+          }
+          barEl.style.width = `${progress}%`;
+      }, 150);
+  }
+  runBootSequence();
+
+  function hideSplash() {
+      clearInterval(bootInterval);
+      let barEl = document.getElementById('boot-progress');
+      let textEl = document.getElementById('boot-text');
+      if (barEl) barEl.style.width = '100%';
+      if (textEl) textEl.innerText = "Data loaded. Initializing UI...";
+      setTimeout(() => {
+          let ls = document.getElementById('loading-screen');
+          if (ls) ls.classList.add('hidden');
+      }, 300);
+  }
+
+  // GLOBAL STATE VARIABLES (CRITICAL SCOPE)
+  let isGridMode = false;
+  let currentGridPivot = 'velocity';
+  let deckPrevPivot = 'velocity';
+  let activePieStageFilter = null;
+  let openDropdownId = null;
+  const CHANGELOG_PULSE_SESSION_KEY = 'changelogPulseSeen';
+  const STAGED_REVIEW_SESSION_KEY = 'dpa.stagedReviewItems.v1';
+  const STAGED_REVIEW_COLLAPSED_SESSION_KEY = 'dpa.stagedReviewCollapsed.v1';
+  const GANTT_VIEW_SCROLL_SESSION_KEY = 'dpa.ganttScroll.v1';
+  const GANTT_VIEW_FOCUS_SESSION_KEY = 'dpa.ganttFocus.v1';
+  const GROUP_BY_SESSION_KEY = 'dpa.queueGroupBy.v1';
+  const GROUP_COLLAPSE_SESSION_KEY = 'dpa.queueGroupCollapse.v1';
+  const GROUP_BY_OPTIONS = ['none', 'vendor', 'city', 'health', 'stage', 'status'];
+
+  let pendingFaceAnimation = null;
+  let isStagedReviewCollapsed = false;
+
+  let queueGroupCollapseState = (function() {
+      try {
+          let raw = sessionStorage.getItem(GROUP_COLLAPSE_SESSION_KEY);
+          let parsed = raw ? JSON.parse(raw) : {};
+          return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (e) {
+          return {};
+      }
+  })();
+
+  function isSlideFaceActive() {
+      return currentWorkspaceView === 'detail' && currentDetailFace === 'slide';
+  }
+
+  function renderDetailWorkspaceFace() {
+      if (currentWorkspaceView !== 'detail') return;
+
+      const welcome = document.getElementById('welcome-screen');
+      const paneContent = document.getElementById('pane-content');
+      const deckStage = document.getElementById('deck-stage');
+
+      if (!currentActiveItem) {
+          if (welcome) welcome.style.display = 'flex';
+          if (paneContent) paneContent.style.display = 'none';
+          if (deckStage) deckStage.style.display = 'none';
+          setAdminPanelOpen(false);
+          return;
+      }
+
+      if (welcome) welcome.style.display = 'none';
+
+      if (isDeckMode) {
+          if (paneContent) paneContent.style.display = 'none';
+          if (deckStage) {
+              deckStage.style.display = 'flex';
+              deckStage.style.flex = '';
+              deckStage.style.width = '';
+              deckStage.style.padding = '';
+              deckStage.style.overflow = '';
+          }
+          setAdminPanelOpen(true);
+          deckIndex = Math.max(0, filteredItems.findIndex(i => i.fdh === currentActiveItem.fdh));
+          renderDeckStage();
+          syncActivePresentationCardTheme();
+          animatePendingFaceTransition();
+      } else {
+          if (deckStage) deckStage.style.display = 'none';
+          if (paneContent) paneContent.style.display = 'flex';
+          openPane(currentActiveItem, document.getElementById(`card-${currentActiveItem.fdh}`) || null);
+          syncActivePresentationCardTheme();
+          animatePendingFaceTransition();
+          if (window.innerWidth > 768) syncAdminPanelForViewport();
+      }
+  }
+
+  function toggleDetailFace(forceFace) {
+      const nextFace = forceFace === 'slide' ? 'slide' : forceFace === 'detail' ? 'detail' : (isDeckMode ? 'detail' : 'slide');
+      if (nextFace === 'slide' && !currentActiveItem) {
+          showToast('Select a project before opening Slide View.', 'info');
+          return;
+      }
+
+      pendingFaceAnimation = nextFace;
+      currentDetailFace = nextFace;
+      syncWorkspaceModeState();
+      syncWorkspaceChrome();
+      renderDetailWorkspaceFace();
+      animateDockFaceShift(nextFace);
+      syncGanttIslandState();
+  }
+
+  function animateCardFaceTransition(card, face) {
+      if (!card) return;
+      card.classList.remove('face-flip-enter', 'face-flip-slide', 'face-flip-detail');
+      void card.offsetWidth;
+      card.classList.add('face-flip-enter', face === 'slide' ? 'face-flip-slide' : 'face-flip-detail');
+      setTimeout(() => {
+          card.classList.remove('face-flip-enter', 'face-flip-slide', 'face-flip-detail');
+      }, 700);
+  }
+
+  function animatePendingFaceTransition() {
+      if (!pendingFaceAnimation) return;
+      const face = pendingFaceAnimation;
+      pendingFaceAnimation = null;
+      requestAnimationFrame(() => animateCardFaceTransition(getActivePresentationCard(), face));
+  }
+
+  function animateDockFaceShift(face) {
+      const dock = document.getElementById('filter-strip');
+      if (!dock || isPresentationMode || currentWorkspaceView !== 'detail') return;
+      dock.classList.remove('dock-slide-down-enter', 'dock-rise-up-enter');
+      void dock.offsetWidth;
+      dock.classList.add(face === 'slide' ? 'dock-slide-down-enter' : 'dock-rise-up-enter');
+      setTimeout(() => {
+          dock.classList.remove('dock-slide-down-enter', 'dock-rise-up-enter');
+      }, 460);
+  }
+
+  function syncRawDataStripState() {
+      const strip = document.getElementById('raw-data-strip');
+      if (!strip) return;
+      const shouldShow = currentWorkspaceView === 'detail' && currentActiveItem && Array.isArray(currentActiveItem.rawRow) && currentActiveItem.rawRow.length > 0;
+      strip.style.display = shouldShow ? 'flex' : 'none';
+      if (!shouldShow) {
+          strip.innerHTML = '';
+          strip.style.opacity = '1';
+          strip.style.pointerEvents = '';
+      }
+  }
+
+  function getStageColor(stage) {
+      let sLower = (stage || "").toLowerCase();
+      if (sLower.includes('permit')) return '#a855f7';
+      if (sLower.includes('field cx') || sLower.includes('active') || sLower.includes('progress')) return '#facc15';
+      if (sLower.includes('complete')) return '#22c55e';
+      if (sLower.includes('ofs')) return '#3b82f6';
+      if (sLower.includes('hold')) return '#64748b';
+      if (sLower.includes('pending') || sLower.includes('assignment')) return '#f97316';
+      return '#94a3b8';
+  }
+
+  function togglePieStageFilter(stage) {
+      activePieStageFilter = (activePieStageFilter === stage) ? null : stage;
+      applyFilters();
+      let hud = document.getElementById('projects-pie-hud');
+      if (hud && hud.style.display !== 'none') renderProjectsHUD();
+  }
+
+  function toggleDropdown(id, event) {
+      if (event) event.stopPropagation();
+      if (openDropdownId && openDropdownId !== id) {
+          let oldEl = document.getElementById(openDropdownId);
+          if (oldEl) oldEl.classList.remove('open');
+      }
+      let el = document.getElementById(id);
+      if (el) {
+          el.classList.toggle('open');
+          openDropdownId = el.classList.contains('open') ? id : null;
+      }
+  }
+
+  document.addEventListener('click', (e) => {
+      if (openDropdownId) {
+          let el = document.getElementById(openDropdownId);
+          if (el && !el.contains(e.target)) {
+              el.classList.remove('open');
+              openDropdownId = null;
+          }
+      }
+  });
+
+  function toggleNavFab() {
+      let dropdown = document.getElementById('nav-fab-dropdown');
+      if (!dropdown) return;
+      dropdown.classList.toggle('open');
+  }
+
+  document.addEventListener('click', function(e) {
+      let dropdown = document.getElementById('nav-fab-dropdown');
+      let trigger = document.getElementById('btn-nav-fab');
+      if (!dropdown || !trigger || !dropdown.classList.contains('open')) return;
+      if (!dropdown.contains(e.target) && !trigger.contains(e.target)) {
+          dropdown.classList.remove('open');
+      }
+  });
+
+  function getProjectsHudFilterEntries() {
+      let entries = [];
+      ['sev', 'vendor', 'city', 'ofs', 'status'].forEach(function(category) {
+          (activeFilters[category] || []).forEach(function(value) {
+              entries.push({
+                  category: category,
+                  categoryLabel: getFilterCategoryLabel(category),
+                  value: value,
+                  label: getFilterValueLabel(category, value)
+              });
+          });
+      });
+      if (activePieStageFilter) {
+          entries.push({
+              category: 'stage',
+              categoryLabel: 'Stage',
+              value: activePieStageFilter,
+              label: activePieStageFilter,
+              color: getStageColor(activePieStageFilter)
+          });
+      }
+      return entries;
+  }
+
+  function getCriticalType(item) {
+      let flags = String((item && item.flags) || '').toUpperCase();
+      if (flags.includes('OVERDUE')) return 'Overdue';
+      if (flags.includes('MISSING DAILY REPORT')) return 'Missing Report';
+      if (flags.includes('CROSSING') || flags.includes('X-ING')) return 'Crossing Risk';
+      if (flags.includes('BOM') || flags.includes('REROUTE') || flags.includes('SCOPE') || flags.includes('DEVIATION')) return 'BOM / Scope Issue';
+      if (flags.includes('QB') || flags.includes('REFERENCE') || flags.includes('STATUS MISMATCH') || flags.includes('MISSING QB STATUS')) return 'QB / Reference Issue';
+      return 'Other Critical';
+  }
+
+  function getOfsFilterBuckets(item, today) {
+      let buckets = [];
+      if (!item) return buckets;
+      let rawOfs = item.ofsDate;
+      let rawFallback = item.targetDate;
+      let d = safeDate(rawOfs) || safeDate(rawFallback);
+      if (!d || isNaN(d.getTime())) return buckets;
+      buckets.push(d.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase());
+      let diffDays = (d - today) / 86400000;
+      if (diffDays >= 0 && diffDays <= 90) buckets.push('90_DAYS');
+      if (diffDays >= 0 && diffDays <= 60) buckets.push('60_DAYS');
+      return buckets;
+  }
+
+  function itemMatchesSearch(item, searchTerm) {
+      return searchTerm === '' ||
+          item.fdh.toLowerCase().includes(searchTerm) ||
+          (item.city && item.city.toLowerCase().includes(searchTerm)) ||
+          (item.vendor && item.vendor.toLowerCase().includes(searchTerm));
+  }
+
+  function getProjectsPieSliceLabel(item) {
+      let stageName = item.stage || "Unknown";
+      let statusName = item.status || "Unknown";
+      let sLower = stageName.toLowerCase();
+
+      if (sLower.includes('field cx')) return `${stageName} | ${statusName}`;
+      if (sLower.includes('ofs')) return 'OFS';
+      if (sLower.includes('permit')) return 'Permitting';
+      return stageName;
+  }
+
+  const setHtml = (id, val) => { let el = document.getElementById(id); if(el) el.innerHTML = val; };
+  const setTxt = (id, val) => { let el = document.getElementById(id); if(el) el.innerText = val; };
+  const setStyle = (id, prop, val) => { let el = document.getElementById(id); if(el) el.style[prop] = val; };
+  const setVal = (id, val) => { let el = document.getElementById(id); if(el) el.value = val; };
+  const getEl = (id) => document.getElementById(id);
+
+  function renderActiveFilterPills() {
+      const container = getEl('active-filter-pills');
+      if (!container) return;
+      container.innerHTML = '';
+      const categories = { sev: 'Health', vendor: 'Vendor', city: 'City', ofs: 'OFS', status: 'Status', user: 'User' };
+      Object.keys(activeFilters).forEach(cat => {
+          activeFilters[cat].forEach(val => {
+              const pill = document.createElement('div');
+              pill.className = 'filter-pill';
+              let label = val;
+              if (val === '60_DAYS') label = '< 60 Days';
+              if (val === '90_DAYS') label = '< 90 Days';
+              pill.innerHTML = `
+                  <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px;">${categories[cat] || cat}</span>
+                  <span style="font-weight: 900;">${esc(label)}</span>
+                  <div class="remove-btn" onclick="toggleFilterValue('${cat}', '${escJs(val)}')">✕</div>
+              `;
+              container.appendChild(pill);
+          });
+      });
+      if (activePieStageFilter) {
+          const pill = document.createElement('div');
+          pill.className = 'filter-pill';
+          const color = getStageColor(activePieStageFilter);
+          pill.style.borderLeft = `3px solid ${color}`;
+          pill.innerHTML = `
+              <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px;">Stage</span>
+              <span style="color:${color}; font-weight: 900;">${esc(activePieStageFilter)}</span>
+              <div class="remove-btn" onclick="togglePieStageFilter(null)">✕</div>
+          `;
+          container.appendChild(pill);
+      }
+      if (currentGroupBy && currentGroupBy !== 'none') {
+          const pill = document.createElement('div');
+          pill.className = 'filter-pill';
+          pill.innerHTML = `
+              <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px;">Group by</span>
+              <span style="font-weight: 900;">${esc(getGroupByLabel(currentGroupBy))}</span>
+              <div class="remove-btn" onclick="setGroupBy('none')">✕</div>
+          `;
+          container.appendChild(pill);
+      }
+      updateFloatingPillsPosition();
+  }
+
+  function isElementVisiblyRendered(el) {
+      if (!el) return false;
+      let style = window.getComputedStyle(el);
+      return style.display !== 'none' && style.visibility !== 'hidden' && !el.classList.contains('collapsed');
+  }
+
+  function syncDockLayoutSpacing() {
+      const dock = getEl('filter-strip');
+      if (dock) {
+          dock.querySelectorAll('.dock-zone').forEach(zone => {
+              if (zone.id === 'dock-system-zone') {
+                  zone.classList.remove('is-empty');
+                  return;
+              }
+              let hasVisibleControl = Array.from(zone.children).some(child => {
+                  if (child.classList && child.classList.contains('dock-divider')) return false;
+                  return isElementVisiblyRendered(child);
+              });
+              zone.classList.toggle('is-empty', !hasVisibleControl || zone.classList.contains('collapsed'));
+          });
+      }
+
+      const slideDeck = getEl('slide-action-deck');
+      if (slideDeck) {
+          slideDeck.querySelectorAll('.slide-action-cluster').forEach(cluster => {
+              let hasVisibleControl = Array.from(cluster.children).some(child => isElementVisiblyRendered(child));
+              cluster.classList.toggle('is-empty', !hasVisibleControl);
+          });
+      }
+  }
+
+  function updateFloatingPillsPosition() {
+      const container = getEl('active-filter-pills');
+      if (!container) return;
+
+      const hasPills = container.children.length > 0;
+      container.style.opacity = hasPills ? '1' : '0';
+      if (!hasPills) return;
+
+      let anchor = null;
+      const slideDeck = getEl('slide-action-deck');
+      const filterStrip = getEl('filter-strip');
+
+      if (slideDeck && isElementVisiblyRendered(slideDeck) && slideDeck.classList.contains('visible')) {
+          anchor = slideDeck;
+      } else if (filterStrip && isElementVisiblyRendered(filterStrip)) {
+          anchor = filterStrip;
+      }
+
+      if (!anchor) {
+          container.style.top = '78px';
+          container.style.bottom = 'auto';
+          return;
+      }
+
+      const gap = 8;
+      const rect = anchor.getBoundingClientRect();
+      const anchorIsBottomDock = currentDockPlacement === 'bottom' || rect.top > (window.innerHeight / 2);
+
+      if (anchorIsBottomDock) {
+          container.style.top = 'auto';
+          container.style.bottom = `${Math.max(8, window.innerHeight - rect.top + gap)}px`;
+      } else {
+          container.style.top = `${Math.max(8, rect.bottom + gap)}px`;
+          container.style.bottom = 'auto';
+      }
+  }
+
+  function syncDockClearanceState() {
+      let offset = 0;
+      let shouldShift = false;
+      let dock = getEl('filter-strip');
+      let workspace = getEl('main-workspace');
+      let pills = getEl('active-filter-pills');
+      let body = document.body;
+      let topNav = document.querySelector('.top-nav');
+      let navRect = topNav ? topNav.getBoundingClientRect() : null;
+      if (navRect) {
+          document.documentElement.style.setProperty('--dock-clearance-top', `${Math.ceil(navRect.bottom + 10)}px`);
+      }
+
+      if (!dock || !workspace || window.innerWidth <= 768 || window.innerWidth > 1800 || currentWorkspaceView === 'gantt') {
+          document.documentElement.style.setProperty('--dock-panel-offset', '0px');
+          body.classList.remove('dock-clearance-active');
+          return;
+      }
+
+      if (dock && workspace) {
+          let workspaceRect = workspace.getBoundingClientRect();
+          let dockRect = dock.getBoundingClientRect();
+          let clearBottom = dockRect.bottom;
+          let leftRail = workspace.querySelector('.inbox-sidebar');
+          let detailMain = workspace.querySelector('.detail-main');
+          let outboxPane = getEl('outbox-pane');
+          let fabAnchor = document.querySelector('.admin-fab-anchor');
+          let topNavLeft = document.querySelector('.top-nav-left');
+          let topNavCenter = document.querySelector('.top-nav-center');
+          let topNavRight = document.querySelector('.nav-actions');
+          let leftRect = (leftRail && getComputedStyle(leftRail).display !== 'none') ? leftRail.getBoundingClientRect() : null;
+          let detailRect = (detailMain && getComputedStyle(detailMain).display !== 'none') ? detailMain.getBoundingClientRect() : null;
+          let rightRect = null;
+          let navLeftRect = topNavLeft ? topNavLeft.getBoundingClientRect() : null;
+          let navCenterRect = topNavCenter ? topNavCenter.getBoundingClientRect() : null;
+          let navRightRect = topNavRight ? topNavRight.getBoundingClientRect() : null;
+
+          if (outboxPane && outboxPane.classList.contains('open') && getComputedStyle(outboxPane).display !== 'none') {
+              rightRect = outboxPane.getBoundingClientRect();
+          } else if (fabAnchor && currentWorkspaceView === 'detail') {
+              rightRect = fabAnchor.getBoundingClientRect();
+          }
+
+          let overlapX = function(a, b) {
+              if (!a || !b) return 0;
+              return Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+          };
+
+          let dockBottomInWorkspace = Math.max(0, clearBottom - workspaceRect.top);
+          let leftOverlap = overlapX(dockRect, leftRect);
+          let rightOverlap = overlapX(dockRect, rightRect);
+          let detailCompression = detailRect ? dockRect.width >= Math.max(0, detailRect.width - 72) : false;
+          let navSideCrowded = false;
+          let centerCrowded = false;
+
+          if (navCenterRect) {
+              centerCrowded = dockRect.width >= Math.max(0, navCenterRect.width - 24);
+          }
+          if (navLeftRect && navRightRect) {
+              let navCorridorWidth = Math.max(0, navRightRect.left - navLeftRect.right - 28);
+              navSideCrowded = dockRect.width >= Math.max(0, navCorridorWidth);
+          }
+
+          shouldShift = dockBottomInWorkspace > 0 && (
+              leftOverlap > 0 ||
+              rightOverlap > 0 ||
+              detailCompression ||
+              navSideCrowded ||
+              centerCrowded ||
+              dockRect.width >= Math.max(1020, window.innerWidth - 620)
+          );
+
+          if (shouldShift) {
+              let desiredTop = dockBottomInWorkspace + 18;
+              offset = Math.max(52, Math.ceil(desiredTop - 12));
+          }
+      }
+
+      document.documentElement.style.setProperty('--dock-panel-offset', `${offset}px`);
+      body.classList.toggle('dock-clearance-active', shouldShift);
+  }
+
+  function getActiveSortValue() {
+      const queueSort = getEl('sort-queue')?.value || 'default';
+      if (currentWorkspaceView === 'gantt' && queueSort === 'default') return 'end';
+      return queueSort;
+  }
+
+  function syncGanttSort(value) {
+      const queueSort = getEl('sort-queue');
+      if (queueSort) queueSort.value = value || 'end';
+      syncSortControls();
+      applyFilters();
+  }
+
+  function syncSortControls() {
+      const effectiveSort = getActiveSortValue();
+      const ganttSort = getEl('gantt-sort-select');
+      if (ganttSort) ganttSort.value = effectiveSort;
+  }
+
+  let previousDockState = [];
+
+  function restoreDockState() {
+      getEl('dock-system-zone').classList.add('collapsed');
+      previousDockState.forEach(id => getEl(id)?.classList.remove('collapsed'));
+      syncSlideActionDeck();
+      syncDockLayoutSpacing();
+      updateFloatingPillsPosition();
+  }
+
+  function renderQuickPeek(item) {
+      const panel = getEl('gantt-quick-peek');
+      if (!panel) return;
+
+      const isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
+      const pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+      const combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+      const vComment = item.vendorComment ? item.vendorComment.trim() : 'No update.';
+      const targetDateVal = item.targetDate || item.cxEnd || '';
+      const targetDateLabel = targetDateVal ? formatDate(targetDateVal) : 'TBD';
+
+      let pEnd = safeDate(item.cxEnd || item.targetDate);
+      let today = new Date();
+      today.setHours(0,0,0,0);
+      let daysLeft = 0;
+      if (pEnd) daysLeft = Math.ceil((pEnd - today) / 86400000);
+
+      const isComplete = (item.stage || '').toLowerCase().includes('ofs') || (item.status || '').toLowerCase().includes('complete');
+      const isPermit = (item.stage || '').toLowerCase().includes('permit');
+      const isOnHold = (item.status || '').toLowerCase().includes('hold');
+      const isOverdue = pEnd && today > pEnd && !isComplete && !isOnHold && !isPermit;
+
+      let sColor = '#facc15';
+      if (isComplete) sColor = '#22c55e';
+      else if (isPermit) sColor = '#a855f7';
+      else if (isOnHold) sColor = '#94a3b8';
+      else if (isOverdue) sColor = '#ef4444';
+
+      const daysLeftTxt = daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`;
+
+      const v = item.vel;
+      let ofsMonthStr = 'TBD';
+      let isOfsMonth = false;
+      const ofsDate = safeDate(item.ofsDate) || safeDate(item.targetDate);
+      if (ofsDate && !isNaN(ofsDate.getTime())) {
+          ofsMonthStr = ofsDate.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+          isOfsMonth = ofsDate.getUTCMonth() === today.getMonth() && ofsDate.getUTCFullYear() === today.getFullYear();
+      }
+      const ofsPillStyle = isOfsMonth ? 'color:#2563eb; background:rgba(239,246,255,0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--card-bg); border-color:var(--border);';
+      const velHtml = v ? `
+          <div class="velocity-grid" style="gap:10px; align-content:flex-start;">
+              ${buildVelocityBar('UG', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft)}
+              ${buildVelocityBar('Aerial', v.ae.daily, v.ae.tot, v.ae.bom, 'AE', daysLeft)}
+              ${buildVelocityBar('Fiber', v.fib.daily, v.fib.tot, v.fib.bom, 'FIB', daysLeft)}
+              ${buildVelocityBar('Splicing', v.nap.daily, v.nap.tot, v.nap.bom, 'NAP', daysLeft)}
+          </div>
+          <div class="qb-vel-footer" style="margin-top:12px;">
+              <div style="font-size:10px; font-weight:900; color:var(--text-muted);">${daysLeftTxt}</div>
+              <div style="display:flex; gap:8px;">
+                  <div class="vel-footer-pill">BSLS: ${item.bsls || 0}</div>
+                  <div class="vel-footer-pill" style="${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
+              </div>
+          </div>
+      ` : '<div class="empty-msg">No velocity data tracked.</div>';
+
+      let diagClass = 'action-box';
+      const sev = getSeverity(item.flags);
+      if (sev === 'crit') diagClass += ' crit';
+      else if (sev === 'warn') diagClass += ' warn';
+
+      const rawFlags = (item.flags || '').split('\n').map(f => f.trim()).filter(f => f !== '');
+      const tagsHtml = rawFlags.map(f => {
+          const clean = cleanDiagnosticFlagText(f);
+          let tagCls = getDiagnosticTagClass(f);
+          return `<span class="tag ${tagCls}" style="font-size:9px; padding:3px 7px;">${clean}</span>`;
+      }).join('') || '<span style="color:var(--text-muted);">No anomalies.</span>';
+
+      panel.innerHTML = `
+          <div style="position:sticky; top:0; z-index:10; background:color-mix(in srgb, var(--bg) 96%, transparent); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); padding:18px 20px; border-bottom:1px solid var(--border); flex-shrink:0;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                  <div style="font-size:28px; font-weight:900; letter-spacing:-1.2px; line-height:1; color:var(--text-main);">${item.fdh}</div>
+                  <button class="panel-tab-close" onclick="closeQuickPeek()" title="Close panel">✕</button>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                  <span class="glass-pill ${pillCls}" style="font-size:9px; padding:4px 8px;">${combinedPill}</span>
+                  <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">${item.vendor || 'Unknown'}${item.city ? ` • ${item.city}` : ''}</div>
+              </div>
+          </div>
+
+          <div style="flex:1; overflow-y:auto; padding:20px;">
+              <div class="qb-module">
+                  <div class="qb-module-header">SCHEDULE &amp; TARGET</div>
+                  <div style="font-size:10px; font-weight:800; color:var(--text-muted); margin-bottom:8px;">
+                      TARGET DATE: <span style="color:${sColor}; font-size:14px;">${targetDateLabel}</span>
+                  </div>
+                  <div style="font-size:10px; font-weight:700; color:var(--text-tertiary);">${daysLeftTxt}</div>
+              </div>
+
+              <div class="qb-module">
+                  <div class="qb-module-header">FIELD PRODUCTION</div>
+                  ${velHtml}
+              </div>
+
+              <div class="qb-module">
+                  <div class="qb-module-header">SYSTEM DIAGNOSTICS</div>
+                  <div class="section-label" style="font-size:8px; margin-top:0;">VENDOR COMMENT</div>
+                  <div class="vendor-bubble" style="font-size:11px; margin-bottom:12px;">"${vComment}"</div>
+                  <div class="section-label" style="font-size:8px;">ANOMALIES</div>
+                  <div class="${diagClass}" style="padding:10px; border-radius:12px;">
+                      <div style="display:flex; flex-wrap:wrap; gap:5px;">${tagsHtml}</div>
+                  </div>
+              </div>
+
+              <div class="qb-module" style="background:rgba(168, 85, 247, 0.03); border-color:rgba(168, 85, 247, 0.2);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                      <div class="section-label" style="color:var(--color-insight); margin:0;">PM NOTE</div>
+                      ${item.geminiDate ? `<span style="font-size:8px; font-style:italic; color:var(--color-insight);">Drafted: ${formatDate(item.geminiDate)}</span>` : ''}
+                  </div>
+                  <textarea id="qp-note-textarea" class="chat-bubble" oninput="syncQuickPeekNote()" placeholder="Enter decision...">${item.comment || item.draft || ''}</textarea>
+              </div>
+          </div>
+
+          <div style="padding:16px 20px; border-top:1px solid var(--border); background:var(--bg); display:flex; gap:10px; flex-shrink:0;">
+              <button class="btn-ai" onclick="askGeminiForQuickPeek(this)" style="flex:1; padding:14px; font-size:11px;">✨ DRAFT W/ GEMINI</button>
+              <button class="btn btn-primary" onclick="saveQuickPeek(this)" style="flex:1; padding:14px; font-size:11px; background:#3b82f6; border-color:#2563eb;">SAVE TO SHEET</button>
+          </div>
+      `;
+  }
+
+  function closeQuickPeek() {
+      const panel = getEl('gantt-quick-peek');
+      if (panel) panel.classList.remove('open');
+  }
+
+  function syncQuickPeekNote() {
+      const ta = getEl('qp-note-textarea');
+      if (!ta) return;
+      const item = allActionItems.find(i => i.fdh === (currentActiveItem && currentActiveItem.fdh));
+      if (item) item.comment = ta.value;
+      if (typeof currentActiveItem !== 'undefined' && currentActiveItem) currentActiveItem.comment = ta.value;
+  }
+
+  function askGeminiForQuickPeek(btn) {
+      const item = currentActiveItem;
+      if (!item) return;
+      const origText = btn.innerHTML;
+      btn.innerHTML = 'DRAFTING...';
+      btn.style.opacity = '0.7';
+      btn.disabled = true;
+      const payload = {
+          fdh: item.fdh, vendor: item.vendor, status: `${item.stage} | ${item.status}`,
+          targetDate: item.targetDate, flags: item.flags, vendorComment: item.vendorComment,
+          history: item.bench, productionToday: item.summary
+      };
+      google.script.run
+          .withSuccessHandler(response => {
+              item.comment = response.text;
+              item.geminiInsight = response.text;
+              item.geminiDate = response.date;
+              if (typeof currentActiveItem !== 'undefined') currentActiveItem.comment = response.text;
+              btn.innerHTML = origText; btn.style.opacity = '1'; btn.disabled = false;
+              renderQuickPeek(item);
+              getEl('gantt-quick-peek').classList.add('open');
+          })
+          .withFailureHandler(err => {
+              alert('AI Error: ' + (err.message || err));
+              btn.innerHTML = origText; btn.style.opacity = '1'; btn.disabled = false;
+          })
+          .generateAndSaveFDHNarrative(payload);
+  }
+
+  function saveQuickPeek(btn) {
+      syncQuickPeekNote();
+      const item = currentActiveItem;
+      if (!item) return;
+      showDockLoading(`Saving ${item.fdh}...`);
+      const mem = (typeof pmSessionMemory !== 'undefined' && pmSessionMemory[item.fdh]) || {};
+      const payload = {
+          fdh: item.fdh,
+          vendor: item.vendor,
+          targetDate: item.targetDate || item.cxEnd || 'TBD',
+          note: item.comment || '',
+          answers: mem
+      };
+      google.script.run
+          .withSuccessHandler(() => showDockSuccess('Saved to Sheet'))
+          .withFailureHandler(() => showDockError('Save Failed'))
+          .saveDeckAnswers(payload);
+  }
+
+  function renderDeliverableChip(label, status) {
+      let dot = status ? '#22c55e' : '#ef4444';
+      let opacity = status ? '1' : '0.7';
+      return `<div style="display:inline-flex; align-items:center; padding:2px 8px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-size:9px; font-weight:900; opacity:${opacity}; gap:5px;">
+                <span style="height:6px; width:6px; background:${dot}; border-radius:50%;"></span>${label}
+              </div>`;
+  }
+
+  function isVendorTrackerLinked(item) {
+      return !!(item && (item.isTrackerLinked || item.isDrgTracked));
+  }
+
+  function getVendorTrackerTooltip(item) {
+      let detail = item && item.isTrackerLinked
+          ? 'Tracker data is linked into Daily Review and may override baseline database values.'
+          : 'Tracked in the shared vendor tracker sheet.';
+      let action = item && item.drgTrackerUrl ? ' Open the tracker sheet.' : '';
+      return `${detail}${action}`;
+  }
+
+  function renderTrackerPill(item, options) {
+      if (!isVendorTrackerLinked(item)) return '';
+      let opts = options || {};
+      let classes = ['glass-pill', 'pill-drg'];
+      if (opts.inline) classes.push('pill-drg-inline');
+      let defaultLabel = item && item.isTrackerLinked ? 'Tracker Linked' : 'DRG Tracker';
+      let label = esc(opts.label || defaultLabel);
+      let tooltip = esc(getVendorTrackerTooltip(item));
+      let href = item && item.drgTrackerUrl ? esc(item.drgTrackerUrl) : '';
+      let attrs = `class="${classes.join(' ')} has-tooltip" data-tooltip="${tooltip}" title="${tooltip}"`;
+      if (href) {
+          let click = opts.stopPropagation ? ` onclick="${opts.stopPropagation}"` : '';
+          return `<a href="${href}" target="_blank" rel="noopener noreferrer" ${attrs}${click}>${label}</a>`;
+      }
+      return `<span ${attrs}>${label}</span>`;
+  }
+
+  function getGroupByLabel(value) {
+      let labels = {
+          vendor: 'Vendor',
+          city: 'City',
+          health: 'Health',
+          stage: 'Stage',
+          status: 'Status'
+      };
+      return labels[value] || 'Group By';
+  }
+
+  function populateDropdown(id, values) {
+      let el = getEl(id); if (!el) return; let current = el.value; while (el.options.length > 1) el.remove(1);
+      values.forEach(v => { let opt = document.createElement('option'); opt.value = v; opt.text = v; el.appendChild(opt); });
+      if ([...el.options].some(o => o.value === current)) el.value = current;
+  }
+
+  function showStartupSelector() {
+      const overlay = getEl('startup-overlay');
+      const countEl = getEl('startup-countdown');
+      startupCountdown = 6;
+      clearInterval(startupTimer);
+      if (!overlay || !countEl) return completeStartup('detail');
+
+      overlay.classList.add('visible');
+      countEl.innerText = startupCountdown;
+
+      startupTimer = setInterval(() => {
+          startupCountdown--;
+          countEl.innerText = startupCountdown;
+          if (startupCountdown <= 0) {
+              clearInterval(startupTimer);
+              startupTimer = null;
+              completeStartup('detail');
+          }
+      }, 1000);
+  }
+
+  function completeStartup(mode) {
+      clearInterval(startupTimer);
+      startupTimer = null;
+      const overlay = getEl('startup-overlay');
+      if (overlay) overlay.classList.remove('visible');
+
+      if (mode === 'gantt') {
+          openGanttView();
+          return;
+      }
+
+      const startupMode = (mode === 'slide' || mode === 'digest') ? 'detail' : mode;
+      switchWorkspaceView(startupMode);
+      if (mode === 'slide') {
+          setTimeout(() => toggleDetailFace('slide'), 80);
+      }
+  }
+
+  function toggleCriticalFilter() {
+      openCriticalHub();
+  }
+
+  window.onload = function() {
+      runBootSequence();
+      // DATA CALL: window.onload initial dashboard load
+      // COUPLED TO: bootTimeoutId, initDashboard helper, startup load flow
+      // EXTRACT BLOCKER: bootstrap contract for all views must be isolated before moving the initial payload call
+      google.script.run
+          .withSuccessHandler(data => { clearTimeout(bootTimeoutId); initDashboard(data); })
+          .withFailureHandler(err => {
+              clearTimeout(bootTimeoutId);
+              hideSplash();
+              let ws = getEl('welcome-screen'); if (ws) ws.style.display = 'none';
+              let dl = getEl('detail-layout'); if (dl) dl.style.display = 'flex';
+              let pc = getEl('pane-content');
+              if (pc) {
+                  pc.innerHTML = `<div class="error-msg" style="color:#ef4444; padding:20px; font-family:monospace; text-align:left;"><b>Backend Crash:</b><br/>${err.message}</div>`;
+                  pc.style.display = 'flex';
+              }
+          })
+          .getDashboardData();
+      google.script.run.withSuccessHandler(updateGeminiUsageBadge).getGeminiUsage();
+  };
+
+  function updateCityDropdown() {
+      let vVen = getEl('filter-vendor').value;
+      let validCities = vVen === 'ALL'
+          ? [...new Set(allActionItems.map(i => i.city).filter(Boolean))]
+          : [...new Set(allActionItems.filter(i => i.vendor === vVen).map(i => i.city).filter(Boolean))];
+      let cityDropdown = getEl('filter-city');
+      if (!cityDropdown) return;
+      let currentCity = cityDropdown.value;
+      cityDropdown.innerHTML = '<option value="ALL">All Cities</option>';
+      validCities.sort().forEach(c => {
+          let opt = document.createElement('option'); opt.value = c; opt.text = c; cityDropdown.appendChild(opt);
+      });
+      cityDropdown.value = validCities.includes(currentCity) ? currentCity : 'ALL';
+  }
+
+  function initDashboard(data) {
+    window._lastDashboardPayload = data;
+    safeExecute('initDashboard', () => {
+        hideSplash();
+        restoreGanttViewSession();
+        if (data && data.allFdhIds) {
+            globalAllFdhIds = data.allFdhIds;
+            let datalist = document.getElementById('fdh-list');
+            if (!datalist) {
+                datalist = document.createElement('datalist');
+                datalist.id = 'fdh-list';
+                document.body.appendChild(datalist);
+            }
+            datalist.innerHTML = data.allFdhIds.sort().map(id => `<option value="${id}">`).join('');
+        }
+        allGlobalLogs = (data && data.globalLogs) ? data.globalLogs : [];
+        digestVendorCities = (data && data.vendorCities) ? data.vendorCities : [];
+        const userSelect = getEl('changelog-user');
+        if (userSelect) {
+            if (allGlobalLogs.length > 0) {
+                let uniqueUsers = [...new Set(allGlobalLogs.map(l => l.user).filter(Boolean))].sort();
+                userSelect.innerHTML = '<option value="ALL">All Users</option>' + uniqueUsers.map(u => `<option value="${esc(u)}">${esc(u)}</option>`).join('');
+            } else {
+                userSelect.innerHTML = '<option value="ALL">All Users</option>';
+            }
+        }
+        const logUserFilter = getEl('filter-log-user');
+        if (logUserFilter) {
+            if (allGlobalLogs.length > 0) {
+                let uniqueUsers = [...new Set(allGlobalLogs.map(l => l.user).filter(Boolean))].sort();
+                logUserFilter.innerHTML = '<option value="ALL">All Users</option>' + uniqueUsers.map(u => `<option value="${esc(u)}">${esc(u)}</option>`).join('');
+            } else {
+                logUserFilter.innerHTML = '<option value="ALL">All Users</option>';
+            }
+            logUserFilter.style.display = (currentGridPivot === 'changelog' || currentGridPivot === 'global-log') ? 'inline-flex' : 'none';
+        }
+        let groupSelect = getEl('group-by-select');
+        if (groupSelect) groupSelect.value = currentGroupBy;
+        renderChangeLog();
+        updateChangelogBadge();
+        if (!data || !data.actionItems || data.actionItems.length === 0) {
+            allActionItems = [];
+            setHtml('gantt-container', `<div class="empty-msg">All Clear ✓</div>`);
+            setHtml('inbox-list', `<div class="empty-msg">All Clear ✓</div>`);
+            setStyle('welcome-screen', 'display', 'flex');
+            setStyle('detail-layout', 'display', 'none');
+            setHtml('welcome-screen', `<div style="font-size:32px; margin-bottom:12px; font-weight:900; letter-spacing:-1px; color:var(--text-muted);">All Clear ✓</div>`);
+            showStartupSelector();
+            return;
+        }
+        allActionItems = data.actionItems; globalHeaders = data.headers;
+        globalRefDataDate = data.refDataDate || "";
+        reconcileStagedReviewItems();
+        let activeQueueItems = getActiveQueueItems();
+        updateRefDataIndicator();
+        updateAdminBadge();
+        renderAdminPane(activeQueueItems);
+        renderOutbox();
+        openAdminPanelByDefault();
+        populateDropdown('filter-vendor', [...new Set(activeQueueItems.map(i => i.vendor).filter(Boolean))]); populateDropdown('filter-city', [...new Set(activeQueueItems.map(i => i.city).filter(Boolean))]);
+        let ofsMonths = activeQueueItems.map(i => {
+            if(!i.ofsDate || i.ofsDate === "-" || i.ofsDate === "Unknown") return null;
+            try { let d = safeDate(i.ofsDate); return d ? d.toLocaleDateString('en-US', {month:'short', timeZone:'UTC'}).toUpperCase() : null; } catch(e) { return null; }
+        }).filter(Boolean);
+        let ofsDropdown = getEl('filter-ofs');
+        if (ofsDropdown) {
+            ofsDropdown.innerHTML = '<option value="ALL">All OFS Dates</option><option value="60_DAYS">&lt; 60 Days</option><option value="90_DAYS">&lt; 90 Days</option>';
+            [...new Set(ofsMonths)].sort().forEach(m => {
+                let opt = document.createElement('option'); opt.value = m; opt.text = m; ofsDropdown.appendChild(opt);
+            });
+        }
+        applyFilters();
+        showStartupSelector();
+        if (typeof applyTheme === 'function') {
+            applyTheme(_sysDark && _sysDark.matches);
+        }
+    });
+  }
+
+  function updateRefDataIndicator() {
+      let badge = getEl('nav-ref-age');
+      let paneSpan = getEl('p-ref-data');
+      if (!globalRefDataDate) {
+          if (badge) badge.style.display = 'none';
+          if (paneSpan) { paneSpan.textContent = 'REF DATA: —'; paneSpan.style.color = 'var(--text-muted)'; }
+          return;
+      }
+      let dateOnly = globalRefDataDate.split(' ')[0];
+      let parts = dateOnly.split('/');
+      if (parts.length < 3) parts = dateOnly.split('-');
+      let refDate;
+      if (parts.length === 3) {
+          if (parts[0].length === 4) refDate = new Date(parts[0], parts[1]-1, parts[2]);
+          else refDate = new Date(parts[2], parts[0]-1, parts[1]);
+      }
+      let today = new Date(); today.setHours(0,0,0,0);
+      let daysOld = refDate ? Math.round((today - refDate) / 86400000) : 999;
+      let color, bgColor, borderColor, label;
+      if (daysOld <= 0) { color = '#166534'; bgColor = '#dcfce7'; borderColor = '#86efac'; label = 'FRESH'; }
+      else if (daysOld === 1) { color = '#854d0e'; bgColor = '#fef9c3'; borderColor = '#fde047'; label = '1 DAY OLD'; }
+      else if (daysOld === 2) { color = '#9a3412'; bgColor = '#ffedd5'; borderColor = '#fb923c'; label = `${daysOld} DAYS OLD`; }
+      else { color = '#7f1d1d'; bgColor = '#fee2e2'; borderColor = '#f87171'; label = `${daysOld} DAYS OLD — STALE`; }
+      let displayDate = globalRefDataDate;
+      if (badge) { badge.style.display = 'inline-flex'; badge.style.color = color; badge.style.background = bgColor; badge.style.borderColor = borderColor; badge.textContent = `REF DATA: ${label}`; }
+      if (paneSpan) { paneSpan.textContent = `REF DATA: ${displayDate} (${label})`; paneSpan.style.color = color; }
+  }
+
+  function applyFilters() {
+    safeExecute('applyFilters', () => {
+        const sortVal = getActiveSortValue();
+        const searchTerm = (getEl('search-input')?.value || '').toLowerCase();
+        const activeQueueItems = getActiveQueueItems();
+        let searchEl = getEl('search-input');
+        if (searchEl) searchEl.classList.toggle('is-active', searchEl.value.trim() !== '');
+        let today = new Date(); today.setHours(0,0,0,0);
+        let filterMatch = (item, skipCategory) => {
+            let ofsBuckets = getOfsFilterBuckets(item, today);
+            let mSev = skipCategory === 'sev' || activeFilters.sev.length === 0 || activeFilters.sev.includes(getSeverity(item.flags));
+            let mVen = skipCategory === 'vendor' || activeFilters.vendor.length === 0 || activeFilters.vendor.includes(item.vendor);
+            let mCit = skipCategory === 'city' || activeFilters.city.length === 0 || activeFilters.city.includes(item.city);
+            let mOfs = skipCategory === 'ofs' || activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
+            let mStatus = skipCategory === 'status' || activeFilters.status.length === 0 || activeFilters.status.includes(item.status || '');
+            let mSearch = itemMatchesSearch(item, searchTerm);
+            return mSev && mVen && mCit && mOfs && mStatus && mSearch;
+        };
+        let validSev = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'sev')).map(i => getSeverity(i.flags)))];
+        let validVen = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'vendor')).map(i => i.vendor).filter(Boolean))].sort();
+        let validCit = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'city')).map(i => i.city).filter(Boolean))].sort();
+        let validStatus = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'status')).map(i => i.status).filter(Boolean))].sort();
+        let validOfsSet = new Set();
+        activeQueueItems.filter(i => filterMatch(i, 'ofs')).forEach(i => { getOfsFilterBuckets(i, today).forEach(bucket => validOfsSet.add(bucket)); });
+        let validOfsMonths = [...validOfsSet].filter(v => v !== '60_DAYS' && v !== '90_DAYS').sort();
+        let validOfs = [];
+        if (validOfsSet.has('60_DAYS')) validOfs.push('60_DAYS');
+        if (validOfsSet.has('90_DAYS')) validOfs.push('90_DAYS');
+        validOfs.push(...validOfsMonths);
+        activeFilters.sev = activeFilters.sev.filter(v => validSev.includes(v));
+        activeFilters.vendor = activeFilters.vendor.filter(v => validVen.includes(v));
+        activeFilters.city = activeFilters.city.filter(v => validCit.includes(v));
+        activeFilters.ofs = activeFilters.ofs.filter(v => validOfs.includes(v));
+        activeFilters.status = activeFilters.status.filter(v => validStatus.includes(v));
+        let sevOpts = [{ val: 'crit', label: 'Critical' }, { val: 'warn', label: 'Warnings' }, { val: 'info', label: 'Clear' }].filter(o => validSev.includes(o.val));
+        let ofsOpts = validOfs.map(v => ({ val: v, label: v === '60_DAYS' ? '< 60 Days' : v === '90_DAYS' ? '< 90 Days' : v }));
+        renderMultiSelect('wrap-filter-severity', 'sev', 'All Health', sevOpts);
+        renderMultiSelect('wrap-filter-vendor', 'vendor', 'All Vendors', validVen.map(v => ({ val: v, label: v })));
+        renderMultiSelect('wrap-filter-city', 'city', 'All Cities', validCit.map(v => ({ val: v, label: v })));
+        renderMultiSelect('wrap-filter-ofs', 'ofs', 'All OFS Dates', ofsOpts);
+        renderMultiSelect('wrap-filter-status', 'status', 'All Statuses', validStatus.map(v => ({ val: v, label: v })));
+        let baseFiltered = activeQueueItems.filter(i => {
+            let ofsBuckets = getOfsFilterBuckets(i, today);
+            let mSev = activeFilters.sev.length === 0 || activeFilters.sev.includes(getSeverity(i.flags));
+            let mVen = activeFilters.vendor.length === 0 || activeFilters.vendor.includes(i.vendor);
+            let mCit = activeFilters.city.length === 0 || activeFilters.city.includes(i.city);
+            let mOfs = activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
+            let mStatus = activeFilters.status.length === 0 || activeFilters.status.includes(i.status || '');
+            let mSearch = itemMatchesSearch(i, searchTerm);
+            return mSev && mVen && mCit && mOfs && mStatus && mSearch;
+        });
+        setTxt('kpi-crossings-val', baseFiltered.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS")).length);
+        setTxt('kpi-status-val', baseFiltered.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS")).length);
+        let filtered = baseFiltered.filter(i => {
+            if (activeAdminFilter === 'crossings') return i.flags.includes("ADMIN: CHECK CROSSINGS");
+            if (activeAdminFilter === 'status') return i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS");
+            return true;
+        });
+        currentCriticalHubItems = filtered.filter(i => getSeverity(i.flags) === 'crit');
+        acknowledgedCriticalFdhs = acknowledgedCriticalFdhs.filter(fdh => currentCriticalHubItems.some(item => String(item.fdh || '') === String(fdh || '')));
+        let activeProjCount = 0; let pendingProjCount = 0; let overdueProjCount = 0;
+        let activeBslsCount = 0; let activeCritCount = 0;
+        currentFilterStats.bslByVendor = {}; currentFilterStats.bslByMonth = {}; currentFilterStats.bslMatrix = {};
+        currentFilterStats.lifecycle = { active: 0, pending: 0, overdue: 0 };
+        currentFilterStats.stageCounts = {}; currentFilterStats.pieCounts = {};
+        filtered.forEach(item => {
+            let start = safeDate(item.cxStart) || safeDate(item.reportDate) || new Date(today);
+            let end = safeDate(item.cxEnd) || safeDate(item.targetDate) || new Date(start.getTime() + 86400000*30);
+            if(isNaN(start)) start = new Date(today); if(isNaN(end)) end = new Date(start.getTime() + 86400000*7); if(end < start) end = new Date(start.getTime() + 86400000);
+            let isComplete = (item.stage || "").toLowerCase().includes('ofs') || (item.status || "").toLowerCase().includes('complete');
+            let isOnHold = (item.status || "").toLowerCase().includes('hold');
+            let stageName = item.stage || 'Unknown';
+            currentFilterStats.stageCounts[stageName] = (currentFilterStats.stageCounts[stageName] || 0) + 1;
+            let pieSliceName = getProjectsPieSliceLabel(item);
+            currentFilterStats.pieCounts[pieSliceName] = (currentFilterStats.pieCounts[pieSliceName] || 0) + 1;
+            let bslStr = String(item.bsls).replace(/,/g, '');
+            let bslNum = parseInt(bslStr, 10) || 0;
+            activeBslsCount += bslNum;
+            if (getSeverity(item.flags) === 'crit') activeCritCount++;
+            let v = item.vendor || "Unknown";
+            currentFilterStats.bslByVendor[v] = (currentFilterStats.bslByVendor[v] || 0) + bslNum;
+            let ofsD = safeDate(item.ofsDate) || safeDate(item.targetDate);
+            let mKey = (ofsD && !isNaN(ofsD.getTime())) ? ofsD.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase() : 'TBD';
+            currentFilterStats.bslByMonth[mKey] = (currentFilterStats.bslByMonth[mKey] || 0) + bslNum;
+            if (!currentFilterStats.bslMatrix[v]) currentFilterStats.bslMatrix[v] = {};
+            currentFilterStats.bslMatrix[v][mKey] = (currentFilterStats.bslMatrix[v][mKey] || 0) + bslNum;
+            if (!isComplete && !isOnHold) {
+                if (today < start) { pendingProjCount++; currentFilterStats.lifecycle.pending++; }
+                else if (today > end) { overdueProjCount++; currentFilterStats.lifecycle.overdue++; }
+                else { activeProjCount++; currentFilterStats.lifecycle.active++; }
+            }
+        });
+        let displayFiltered = activePieStageFilter ? filtered.filter(i => getProjectsPieSliceLabel(i) === activePieStageFilter) : filtered.slice();
+        setTxt('kpi-total-proj', displayFiltered.length);
+        setTxt('kpi-active-bsls', activeBslsCount.toLocaleString());
+        setTxt('kpi-active-crit', activeCritCount);
+        let sortedStageKeys = Object.keys(currentFilterStats.stageCounts).sort((a, b) => currentFilterStats.stageCounts[b] - currentFilterStats.stageCounts[a]);
+        let top2Stages = sortedStageKeys.slice(0, 2);
+        let stageHtmlAssemble = top2Stages.map(s => `<span class="kpi-expand-token">${currentFilterStats.stageCounts[s]} ${esc(s)}</span>`).join('<span class="kpi-expand-sep">•</span>');
+        setHtml('kpi-projects-breakdown', stageHtmlAssemble || `<span>No stages</span>`);
+        let sortedMonthsAssemble = Object.keys(currentFilterStats.bslByMonth).sort((a, b) => currentFilterStats.bslByMonth[b] - currentFilterStats.bslByMonth[a]).slice(0, 2);
+        let bslMonthHtmlAssemble = sortedMonthsAssemble.map(m => `<span class="kpi-expand-token">${esc(m)} ${currentFilterStats.bslByMonth[m].toLocaleString()}</span>`).join('<span class="kpi-expand-sep">•</span>');
+        setHtml('kpi-bsls-breakdown', bslMonthHtmlAssemble || `<span>No dates</span>`);
+        if (bslsHudLocked) { let pill = getEl('nav-bsls-pill'); if (!renderBslsHUD()) { bslsHudLocked = false; if (pill) pill.classList.remove('is-locked'); } }
+        if (projectsHudLocked) { let pill = getEl('nav-projects-pill'); if (!renderProjectsHUD()) { projectsHudLocked = false; if (pill) pill.classList.remove('is-locked'); } }
+        if (sortVal !== 'default') {
+            displayFiltered.sort((a, b) => {
+                if (sortVal === 'admin') {
+                    let aAdmin = (a.flags.includes("ADMIN: CHECK CROSSINGS") || a.flags.includes("STATUS MISMATCH") || a.flags.includes("ADMIN: REFRESH REF DATA") || a.flags.includes("MISSING QB STATUS")) ? 0 : 1;
+                    let bAdmin = (b.flags.includes("ADMIN: CHECK CROSSINGS") || b.flags.includes("STATUS MISMATCH") || b.flags.includes("ADMIN: REFRESH REF DATA") || b.flags.includes("MISSING QB STATUS")) ? 0 : 1;
+                    if (aAdmin !== bAdmin) return aAdmin - bAdmin; return a.rowNum - b.rowNum; 
+                }
+                let valA, valB;
+                if(sortVal === 'target') { valA = new Date(a.targetDate); valB = new Date(b.targetDate); } else if(sortVal === 'start') { valA = new Date(a.cxStart); valB = new Date(b.cxStart); } else if(sortVal === 'end') { valA = new Date(a.cxEnd); valB = new Date(b.cxEnd); } else if(sortVal === 'ofs') { valA = new Date(a.ofsDate); valB = new Date(b.ofsDate); } else if(sortVal === 'report') { valA = new Date(a.reportDate); valB = new Date(b.reportDate); }
+                let isInvA = isNaN(valA); let isInvB = isNaN(valB);
+                if (isInvA && isInvB) return a.rowNum - b.rowNum; if (isInvA) return 1; if (isInvB) return -1;
+                return valA - valB;
+            });
+        } else { displayFiltered.sort((a, b) => a.rowNum - b.rowNum); }
+        if (currentGroupBy !== 'none') { displayFiltered = flattenGroupedSections(getGroupedQueueSections(displayFiltered)); }
+        let anyActive = activeFilters.sev.length > 0 || activeFilters.vendor.length > 0 || activeFilters.city.length > 0 || activeFilters.ofs.length > 0 || activeFilters.status.length > 0 || searchTerm !== '' || activeAdminFilter !== null || activePieStageFilter !== null;
+        let clearBtn = getEl('btn-clear-filters'); let clearZone = getEl('dock-clear-zone');
+        if (clearBtn) clearBtn.classList.toggle('collapsed', !anyActive);
+        if (clearZone) clearZone.classList.toggle('collapsed', !anyActive);
+        let filtersBtn = getEl('btn-filters');
+        if (filtersBtn) filtersBtn.classList.toggle('btn-filters-active', anyActive || !(getEl('filter-strip')?.classList.contains('hidden')));
+        let groupSelect = getEl('group-by-select');
+        if (groupSelect) { groupSelect.value = currentGroupBy; groupSelect.classList.toggle('is-active', currentGroupBy !== 'none'); }
+        filteredItems = displayFiltered;
+        ganttNeedsRender = true;
+        if (currentWorkspaceView === 'gantt' && !ganttFocusedFdh && ganttHasVisited) captureGanttScrollState();
+        renderList(displayFiltered); renderAdminPane(activeQueueItems);
+        if (currentWorkspaceView === 'grid') renderGrid();
+        if (isDeckMode) { renderGrid(); renderDeckStage(); }
+        if (currentWorkspaceView === 'gantt') ensureGanttRendered({ focusFdh: ganttFocusedFdh, defer: false, immediate: true });
+        renderActiveFilterPills();
+        if (getEl('critical-hub-overlay')?.classList.contains('open')) renderCriticalHub();
+    });
+  }
+
+  function clearAllFilters() {
+      let s = getEl('search-input'); if (s) s.value = '';
+      activeFilters = { sev: [], vendor: [], city: [], ofs: [], status: [] };
+      activeAdminFilter = null; activePieStageFilter = null;
+      if (openDropdownId) { let el = getEl(openDropdownId); if (el) el.classList.remove('open'); openDropdownId = null; }
+      applyFilters(); hidePieHUD('projects'); hidePieHUD('bsls');
+      let clearBtn = getEl('btn-clear-filters'); let clearZone = getEl('dock-clear-zone');
+      if (clearBtn) clearBtn.classList.add('collapsed'); if (clearZone) clearZone.classList.add('collapsed');
+      let strip = getEl('filter-strip'); let btn = getEl('btn-filters');
+      if (strip && !strip.classList.contains('hidden')) { strip.classList.add('hidden'); if (btn) btn.classList.remove('btn-filters-active'); }
+  }
+
+  function skipReview() {
+      safeExecute('skipReview', () => {
+          let item = currentActiveItem; item.comment = "Reviewed - No Action Required.";
+          currentActiveItem = null; moveItemToReviewed(item, { comment: item.comment, action: 'skip' }); advanceAfterAction();
+      });
+  }
+
+  function commitReview() {
+      safeExecute('commitReview', () => {
+          let item = currentActiveItem; item.comment = getEl('p-comment').value;
+          currentActiveItem = null; moveItemToReviewed(item, { comment: item.comment, action: 'commit' }); advanceAfterAction(); showToast(`✔ ${item.fdh} Committed`);
+      });
+  }
+
+  function promptEmailExport() {
+      if(committedItems.length === 0) return alert("No items to export!");
+      let email = prompt("📧 Where should we email the Export CSV?\n\nEnter an email address:", "");
+      if (!email || email.trim() === "") return;
+      let btn = getEl('btn-export-all'); if(btn) { btn.innerText = "Sending Email..."; btn.disabled = true; }
+      google.script.run.withSuccessHandler((msg) => {
+          alert(msg); clearReviewedTray(true); if(btn) { btn.innerText = "Export All"; btn.disabled = false; }
+      }).withFailureHandler((err) => {
+          alert("Error sending email: " + err.message); if(btn) { btn.innerText = "Export All"; btn.disabled = false; }
+      }).emailExportCSV(committedItems, email.trim());
+  }
+
+  function updateGridPivot() {
+      const pivot = getEl('grid-pivot-select');
+      if (!pivot) return;
+      currentGridPivot = pivot.value;
+      const userFilter = getEl('filter-log-user');
+      if (userFilter) { userFilter.style.display = (currentWorkspaceView === 'grid' && (currentGridPivot === 'changelog' || currentGridPivot === 'global-log')) ? 'inline-flex' : 'none'; }
+      renderGrid();
+  }
+
+  function toggleXingRows(show) {
+    document.querySelectorAll('.xing-nested-row').forEach(el => el.classList.toggle('muted-row', !show));
+    document.querySelectorAll('.xing-nested-edit').forEach(el => el.style.display = show ? 'flex' : 'none');
+  }
+
+  function toggleOfsRows(show) {
+    document.querySelectorAll('.ofs-reason-row').forEach(el => el.classList.toggle('muted-row', !show));
+    document.querySelectorAll('.ofs-reason-edit').forEach(el => el.style.display = show ? 'flex' : 'none');
+  }
+
+  // Calculator Keyboard Support
+  document.addEventListener('keydown', function(e) {
+      var calcWidget = document.getElementById('calc-widget');
+      if (!calcWidget || !calcWidget.classList.contains('open')) return;
+      var key = e.key;
+      if (/[0-9\.]/.test(key)) { e.preventDefault(); calcNum(key); }
+      else if (['+', '-', '*', '/', '(', ')'].includes(key)) { e.preventDefault(); calcOp(key); }
+      else if (key === 'Enter' || key === '=') { e.preventDefault(); calcOp('='); }
+      else if (key === 'Backspace') { e.preventDefault(); if (calcState !== 'Err' && calcState.length > 0) { calcState = calcState.slice(0, -1); updateCalc(); } }
+      else if (key === 'Escape') { e.preventDefault(); toggleWidget('calc-widget'); }
+  });
+</script>
