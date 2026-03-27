@@ -552,6 +552,7 @@ function openPane(item, cardEl) {
 
         setStyle('welcome-screen', 'display', 'none');
         setStyle('detail-layout', 'display', 'flex');
+        if (window.innerWidth <= 480) document.body.classList.add('mobile-detail-open');
 
         if (!isGridMode && !isDeckMode) {
             setStyle('pane-content', 'display', 'flex');

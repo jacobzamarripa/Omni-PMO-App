@@ -391,6 +391,7 @@
 
 /* -- WS16 #mobile-rail (phone-only action bar, <=480px) -- */
 #mobile-rail { display: none; }
+#mobile-back-btn { display: none; }
 
 @media (max-width: 480px) {
     #mobile-rail {
@@ -450,6 +451,34 @@
     body.deck-mode-active   #mobile-rail .rail-btn:nth-child(1) { color: var(--text-muted); }
     body.deck-mode-active   #mobile-rail .rail-btn:nth-child(4) { color: var(--accent); }
     body.mobile-filter-open #mobile-rail .rail-btn--filter { color: var(--accent); }
+
+    /* ── Queue ↔ Detail toggle (Phase 3) ── */
+    .inbox-sidebar { display: flex !important; }
+    body.mobile-detail-open .inbox-sidebar { display: none !important; }
+    body.mobile-detail-open .reading-pane  { display: flex !important; }
+
+    /* ── Mobile back button ── */
+    #mobile-back-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 44px;
+        padding: 0 16px;
+        background: none;
+        border: none;
+        border-bottom: 1px solid var(--border);
+        width: 100%;
+        box-sizing: border-box;
+        cursor: pointer;
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: -0.2px;
+        flex-shrink: 0;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+    #mobile-back-btn svg { width: 18px; height: 18px; stroke-width: 2.5; flex-shrink: 0; }
 
     /* Admin full-screen overlay on phone (no reparenting) */
     body.admin-panel-open .reading-pane {

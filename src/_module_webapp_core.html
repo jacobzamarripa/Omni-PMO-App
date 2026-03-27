@@ -306,6 +306,11 @@
           if (dock) dock.classList.toggle('mobile-filter-expanded', isOpen);
       }
 
+      // WS16: clear detail view on phone, return to queue
+      function closeMobileDetail() {
+          document.body.classList.remove('mobile-detail-open');
+      }
+
       document.addEventListener('click', function(e) {
           let panel = getEl('mobile-menu-panel');
           if (!panel || !panel.classList.contains('open')) return;
