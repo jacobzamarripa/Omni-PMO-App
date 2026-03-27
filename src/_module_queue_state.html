@@ -564,10 +564,8 @@ function openPane(item, cardEl) {
 
         let _diagStrip = getEl('raw-data-strip');
         if (_diagStrip) {
-            let _rawFlags = (item.flags || "").split('\n').filter(f => f.trim() !== '');
-            let _anomalyCount = _rawFlags.filter(f => f.startsWith('ADMIN:') || f.includes('MISMATCH') || f.includes('MISSING') || f.includes('🚨') || f.includes('🛑') || f.includes('🚩') || f.includes('⚠️')).length;
-            _diagStrip.style.opacity = _anomalyCount === 0 ? '0.4' : '1';
-            _diagStrip.style.pointerEvents = _anomalyCount === 0 ? 'none' : '';
+            _diagStrip.style.opacity = '1';
+            _diagStrip.style.pointerEvents = '';
         }
         syncRawDataStripState();
 
