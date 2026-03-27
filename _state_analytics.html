@@ -1,0 +1,41 @@
+<script>
+// ============================================================
+// FILE: _state_analytics.html | ROLE: Authoritative analytics and critical hub state owner
+// DEPENDS ON: _registry.html, _state_queue.html, _state_payload.html
+// DEPENDED ON BY: _module_webapp_core.html (applyFilters, HUDs),
+//   _module_gantt.html, critical hub render
+// MOBILE/AGENT NOTES: globalEndCounts and globalTodayData drive gantt
+//   HUD summaries. Read this before touching applyFilters, BSL/projects
+//   HUDs, or critical hub render/filter flows.
+// ============================================================
+// STATE: globalEndCounts
+// READS: gantt and HUD summaries
+// WRITES: renderGantt
+// EXTRACT WITH: globalTodayData, currentFilterStats
+let globalEndCounts = {};
+// STATE: globalTodayData
+// READS: gantt and HUD summaries
+// WRITES: renderGantt
+// EXTRACT WITH: globalEndCounts, currentFilterStats
+let globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, criticalCount: 0 };
+// STATE: currentFilterStats
+// READS: BSL and projects HUDs
+// WRITES: applyFilters and HUD recompute flows
+// EXTRACT WITH: filteredItems, globalEndCounts, globalTodayData, activePieStageFilter
+let currentFilterStats = { bslByVendor: {}, bslByMonth: {}, bslMatrix: {}, lifecycle: { active: 0, pending: 0, overdue: 0 }, stageCounts: {}, pieCounts: {} };
+// STATE: currentCriticalHubItems
+// READS: critical hub render and navigation
+// WRITES: applyFilters
+// EXTRACT WITH: criticalHubState, acknowledgedCriticalFdhs, filteredItems
+let currentCriticalHubItems = [];
+// STATE: acknowledgedCriticalFdhs
+// READS: critical hub filters and badges
+// WRITES: applyFilters and critical-hub actions
+// EXTRACT WITH: currentCriticalHubItems, criticalHubState
+let acknowledgedCriticalFdhs = [];
+// STATE: criticalHubState
+// READS: critical hub filters and render
+// WRITES: critical hub controls
+// EXTRACT WITH: currentCriticalHubItems, acknowledgedCriticalFdhs
+let criticalHubState = { market: 'ALL', vendor: 'ALL', type: 'ALL', sort: 'default', showAcknowledged: false };
+</script>

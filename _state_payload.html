@@ -1,0 +1,26 @@
+<script>
+// ============================================================
+// FILE: _state_payload.html | ROLE: Authoritative payload data state owner
+// DEPENDS ON: _registry.html
+// DEPENDED ON BY: _module_webapp_core.html, _module_digest.html,
+//   _module_gantt.html, and all modules consuming allGlobalLogs
+// MOBILE/AGENT NOTES: allGlobalLogs drives changelog, digest, grid,
+//   and item history. Read this before touching initDashboard,
+//   changelog render, or any digest/grid/history data flows.
+// ============================================================
+// STATE: allGlobalLogs
+// READS: changelog, digest, grid, item history
+// WRITES: bootstrap payload load and changelog render
+// EXTRACT WITH: initDashboard, currentGridPivot, digest workspace
+let allGlobalLogs = [];
+// STATE: globalHeaders
+// READS: raw data/detail rendering
+// WRITES: bootstrap payload load
+// EXTRACT WITH: allActionItems, currentActiveItem
+let globalHeaders = [];
+// STATE: globalAllFdhIds
+// READS: datalist/buildSmartFdhDatalist
+// WRITES: bootstrap payload load
+// EXTRACT WITH: initDashboard, buildSmartFdhDatalist
+let globalAllFdhIds = [];
+</script>

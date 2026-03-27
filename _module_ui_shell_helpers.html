@@ -1,0 +1,35 @@
+<script>
+// ============================================================
+// FILE: _module_ui_shell_helpers.html | ROLE: Lightweight UI helper primitives for badge/glow/viewport handoff
+// DEPENDS ON: _utils_shared.html
+// DEPENDED ON BY: _module_webapp_core.html, _module_queue_state.html
+// ============================================================
+function getCardGlow(stage, status, isOverdue) {
+    let st = (stage || "").toLowerCase();
+    let stat = (status || "").toLowerCase();
+    if (st.includes('ofs')) return '0 0 15px rgba(37, 99, 235, 0.25)';
+    if (st.includes('permit')) return '0 0 15px rgba(168, 85, 247, 0.25)';
+    if (stat.includes('complete')) return '0 0 15px rgba(34, 197, 94, 0.25)';
+    if (isOverdue) return '0 0 15px rgba(239, 68, 68, 0.4)';
+    return '0 4px 6px -1px rgba(0,0,0,0.05)';
+}
+
+function updateGeminiBadge(u) {
+    if (!u) return;
+    let badge = getEl('gemini-badge');
+    if (!badge) return;
+    let used = u.used || 0;
+    if (used === 0) {
+        badge.textContent = 'AI: ready';
+        badge.className = 'gemini-badge ai-ok';
+    } else {
+        badge.textContent = `AI: ${used} call${used !== 1 ? 's' : ''}`;
+        badge.className = 'gemini-badge ' + (used >= 45 ? 'ai-crit' : used >= 30 ? 'ai-warn' : 'ai-ok');
+    }
+    badge.style.display = 'inline';
+}
+
+function checkViewportHandOff() {
+    return false;
+}
+</script>

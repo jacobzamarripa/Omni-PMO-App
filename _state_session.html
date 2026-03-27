@@ -44,4 +44,14 @@ const GANTT_VIEW_SCROLL_SESSION_KEY = 'dpa.ganttScroll.v1';
 const GANTT_VIEW_FOCUS_SESSION_KEY = 'dpa.ganttFocus.v1';
 const GROUP_BY_SESSION_KEY = 'dpa.queueGroupBy.v1';
 const GROUP_COLLAPSE_SESSION_KEY = 'dpa.queueGroupCollapse.v1';
+// STATE: REVIEWED_TRAY_STORAGE_KEY
+// READS: reviewed tray persistence
+// WRITES: none
+// EXTRACT WITH: persistReviewedTray, loadReviewedTray
+const REVIEWED_TRAY_STORAGE_KEY = 'dpa.reviewedTray.v1';
+// STATE: isStagedReviewCollapsed
+// READS: outbox rendering
+// WRITES: reviewed tray collapse toggles and persistence
+// EXTRACT WITH: stagedDeckItems, persistStagedReviewSession
+let isStagedReviewCollapsed = false;
 </script>

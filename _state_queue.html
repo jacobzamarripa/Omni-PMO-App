@@ -97,4 +97,14 @@ let queueGroupCollapseState = (function() {
         return {};
     }
 })();
+// STATE: activePieStageFilter
+// READS: HUD filters, active filter pills
+// WRITES: pie HUD interactions, applyFilters, clearAllFilters
+// EXTRACT WITH: currentFilterStats, activeFilters
+let activePieStageFilter = null;
+// STATE: openDropdownId
+// READS: filter dropdown rendering
+// WRITES: dropdown toggles and reset flows
+// EXTRACT WITH: renderMultiSelect, toggleDropdown
+let openDropdownId = null;
 </script>

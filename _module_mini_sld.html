@@ -1,0 +1,74 @@
+<script>
+// ============================================================
+// FILE: _module_mini_sld.html | ROLE: Mini single-line-diagram helpers for detail/network path rendering
+// DEPENDS ON: _state_queue.html, _utils_shared.html
+// DEPENDED ON BY: _module_queue_state.html, _module_webapp_core.html
+// ============================================================
+function parseMiniSldFdh(value) {
+    return String(value || '').split(',').map(v => v.trim()).filter(Boolean)[0] || '';
+}
+
+function isMiniSldTransportReady(value) {
+    let normalized = String(value || '').trim().toLowerCase();
+    return normalized === 'true' || normalized === 'yes' || normalized === '1' || normalized === 'y';
+}
+
+function miniSldSafeText(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getMiniSldNodeTheme(node) {
+    if (!node) return { border: '1px dashed var(--border)', text: 'var(--text-muted)', bg: 'rgba(148,163,184,0.08)', dot: '#94a3b8' };
+    let stage = String(node.stage || '').toLowerCase();
+    let status = String(node.status || '').toLowerCase();
+    let isLit = !!node.isLight || stage.includes('ofs') || status.includes('complete');
+    if (isLit) return { border: '1px solid #22c55e', text: '#166534', bg: 'rgba(240,253,244,0.9)', dot: '#22c55e' };
+    return { border: '1px solid #f59e0b', text: '#b45309', bg: 'rgba(255,247,237,0.95)', dot: '#f59e0b' };
+}
+
+function miniSldNodeHtml(label, node, navFdh, isCurrent) {
+    let theme = isCurrent ? { border: '1px solid #111827', text: '#ffffff', bg: '#111827', dot: '#22c55e' } : getMiniSldNodeTheme(node);
+    let clickable = !!navFdh && !isCurrent;
+    let navArg = JSON.stringify(String(navFdh || ''));
+    let attrs = clickable ? ` class="hover-trigger" onclick='selectItemForNav(${navArg})'` : '';
+    let cursor = clickable ? 'pointer' : 'default';
+    return `<div${attrs} style="display:flex; align-items:center; gap:7px; min-width:0; max-width:220px; padding:8px 12px; border-radius:10px; border:${theme.border}; background:${theme.bg}; color:${theme.text}; box-shadow:${isCurrent ? '0 12px 24px rgba(15,23,42,0.18)' : 'none'}; cursor:${cursor}; flex:0 1 auto;">
+        <span style="width:8px; height:8px; border-radius:999px; background:${theme.dot}; flex:0 0 auto;"></span>
+        <span style="font-size:10px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${miniSldSafeText(label || 'Unknown')}</span>
+    </div>`;
+}
+
+function renderMiniSld(item) {
+    let upstreamFdh = parseMiniSldFdh(item && item.qbRef && item.qbRef.howFed);
+    let downstreamFdh = parseMiniSldFdh(item && item.qbRef && item.qbRef.whatFeeds);
+    let upstreamNode = upstreamFdh ? (allActionItems || []).find(i => i.fdh === upstreamFdh) : null;
+    let downstreamNode = downstreamFdh ? (allActionItems || []).find(i => i.fdh === downstreamFdh) : null;
+    let transportReady = isMiniSldTransportReady(item && item.qbRef && item.qbRef.transport);
+    let leftNode = transportReady
+        ? `<div style="display:flex; align-items:center; gap:7px; min-width:0; max-width:220px; padding:8px 12px; border-radius:10px; border:1px solid #2563eb; background:rgba(239,246,255,0.95); color:#1d4ed8; flex:0 1 auto;">
+            <span style="width:8px; height:8px; border-radius:999px; background:#2563eb; flex:0 0 auto;"></span>
+            <span style="font-size:10px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">⚡ Transport Ready</span>
+        </div>`
+        : miniSldNodeHtml(upstreamFdh || 'Upstream Unknown', upstreamNode, upstreamFdh, false);
+    let currentNode = miniSldNodeHtml(item && item.fdh, item, '', true);
+    let rightNode = miniSldNodeHtml(downstreamFdh || 'Downstream Unknown', downstreamNode, downstreamFdh, false);
+    let labelNode = `<div style="display:flex; align-items:center; padding-right:12px; margin-right:4px; border-right:1px solid var(--border); flex-shrink:0;">
+        <span style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Network Path</span>
+    </div>`;
+    return `<div style="display:flex; align-items:center; gap:8px; width:100%;">
+        ${labelNode}
+        <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1; overflow-x:auto; padding-bottom:2px;">
+            ${leftNode}
+            <div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>
+            ${currentNode}
+            <div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>
+            ${rightNode}
+        </div>
+    </div>`;
+}
+</script>

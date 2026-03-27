@@ -1,0 +1,227 @@
+<script>
+// ============================================================
+// FILE: _module_quick_peek.html | ROLE: Gantt quick-peek panel, tracker pill, and deliverable chip rendering
+// DEPENDS ON: _state_queue.html, _state_session.html, _utils_shared.html,
+//   _utils_notifications.html, _module_queue_state.html
+// DEPENDED ON BY: _module_gantt.html, _module_grid.html, _module_webapp_core.html
+// MOBILE/AGENT NOTES: renderQuickPeek and renderTrackerPill are used inline by gantt
+//   and grid surfaces. Do not add DOM dependencies beyond gantt-quick-peek panel.
+// ============================================================
+
+function renderQuickPeek(item) {
+    const panel = getEl('gantt-quick-peek');
+    if (!panel) return;
+
+    const isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
+    const pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+    const combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+    const vComment = item.vendorComment ? item.vendorComment.trim() : 'No update.';
+    const targetDateVal = item.targetDate || item.cxEnd || '';
+    const targetDateLabel = targetDateVal ? formatDate(targetDateVal) : 'TBD';
+
+    let pEnd = safeDate(item.cxEnd || item.targetDate);
+    let today = new Date();
+    today.setHours(0,0,0,0);
+    let daysLeft = 0;
+    if (pEnd) daysLeft = Math.ceil((pEnd - today) / 86400000);
+
+    const isComplete = (item.stage || '').toLowerCase().includes('ofs') || (item.status || '').toLowerCase().includes('complete');
+    const isPermit = (item.stage || '').toLowerCase().includes('permit');
+    const isOnHold = (item.status || '').toLowerCase().includes('hold');
+    const isOverdue = pEnd && today > pEnd && !isComplete && !isOnHold && !isPermit;
+
+    let sColor = '#facc15';
+    if (isComplete) sColor = '#22c55e';
+    else if (isPermit) sColor = '#a855f7';
+    else if (isOnHold) sColor = '#94a3b8';
+    else if (isOverdue) sColor = '#ef4444';
+
+    const daysLeftTxt = daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`;
+
+    const v = item.vel;
+    let ofsMonthStr = 'TBD';
+    let isOfsMonth = false;
+    const ofsDate = safeDate(item.ofsDate) || safeDate(item.targetDate);
+    if (ofsDate && !isNaN(ofsDate.getTime())) {
+        ofsMonthStr = ofsDate.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+        isOfsMonth = ofsDate.getUTCMonth() === today.getMonth() && ofsDate.getUTCFullYear() === today.getFullYear();
+    }
+    const ofsPillStyle = isOfsMonth ? 'color:#2563eb; background:rgba(239,246,255,0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--card-bg); border-color:var(--border);';
+    const velHtml = v ? `
+        <div class="velocity-grid" style="gap:10px; align-content:flex-start;">
+            ${buildVelocityBar('UG', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft)}
+            ${buildVelocityBar('Aerial', v.ae.daily, v.ae.tot, v.ae.bom, 'AE', daysLeft)}
+            ${buildVelocityBar('Fiber', v.fib.daily, v.fib.tot, v.fib.bom, 'FIB', daysLeft)}
+            ${buildVelocityBar('Splicing', v.nap.daily, v.nap.tot, v.nap.bom, 'NAP', daysLeft)}
+        </div>
+        <div class="qb-vel-footer" style="margin-top:12px;">
+            <div style="font-size:10px; font-weight:900; color:var(--text-muted);">${daysLeftTxt}</div>
+            <div style="display:flex; gap:8px;">
+                <div class="vel-footer-pill">BSLS: ${item.bsls || 0}</div>
+                <div class="vel-footer-pill" style="${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
+            </div>
+        </div>
+    ` : '<div class="empty-msg">No velocity data tracked.</div>';
+
+    let diagClass = 'action-box';
+    const sev = getSeverity(item.flags);
+    if (sev === 'crit') diagClass += ' crit';
+    else if (sev === 'warn') diagClass += ' warn';
+
+    const rawFlags = (item.flags || '').split('\n').map(f => f.trim()).filter(f => f !== '');
+    const tagsHtml = rawFlags.map(f => {
+        const clean = cleanDiagnosticFlagText(f);
+        let tagCls = getDiagnosticTagClass(f);
+        return `<span class="tag ${tagCls}" style="font-size:9px; padding:3px 7px;">${clean}</span>`;
+    }).join('') || '<span style="color:var(--text-muted);">No anomalies.</span>';
+
+    panel.innerHTML = `
+        <div style="position:sticky; top:0; z-index:10; background:color-mix(in srgb, var(--bg) 96%, transparent); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); padding:18px 20px; border-bottom:1px solid var(--border); flex-shrink:0;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div style="font-size:28px; font-weight:900; letter-spacing:-1.2px; line-height:1; color:var(--text-main);">${item.fdh}</div>
+                <button class="panel-tab-close" onclick="closeQuickPeek()" title="Close panel">✕</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                <span class="glass-pill ${pillCls}" style="font-size:9px; padding:4px 8px;">${combinedPill}</span>
+                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">${item.vendor || 'Unknown'}${item.city ? ` • ${item.city}` : ''}</div>
+            </div>
+        </div>
+
+        <div style="flex:1; overflow-y:auto; padding:20px;">
+            <div class="qb-module">
+                <div class="qb-module-header">SCHEDULE &amp; TARGET</div>
+                <div style="font-size:10px; font-weight:800; color:var(--text-muted); margin-bottom:8px;">
+                    TARGET DATE: <span style="color:${sColor}; font-size:14px;">${targetDateLabel}</span>
+                </div>
+                <div style="font-size:10px; font-weight:700; color:var(--text-tertiary);">${daysLeftTxt}</div>
+            </div>
+
+            <div class="qb-module">
+                <div class="qb-module-header">FIELD PRODUCTION</div>
+                ${velHtml}
+            </div>
+
+            <div class="qb-module">
+                <div class="qb-module-header">SYSTEM DIAGNOSTICS</div>
+                <div class="section-label" style="font-size:8px; margin-top:0;">VENDOR COMMENT</div>
+                <div class="vendor-bubble" style="font-size:11px; margin-bottom:12px;">"${vComment}"</div>
+                <div class="section-label" style="font-size:8px;">ANOMALIES</div>
+                <div class="${diagClass}" style="padding:10px; border-radius:12px;">
+                    <div style="display:flex; flex-wrap:wrap; gap:5px;">${tagsHtml}</div>
+                </div>
+            </div>
+
+            <div class="qb-module" style="background:rgba(168, 85, 247, 0.03); border-color:rgba(168, 85, 247, 0.2);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div class="section-label" style="color:var(--color-insight); margin:0;">PM NOTE</div>
+                    ${item.geminiDate ? `<span style="font-size:8px; font-style:italic; color:var(--color-insight);">Drafted: ${formatDate(item.geminiDate)}</span>` : ''}
+                </div>
+                <textarea id="qp-note-textarea" class="chat-bubble" oninput="syncQuickPeekNote()" placeholder="Enter decision...">${item.comment || item.draft || ''}</textarea>
+            </div>
+        </div>
+
+        <div style="padding:16px 20px; border-top:1px solid var(--border); background:var(--bg); display:flex; gap:10px; flex-shrink:0;">
+            <button class="btn-ai" onclick="askGeminiForQuickPeek(this)" style="flex:1; padding:14px; font-size:11px;">✨ DRAFT W/ GEMINI</button>
+            <button class="btn btn-primary" onclick="saveQuickPeek(this)" style="flex:1; padding:14px; font-size:11px; background:#3b82f6; border-color:#2563eb;">SAVE TO SHEET</button>
+        </div>
+    `;
+}
+
+function closeQuickPeek() {
+    const panel = getEl('gantt-quick-peek');
+    if (panel) panel.classList.remove('open');
+}
+
+function syncQuickPeekNote() {
+    const ta = getEl('qp-note-textarea');
+    if (!ta) return;
+    const item = allActionItems.find(i => i.fdh === (currentActiveItem && currentActiveItem.fdh));
+    if (item) item.comment = ta.value;
+    if (typeof currentActiveItem !== 'undefined' && currentActiveItem) currentActiveItem.comment = ta.value;
+}
+
+function askGeminiForQuickPeek(btn) {
+    const item = currentActiveItem;
+    if (!item) return;
+    const origText = btn.innerHTML;
+    btn.innerHTML = 'DRAFTING...';
+    btn.style.opacity = '0.7';
+    btn.disabled = true;
+    const payload = {
+        fdh: item.fdh, vendor: item.vendor, status: `${item.stage} | ${item.status}`,
+        targetDate: item.targetDate, flags: item.flags, vendorComment: item.vendorComment,
+        history: item.bench, productionToday: item.summary
+    };
+    google.script.run
+        .withSuccessHandler(response => {
+            item.comment = response.text;
+            item.geminiInsight = response.text;
+            item.geminiDate = response.date;
+            if (typeof currentActiveItem !== 'undefined') currentActiveItem.comment = response.text;
+            btn.innerHTML = origText; btn.style.opacity = '1'; btn.disabled = false;
+            renderQuickPeek(item);
+            getEl('gantt-quick-peek').classList.add('open');
+        })
+        .withFailureHandler(err => {
+            alert('AI Error: ' + (err.message || err));
+            btn.innerHTML = origText; btn.style.opacity = '1'; btn.disabled = false;
+        })
+        .generateAndSaveFDHNarrative(payload);
+}
+
+function saveQuickPeek(btn) {
+    syncQuickPeekNote();
+    const item = currentActiveItem;
+    if (!item) return;
+    showDockLoading(`Saving ${item.fdh}...`);
+    const mem = (typeof pmSessionMemory !== 'undefined' && pmSessionMemory[item.fdh]) || {};
+    const payload = {
+        fdh: item.fdh,
+        vendor: item.vendor,
+        targetDate: item.targetDate || item.cxEnd || 'TBD',
+        note: item.comment || '',
+        answers: mem
+    };
+    google.script.run
+        .withSuccessHandler(() => showDockSuccess('Saved to Sheet'))
+        .withFailureHandler(() => showDockError('Save Failed'))
+        .saveDeckAnswers(payload);
+}
+
+function renderDeliverableChip(label, status) {
+    let dot = status ? '#22c55e' : '#ef4444';
+    let opacity = status ? '1' : '0.7';
+    return `<div style="display:inline-flex; align-items:center; padding:2px 8px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-size:9px; font-weight:900; opacity:${opacity}; gap:5px;">
+              <span style="height:6px; width:6px; background:${dot}; border-radius:50%;"></span>${label}
+            </div>`;
+}
+
+function isVendorTrackerLinked(item) {
+    return !!(item && (item.isTrackerLinked || item.isDrgTracked));
+}
+
+function getVendorTrackerTooltip(item) {
+    let detail = item && item.isTrackerLinked
+        ? 'Tracker data is linked into Daily Review and may override baseline database values.'
+        : 'Tracked in the shared vendor tracker sheet.';
+    let action = item && item.drgTrackerUrl ? ' Open the tracker sheet.' : '';
+    return `${detail}${action}`;
+}
+
+function renderTrackerPill(item, options) {
+    if (!isVendorTrackerLinked(item)) return '';
+    let opts = options || {};
+    let classes = ['glass-pill', 'pill-drg'];
+    if (opts.inline) classes.push('pill-drg-inline');
+    let defaultLabel = item && item.isTrackerLinked ? 'Tracker Linked' : 'DRG Tracker';
+    let label = esc(opts.label || defaultLabel);
+    let tooltip = esc(getVendorTrackerTooltip(item));
+    let href = item && item.drgTrackerUrl ? esc(item.drgTrackerUrl) : '';
+    let attrs = `class="${classes.join(' ')} has-tooltip" data-tooltip="${tooltip}" title="${tooltip}"`;
+    if (href) {
+        let click = opts.stopPropagation ? ` onclick="${opts.stopPropagation}"` : '';
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer" ${attrs}${click}>${label}</a>`;
+    }
+    return `<span ${attrs}>${label}</span>`;
+}
+</script>

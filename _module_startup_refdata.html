@@ -1,0 +1,113 @@
+<script>
+// ============================================================
+// FILE: _module_startup_refdata.html | ROLE: Startup selector flow and ref-data age indicator helpers
+// DEPENDS ON: _state_payload.html, _utils_shared.html, _module_router.html, _module_gantt.html
+// DEPENDED ON BY: _module_webapp_core.html, _module_queue_state.html, WebApp.html startup overlay
+// ============================================================
+let startupTimer;
+let startupCountdown = 6;
+
+function showStartupSelector() {
+    const overlay = getEl('startup-overlay');
+    const countEl = getEl('startup-countdown');
+    startupCountdown = 6;
+    clearInterval(startupTimer);
+    if (!overlay || !countEl) return completeStartup('detail');
+
+    overlay.classList.add('visible');
+    countEl.innerText = startupCountdown;
+
+    startupTimer = setInterval(() => {
+        startupCountdown--;
+        countEl.innerText = startupCountdown;
+        if (startupCountdown <= 0) {
+            clearInterval(startupTimer);
+            startupTimer = null;
+            completeStartup('detail');
+        }
+    }, 1000);
+}
+
+function completeStartup(mode) {
+    clearInterval(startupTimer);
+    startupTimer = null;
+    const overlay = getEl('startup-overlay');
+    if (overlay) overlay.classList.remove('visible');
+
+    if (mode === 'gantt') {
+        openGanttView();
+        return;
+    }
+
+    const startupMode = (mode === 'slide' || mode === 'digest') ? 'detail' : mode;
+    switchWorkspaceView(startupMode);
+    if (mode === 'slide') {
+        setTimeout(() => toggleDetailFace('slide'), 80);
+    }
+}
+
+function updateRefDataIndicator() {
+    let badge = getEl('nav-ref-age');
+    let paneSpan = getEl('p-ref-data');
+    if (!globalRefDataDate) {
+        if (badge) badge.style.display = 'none';
+        if (paneSpan) {
+            paneSpan.textContent = 'REF DATA: -';
+            paneSpan.style.color = 'var(--text-muted)';
+        }
+        return;
+    }
+
+    // Parse the stored date and compute days old.
+    let dateOnly = globalRefDataDate.split(' ')[0];
+    let parts = dateOnly.split('/');
+    if (parts.length < 3) parts = dateOnly.split('-');
+    let refDate;
+    if (parts.length === 3) {
+        if (parts[0].length === 4) refDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        else refDate = new Date(parts[2], parts[0] - 1, parts[1]);
+    }
+    let today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let daysOld = refDate ? Math.round((today - refDate) / 86400000) : 999;
+
+    let color;
+    let bgColor;
+    let borderColor;
+    let label;
+    if (daysOld <= 0) {
+        color = '#166534';
+        bgColor = '#dcfce7';
+        borderColor = '#86efac';
+        label = 'FRESH';
+    } else if (daysOld === 1) {
+        color = '#854d0e';
+        bgColor = '#fef9c3';
+        borderColor = '#fde047';
+        label = '1 DAY OLD';
+    } else if (daysOld === 2) {
+        color = '#9a3412';
+        bgColor = '#ffedd5';
+        borderColor = '#fb923c';
+        label = `${daysOld} DAYS OLD`;
+    } else {
+        color = '#7f1d1d';
+        bgColor = '#fee2e2';
+        borderColor = '#f87171';
+        label = `${daysOld} DAYS OLD - STALE`;
+    }
+
+    let displayDate = globalRefDataDate;
+    if (badge) {
+        badge.style.display = 'inline-flex';
+        badge.style.color = color;
+        badge.style.background = bgColor;
+        badge.style.borderColor = borderColor;
+        badge.textContent = `REF DATA: ${label}`;
+    }
+    if (paneSpan) {
+        paneSpan.textContent = `REF DATA: ${displayDate} (${label})`;
+        paneSpan.style.color = color;
+    }
+}
+</script>

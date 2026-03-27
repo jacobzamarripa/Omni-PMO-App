@@ -1,5 +1,64 @@
 # Agent Log - Daily Production Analyzer
 
+> [!info] 2026-03-26: WS14 Phase 8 Prep — Runtime Hardening Slice
+- **Scope:** Resolve post-modularization loading and dashboard render crashes after Phase 7 extraction work.
+- **Files Updated:** `_module_webapp_core.html`
+- **Root Cause:** The Phase 5 cleanup pass removed still-live helpers from `_module_webapp_core.html`, first blocking boot registration (`searchHelp`, `loadStagedReviewSession`, staged review helpers), then breaking post-payload UI flows (`syncRawDataStripState`, `openGanttForCurrentProject`, `toggleMobileMenu`).
+- **Result:** Restored all live runtime helpers required for payload bootstrap, staged review persistence, raw-data strip sync, mobile menu behavior, and Gantt navigation. App now clears the loading screen and renders successfully again.
+- **Verification:** Editor diagnostics clean on touched files; repeated ownership/diff checks completed; Apps Script push completed after runtime recovery.
+- **Next:** Continue WS14 Phase 8 with ownership audit and dead-code trim, but do not run the broad perl cleanup pattern again without a definition/reference safety check.
+
+> [!info] 2026-03-26: WS14 Phase 7 Complete
+- **Phase:** 7 (residual orchestration/UI plumbing split)
+- **Files Updated:** `_module_startup_refdata.html`, `_module_startup_boot.html`, `_module_ui_shell_helpers.html`, `_module_mini_sld.html`, `WebApp.html`, `_module_webapp_core.html`, plus workstream tracking docs
+- **Result:** Extracted startup selector/ref-data, boot-splash lifecycle, lightweight UI helpers, and Mini-SLD helper cluster out of core into dedicated modules with include-order wiring.
+- **Verification:** No editor errors in touched files; ownership checks confirm extracted symbols are no longer duplicated in core; `_module_webapp_core.html` reduced to 722 lines.
+- **Next:** WS14 Phase 8 — post-modularization hardening (runtime smoke, ownership audit, dead-code trim).
+
+> [!info] 2026-03-26: WS14 Phase 7 In Progress (Slice 3)
+- **Scope:** Residual lightweight UI helper extraction from core.
+- **Files Updated:** `_module_ui_shell_helpers.html` (new), `WebApp.html`, `_module_webapp_core.html`
+- **Result:** Moved `getCardGlow`, `updateGeminiBadge`, and `checkViewportHandOff` into `_module_ui_shell_helpers.html` and wired include before core.
+- **Verification:** No editor errors in touched files; ownership checks show these helper definitions exist only in `_module_ui_shell_helpers.html`; `_module_webapp_core.html` reduced to 856 lines.
+- **Next:** Continue Phase 7 final slice to clear remaining residual core-only UI plumbing and close phase.
+
+> [!info] 2026-03-26: WS14 Phase 7 In Progress (Slice 2)
+- **Scope:** Boot/splash startup lifecycle extraction from core.
+- **Files Updated:** `_module_startup_boot.html` (new), `WebApp.html`, `_module_webapp_core.html`
+- **Result:** Moved `runBootSequence`, `hideSplash`, `reportStartupPhase`, and `showStartupFailure` to `_module_startup_boot.html` and wired include before core.
+- **Verification:** No editor errors in touched files; ownership checks show boot helpers only in `_module_startup_boot.html`; `_module_webapp_core.html` reduced to 880 lines.
+- **Next:** Continue Phase 7 with remaining residual core-only UI helpers.
+
+> [!info] 2026-03-26: WS14 Phase 7 In Progress (Slice 1)
+- **Scope:** Residual orchestration split for startup selector and ref-data indicator ownership.
+- **Files Updated:** `_module_startup_refdata.html` (new), `WebApp.html`, `_module_webapp_core.html`
+- **Result:** Moved `showStartupSelector`, `completeStartup`, `updateRefDataIndicator`, `startupTimer`, and `startupCountdown` out of core into `_module_startup_refdata.html` and wired include order before core.
+- **Verification:** No editor errors in touched files; ownership checks show startup/ref-data functions exist only in the new owner module; `_module_webapp_core.html` reduced to 960 lines.
+- **Next:** Continue Phase 7 with residual core-only UI plumbing extraction.
+
+> [!info] 2026-03-26: WS14 Phase 6 Complete
+- **Phase:** 6 (live orchestration extraction)
+- **Files Updated:** `_module_huds.html`, `_module_queue_state.html`, `_module_webapp_core.html`, `WebApp.html`
+- **Result:** Completed targeted extractions for `applyFilters`, `openPane`, and HUD render/lock helpers. Ownership now resides in `_module_queue_state.html` and `_module_huds.html`, and `_module_webapp_core.html` reduced to 1050 lines.
+- **Verification:** No editor errors in touched files after extraction pass; function ownership checks confirm no duplicate definitions in core for extracted targets.
+- **Next:** WS14 Phase 7 — split remaining core orchestration/UI plumbing (`updateRefDataIndicator`, startup UI handlers, and residual app-shell glue).
+
+> [!info] 2026-03-26: WS14 Phase 5 Complete
+- **Phase:** 5 (ghost modularization purge + header finalization)
+- **Files Updated:** `_module_webapp_core.html`, `_module_router.html`, `_module_queue_state.html`
+- **Result:** `_module_webapp_core.html` line count reduced to 1539 with all `INLINE COPY DISABLED` blocks removed and no remaining single-line extraction pointer comments.
+- **Verification:** No editor errors in modified files; user-reported smoke pass confirmed (app load, data render, queue click, detail pane open).
+- **Next:** WS14 Phase 6 — extract remaining live orchestration clusters (`applyFilters`, `openPane`, HUD renderers) to further reduce `_module_webapp_core.html`.
+
+> [!info] 2026-03-26: WS14 Phases 1–4 Complete
+- **Phases:** 1 (state ownership), 2 (shared helper/token ownership), 3 (feature island extraction), 4 (reduce core to orchestration)
+- **Files Created:** `_state_payload.html`, `_state_analytics.html`, `_state_ui_shell.html`, `_utils_ui_tokens.html`, `_module_quick_peek.html`, `_module_grid.html`, `_module_critical_hub.html`, `_module_review_actions.html`
+- **Functions Moved:** 6 detail-face functions → `_module_router.html`; 11 queue/filter/pill functions → `_module_queue_state.html`; 22 globals relocated to state owners; `QB_STYLES` to `_utils_ui_tokens.html`
+- **Core Line Count:** 5,743 → 5,261 total (approx. 1,513 live lines; remainder is `/* INLINE COPY DISABLED */` stubs awaiting Phase 5 purge)
+- **Duplicate Globals:** Zero across assembled runtime
+- **Deferred:** Phase 5 — purge all block comment stubs and pointer comments from `_module_webapp_core.html`; update file headers on `_module_router.html`, `_module_queue_state.html`, `_module_webapp_core.html`
+- **Lesson Learned:** After Phase 5 purge, live line count target (~1,513) will still exceed 800-line goal — additional live extractions (applyFilters, openPane, HUD renderers) remain for a potential Phase 6 if strict 800-line target is required
+
 ## [2026-03-26 17:57 CDT] — Stability-First Modularization Audit Delivered (Codex)
 - **Objective:** Convert the unfinished modularization effort into a decision-complete stability-first spec before any further large refactor.
 - **Action Taken:**

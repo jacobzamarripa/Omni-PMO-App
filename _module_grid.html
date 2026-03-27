@@ -1,0 +1,350 @@
+<script>
+// ============================================================
+// FILE: _module_grid.html | ROLE: Grid workspace rendering, pivot switching, pane open, and grid Gemini AI
+// DEPENDS ON: _state_queue.html, _state_router.html, _state_payload.html,
+//   _utils_shared.html, _module_quick_peek.html, _module_queue_state.html
+// DEPENDED ON BY: _module_critical_hub.html, _module_webapp_core.html
+// MOBILE/AGENT NOTES: renderGrid is the primary grid view engine. openPaneFromGrid
+//   sets currentActiveItem and triggers deck/gantt selection sync. Do not add
+//   extra DOM state here — read from state owners.
+// ============================================================
+
+function askGeminiFromGrid(btn, fdh) {
+    let item = filteredItems.find(i => i.fdh === fdh);
+    if (!item) return;
+
+    let origText = btn.innerHTML;
+    btn.innerHTML = `DRAFTING...`;
+    btn.style.opacity = "0.7";
+    btn.disabled = true;
+
+    let payload = {
+        fdh: item.fdh,
+        vendor: item.vendor,
+        status: `${item.stage} | ${item.status}`,
+        targetDate: item.targetDate,
+        flags: item.flags,
+        vendorComment: item.vendorComment,
+        history: item.bench,
+        productionToday: item.summary
+    };
+
+    google.script.run
+        .withSuccessHandler(response => {
+            let draftEl = document.getElementById(`grid-draft-${item.fdh}`);
+            if (draftEl) { draftEl.innerHTML = response.text.replace(/\n/g, '<br>'); }
+            item.geminiInsight = response.text;
+            item.geminiDate = response.date;
+            btn.innerHTML = "DRAFTED ✓";
+            btn.style.opacity = "1";
+            btn.disabled = false;
+        })
+        .withFailureHandler(err => {
+            alert("AI Error: " + err.message);
+            btn.innerHTML = origText;
+            btn.style.opacity = "1";
+            btn.disabled = false;
+        })
+        .generateAndSaveFDHNarrative(payload);
+}
+
+function updateGridPivot() {
+    const pivot = getEl('grid-pivot-select');
+    if (!pivot) return;
+    currentGridPivot = pivot.value;
+    const userFilter = getEl('filter-log-user');
+    if (userFilter) {
+        userFilter.style.display = (currentWorkspaceView === 'grid' && (currentGridPivot === 'changelog' || currentGridPivot === 'global-log')) ? 'inline-flex' : 'none';
+    }
+    renderGrid();
+}
+
+function renderGrid() {
+    if (!isGridMode && !isDeckMode) return;
+    const grid = getEl('grid-content');
+    if (!grid) return;
+    const logUser = getEl('filter-log-user')?.value || 'ALL';
+
+    if (currentGridPivot === 'global-log') {
+        let validFdhs = new Set(filteredItems.map(i => i.fdh));
+        let logsToRender = allGlobalLogs.filter(log => validFdhs.has(log.fdh));
+
+        if (logUser !== 'ALL') logsToRender = logsToRender.filter(log => log.user === logUser);
+
+        logsToRender.sort((a, b) => Number(b.timestampObj || 0) - Number(a.timestampObj || 0));
+
+        if (logsToRender.length === 0) {
+            grid.innerHTML = `<div class="empty-msg" style="grid-column: 1 / -1;">No changes match current filters.</div>`;
+            return;
+        }
+
+        grid.innerHTML = logsToRender.map(log => {
+            let item = filteredItems.find(i => i.fdh === log.fdh);
+            let combinedPill = item ? `${item.stage || "-"} | ${item.status || "-"}` : "";
+            let pillCls = item ? getQBStatusClass(item.stage, item.status, false) : "pill-default";
+            let dateObj = new Date(log.timestampObj);
+            let dateStr = !isNaN(dateObj.getTime()) ? formatDate(dateObj, true) : log.time;
+            let cleanVal = String(log.val ?? '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
+
+            return `
+            <div class="grid-card" onclick="openPaneFromGrid('${esc(String(log.fdh || '')).replace(/&#39;/g, "\\'")}')">
+                <div class="grid-card-header">
+                    <div>
+                        <div style="font-size:14px; font-weight:900; color:var(--text-main);">${esc(log.fdh)}</div>
+                        <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${item ? esc(item.vendor) : ''}</div>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
+                        <span class="glass-pill ${pillCls}">${esc(combinedPill)}</span>
+                        ${renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                    </div>
+                </div>
+                <div class="grid-card-body" style="justify-content:center;">
+                    <div class="log-grid-item">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                            <span style="font-weight:900; font-size:10px; color:var(--color-insight); text-transform:uppercase;">${esc(log.type)}</span>
+                            <span style="color:var(--text-muted); font-size:9px; font-weight:700;">${esc(dateStr)}</span>
+                        </div>
+                        <div style="color:var(--text-main); font-size:12px; font-weight:600; line-height:1.4; margin:6px 0;">&#8594; ${esc(cleanVal)}</div>
+                        <div style="font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">By: ${esc(log.user)}</div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+        return;
+    }
+
+    if (filteredItems.length === 0) {
+        grid.innerHTML = `<div class="empty-msg" style="grid-column: 1 / -1;">No projects match current filters.</div>`;
+        return;
+    }
+
+    grid.innerHTML = filteredItems.map(item => {
+        let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
+        let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+        let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+        let bodyHtml = '';
+        let topBadgeHtml = '';
+        let glowCls = '';
+
+        let pStart = safeDate(item.cxStart);
+        let pEnd = safeDate(item.cxEnd);
+        let daysLeft = pEnd ? Math.ceil((pEnd - new Date()) / 86400000) : 0;
+        let st = (item.stage || "").toLowerCase();
+        let stat = (item.status || "").toLowerCase();
+        let isOFS = st.includes('ofs');
+        let isComplete = stat.includes('complete');
+        let isPermit = st.includes('permit');
+        let isOnHold = stat.includes('hold') || stat.includes('assign');
+        let today = new Date(); today.setHours(0,0,0,0);
+        let isOverdue = pEnd && today > pEnd && !isOFS && !isComplete && !isOnHold && !isPermit;
+        let isMuted = isComplete || isOFS || isPermit;
+        let muteClass = isMuted ? 'is-muted' : '';
+
+        if (isOFS) glowCls = 'glow-ofs';
+        else if (isComplete) glowCls = 'glow-complete';
+        else if (isPermit) glowCls = 'glow-permit';
+        else if (isOverdue) glowCls = 'glow-overdue';
+        else glowCls = 'glow-active';
+
+        if (currentGridPivot === 'schedule') {
+            let start = item.cxStart ? formatDate(item.cxStart) : 'TBD';
+            let end = item.cxEnd ? formatDate(item.cxEnd) : 'TBD';
+            let target = item.targetDate ? formatDate(item.targetDate) : 'TBD';
+            let pct = 0;
+            if (pStart && pEnd && pEnd - pStart > 0) {
+                let total = pEnd - pStart, elap = new Date() - pStart;
+                pct = Math.max(0, Math.min(100, (elap / total) * 100));
+            }
+            let sColor = "#facc15";
+            if (isOFS) sColor = "#2563eb"; else if (isPermit) sColor = "#a855f7"; else if (isComplete) sColor = "#22c55e"; else if (isOnHold) sColor = "#94a3b8"; else if (isOverdue) sColor = "#ef4444";
+            let xingCls = item.isXing ? 'xing' : '';
+            let xingBadge = item.isXing ? `<div style="position:absolute; bottom:4px; right:4px; display:flex; align-items:center; gap:4px; background:#171717; color:#facc15; padding:1px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #facc15;">X-ING</div>` : '';
+            let targetRadius = item.isXing ? "9px 9px 0 0" : "12px 12px 0 0";
+            if (item.flags.includes("ADMIN: CHECK CROSSINGS")) {
+                topBadgeHtml = `<div style="margin-top:6px;"><span style="background:rgba(254,226,226,0.5); color:#991b1b; padding:3px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #fca5a5;">🚩 CHECK CROSSINGS</span></div>`;
+                glowCls = 'glow-danger';
+            }
+            bodyHtml = `
+                <div class="qb-time-labels ${muteClass}" style="margin-top:0;">
+                    <span>CX START: <span style="color:var(--text-main);">${start}</span></span>
+                    <span>CX COMPLETE: <span style="color:var(--text-main);">${end}</span></span>
+                </div>
+                <div class="qb-time-bar ${muteClass}">
+                    <div class="qb-time-fill" style="width:${pct}%; background:${sColor};"></div>
+                    ${pct > 0 && pct < 100 ? `<div class="qb-time-bead" style="left:calc(${pct}% - 7px); border-color:${sColor}; display:block;"></div>` : ''}
+                </div>
+                <div class="qb-target-wrap ${xingCls}" style="margin-top:auto;">
+                    <div class="qb-target-inner" style="border-radius:${targetRadius};">
+                        <div class="qb-target-label">Target Date</div>
+                        <div class="qb-target-date" style="color:${sColor};">${target}${isComplete ? '<span style="color:var(--starGold); font-size:14px; margin-left:4px; line-height:1;">★</span>' : ''}</div>
+                        ${xingBadge}
+                    </div>
+                </div>
+            `;
+        } else if (currentGridPivot === 'velocity') {
+            let v = item.vel;
+            let daysLeftTxt = daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`;
+            let ofsMonthStr = "TBD";
+            let isOFSMonth = false;
+            if (item.ofsDate && item.ofsDate !== "-" && item.ofsDate !== "Unknown") {
+                let d = safeDate(item.ofsDate);
+                if (d && !isNaN(d.getTime())) {
+                    ofsMonthStr = d.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+                    if (d.getUTCMonth() === today.getMonth() && d.getUTCFullYear() === today.getFullYear()) isOFSMonth = true;
+                }
+            }
+            let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239, 246, 255, 0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--bg); border-color:var(--border);';
+
+            if (v) {
+                bodyHtml = `
+                    <div class="velocity-grid ${muteClass}" style="align-content: flex-start; gap: 8px; margin-bottom: 8px; flex-grow: 0;">
+                        ${buildVelocityBar('UG', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft)}
+                        ${buildVelocityBar('Aerial', v.ae.daily, v.ae.tot, v.ae.bom, 'AE', daysLeft)}
+                        ${buildVelocityBar('Fiber', v.fib.daily, v.fib.tot, v.fib.bom, 'FIB', daysLeft)}
+                        ${buildVelocityBar('Splicing', v.nap.daily, v.nap.tot, v.nap.bom, 'NAP', daysLeft)}
+                    </div>
+                    <div class="qb-vel-footer" style="margin-top:auto; border-top:1px solid var(--border); padding-top:8px;">
+                        <div style="font-size:9px; font-weight:900; color:var(--text-muted);">${daysLeftTxt}</div>
+                        <div style="display:flex; gap:6px;">
+                            <div class="vel-footer-pill" style="font-size:8px; padding:2px 6px;">BSLS: ${item.bsls}</div>
+                            <div class="vel-footer-pill" style="font-size:8px; padding:2px 6px; ${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
+                        </div>
+                    </div>
+                `;
+            } else { bodyHtml = `<div style="font-style:italic; color:var(--text-muted);">No velocity data</div>`; }
+        } else if (currentGridPivot === 'notes') {
+            let vComment = item.vendorComment ? item.vendorComment : 'No update provided.';
+            let smartNote = item.geminiInsight ? item.geminiInsight : generateSmartComment(item, daysLeft, isOverdue);
+            let finalNote = item.comment || smartNote;
+            bodyHtml = `
+                <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:12px;">
+                    <div class="section-label" style="margin:0 !important; font-size:8px;">Vendor Update</div>
+                    <div class="vendor-bubble" style="font-size:10px; padding:8px 12px !important;">"${vComment}"</div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; flex-grow:1;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div class="section-label" style="color:var(--color-insight); margin:0 !important; font-size:8px;">PM Note</div>
+                        <button class="btn-ai" onclick="event.stopPropagation(); askGeminiFromGrid(this, '${item.fdh}')" style="padding:4px 8px; font-size:8px; height:auto; box-shadow:none;">DRAFT W/GEMINI</button>
+                    </div>
+                    <div id="grid-draft-${item.fdh}" class="chat-bubble" style="font-size:10px; min-height:60px; height:auto; padding:10px 12px; overflow:visible;">${finalNote.replace(/\n/g, '<br>')}</div>
+                </div>
+            `;
+        } else if (currentGridPivot === 'deliverables') {
+            let dFlags = [];
+            if (item.flags.includes("PLEASE INPUT BOM")) dFlags.push("INPUT BOM");
+            if (item.flags.includes("CHECK BOM")) dFlags.push("CHECK BOM");
+            if (item.flags.includes("MISSING QB STATUS") || item.flags.includes("STATUS MISMATCH")) dFlags.push("QB STATUS");
+            if (dFlags.length > 0) {
+                topBadgeHtml = `<div style="display:flex; flex-direction:row; flex-wrap:wrap; justify-content:flex-end; gap:4px; margin-top:6px;">` + dFlags.map(f => `<span style="background:rgba(254,226,226,0.5); color:#991b1b; border:1px solid #fca5a5; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:900; line-height:1;">🚩 ${f}</span>`).join('') + `</div>`;
+                glowCls = 'glow-danger';
+            }
+            bodyHtml = `
+                <div style="display:grid; grid-template-columns:1fr; gap:12px; align-content:flex-start; height:100%;">
+                    <div style="background:var(--bg); padding:10px; border-radius:8px; border:1px solid var(--border);">
+                        <div style="font-size:9px; font-weight:900; color:#166534; margin-bottom:8px; text-transform:uppercase;">Deliverables</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                            ${renderDeliverableChip("SPLICING", item.hasSpliceDel)}
+                            ${renderDeliverableChip("STRAND", item.hasStandDel)}
+                            ${renderDeliverableChip("CD", item.hasCDDel)}
+                            ${renderDeliverableChip("BOM", item.hasBOMDel)}
+                        </div>
+                    </div>
+                    <div style="background:var(--bg); padding:10px; border-radius:8px; border:1px solid var(--border);">
+                        <div style="font-size:9px; font-weight:900; color:#1e40af; margin-bottom:8px; text-transform:uppercase;">Distributed</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                            ${renderDeliverableChip("STRAND", item.hasStrandDist)}
+                            ${renderDeliverableChip("CD", item.hasCDDist)}
+                            ${renderDeliverableChip("BOM/PO", item.hasBOMPo)}
+                            ${renderDeliverableChip("SOW", item.hasSOW)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (currentGridPivot === 'changelog') {
+            let projectLogs = allGlobalLogs.filter(log => log.fdh === item.fdh);
+            if (logUser !== 'ALL') projectLogs = projectLogs.filter(log => log.user === logUser);
+            projectLogs = projectLogs.sort((a, b) => Number(b.timestampObj || 0) - Number(a.timestampObj || 0)).slice(0, 4);
+            let logHtml = '';
+            if (projectLogs.length > 0) {
+                logHtml = '<div style="display:flex; flex-direction:column; gap:8px;">' + projectLogs.map(log => {
+                    let dateObj = new Date(log.timestampObj);
+                    let dateStr = !isNaN(dateObj.getTime()) ? formatDate(dateObj, true) : log.time;
+                    let cleanVal = String(log.val ?? '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
+                    return `
+                    <div class="log-grid-item">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                            <span style="font-weight:900; font-size:10px; color:var(--color-insight); text-transform:uppercase;">${esc(log.type)}</span>
+                            <span style="color:var(--text-muted); font-size:9px; font-weight:700;">${esc(dateStr)}</span>
+                        </div>
+                        <div style="color:var(--text-main); font-size:11px; font-weight:600; line-height:1.4; margin-bottom:4px;">&#8594; ${esc(cleanVal)}</div>
+                        <div style="font-size:8px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">By: ${esc(log.user)}</div>
+                    </div>`;
+                }).join('') + '</div>';
+            } else {
+                logHtml = `<div style="font-style:italic; color:var(--text-muted); font-size:10px; text-align:center; padding:20px 0;">No changes match filters.</div>`;
+            }
+
+            bodyHtml = `
+                <div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; margin-bottom:10px;">Recent Activity</div>
+                ${logHtml}
+            `;
+        }
+
+        return `
+            <div id="grid-card-${item.fdh}" data-fdh="${esc(item.fdh)}" class="grid-card ${glowCls}" onclick="openPaneFromGrid('${item.fdh}')">
+                <div class="grid-card-header">
+                    <div>
+                        <div style="font-size:14px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                        <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${item.vendor}</div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                        <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
+                            <span class="glass-pill ${pillCls}">${combinedPill}</span>
+                            ${renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' })}
+                        </div>
+                        ${topBadgeHtml}
+                    </div>
+                </div>
+                <div class="grid-card-body">
+                    ${bodyHtml}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function openPaneFromGrid(fdh) {
+    let item = filteredItems.find(i => i.fdh === fdh);
+    if (!item) return;
+
+    currentActiveItem = item;
+
+    document.querySelectorAll('.grid-card').forEach(c => c.classList.remove('is-selected'));
+    let matchingCards = Array.from(document.querySelectorAll(`.grid-card[data-fdh="${CSS.escape(String(item.fdh || ''))}"]`));
+    let gCard = matchingCards[0] || getEl(`grid-card-${item.fdh}`);
+    matchingCards.forEach(c => c.classList.add('is-selected'));
+    if (gCard) {
+        gCard.classList.add('is-selected');
+        if (currentWorkspaceView === 'grid') {
+            const container = getEl('grid-content');
+            if (container) {
+                const scrollPos = gCard.offsetTop - (container.clientHeight / 2) + (gCard.offsetHeight / 2);
+                container.scrollTo({ top: scrollPos, behavior: 'auto' });
+            }
+        }
+    }
+
+    let ganttArea = getEl('gantt-area-main');
+    if (ganttArea) {
+        ganttArea.classList.add('has-focus');
+        document.querySelectorAll('.gantt-row').forEach(r => r.classList.remove('is-active'));
+        let gRow = getEl(`gantt-row-${item.fdh}`);
+        if (gRow) gRow.classList.add('is-active');
+    }
+
+    if (isDeckMode) {
+        deckIndex = filteredItems.indexOf(item);
+        renderDeckStage();
+    }
+}
+</script>

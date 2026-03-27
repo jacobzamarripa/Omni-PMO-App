@@ -45,11 +45,14 @@
 ## Workstream 14 — Stability-First Modularization (Active)
 
 - [x] Phase 0 — Audit + ownership map (`MODULARIZATION_AUDIT.md`)
-- [ ] Phase 1 — Complete state ownership (`_state_payload.html`, `_state_analytics.html`, `_state_ui_shell.html`)
-- [ ] Phase 2 — Shared helper/token ownership (`_utils_ui_tokens.html`, helper remnant purge)
-- [ ] Phase 3 — Feature island extraction (`_module_critical_hub.html`, `_module_grid.html`, `_module_review_actions.html`, quick-peek ownership`)
-- [ ] Phase 4 — Reduce `_module_webapp_core.html` to bootstrap/app-shell orchestration
-- [ ] Phase 5 — Purge ghost modularization remnants and finalize docs
+- [x] Phase 1 — Complete state ownership (`_state_payload.html`, `_state_analytics.html`, `_state_ui_shell.html`)
+- [x] Phase 2 — Shared helper/token ownership (`_utils_ui_tokens.html`, helper remnant purge)
+- [x] Phase 3 — Feature island extraction (`_module_critical_hub.html`, `_module_grid.html`, `_module_review_actions.html`, `_module_quick_peek.html`)
+- [x] Phase 4 — Reduce `_module_webapp_core.html` to bootstrap/app-shell orchestration
+- [x] Phase 5 — Purge ghost modularization remnants and finalize docs
+- [x] Phase 6 — Live orchestration extraction (`applyFilters`, `openPane`, HUD renderers) to continue core-size reduction
+- [x] Phase 7 — Residual orchestration split (`updateRefDataIndicator`, startup UI handlers, and remaining core-only UI plumbing)
+- [ ] Phase 8 — Post-modularization hardening (runtime smoke + ownership audit + dead-code trim)
 
 ## Workstream 11 — Visual Redesign Pass (Complete)
 

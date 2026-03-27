@@ -1,21 +1,11 @@
 <script>
 // ============================================================
-// FILE: _module_router.html
-// ROLE: Workspace routing, dock sync, view switching, and
-//   panel tab orchestration
-// DEPENDS ON: _registry.html, _state_router.html,
-//   _state_queue.html
-// DEPENDED ON BY: _module_tabs.html, _module_gantt.html,
-//   WebApp.html main runtime
-// MOBILE NOTES: switchWorkspaceView() and syncDockPlacement
-//   State() drive dock inversion in Gantt — bottom dock opens
-//   dropdowns upward. Mobile routing will need separate
-//   treatment.
-// AGENT NOTES: Read _state_router.html before editing.
-//   Fullscreen and overlay orchestration is annotated inline.
-//   Do not change switchWorkspaceView() without checking
-//   Gantt scroll capture on exit.
+// FILE: _module_router.html | ROLE: Workspace routing, dock sync, detail-face orchestration, and panel tabs
+// DEPENDS ON: _state_router.html, _state_queue.html, _state_session.html, _utils_shared.html, _utils_notifications.html, _module_admin.html, _module_deck.html, _module_gantt.html
+// DEPENDED ON BY: _module_tabs.html, _module_webapp_core.html, WebApp.html
 // ============================================================
+// STATE: _SLIDE_SVG — slide face icon for workspace chrome
+const _SLIDE_SVG = `<span class="dock-face-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="13" rx="2"></rect><path d="M8 21h8"></path><path d="M12 18v3"></path><path d="M15 9l-4 3 4 3"></path></svg></span>`;
 
 function syncWorkspaceModeState() {
     isGridMode = (currentWorkspaceView === 'grid');
@@ -263,6 +253,96 @@ function switchPanelTab(tab) {
         renderChangeLog();
     }
     syncOutboxPanelMode();
+}
+
+// ── DETAIL-FACE ORCHESTRATION ──
+function isSlideFaceActive() {
+    return currentWorkspaceView === 'detail' && currentDetailFace === 'slide';
+}
+
+function renderDetailWorkspaceFace() {
+    if (currentWorkspaceView !== 'detail') return;
+
+    const welcome = getEl('welcome-screen');
+    const paneContent = getEl('pane-content');
+    const deckStage = getEl('deck-stage');
+
+    if (!currentActiveItem) {
+        if (welcome) welcome.style.display = 'flex';
+        if (paneContent) paneContent.style.display = 'none';
+        if (deckStage) deckStage.style.display = 'none';
+        setAdminPanelOpen(false);
+        return;
+    }
+
+    if (welcome) welcome.style.display = 'none';
+
+    if (isDeckMode) {
+        if (paneContent) paneContent.style.display = 'none';
+        if (deckStage) {
+            deckStage.style.display = 'flex';
+            deckStage.style.flex = '';
+            deckStage.style.width = '';
+            deckStage.style.padding = '';
+            deckStage.style.overflow = '';
+        }
+        setAdminPanelOpen(true);
+        deckIndex = Math.max(0, filteredItems.findIndex(i => i.fdh === currentActiveItem.fdh));
+        renderDeckStage();
+        syncActivePresentationCardTheme();
+        animatePendingFaceTransition();
+    } else {
+        if (deckStage) deckStage.style.display = 'none';
+        if (paneContent) paneContent.style.display = 'flex';
+        openPane(currentActiveItem, getEl(`card-${currentActiveItem.fdh}`) || null);
+        syncActivePresentationCardTheme();
+        animatePendingFaceTransition();
+        if (window.innerWidth > 768) syncAdminPanelForViewport();
+    }
+}
+
+function toggleDetailFace(forceFace) {
+    const nextFace = forceFace === 'slide' ? 'slide' : forceFace === 'detail' ? 'detail' : (isDeckMode ? 'detail' : 'slide');
+    if (nextFace === 'slide' && !currentActiveItem) {
+        showToast('Select a project before opening Slide View.', 'info');
+        return;
+    }
+
+    pendingFaceAnimation = nextFace;
+    currentDetailFace = nextFace;
+    syncWorkspaceModeState();
+    syncWorkspaceChrome();
+    renderDetailWorkspaceFace();
+    animateDockFaceShift(nextFace);
+    syncGanttIslandState();
+}
+
+function animateCardFaceTransition(card, face) {
+    if (!card) return;
+    card.classList.remove('face-flip-enter', 'face-flip-slide', 'face-flip-detail');
+    void card.offsetWidth;
+    card.classList.add('face-flip-enter', face === 'slide' ? 'face-flip-slide' : 'face-flip-detail');
+    setTimeout(() => {
+        card.classList.remove('face-flip-enter', 'face-flip-slide', 'face-flip-detail');
+    }, 700);
+}
+
+function animatePendingFaceTransition() {
+    if (!pendingFaceAnimation) return;
+    const face = pendingFaceAnimation;
+    pendingFaceAnimation = null;
+    requestAnimationFrame(() => animateCardFaceTransition(getActivePresentationCard(), face));
+}
+
+function animateDockFaceShift(face) {
+    const dock = getEl('filter-strip');
+    if (!dock || isPresentationMode || currentWorkspaceView !== 'detail') return;
+    dock.classList.remove('dock-slide-down-enter', 'dock-rise-up-enter');
+    void dock.offsetWidth;
+    dock.classList.add(face === 'slide' ? 'dock-slide-down-enter' : 'dock-rise-up-enter');
+    setTimeout(() => {
+        dock.classList.remove('dock-slide-down-enter', 'dock-rise-up-enter');
+    }, 460);
 }
 
 // ── GLOBAL UI EVENT LISTENERS ──

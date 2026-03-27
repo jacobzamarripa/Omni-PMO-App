@@ -1,0 +1,26 @@
+<script>
+// ============================================================
+// FILE: _state_ui_shell.html | ROLE: Authoritative UI shell state owner
+// DEPENDS ON: _registry.html
+// DEPENDED ON BY: _module_webapp_core.html (dock, HUD, startup),
+//   _module_gantt.html (HUD lock helpers)
+// MOBILE/AGENT NOTES: previousDockState and HUD lock state are
+//   desktop-only — mobile dock has separate behavior. Read this
+//   before touching dock memory, BSL/projects HUD lock toggles.
+// ============================================================
+// STATE: previousDockState
+// READS: dock restore
+// WRITES: dock restore/memory helpers
+// EXTRACT WITH: currentDockPlacement, syncDockLayoutSpacing
+let previousDockState = [];
+// STATE: bslsHudLocked
+// READS: BSL HUD show/hide
+// WRITES: BSL HUD lock toggle
+// EXTRACT WITH: renderBslsHUD, hidePieHUD
+let bslsHudLocked = false;
+// STATE: projectsHudLocked
+// READS: projects HUD show/hide
+// WRITES: projects HUD lock toggle
+// EXTRACT WITH: renderProjectsHUD, hidePieHUD
+let projectsHudLocked = false;
+</script>

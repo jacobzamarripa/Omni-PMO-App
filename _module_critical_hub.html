@@ -1,0 +1,255 @@
+<script>
+// ============================================================
+// FILE: _module_critical_hub.html | ROLE: Critical hub overlay, filter, acknowledge, and render logic
+// DEPENDS ON: _state_analytics.html, _state_router.html, _utils_shared.html,
+//   _module_gantt.html, _module_grid.html, _module_queue_state.html
+// DEPENDED ON BY: _module_webapp_core.html (applyFilters uses getCriticalType)
+// MOBILE/AGENT NOTES: getCriticalType is called by applyFilters — it MUST load before
+//   _module_webapp_core.html. navigateFromCriticalHub delegates to handleGanttClick,
+//   openPaneFromGrid, and openPane depending on active workspace.
+// ============================================================
+
+function getCriticalType(item) {
+    let flags = String((item && item.flags) || '').toUpperCase();
+    if (flags.includes('OVERDUE')) return 'Overdue';
+    if (flags.includes('MISSING DAILY REPORT')) return 'Missing Report';
+    if (flags.includes('CROSSING') || flags.includes('X-ING')) return 'Crossing Risk';
+    if (flags.includes('BOM') || flags.includes('REROUTE') || flags.includes('SCOPE') || flags.includes('DEVIATION')) return 'BOM / Scope Issue';
+    if (flags.includes('QB') || flags.includes('REFERENCE') || flags.includes('STATUS MISMATCH') || flags.includes('MISSING QB STATUS')) return 'QB / Reference Issue';
+    return 'Other Critical';
+}
+
+function toggleCriticalFilter() {
+    openCriticalHub();
+}
+
+function getCriticalHubVisibleItems() {
+    let items = (currentCriticalHubItems || []).slice();
+    if (!criticalHubState.showAcknowledged) {
+        items = items.filter(item => !acknowledgedCriticalFdhs.includes(String(item.fdh || '')));
+    }
+    if (criticalHubState.market !== 'ALL') items = items.filter(item => String(item.city || '') === criticalHubState.market);
+    if (criticalHubState.vendor !== 'ALL') items = items.filter(item => String(item.vendor || '') === criticalHubState.vendor);
+    if (criticalHubState.type !== 'ALL') items = items.filter(item => getCriticalType(item) === criticalHubState.type);
+
+    items.sort(function(a, b) {
+        if (criticalHubState.sort === 'vendor') return String(a.vendor || '').localeCompare(String(b.vendor || '')) || ((a.rowNum || 0) - (b.rowNum || 0));
+        if (criticalHubState.sort === 'market') return String(a.city || '').localeCompare(String(b.city || '')) || ((a.rowNum || 0) - (b.rowNum || 0));
+        if (criticalHubState.sort === 'type') return getCriticalType(a).localeCompare(getCriticalType(b)) || ((a.rowNum || 0) - (b.rowNum || 0));
+        if (criticalHubState.sort === 'target') {
+            let aDate = safeDate(a.cxEnd || a.targetDate);
+            let bDate = safeDate(b.cxEnd || b.targetDate);
+            let aTime = aDate && !isNaN(aDate.getTime()) ? aDate.getTime() : Number.MAX_SAFE_INTEGER;
+            let bTime = bDate && !isNaN(bDate.getTime()) ? bDate.getTime() : Number.MAX_SAFE_INTEGER;
+            return aTime - bTime || ((a.rowNum || 0) - (b.rowNum || 0));
+        }
+        return (a.rowNum || 0) - (b.rowNum || 0);
+    });
+    return items;
+}
+
+function setCriticalHubFilter(field, value) {
+    criticalHubState[field] = value;
+    renderCriticalHub();
+}
+
+function toggleCriticalHubType(type) {
+    criticalHubState.type = criticalHubState.type === type ? 'ALL' : type;
+    renderCriticalHub();
+}
+
+function toggleCriticalShowAcknowledged() {
+    criticalHubState.showAcknowledged = !criticalHubState.showAcknowledged;
+    renderCriticalHub();
+}
+
+function resetCriticalAcknowledged() {
+    acknowledgedCriticalFdhs = [];
+    renderCriticalHub();
+}
+
+function acknowledgeCriticalItem(fdh) {
+    let key = String(fdh || '');
+    if (!acknowledgedCriticalFdhs.includes(key)) acknowledgedCriticalFdhs.push(key);
+    renderCriticalHub();
+    showToast(`Acknowledged ${key}`);
+}
+
+function navigateFromCriticalHub(fdh) {
+    let item = (currentCriticalHubItems || []).find(function(entry) { return String(entry.fdh || '') === String(fdh || ''); });
+    if (!item) return;
+    closeCriticalHub();
+    if (currentWorkspaceView === 'gantt') {
+        handleGanttClick(item.fdh);
+        return;
+    }
+    if (currentWorkspaceView === 'grid') {
+        openPaneFromGrid(item.fdh);
+        return;
+    }
+    openPane(item, getEl(`card-${item.fdh}`) || null);
+}
+
+function openCriticalHub() {
+    let overlay = getEl('critical-hub-overlay');
+    if (!overlay) return;
+    overlay.classList.add('open');
+    renderCriticalHub();
+}
+
+function closeCriticalHub() {
+    let overlay = getEl('critical-hub-overlay');
+    if (overlay) overlay.classList.remove('open');
+}
+
+function renderCriticalHub() {
+    let panel = getEl('critical-hub-panel');
+    if (!panel) return;
+
+    let sourceItems = (currentCriticalHubItems || []).slice();
+    let visibleItems = getCriticalHubVisibleItems();
+    let totalCount = sourceItems.length;
+    let visibleCount = visibleItems.length;
+    let acknowledgedCount = acknowledgedCriticalFdhs.filter(function(fdh) {
+        return sourceItems.some(function(item) { return String(item.fdh || '') === String(fdh || ''); });
+    }).length;
+    let markets = [...new Set(sourceItems.map(item => String(item.city || '')).filter(Boolean))].sort();
+    let vendors = [...new Set(sourceItems.map(item => String(item.vendor || '')).filter(Boolean))].sort();
+    let types = [...new Set(sourceItems.map(item => getCriticalType(item)).filter(Boolean))].sort();
+    let breakdownCounts = {};
+    sourceItems.forEach(function(item) {
+        let type = getCriticalType(item);
+        breakdownCounts[type] = (breakdownCounts[type] || 0) + 1;
+    });
+
+    let controlsHtml = `
+        <div class="critical-hub-controls">
+            <div class="critical-hub-control">
+                <label>Market</label>
+                <select onchange="setCriticalHubFilter('market', this.value)">
+                    <option value="ALL">All Markets</option>
+                    ${markets.map(v => `<option value="${esc(v)}" ${criticalHubState.market === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="critical-hub-control">
+                <label>Vendor</label>
+                <select onchange="setCriticalHubFilter('vendor', this.value)">
+                    <option value="ALL">All Vendors</option>
+                    ${vendors.map(v => `<option value="${esc(v)}" ${criticalHubState.vendor === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="critical-hub-control">
+                <label>Type</label>
+                <select onchange="setCriticalHubFilter('type', this.value)">
+                    <option value="ALL">All Types</option>
+                    ${types.map(v => `<option value="${esc(v)}" ${criticalHubState.type === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="critical-hub-control">
+                <label>Sort</label>
+                <select onchange="setCriticalHubFilter('sort', this.value)">
+                    <option value="default" ${criticalHubState.sort === 'default' ? 'selected' : ''}>Default</option>
+                    <option value="vendor" ${criticalHubState.sort === 'vendor' ? 'selected' : ''}>Vendor</option>
+                    <option value="market" ${criticalHubState.sort === 'market' ? 'selected' : ''}>Market</option>
+                    <option value="type" ${criticalHubState.sort === 'type' ? 'selected' : ''}>Type</option>
+                    <option value="target" ${criticalHubState.sort === 'target' ? 'selected' : ''}>Target / End Date</option>
+                </select>
+            </div>
+        </div>
+    `;
+
+    let breakdownHtml = types.map(function(type) {
+        let count = breakdownCounts[type] || 0;
+        let isActive = criticalHubState.type === type;
+        return `<button class="critical-hub-breakdown-chip ${isActive ? 'active' : ''}" onclick="toggleCriticalHubType('${escJs(type)}')"><span>${esc(type)}</span><span class="critical-hub-breakdown-count">${count}</span></button>`;
+    }).join('');
+
+    let listHtml = '';
+    if (totalCount === 0) {
+        listHtml = `
+            <div class="critical-hub-empty">
+                <div class="critical-hub-empty-title">No critical items</div>
+                <div class="critical-hub-empty-copy">The current working set has no critical projects. The hub stays available so the pill is always consistent and never opens to a blank panel.</div>
+            </div>
+        `;
+    } else if (visibleCount === 0) {
+        listHtml = `
+            <div class="critical-hub-empty">
+                <div class="critical-hub-empty-title">No items match the current hub filters</div>
+                <div class="critical-hub-empty-copy">Adjust Market, Vendor, Type, sort order, or toggle acknowledged items to widen the list.</div>
+            </div>
+        `;
+    } else {
+        listHtml = visibleItems.map(function(item) {
+            let type = getCriticalType(item);
+            let rawFlags = String(item.flags || '').split('\n').map(function(flag) { return flag.trim(); }).filter(Boolean);
+            let visibleFlags = rawFlags.slice(0, 4).map(function(flag) {
+                return `<span class="tag ${getDiagnosticTagClass(flag)}" style="font-size:9px; padding:3px 7px;">${esc(cleanDiagnosticFlagText(flag))}</span>`;
+            }).join('');
+            let isNotInQb = String(item.flags || '').includes("NOT IN QB REFERENCE") || String(item.flags || '').includes("MISSING QB STATUS");
+            let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || '-'} | ${item.status || '-'}`;
+            let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
+            let targetLabel = item.cxEnd || item.targetDate ? formatDate(item.cxEnd || item.targetDate) : 'TBD';
+            return `
+                <div class="critical-hub-item">
+                    <div class="critical-hub-item-top">
+                        <div>
+                            <div class="critical-hub-item-id">${esc(item.fdh)}</div>
+                            <div class="critical-hub-item-meta">${esc(item.city || 'Unknown Market')} • ${esc(item.vendor || 'Unknown Vendor')} • ${esc(type)}</div>
+                        </div>
+                        <span class="glass-pill ${pillCls}" style="font-size:9px; padding:4px 8px;">${esc(combinedPill)}</span>
+                    </div>
+                    <div class="critical-hub-item-flags">${visibleFlags || '<span style="font-size:11px; color:var(--text-muted);">No diagnostic flags available.</span>'}</div>
+                    <div class="critical-hub-item-actions">
+                        <span style="font-size:10px; font-weight:800; color:var(--text-muted);">Target / End: ${esc(targetLabel)}</span>
+                        <button class="btn" onclick="navigateFromCriticalHub('${escJs(item.fdh)}')" style="background:#0f172a; color:#fff; border-color:#0f172a;">Navigate</button>
+                        <button class="btn" onclick="acknowledgeCriticalItem('${escJs(item.fdh)}')" style="background:transparent; color:var(--color-critical); border-color:rgba(239,68,68,0.35);">Acknowledge</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    panel.innerHTML = `
+        <div class="critical-hub-header">
+            <div>
+                <div class="critical-hub-kicker">Critical Hub</div>
+                <div class="critical-hub-title">Actionable Critical Items</div>
+                <div class="critical-hub-subtitle">Critical items are projects whose existing severity resolves to <b>critical</b> from current diagnostic flags. Market uses the current city field in v1, type is derived from flag families, and acknowledge is local to this browser session.</div>
+            </div>
+            <div class="critical-hub-header-actions">
+                <button class="btn" onclick="toggleCriticalShowAcknowledged()" style="background:transparent; color:var(--text-main); border-color:var(--border);">${criticalHubState.showAcknowledged ? 'Hide Acknowledged' : 'Show Acknowledged'}</button>
+                <button class="btn" onclick="resetCriticalAcknowledged()" style="background:transparent; color:var(--text-main); border-color:var(--border);">Reset Acknowledged</button>
+                <button class="panel-tab-close" onclick="closeCriticalHub()" title="Close hub">✕</button>
+            </div>
+        </div>
+        <div class="critical-hub-body">
+            <div class="critical-hub-summary">
+                <div class="critical-hub-stat">
+                    <div class="critical-hub-stat-label">Critical Count</div>
+                    <div class="critical-hub-stat-value">${totalCount}</div>
+                    <div class="critical-hub-stat-note">Matches the header pill count for the current working set.</div>
+                </div>
+                <div class="critical-hub-stat">
+                    <div class="critical-hub-stat-label">Visible</div>
+                    <div class="critical-hub-stat-value">${visibleCount}</div>
+                    <div class="critical-hub-stat-note">After hub filters and acknowledge state.</div>
+                </div>
+                <div class="critical-hub-stat">
+                    <div class="critical-hub-stat-label">Acknowledged</div>
+                    <div class="critical-hub-stat-value">${acknowledgedCount}</div>
+                    <div class="critical-hub-stat-note">Hidden by default until you choose to show them.</div>
+                </div>
+                <div class="critical-hub-stat">
+                    <div class="critical-hub-stat-label">Filter Logic</div>
+                    <div class="critical-hub-stat-value" style="font-size:18px;">Live</div>
+                    <div class="critical-hub-stat-note">Hub follows the same current dataset as the red pill.</div>
+                </div>
+            </div>
+            ${controlsHtml}
+            <div class="critical-hub-breakdown">${breakdownHtml || '<span style="font-size:11px; color:var(--text-muted);">No type breakdown available.</span>'}</div>
+            <div class="critical-hub-list">${listHtml}</div>
+        </div>
+    `;
+}
+</script>

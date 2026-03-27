@@ -55,4 +55,14 @@ let isGridMode = false;
 // EXTRACT WITH: isGridMode, currentViewMode, allGlobalLogs
 // WORKSTREAM 3 RISK: High
 let currentGridPivot = 'velocity';
+// STATE: deckPrevPivot
+// READS: workspace-router
+// WRITES: deck/view transitions
+// EXTRACT WITH: currentGridPivot, switchWorkspaceView
+let deckPrevPivot = 'velocity';
+// STATE: pendingFaceAnimation
+// READS: detail face transitions
+// WRITES: face animation helpers
+// EXTRACT WITH: currentDetailFace, isDeckMode
+let pendingFaceAnimation = null;
 </script>

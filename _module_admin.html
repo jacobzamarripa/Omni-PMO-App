@@ -17,6 +17,11 @@
 //   state files. Crossings-specific UI/actions now live in
 //   _module_special_crossings.html.
 // ============================================================
+// STATE: activeAdminFilter
+// READS: admin pane rendering and filter controls
+// WRITES: admin toggle helpers and applyFilters
+// EXTRACT WITH: filteredItems, allActionItems, currentActiveItem
+let activeAdminFilter = null;
 function toggleAdminFilter(type) {
     activeAdminFilter = (activeAdminFilter === type) ? null : type;
     let kpiC = getEl('kpi-admin-crossings'), kpiS = getEl('kpi-admin-status'), kpiB = getEl('kpi-admin-boms');

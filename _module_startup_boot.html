@@ -1,0 +1,71 @@
+<script>
+// ============================================================
+// FILE: _module_startup_boot.html | ROLE: Boot sequence, splash lifecycle, and startup failure reporting
+// DEPENDS ON: _utils_shared.html
+// DEPENDED ON BY: _module_webapp_core.html, WebApp.html startup runtime
+// ============================================================
+let bootInterval;
+
+function runBootSequence() {
+    const bootSteps = [
+        "Authenticating Benny Diagnostics Engine...",
+        "Loading Master Archive records...",
+        "Cross-referencing vendor production data...",
+        "Calculating network topology & light paths...",
+        "Running AI heuristic models...",
+        "Compiling executive dashboard..."
+    ];
+    let stepIdx = 0;
+    let progress = 0;
+    const textEl = document.getElementById('boot-text');
+    const barEl = document.getElementById('boot-progress');
+    if (!textEl || !barEl) return;
+    bootInterval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress >= 100) {
+            progress = 99;
+        } else if (progress > (stepIdx + 1) * (100 / bootSteps.length) && stepIdx < bootSteps.length - 1) {
+            stepIdx++;
+            textEl.innerText = bootSteps[stepIdx];
+        }
+        barEl.style.width = `${progress}%`;
+    }, 150);
+}
+
+function hideSplash() {
+    clearInterval(bootInterval);
+    let barEl = document.getElementById('boot-progress');
+    let textEl = document.getElementById('boot-text');
+    reportStartupPhase('hide-splash');
+    if (barEl) barEl.style.width = '100%';
+    if (textEl) textEl.innerText = "Data loaded. Initializing UI...";
+    setTimeout(() => {
+        let ls = document.getElementById('loading-screen');
+        if (ls) ls.classList.add('hidden');
+    }, 300);
+}
+
+function reportStartupPhase(phase, meta) {
+    const logger = phase.includes('failure') || phase.includes('timeout') ? console.error : console.info;
+    if (typeof meta === 'undefined') logger(`[startup] ${phase}`);
+    else logger(`[startup] ${phase}`, meta);
+}
+
+function showStartupFailure(title, message, detail) {
+    reportStartupPhase('startup-failure-ui', { title, message, detail });
+    hideSplash();
+    let ws = getEl('welcome-screen');
+    if (ws) ws.style.display = 'none';
+    let dl = getEl('detail-layout');
+    if (dl) dl.style.display = 'flex';
+    let pc = getEl('pane-content');
+    if (!pc) return;
+    const safeTitle = esc(title || 'Startup Failure');
+    const safeMessage = esc(message || 'The dashboard could not finish initializing.');
+    const safeDetail = detail ? `<br/><br/><pre style="white-space:pre-wrap; font-size:10px; color:var(--text-muted);">${esc(detail)}</pre>` : '';
+    pc.innerHTML = `<div class="error-msg" style="color:var(--color-critical); padding:20px; font-family:monospace; text-align:left;"><b>${safeTitle}</b><br/>${safeMessage}${safeDetail}</div>`;
+    pc.style.display = 'flex';
+}
+
+runBootSequence();
+</script>

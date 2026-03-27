@@ -1,0 +1,21 @@
+<script>
+// ============================================================
+// FILE: _utils_ui_tokens.html | ROLE: Shared QB visual token constants
+// DEPENDS ON: _registry.html
+// DEPENDED ON BY: _module_queue_state.html, _module_gantt.html,
+//   _module_webapp_core.html (velocity bars, detail cards)
+// MOBILE/AGENT NOTES: QB_STYLES drives color tokens for all
+//   stage/status visuals. Read this before adding or changing
+//   stage color mappings anywhere in the app.
+// ============================================================
+// TOKEN: QB_STYLES
+// READS: gantt, velocity bars, detail cards, queue badges
+// WRITES: none
+const QB_STYLES = {
+    "UG":   { color: "var(--qb-ug)",        bg: "var(--qb-ug)",        border: "var(--qb-ug)" },
+    "AE":   { color: "var(--text-main)",     bg: "var(--qb-ae-bg)",     border: "#94a3b8" },
+    "FIB":  { color: "var(--text-main)",     bg: "var(--qb-fib-bg)",    border: "var(--qb-fib-border)" },
+    "NAP":  { color: "var(--text-main)",     bg: "var(--qb-nap-bg)",    border: "var(--qb-nap-border)" },
+    "DONE": { color: "var(--qb-done)",       bg: "var(--qb-done)",      border: "var(--qb-done)" }
+};
+</script>

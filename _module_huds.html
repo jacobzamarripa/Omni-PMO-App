@@ -1,0 +1,250 @@
+<script>
+// ============================================================
+// FILE: _module_huds.html | ROLE: Projects/BSLs HUD lock controls and HUD rendering helpers
+// DEPENDS ON: _state_analytics.html, _state_queue.html, _state_ui_shell.html, _utils_shared.html, _module_queue_state.html
+// DEPENDED ON BY: _module_webapp_core.html, WebApp.html
+// ============================================================
+function showBslsHUD() { if (!bslsHudLocked) renderBslsHUD(); }
+function hideBslsHUD() { if (!bslsHudLocked) hidePieHUD('bsls'); }
+function toggleBslsHUDLock(e) {
+    if (e) e.stopPropagation();
+    bslsHudLocked = !bslsHudLocked;
+    let pill = getEl('nav-bsls-pill');
+    if (bslsHudLocked) {
+        if (!renderBslsHUD()) {
+            bslsHudLocked = false;
+            if (pill) pill.classList.remove('is-locked');
+            return;
+        }
+        if (pill) pill.classList.add('is-locked');
+    } else {
+        if (pill) pill.classList.remove('is-locked');
+        hidePieHUD('bsls');
+    }
+}
+
+function showProjectsHUD() { if (!projectsHudLocked) renderProjectsHUD(); }
+function hideProjectsHUD() { if (!projectsHudLocked) hidePieHUD('projects'); }
+function toggleProjectsHUDLock(e) {
+    if (e) e.stopPropagation();
+    projectsHudLocked = !projectsHudLocked;
+    let pill = getEl('nav-projects-pill');
+    if (projectsHudLocked) {
+        if (!renderProjectsHUD()) {
+            projectsHudLocked = false;
+            if (pill) pill.classList.remove('is-locked');
+            return;
+        }
+        if (pill) pill.classList.add('is-locked');
+    } else {
+        if (pill) pill.classList.remove('is-locked');
+        hidePieHUD('projects');
+    }
+}
+
+document.addEventListener('click', function(e) {
+    if (bslsHudLocked) {
+        let hud = getEl('bsls-pie-hud');
+        let pill = getEl('nav-bsls-pill');
+        if (hud && !hud.contains(e.target) && pill && !pill.contains(e.target)) {
+            bslsHudLocked = false;
+            if (pill) pill.classList.remove('is-locked');
+            hidePieHUD('bsls');
+        }
+    }
+    if (projectsHudLocked) {
+        let hud = getEl('projects-pie-hud');
+        let pill = getEl('nav-projects-pill');
+        if (hud && !hud.contains(e.target) && pill && !pill.contains(e.target)) {
+            projectsHudLocked = false;
+            if (pill) pill.classList.remove('is-locked');
+            hidePieHUD('projects');
+        }
+    }
+});
+
+function hidePieHUD(type) {
+    let hud = getEl(`${type}-pie-hud`);
+    if (hud) {
+        hud.classList.remove('visible');
+        setTimeout(() => {
+            if (!hud.classList.contains('visible')) hud.style.display = 'none';
+        }, 200);
+    }
+}
+
+function renderProjectsHUD() {
+    let pieCounts = currentFilterStats.pieCounts || {};
+    let total = Object.values(pieCounts).reduce((a, b) => a + b, 0);
+    let hud = getEl('projects-pie-hud');
+    let pill = getEl('nav-projects-pill');
+    if (!hud || !pill) return false;
+    if (total === 0) {
+        hud.classList.remove('visible');
+        hud.style.display = 'none';
+        return false;
+    }
+
+    let defaultColors = ['#94a3b8', '#cbd5e1', '#f1f5f9'];
+    let sortedStages = Object.keys(pieCounts).sort((a, b) => pieCounts[b] - pieCounts[a]);
+
+    let slices = sortedStages.map((stage, idx) => {
+        let color = defaultColors[idx % defaultColors.length];
+        let sLower = stage.toLowerCase();
+
+        if (sLower.includes('permit')) color = '#a855f7';
+        else if (sLower.includes('field cx')) {
+            if (sLower.includes('complete')) color = '#22c55e';
+            else if (sLower.includes('pending') || sLower.includes('assignment')) color = '#f97316';
+            else if (sLower.includes('hold')) color = '#64748b';
+            else color = '#facc15';
+        }
+        else if (sLower.includes('ofs')) color = '#3b82f6';
+        else if (sLower.includes('hold')) color = '#64748b';
+        else if (sLower.includes('pending') || sLower.includes('assignment')) color = '#f97316';
+
+        return { label: stage, count: pieCounts[stage], color: color };
+    });
+
+    let conicStr = [];
+    let legendHtml = '';
+    let currentPct = 0;
+    let activeFilterEntries = getProjectsHudFilterEntries();
+
+    slices.forEach(s => {
+        let pct = (s.count / total) * 100;
+        conicStr.push(`${s.color} ${currentPct}% ${currentPct + pct}%`);
+        currentPct += pct;
+        let isActive = activePieStageFilter === s.label;
+        let escapedLabel = s.label.replace(/'/g, "\\'");
+        legendHtml += `
+        <div onclick="togglePieStageFilter('${escapedLabel}')" class="projects-hud-legend-row${isActive ? ' is-active' : ''}" style="border-color:${isActive ? s.color : 'transparent'};">
+            <div class="projects-hud-legend-main">
+                <span class="projects-hud-legend-swatch" style="background:${s.color};"></span>
+                <span class="projects-hud-legend-name">${s.label}</span>
+            </div>
+            <span class="projects-hud-legend-count">${s.count.toLocaleString()}</span>
+        </div>`;
+    });
+
+    let pieStyle = `background: conic-gradient(${conicStr.join(', ')});`;
+    let clearStageBtn = activePieStageFilter ? `<button onclick="togglePieStageFilter(null)" class="projects-hud-textbtn">Clear Stage</button>` : '';
+    let clearAllBtn = activeFilterEntries.length > 0 ? `<button onclick="clearAllFilters()" class="projects-hud-textbtn neutral">Clear All</button>` : '';
+    let filterSummaryHtml = activeFilterEntries.length > 0
+        ? `<div class="projects-hud-chip-row">` + activeFilterEntries.map(function(entry) {
+                let removeAction = entry.category === 'stage'
+                    ? `togglePieStageFilter(null)`
+                    : `toggleFilterValue('${entry.category}','${escJs(entry.value)}')`;
+                let chipStyle = entry.color ? ` style="border-color:${entry.color}; box-shadow: inset 3px 0 0 ${entry.color};"` : '';
+                return `<span class="projects-hud-chip"${chipStyle}><span class="projects-hud-chip-label">${esc(entry.categoryLabel)}</span><span>${esc(entry.label)}</span><span class="projects-hud-chip-remove" onclick="${removeAction}">✕</span></span>`;
+            }).join('') + `</div>`
+        : `<div class="projects-hud-empty">None</div>`;
+
+    hud.innerHTML = `
+        <div class="projects-hud-header">
+            <div class="projects-hud-title">Projects</div>
+            <div class="projects-hud-actions">
+                ${clearStageBtn}
+                ${clearAllBtn}
+            </div>
+        </div>
+        <div class="projects-hud-section">
+            <div class="projects-hud-label">Active Filters</div>
+            ${filterSummaryHtml}
+        </div>
+        <div class="projects-hud-section">
+            <div class="projects-hud-label">Stage Breakdown</div>
+            <div class="projects-hud-main">
+            <div class="projects-hud-pie" style="${pieStyle}"></div>
+            <div class="projects-hud-legend">
+                ${legendHtml}
+            </div>
+            </div>
+        </div>
+    `;
+
+    let rect = pill.getBoundingClientRect();
+    let left = Math.max(12, Math.min(rect.left, window.innerWidth - hud.offsetWidth - 12));
+    let top = rect.bottom + 12;
+    hud.classList.add('is-interactive');
+    hud.style.display = 'flex';
+    hud.style.top = top + 'px';
+    hud.style.left = left + 'px';
+
+    requestAnimationFrame(() => {
+        if (hud.offsetWidth && left + hud.offsetWidth > window.innerWidth - 12) {
+            hud.style.left = Math.max(12, window.innerWidth - hud.offsetWidth - 12) + 'px';
+        }
+        if (top + hud.offsetHeight > window.innerHeight - 12) {
+            hud.style.top = Math.max(12, rect.top - hud.offsetHeight - 12) + 'px';
+        }
+        hud.classList.add('visible');
+    });
+    return true;
+}
+
+function renderBslsHUD() {
+    let matrix = currentFilterStats.bslMatrix || {};
+    let months = Object.keys(currentFilterStats.bslByMonth || {})
+        .sort((a, b) => currentFilterStats.bslByMonth[b] - currentFilterStats.bslByMonth[a])
+        .slice(0, 3);
+    let hud = getEl('bsls-pie-hud');
+    let pill = getEl('nav-bsls-pill');
+    if (!hud || !pill) return false;
+    if (months.length === 0) {
+        hud.classList.remove('visible');
+        hud.style.display = 'none';
+        return false;
+    }
+
+    let vendors = Object.keys(matrix).sort((a, b) => (currentFilterStats.bslByVendor[b] || 0) - (currentFilterStats.bslByVendor[a] || 0));
+    if (vendors.length === 0) {
+        hud.classList.remove('visible');
+        hud.style.display = 'none';
+        return false;
+    }
+
+    let thHtml = months.map(m => `<th style="padding:8px 10px; text-align:right; color:#93c5fd; white-space:nowrap;">${m}</th>`).join('');
+    let rowsHtml = vendors.map(v => {
+        let tdHtml = months.map(m => {
+            let val = (matrix[v] && matrix[v][m]) || 0;
+            let color = val > 0 ? '#fafafa' : '#52525b';
+            return `<td style="padding:6px 10px; text-align:right; font-family:monospace; font-weight:900; color:${color};">${val > 0 ? val.toLocaleString() : '-'}</td>`;
+        }).join('');
+        return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:6px 10px; font-weight:800; color:#fafafa; border-right:1px solid #333338; white-space:nowrap;">${v}</td>${tdHtml}</tr>`;
+    }).join('');
+
+    hud.innerHTML = `
+        <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:#93c5fd; letter-spacing:0.5px; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:12px;">BSLs</div>
+        <table style="width:100%; border-collapse:collapse; font-size:11px;">
+            <thead>
+                <tr style="border-bottom:1px solid #333338;">
+                    <th style="padding:8px 10px; text-align:left; color:#93c5fd; border-right:1px solid #333338;">VENDOR</th>
+                    ${thHtml}
+                </tr>
+            </thead>
+            <tbody>
+                ${rowsHtml}
+            </tbody>
+        </table>
+    `;
+
+    let rect = pill.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.bottom + 12;
+    hud.style.display = 'flex';
+    hud.style.top = top + 'px';
+    hud.style.left = left + 'px';
+
+    requestAnimationFrame(() => {
+        if (hud.offsetWidth && left + hud.offsetWidth > window.innerWidth - 12) {
+            hud.style.left = Math.max(12, window.innerWidth - hud.offsetWidth - 12) + 'px';
+        }
+        if (top + hud.offsetHeight > window.innerHeight - 12) {
+            hud.style.top = Math.max(12, rect.top - hud.offsetHeight - 12) + 'px';
+        }
+        hud.classList.add('visible');
+    });
+    return true;
+}
+</script>

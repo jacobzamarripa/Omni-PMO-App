@@ -1,0 +1,78 @@
+<script>
+// ============================================================
+// FILE: _module_review_actions.html | ROLE: Review commit/skip, reviewed tray, email export, and AI draft for detail pane
+// DEPENDS ON: _state_queue.html, _state_session.html, _utils_notifications.html,
+//   _module_deck.html, _module_queue_state.html, _module_admin.html
+// DEPENDED ON BY: _module_webapp_core.html (skipReview, commitReview called from detail pane)
+// MOBILE/AGENT NOTES: skipReview and commitReview are wired via onclick in the detail
+//   pane HTML. moveItemToReviewed is owned by _module_deck.html. addToReviewedTray
+//   and persistReviewedTray are owned by _module_admin.html.
+// ============================================================
+
+function skipReview() {
+    safeExecute('skipReview', () => {
+        let item = currentActiveItem; item.comment = "Reviewed - No Action Required.";
+        currentActiveItem = null;
+        moveItemToReviewed(item, { comment: item.comment, action: 'skip' });
+        advanceAfterAction();
+    });
+}
+
+function commitReview() {
+    safeExecute('commitReview', () => {
+        let item = currentActiveItem; item.comment = getEl('p-comment').value;
+        currentActiveItem = null;
+        moveItemToReviewed(item, { comment: item.comment, action: 'commit' });
+        advanceAfterAction(); showToast(`✔ ${item.fdh} Committed`);
+    });
+}
+
+function promptEmailExport() {
+    if(committedItems.length === 0) return alert("No items to export!");
+    let defaultEmail = "";
+    let email = prompt("📧 Where should we email the Export CSV?\n\nEnter an email address:", defaultEmail);
+    if (!email || email.trim() === "") return;
+    let btn = getEl('btn-export-all'); if(btn) { btn.innerText = "Sending Email..."; btn.disabled = true; }
+    google.script.run.withSuccessHandler((msg) => {
+        alert(msg); clearReviewedTray(true); if(btn) { btn.innerText = "Export All"; btn.disabled = false; }
+    }).withFailureHandler((err) => {
+        alert("Error sending email: " + err.message); if(btn) { btn.innerText = "Export All"; btn.disabled = false; }
+    }).emailExportCSV(committedItems, email.trim());
+}
+
+function askGeminiForDraft(btn) {
+    if (!currentActiveItem) return;
+
+    let origText = btn.innerHTML;
+    btn.innerHTML = `DRAFTING...`;
+    btn.style.opacity = "0.7";
+    btn.disabled = true;
+
+    let payload = {
+        fdh: currentActiveItem.fdh,
+        vendor: currentActiveItem.vendor,
+        status: `${currentActiveItem.stage} | ${currentActiveItem.status}`,
+        targetDate: currentActiveItem.targetDate,
+        flags: currentActiveItem.flags,
+        vendorComment: currentActiveItem.vendorComment,
+        history: currentActiveItem.bench,
+        productionToday: currentActiveItem.summary
+    };
+
+    google.script.run
+        .withSuccessHandler(response => {
+            let textArea = document.getElementById('p-comment');
+            let dateEl = document.getElementById('p-gemini-date');
+            if (textArea) { textArea.value = response.text; textArea.dataset.generated = 'false'; }
+            if (dateEl) { dateEl.innerText = `Drafted: ${formatDate(response.date)}`; }
+            currentActiveItem.geminiInsight = response.text;
+            currentActiveItem.geminiDate = response.date;
+            btn.innerHTML = origText; btn.style.opacity = "1"; btn.disabled = false;
+        })
+        .withFailureHandler(err => {
+            alert("AI Error: " + err.message);
+            btn.innerHTML = origText; btn.style.opacity = "1"; btn.disabled = false;
+        })
+        .generateAndSaveFDHNarrative(payload);
+}
+</script>
