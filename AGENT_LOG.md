@@ -121,3 +121,12 @@
 - **Validation:** no diagnostics errors on `_styles_layout.html` and `WebApp.html`.
 - **Next:** Phase 8 — Filter bottom-sheet pattern for `.smart-dock` at phone width.
 
+> [!info] 2026-03-27: WS16 Phase 8 — Filter bottom sheet
+- **`_styles_responsive.html`:** upgraded `body.mobile-filter-open .filter-strip.smart-dock` from simple fixed rail to bounded sheet behavior:
+	- `max-height: 60vh`, `overflow-y: auto`, stronger elevation and top border treatment
+	- increased padding and spacing for touch-first filter controls
+- **Scrim depth:** added `body.mobile-filter-open::after` visual dim layer to separate filter context from workspace content while preserving existing JS open/close flow.
+- **Sheet affordance:** added drag-handle indicator via `.filter-strip.smart-dock::before` when open.
+- **Validation:** no diagnostics errors on `_styles_responsive.html`.
+- **Next:** Phase 9 — queue/detail push-pop transition animation.
+
