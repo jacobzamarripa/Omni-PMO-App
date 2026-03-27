@@ -51,9 +51,9 @@
 - [x] Optimized string-based rendering for Project Queue
 - [x] Debounced search handlers for high-frequency input
 - [x] CSS `content-visibility` for off-screen list performance
-- [ ] Animation frame audit (prevent layout shifts during transitions)
-- [ ] Virtual scroll evaluation for 500+ items
-- [ ] Canvas-based sparkline evaluation for Grid mode
+- [x] Animation frame audit (prevent layout shifts during transitions)
+- [x] Virtual scroll evaluation for 500+ items
+- [x] Canvas-based sparkline evaluation for Grid mode
 
 ---
 

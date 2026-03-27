@@ -8,8 +8,8 @@
 // ============================================================
 
 # Workstream 0 Checkpoint (condensed 2026-03-26)
-> WS15 complete (2026-03-27). Project renamed DPA → Omni PMO App across all platforms (commit a66a489).
-> Resume point: WS16 or WS13 remaining items — confirm with user.
+> WS13 complete (2026-03-27). All 6 performance items done. WS15 also complete.
+> Resume point: WS16 — define next scope with user.
 
 ---
 
@@ -59,7 +59,7 @@ WS[N] done. Clean session reset. Go.
 - [x] **WS10** (2026-03-24): Full mobile feature parity — Gantt quick peek, Gemini on mobile, KPI HUD, Critical Hub, Changelog/Review Hub, Deck workspace, shared rendering primitives extracted.
 - [x] **WS11** (2026-03-24): Visual redesign — transition tokens, slide animations, Fira Code typography, 3-level card depth. `_render_queue_card.html` WebApp cutover ⛔ deferred.
 - [x] **WS12** (2026-03-26): Single Responsive Surface — `MobileApp.html` + `_styles_mobile.html` retired, WebApp.html fully responsive (9 phases).
-- [ ] **WS13** (2026-03-26): Performance audit — 3 of 6 items done. Open: animation frame audit, virtual scroll eval, canvas sparkline eval.
+- [x] **WS13** (2026-03-27): Performance audit — all 6 items complete.
 - [x] **WS14** (2026-03-26): Stability-first modularization — 15+ modules extracted, `_module_webapp_core.html` reduced from 5,743 to 814 lines (8 phases).
 
 ---
