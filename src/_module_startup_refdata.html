@@ -8,6 +8,11 @@ let startupTimer;
 let startupCountdown = 6;
 
 function showStartupSelector() {
+    if (window.innerWidth <= 480) {
+        document.body.classList.remove('mobile-detail-open');
+        return completeStartup('detail');
+    }
+
     const overlay = getEl('startup-overlay');
     const countEl = getEl('startup-countdown');
     startupCountdown = 6;

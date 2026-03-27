@@ -309,6 +309,7 @@
       // WS16: clear detail view on phone, return to queue
       function closeMobileDetail() {
           document.body.classList.remove('mobile-detail-open');
+          setTxt('mobile-back-title', 'Project');
       }
 
       document.addEventListener('click', function(e) {

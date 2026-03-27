@@ -39,6 +39,18 @@
       
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background-color var(--transition-std), color var(--transition-std);}
 
+      @media (max-width: 480px) {
+        :root {
+          --m-gutter: 16px;
+          --m-row-pad: 16px;
+          --m-section: 20px;
+          --m-card-pad: 16px;
+          --m-touch: 52px;
+          --m-nav-h: 52px;
+          --m-rail-h: 56px;
+        }
+      }
+
       /*
        * WS12 Canonical Breakpoints (CSS vars cannot be used in @media — use px values directly)
        * Phone portrait:  max-width: 480px    (--bp-phone)
