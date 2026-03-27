@@ -54,6 +54,15 @@
 - **Bottom offsets updated:** `.inbox-sidebar`, `.reading-pane` bottom: `calc(56px + env(safe-area-inset-bottom) + 8px)`; `#gantt-panel` bottom: `calc(56px + env(safe-area-inset-bottom))`
 - **Net change:** 114 insertions, 703 deletions. Commit `37203ae`
 - **Next:** Phase 3 — rebuild queue + detail mobile flow on shared primitives
+
+> [!info] 2026-03-27: WS16 Phase 3 — Mobile queue ↔ detail flow on shared primitives
+- **`_styles_layout.html`:** `#mobile-back-btn { display: none; }` globally. Inside `@media (max-width: 480px)`: `.inbox-sidebar` visible by default; `body.mobile-detail-open .inbox-sidebar` hides it; `body.mobile-detail-open .reading-pane` reveals it as `flex`; `#mobile-back-btn` phone-only styles (44px touch target, accent color, border-bottom rule)
+- **`WebApp.html`:** `#mobile-back-btn` button injected inside `.reading-pane` above `.upper-workspace`; calls `closeMobileDetail()`; hidden on desktop, visible on phone via 480px CSS rule
+- **`_module_queue_state.html`:** `openPane()` calls `document.body.classList.add('mobile-detail-open')` when `window.innerWidth <= 480` — one line, CSS does the rest
+- **`_module_webapp_core.html`:** `closeMobileDetail()` added — removes `body.mobile-detail-open`, returns to queue view
+- **Contract alignment:** No DOM reparenting, no JS `display` overrides for mobile panels, startup phone state shows queue by default (`.inbox-sidebar` made visible by 480px CSS; no JS init needed)
+- **Net change:** 39 insertions, 0 deletions. Commit `a49733d`
+- **Next:** Phase 4 — rebuild review/admin interactions for mobile
 - **Deliverable:** `WORKSTREAM_16_PHASE1_CONTRACT.md` — authoritative pre-code constraints for the mobile rebuild.
 - **Navigation model:** `switchWorkspaceView()` is the single router on all viewports. `mSwitchView()` is deleted. New `#mobile-rail` markup calls shared router functions directly.
 - **Admin model:** `.reading-pane` never reparented. Admin opened via `setAdminPanelOpen(true)`. On phone, reading-pane goes full-screen via CSS (`position: fixed; inset: 0`).
