@@ -87,24 +87,11 @@
       }
       /* Shared focus properties */
       #deck-stage-card {
-        width: min(94vw, 1360px) !important;
-        max-width: min(94vw, 1360px) !important;
-        max-height: min(88vh, calc(100vh - 120px)) !important;
-        margin: 0 auto !important;
-        border-radius: 24px !important;
+        margin: 0 auto;
+        border-radius: 20px;
         cursor: default;
         transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
-        box-shadow: 0 80px 160px rgba(0,0,0,0.5);
-      }
-      /* Deck slide: rigid 16:9 */
-      #deck-stage-card {
-        width: 100% !important;
-        max-width: min(1280px, calc(100vw - 430px)) !important;
-        max-height: calc(100vh - 144px) !important;
-        height: auto !important;
-        aspect-ratio: 16 / 9 !important;
-        flex-shrink: 1 !important;
-        overflow: hidden;
+        box-shadow: 0 30px 60px rgba(15,23,42,0.15);
       }
       body.presentation-active #deck-stage-card {
         width: min(92vw, 1440px) !important;

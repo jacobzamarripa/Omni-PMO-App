@@ -3,6 +3,7 @@
   <head>
     <base target="_top">
     <!-- viewport set via addMetaTag() in doGet() per CLAUDE.md Rule #9 -->
+        <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%231d4ed8'/%3E%3Cstop offset='100%25' stop-color='%230ea5e9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='4' y='4' width='56' height='56' rx='14' fill='url(%23g)'/%3E%3Cpath d='M18 36c0-9 6-15 14-15 7 0 12 4 14 10h-8c-2-3-6-4-10-2-2 2-3 4-3 7 0 5 3 8 8 8 3 0 6-2 7-5h-8v-6h16v3c-1 9-8 15-16 15-8 0-14-6-14-15z' fill='white'/%3E%3C/svg%3E">
     <?!= include('_registry') ?>
     <?!= include('_styles_base') ?>
     <?!= include('_styles_layout') ?>
@@ -94,7 +95,10 @@
     
     <div class="top-nav">
       <div class="top-nav-left">
-        <div class="nav-brand">Omni PMO App</div>
+                <div class="nav-brand">
+                    <span class="nav-brand-title">Omni PMO Operations Intelligence Hub</span>
+                    <span class="nav-brand-signature">Crafted by Jacob Zamarripa</span>
+                </div>
 
         <div class="kpi-nav-container">
             <div class="kpi-hud-group">
@@ -474,7 +478,7 @@
                  </div>
               </div>
                  <div id="deck-stage" style="display:none; flex:1; flex-direction:column; padding:40px; overflow-y:auto; align-items:center; justify-content:center; box-sizing:border-box;">
-                <div id="deck-stage-card" style="width:100%; max-width:1100px; max-height:calc(100vh - 150px); aspect-ratio:16/9; height:auto; flex-shrink:1; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;"></div>
+                <div id="deck-stage-card" style="width:100%; max-width:1100px; max-height:75vh; aspect-ratio:16/9; height:auto; flex-shrink:1; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;"></div>
                 <div class="slide-action-deck" id="slide-action-deck">
                     <div class="slide-action-cluster">
                         <button class="dock-arrow prev" id="dock-nav-prev" onclick="navDeck(-1)">&#8249;</button>
@@ -564,14 +568,15 @@
                    </div>
 
             </div>
-            <div class="admin-dock" id="admin-dock">
-              <div class="admin-fab-anchor">
-                <button class="admin-fab" id="admin-fab" onclick="toggleAdminPanel()" title="Admin / Reviewed" aria-label="Open admin panel">
-                    <span class="admin-fab-icon">☰</span>
-                    <span class="admin-fab-badge" id="admin-fab-badge"></span>
-                </button>
-                </div>
-              </div>
+          </div>
+          <div class="admin-dock" id="admin-dock">
+            <div class="admin-fab-anchor">
+              <button class="admin-fab" id="admin-fab" onclick="toggleAdminPanel()" title="Admin / Reviewed" aria-label="Open admin panel">
+                  <span class="admin-fab-icon">☰</span>
+                  <span class="admin-fab-badge" id="admin-fab-badge"></span>
+              </button>
+              <button class="admin-panel-close" id="admin-panel-close" onclick="toggleAdminPanel()" title="Close panel" aria-label="Close admin panel">✕</button>
+            </div>
           </div>
         </div>
       </div>
