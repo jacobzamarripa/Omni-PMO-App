@@ -91,6 +91,6 @@
 - [x] Phase 6 — Native detail layout (hero header, stacked sections, hidden dock/strip)
 - [x] Phase 7 — Admin bottom sheet (`.outbox-pane` as sliding sheet at `≤480px`)
 - [x] Phase 8 — Filter bottom sheet (`.smart-dock` as sheet behind `body.mobile-filter-open`)
-- [ ] Phase 9 — View transitions (CSS push/pop animation for queue↔detail)
-- [ ] Phase 10 — Gantt + Deck mobile (horizontal scroll, swipe nav)
+- [x] Phase 9 — View transitions (CSS push/pop animation for queue↔detail; fixes queue auto-open bug)
+- [x] Phase 10 — Gantt mobile (auto-show full-screen in landscape; no rail button; restore on portrait)
 - [ ] Phase 11 — Cross-device validation matrix
