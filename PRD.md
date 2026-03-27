@@ -89,7 +89,7 @@
 - [x] Phase 4 — Mobile design tokens + rail polish (icon-only rail, `--m-*` tokens, `#mobile-back-btn` nav bar, startup skip)
 - [x] Phase 5 — Native queue list (iOS 2-line rows, large nav title, hidden density elements)
 - [x] Phase 6 — Native detail layout (hero header, stacked sections, hidden dock/strip)
-- [ ] Phase 7 — Admin bottom sheet (`.outbox-pane` as sliding sheet at `≤480px`)
+- [x] Phase 7 — Admin bottom sheet (`.outbox-pane` as sliding sheet at `≤480px`)
 - [ ] Phase 8 — Filter bottom sheet (`.smart-dock` as sheet behind `body.mobile-filter-open`)
 - [ ] Phase 9 — View transitions (CSS push/pop animation for queue↔detail)
 - [ ] Phase 10 — Gantt + Deck mobile (horizontal scroll, swipe nav)

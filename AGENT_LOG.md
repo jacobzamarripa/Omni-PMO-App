@@ -108,3 +108,16 @@
 - **Validation:** no diagnostics errors on `_styles_responsive.html` and `_styles_panels.html`.
 - **Next:** Phase 7 — Admin bottom-sheet pattern for `.outbox-pane` on phone.
 
+> [!info] 2026-03-27: WS16 Phase 7 — Admin bottom sheet
+- **`_styles_layout.html`:** added `.outbox-overlay.open { display:block; }` so JS class toggles now actually reveal overlay dimmer.
+- **`_styles_layout.html`:** phone-only `.outbox-pane` converted to bottom-sheet geometry:
+	- `position: fixed`, anchored above mobile rail
+	- `height: min(70vh, 560px)` with rounded top corners
+	- slide animation via `transform: translateY(110%)` → `.open` => `translateY(0)`
+	- stronger elevation and blur for native sheet depth
+	- drag-handle affordance via `.outbox-pane::before`
+- **`_styles_layout.html`:** hidden floating admin affordances on phone (`.admin-fab-anchor`, `#admin-fab`, `#admin-panel-close`) to prevent collisions with sheet controls.
+- **`WebApp.html`:** added `☰ Review Hub` action to mobile hamburger menu (`toggleAdminPanel(); toggleMobileMenu()`) as the explicit entry point for sheet open/close.
+- **Validation:** no diagnostics errors on `_styles_layout.html` and `WebApp.html`.
+- **Next:** Phase 8 — Filter bottom-sheet pattern for `.smart-dock` at phone width.
+
