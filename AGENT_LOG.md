@@ -84,3 +84,17 @@
 - **Validation:** no errors reported by VS Code diagnostics on changed files.
 - **Next:** Phase 5 — Native queue list (large title, two-line row treatment, hidden density controls).
 
+> [!info] 2026-03-27: WS16 Phase 5 — Native queue list
+- **`WebApp.html`:** added `#mobile-queue-search` inside `.inbox-header` (`.mobile-queue-search-wrap`) and wired to `handleSearchInput(event)`.
+- **`_module_queue_state.html`:** `handleSearchInput()` now syncs desktop `#search-input` and phone `#mobile-queue-search` values bidirectionally before debounce; `applyFilters()` now reads search term from either input and applies active state to both fields.
+- **`_module_queue_state.html`:** list-card template changed to two-line identity (`FDH` + `City · Vendor`) with right-side chevron affordance (`.em-chevron`), preserving status pill.
+- **`_module_queue_state.html`:** `applyViewMode()` forces queue mode from `grid` to `inbox` on `<=480px` to prevent desktop grid cards from leaking into phone queue.
+- **`_styles_badges.html`:** phone-only native queue stylesheet:
+	- large queue title treatment (`Queue` 28px), compact count pill
+	- hide density controls (`#view-toggle-btn`, `#sort-queue`, `#sidebar-pivot-select`)
+	- mobile search field visual style (52px target, 16px font, active ring)
+	- hide `.queue-group-header` on phone
+	- convert `.email-card` to row pattern (52px min touch, 2-line text, no hover lift, hidden `.em-tags`, visible chevron)
+- **Validation:** no errors on `WebApp.html`, `_module_queue_state.html`, `_styles_badges.html`.
+- **Next:** Phase 6 — Native detail layout (hero + stacked sections, dock/strip minimization).
+
