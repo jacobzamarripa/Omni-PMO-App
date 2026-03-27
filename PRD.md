@@ -77,12 +77,20 @@
 
 ---
 
-## Workstream 16 — Mobile Architecture Rebuild
+## Workstream 16 — Mobile Native Redesign
 
-- [x] Phase 0 — Mobile debt audit + salvage map (`src/_styles_responsive.html`, `src/_module_mobile_nav.html`, `src/WebApp.html`)
-- [x] Phase 1 — Mobile shell contract reset (viewport zones, nav model, z-index, touch targets) → `WORKSTREAM_16_PHASE1_CONTRACT.md`
-- [x] Phase 2 — Remove mobile-exclusive legacy surfaces (bottom sheets / polymorphic dock / duplicate mobile menu paths)
-- [x] Phase 3 — Rebuild queue + detail mobile flow on shared primitives
-- [ ] Phase 4 — Rebuild review/admin interactions for mobile (no panel collisions, no blocked dock actions)
-- [ ] Phase 5 — Rebuild Gantt + deck mobile behavior with explicit orientation rules
-- [ ] Phase 6 — Cross-device smoke matrix + desktop regression pass
+> **Design spec:** `WORKSTREAM_16_NATIVE_DESIGN.md`
+> **Philosophy:** Mobile is not the desktop app scaled down. It is a purpose-built native surface sharing the same data layer, routing contract, and state model. Target: intuitive, iOS-native UX feel.
+
+- [x] Phase 0 — Mobile debt audit + salvage map
+- [x] Phase 1 — Shell contract reset (viewport zones, nav model, z-index) → `WORKSTREAM_16_PHASE1_CONTRACT.md`
+- [x] Phase 2 — Remove WS12 legacy surfaces; scaffold `#mobile-rail`
+- [x] Phase 3 — Queue↔detail switching mechanism (`body.mobile-detail-open` CSS pattern)
+- [ ] Phase 4 — Mobile design tokens + rail polish (icon-only rail, `--m-*` tokens, `#mobile-back-btn` nav bar, startup skip)
+- [ ] Phase 5 — Native queue list (iOS 2-line rows, large nav title, hidden density elements)
+- [ ] Phase 6 — Native detail layout (hero header, stacked sections, hidden dock/strip)
+- [ ] Phase 7 — Admin bottom sheet (`.outbox-pane` as sliding sheet at `≤480px`)
+- [ ] Phase 8 — Filter bottom sheet (`.smart-dock` as sheet behind `body.mobile-filter-open`)
+- [ ] Phase 9 — View transitions (CSS push/pop animation for queue↔detail)
+- [ ] Phase 10 — Gantt + Deck mobile (horizontal scroll, swipe nav)
+- [ ] Phase 11 — Cross-device validation matrix
