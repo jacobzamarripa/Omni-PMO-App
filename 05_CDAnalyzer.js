@@ -2,7 +2,7 @@
 // 05_CDAnalyzer.js — CD Special Crossings Analyzer
 // Reads PDFs from a Drive folder, sends each to Gemini 2.5 Pro
 // for OSP analysis, and writes one row per PDF to the
-// "7-CD_Special_Xings" sheet in Daily_Production_Analyzer.
+// "7-CD_Special_Xings" sheet in Omni-PMO-App.
 // ============================================================
 
 // ── CONFIG ──────────────────────────────────────────────────

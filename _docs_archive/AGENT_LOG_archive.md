@@ -1,4 +1,4 @@
-# Agent Log - Daily Production Analyzer
+# Agent Log - Omni PMO App
 
 > [!info] 2026-03-26: WS14 Phase 8 Prep — Runtime Hardening Slice
 - **Scope:** Resolve post-modularization loading and dashboard render crashes after Phase 7 extraction work.
