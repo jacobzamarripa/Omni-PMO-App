@@ -14,8 +14,14 @@
 > - GAS script ID unchanged — Web App URL stable, triggers confirmed active
 > - Smoke test: passed (clasp push ✓, Web App loads ✓, triggers active ✓)
 
-> [!info] 2026-03-27: Session checkpoint — unresolved runtime visibility investigation
-> - Investigated UI regressions around calculator z-index, admin/deck close controls, dock clearance, raw data strip highlight/centering, and deck slide viewport sizing.
-> - Local source changed and editor reported no syntax errors, but user reports some pushed/redeployed changes still not visible in live GAS web app.
-> - Strong suspicion: runtime behavior still blocked by served deployment mismatch, later overrides, or label/header mismatch in raw strip hover mapping.
-> - Next recommended step: inspect served deployment HTML/JS in browser devtools or hand repo to Codex for root-cause analysis before more blind patches.
+> [!info] 2026-03-27: Session checkpoint — runtime visibility investigation (COMPLETE)
+- **Resolved (User):** 1 (Calculator z-index), 2 (Admin/Deck controls), 3 (Dock clearance), 5 (Deck viewports).
+- **Resolved (Gemini):** 4 (Raw Data Strip) — Fixed highlighting and centering misalignment.
+- **Fix (Item 4):** Refactored `hl()` in `_module_webapp_core.html` to use `getBoundingClientRect` for relative centering within the scrollable strip (accounting for table/padding offsets). Expanded the `aliasMap` to improve matching for key headers like `BSLs`, `CX Start`, and `Construction Comments`.
+- **Note:** All 5 items from the "Visibility Investigation" are now closed.
+
+> [!info] 2026-03-27: Context Hygiene — Archive Purge & AI Focus
+- **Archive Purge:** Deleted `_archive` directory (7 files, ~11k lines) to prevent AI context poisoning. Code remains accessible via git history.
+- **AI Focus:** Created `.geminiignore` to skip `_docs_archive` and system noise (`node_modules`, etc.) during agentic searches.
+- **Sync:** Mirrored state to Obsidian vault (01_Projects/Omni-PMO-App).
+

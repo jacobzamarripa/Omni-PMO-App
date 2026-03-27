@@ -618,22 +618,27 @@
           if (!strip) return;
           strip.querySelectorAll('.raw-highlight').forEach(el => el.classList.remove('raw-highlight'));
           if (!headerName) return;
+
           let normalizeHeader = function(value) {
               return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
           };
           let wanted = normalizeHeader(headerName);
           let aliasMap = {
-              'budget ofs': ['budget ofs', 'ofs', 'budget ofs date'],
+              'budget ofs': ['budget ofs', 'ofs', 'budget ofs date', 'ofs date'],
               'target completion date': ['target completion date', 'target date'],
               'status': ['status', 'qb status'],
-              'health flags': ['health flags', 'flags', 'system flags'],
-              'action required': ['action required', 'manager comment', 'pm note', 'comment'],
-              'vendor comment': ['vendor comment', 'comment'],
-              'qb context gaps': ['qb context gaps', 'qb context', 'gaps'],
+              'health flags': ['health flags', 'flags', 'system flags', 'action required'],
+              'action required': ['action required', 'manager comment', 'pm note', 'comment', 'health flags'],
+              'vendor comment': ['vendor comment', 'comment', 'construction comments'],
+              'qb context gaps': ['qb context gaps', 'qb context', 'gaps', 'x ing yes'],
               'light to cabinets': ['light to cabinets', 'light'],
-              'hhps': ['hhps', 'bsls']
+              'hhps': ['hhps', 'bsls', 'hhps'],
+              'cx start': ['cx start', 'cx start date'],
+              'cx complete': ['cx complete', 'cx complete date'],
+              'date': ['date', 'report date']
           };
           let candidateTerms = aliasMap[wanted] || [wanted];
+          
           let scoreHeader = function(actualHeader) {
               let actual = normalizeHeader(actualHeader);
               if (!actual || !candidateTerms.length) return -1;
@@ -641,6 +646,7 @@
               candidateTerms.forEach(function(term) {
                   if (!term) return;
                   if (actual === term) best = Math.max(best, 100);
+                  else if (actual === wanted) best = Math.max(best, 95); // Direct input match wins over some aliases
                   else if (actual.indexOf(term) !== -1 || term.indexOf(actual) !== -1) best = Math.max(best, 75);
                   else {
                       let actualTokens = actual.split(' ').filter(Boolean);
@@ -657,17 +663,35 @@
           allCells.forEach(function(el) {
               bestScore = Math.max(bestScore, scoreHeader(el.getAttribute('data-header')));
           });
+          
           let matches = allCells.filter(function(el) {
               return scoreHeader(el.getAttribute('data-header')) === bestScore && bestScore > 0;
           });
+          
           matches.forEach(function(el) { el.classList.add('raw-highlight'); });
+          
           let dataCell = matches.find(function(el) { return el.tagName === 'TD'; }) || matches[0];
           if (dataCell) {
               window.clearTimeout(window._rawStripCenterTimer);
               window._rawStripCenterTimer = window.setTimeout(function() {
-                  let targetLeft = dataCell.offsetLeft - Math.max(0, (strip.clientWidth - dataCell.offsetWidth) / 2);
+                  // Use getBoundingClientRect for absolute relative positioning within the scroll container
+                  const stripRect = strip.getBoundingClientRect();
+                  const cellRect = dataCell.getBoundingClientRect();
+                  const scrollLeft = strip.scrollLeft;
+                  
+                  // targetLeft is the position of the cell relative to the start of the scroll content
+                  // (cellRect.left - stripRect.left) gives current visible offset
+                  // Adding scrollLeft gives absolute offset from content start
+                  const absoluteCellLeft = scrollLeft + (cellRect.left - stripRect.left);
+                  const centerOffset = (stripRect.width - cellRect.width) / 2;
+                  
+                  let targetLeft = absoluteCellLeft - Math.max(0, centerOffset);
                   let maxLeft = Math.max(0, strip.scrollWidth - strip.clientWidth);
-                  strip.scrollTo({ left: Math.min(Math.max(0, targetLeft), maxLeft), behavior: 'smooth' });
+                  
+                  strip.scrollTo({ 
+                      left: Math.min(Math.max(0, targetLeft), maxLeft), 
+                      behavior: 'smooth' 
+                  });
               }, 40);
           }
       }
