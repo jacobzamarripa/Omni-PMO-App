@@ -4,3 +4,9 @@ docs/**
 .DS_Store
 .gitignore
 .clasp.json
+*.md
+package.json
+package-lock.json
+jsconfig.json
+_archive/**
+_docs_archive/**
