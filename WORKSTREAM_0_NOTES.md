@@ -8,8 +8,8 @@
 // ============================================================
 
 # Workstream 0 Checkpoint (condensed 2026-03-26)
-> WS14 complete (2026-03-26). WS15 (Naming Realignment) starting next. WS13 performance items deferred.
-> Resume point: WS15 — define scope and begin Phase 1.
+> WS15 complete (2026-03-27). Project renamed DPA → Omni PMO App across all platforms (commit a66a489).
+> Resume point: WS16 or WS13 remaining items — confirm with user.
 
 ---
 

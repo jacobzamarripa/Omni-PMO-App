@@ -1,7 +1,7 @@
-# PRD.md — Daily Production Analyzer
+# PRD.md — Omni PMO App
 
 > Workstream progress tracker. Update checkboxes as phases complete.
-> Mirror to Obsidian at: 01_Projects/Daily_Production_Analyzer/Daily_Production_Analyzer_PRD.md
+> Mirror to Obsidian at: 01_Projects/Omni PMO App/OmniPMO_PRD.md
 
 ---
 
@@ -71,6 +71,6 @@
 
 ---
 
-## Workstream 15 — Naming Realignment (Active)
+## Workstream 15 — Naming Realignment ✅ Complete
 
-- [ ] Phase 1 — TBD
+- [x] Phase 1 — Full rename: DPA → Omni PMO App (directory, 8 files, GitHub, GAS title, Obsidian)
