@@ -90,6 +90,17 @@
               document.documentElement.style.setProperty('--dock-clearance-top', `${Math.ceil(navRect.bottom + 10)}px`);
           }
 
+          let contentOffset = 88;
+          if (dock && workspace) {
+              let workspaceRect = workspace.getBoundingClientRect();
+              let dockRect = dock.getBoundingClientRect();
+              if (dockRect.width > 0 && dockRect.height > 0) {
+                  contentOffset = Math.max(88, Math.ceil((dockRect.bottom - workspaceRect.top) + 14));
+              }
+          }
+          document.documentElement.style.setProperty('--dock-content-offset', `${contentOffset}px`);
+          document.documentElement.style.setProperty('--deck-card-max-height', `${Math.max(340, Math.floor(window.innerHeight - contentOffset - 132))}px`);
+
           if (!dock || !workspace || window.innerWidth <= 768 || window.innerWidth > 1800 || currentWorkspaceView === 'gantt') {
               document.documentElement.style.setProperty('--dock-panel-offset', '0px');
               body.classList.remove('dock-clearance-active');
@@ -335,8 +346,9 @@
       function syncRawDataStripState() {
           const strip = getEl('raw-data-strip');
           if (!strip) return;
-          const shouldShow = currentWorkspaceView === 'detail' && currentActiveItem && Array.isArray(currentActiveItem.rawRow) && currentActiveItem.rawRow.length > 0;
+          const shouldShow = currentWorkspaceView === 'detail' && currentDetailFace === 'detail' && currentActiveItem && Array.isArray(currentActiveItem.rawRow) && currentActiveItem.rawRow.length > 0;
           strip.style.display = shouldShow ? 'flex' : 'none';
+          document.documentElement.style.setProperty('--raw-strip-height', shouldShow ? `${strip.offsetHeight || 52}px` : '0px');
           if (!shouldShow) {
               strip.innerHTML = '';
               strip.style.opacity = '1';
@@ -602,10 +614,62 @@
       }
 
       function hl(headerName) {
-          document.querySelectorAll('.raw-highlight').forEach(el => el.classList.remove('raw-highlight'));
-          if(!headerName) return; let safeName = headerName.replace(/"/g, '&quot;');
-          let els = document.querySelectorAll(`[data-header="${safeName}"]`); els.forEach(el => el.classList.add('raw-highlight'));
-          if(els.length > 0) { let strip = getEl('raw-data-strip'); if(strip) { let elRect = els[0].getBoundingClientRect(); let stripRect = strip.getBoundingClientRect(); if(elRect.left < stripRect.left || elRect.right > stripRect.right) els[0].scrollIntoView({behavior: "smooth", inline: "center", block: "nearest"}); } }
+          let strip = getEl('raw-data-strip');
+          if (!strip) return;
+          strip.querySelectorAll('.raw-highlight').forEach(el => el.classList.remove('raw-highlight'));
+          if (!headerName) return;
+          let normalizeHeader = function(value) {
+              return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+          };
+          let wanted = normalizeHeader(headerName);
+          let aliasMap = {
+              'budget ofs': ['budget ofs', 'ofs', 'budget ofs date'],
+              'target completion date': ['target completion date', 'target date'],
+              'status': ['status', 'qb status'],
+              'health flags': ['health flags', 'flags', 'system flags'],
+              'action required': ['action required', 'manager comment', 'pm note', 'comment'],
+              'vendor comment': ['vendor comment', 'comment'],
+              'qb context gaps': ['qb context gaps', 'qb context', 'gaps'],
+              'light to cabinets': ['light to cabinets', 'light'],
+              'hhps': ['hhps', 'bsls']
+          };
+          let candidateTerms = aliasMap[wanted] || [wanted];
+          let scoreHeader = function(actualHeader) {
+              let actual = normalizeHeader(actualHeader);
+              if (!actual || !candidateTerms.length) return -1;
+              let best = -1;
+              candidateTerms.forEach(function(term) {
+                  if (!term) return;
+                  if (actual === term) best = Math.max(best, 100);
+                  else if (actual.indexOf(term) !== -1 || term.indexOf(actual) !== -1) best = Math.max(best, 75);
+                  else {
+                      let actualTokens = actual.split(' ').filter(Boolean);
+                      let termTokens = term.split(' ').filter(Boolean);
+                      let overlap = termTokens.filter(function(token) { return actualTokens.indexOf(token) !== -1; }).length;
+                      if (overlap > 0) best = Math.max(best, overlap * 20);
+                  }
+              });
+              return best;
+          };
+
+          let allCells = Array.from(strip.querySelectorAll('[data-header]'));
+          let bestScore = -1;
+          allCells.forEach(function(el) {
+              bestScore = Math.max(bestScore, scoreHeader(el.getAttribute('data-header')));
+          });
+          let matches = allCells.filter(function(el) {
+              return scoreHeader(el.getAttribute('data-header')) === bestScore && bestScore > 0;
+          });
+          matches.forEach(function(el) { el.classList.add('raw-highlight'); });
+          let dataCell = matches.find(function(el) { return el.tagName === 'TD'; }) || matches[0];
+          if (dataCell) {
+              window.clearTimeout(window._rawStripCenterTimer);
+              window._rawStripCenterTimer = window.setTimeout(function() {
+                  let targetLeft = dataCell.offsetLeft - Math.max(0, (strip.clientWidth - dataCell.offsetWidth) / 2);
+                  let maxLeft = Math.max(0, strip.scrollWidth - strip.clientWidth);
+                  strip.scrollTo({ left: Math.min(Math.max(0, targetLeft), maxLeft), behavior: 'smooth' });
+              }, 40);
+          }
       }
 
       /* 🧠 Touch-safe HUD Positioning */

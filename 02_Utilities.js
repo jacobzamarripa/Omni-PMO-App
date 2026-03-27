@@ -174,7 +174,7 @@ function onOpen() {
 function doGet(e) {
   return HtmlService.createTemplateFromFile('WebApp')
     .evaluate()
-    .setTitle('Production Hub')
+    .setTitle('Omni PMO App')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }

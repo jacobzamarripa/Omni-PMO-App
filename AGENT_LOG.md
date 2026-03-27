@@ -13,3 +13,9 @@
 > - Updated git remote → `github.com/jacobzamarripa/Omni-PMO-App.git` — pushed to main (commit 7d2522a)
 > - GAS script ID unchanged — Web App URL stable, triggers confirmed active
 > - Smoke test: passed (clasp push ✓, Web App loads ✓, triggers active ✓)
+
+> [!info] 2026-03-27: Session checkpoint — unresolved runtime visibility investigation
+> - Investigated UI regressions around calculator z-index, admin/deck close controls, dock clearance, raw data strip highlight/centering, and deck slide viewport sizing.
+> - Local source changed and editor reported no syntax errors, but user reports some pushed/redeployed changes still not visible in live GAS web app.
+> - Strong suspicion: runtime behavior still blocked by served deployment mismatch, later overrides, or label/header mismatch in raw strip hover mapping.
+> - Next recommended step: inspect served deployment HTML/JS in browser devtools or hand repo to Codex for root-cause analysis before more blind patches.
