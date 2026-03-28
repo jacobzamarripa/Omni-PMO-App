@@ -833,9 +833,24 @@
 
       // TODO: DOM-COUPLED - extract after state layer is isolated
       // BOOTSTRAP ANCHOR: owns first payload fetch, viewport handoff, splash timeout, and startup error UI
+      // WS16 Phase 10: gantt scroll hint (phone only, once per session)
+      function showGanttScrollHint() {
+          if (window.innerWidth > 480) return;
+          try { if (sessionStorage.getItem('gantt_hint_ok')) return; } catch(e) {}
+          const h = document.getElementById('gantt-scroll-hint');
+          if (h) h.style.display = 'flex';
+      }
+      function dismissGanttScrollHint() {
+          const h = document.getElementById('gantt-scroll-hint');
+          if (h) h.style.display = 'none';
+          try { sessionStorage.setItem('gantt_hint_ok', '1'); } catch(e) {}
+      }
+
       window.onload = function() {
           reportStartupPhase('window-onload');
           if (checkViewportHandOff()) return;
+
+          initDeckSwipe();
 
           /* Keyboard avoidance: float dock above iOS software keyboard */
           if (window.visualViewport) {

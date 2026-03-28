@@ -673,5 +673,45 @@
         flex-shrink: 0;
     }
     .m-sf-clear-btn:active { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+
+    /* ── Phase 10: Gantt — horizontal scroll lane ── */
+    .gantt-controls { display: none !important; }
+    .timeline-wrapper {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior-x: contain !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+    }
+    .timeline-container { min-width: max-content !important; }
+    .gantt-label { width: 90px !important; }
+    .gantt-grid-container { left: 90px !important; }
+    .gantt-scroll-hint {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: color-mix(in srgb, var(--accent) 8%, transparent);
+        border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+        font-size: 12px; font-weight: 600;
+        color: var(--accent);
+        flex-shrink: 0;
+    }
+    .gantt-hint-dismiss {
+        margin-left: auto;
+        background: none; border: none;
+        color: var(--text-muted); font-size: 14px;
+        cursor: pointer; padding: 0 4px; line-height: 1;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Phase 10: Deck — full-screen stage on phone ── */
+    #deck-stage {
+        padding: 0 !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+        overflow: hidden !important;
+    }
 }
 </style>

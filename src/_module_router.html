@@ -192,6 +192,7 @@ function switchWorkspaceView(mode) {
             if (paneContent) paneContent.style.display = 'none';
             if (deckStage) deckStage.style.display = 'none';
             if (ganttPanel) ganttPanel.style.display = 'flex';
+            if (typeof showGanttScrollHint === 'function') showGanttScrollHint();
             applyFilters();
         }
 

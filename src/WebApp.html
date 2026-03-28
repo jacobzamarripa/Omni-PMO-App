@@ -678,6 +678,13 @@
     </div>
 
     <div class="gantt-panel" id="gantt-panel">
+        <!-- WS16 Phase 10: phone horizontal-scroll hint (shown by JS on ≤480px) -->
+        <div id="gantt-scroll-hint" class="gantt-scroll-hint" style="display:none;" aria-live="polite">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0;"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Swipe to scroll timeline</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+            <button class="gantt-hint-dismiss" onclick="dismissGanttScrollHint()" aria-label="Dismiss hint">✕</button>
+        </div>
         <div class="gantt-controls" id="gantt-controls">
             <div class="gantt-pill">
                 <div style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--text-muted);">Global Construction Timeline</div>
