@@ -268,19 +268,36 @@ body.mobile-detail-open .v2-shell-signalstack .reading-pane {
   transform: translateX(0) scale(1);
 }
 
-.v2-shell-signalstack .inbox-header {
-  position: relative;
+.v2-shell-signalstack .inbox-sidebar > .inbox-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
   display: grid;
   gap: 12px;
-  padding: 18px 18px 14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  padding: 18px 18px 22px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 100%),
-    linear-gradient(135deg, color-mix(in srgb, var(--card-bg) 95%, transparent), color-mix(in srgb, var(--bg) 36%, var(--card-bg)));
+    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 86%, transparent) 0%, color-mix(in srgb, var(--card-bg) 68%, transparent) 56%, transparent 100%),
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 46%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
-.v2-shell-signalstack .inbox-header::after {
+.v2-shell-signalstack .inbox-sidebar > .inbox-header::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 14%, transparent), transparent);
+  pointer-events: none;
+}
+
+.v2-shell-signalstack .inbox-sidebar > .inbox-header::after {
   content: "Ambient queue surface";
+  position: relative;
   font-size: 11px;
   font-weight: 800;
   color: var(--text-muted);
@@ -340,9 +357,19 @@ body.mobile-detail-open .v2-shell-signalstack .reading-pane {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 10px 12px 120px;
+  padding: 146px 12px 120px;
   background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 14%, transparent) 0, transparent 18%),
     linear-gradient(180deg, transparent 0, color-mix(in srgb, var(--bg) 24%, transparent) 100%);
+  scrollbar-width: none;
+}
+
+.v2-shell-signalstack .inbox-list::-webkit-scrollbar,
+.v2-shell-signalstack .pane-content::-webkit-scrollbar,
+.v2-shell-signalstack #admin-pane-content::-webkit-scrollbar,
+.v2-shell-signalstack #outbox-list::-webkit-scrollbar,
+.v2-shell-signalstack #changelog-list::-webkit-scrollbar {
+  display: none;
 }
 
 .v2-shell-signalstack .email-card,
@@ -351,11 +378,12 @@ body.mobile-detail-open .v2-shell-signalstack .reading-pane {
   margin-bottom: 12px;
   padding: 16px 16px 14px !important;
   border-radius: 22px !important;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent) !important;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 96%, transparent), color-mix(in srgb, var(--bg) 20%, var(--card-bg))) !important;
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08) !important;
+    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 92%, transparent), color-mix(in srgb, var(--bg) 16%, var(--card-bg))) !important;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06) !important;
   transform: none !important;
+  overflow: hidden;
 }
 
 .v2-shell-signalstack .email-card::before {
@@ -367,18 +395,88 @@ body.mobile-detail-open .v2-shell-signalstack .reading-pane {
   width: 4px;
   border-radius: 999px;
   background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 22%, transparent));
-  opacity: 0.36;
+  opacity: 0.18;
+}
+
+.v2-shell-signalstack .email-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.12), transparent 32%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.v2-shell-signalstack .email-card .em-fdh {
+  font-size: 16px !important;
+  letter-spacing: -0.04em;
+}
+
+.v2-shell-signalstack .email-card .em-vendor {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.v2-shell-signalstack .email-card .glass-pill {
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.v2-shell-signalstack .email-card.crit {
+  border-color: color-mix(in srgb, var(--color-critical) 34%, var(--border)) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-critical) 10%, var(--card-bg)), color-mix(in srgb, var(--bg) 12%, var(--card-bg))) !important;
+  box-shadow: 0 18px 36px rgba(239, 68, 68, 0.16) !important;
+}
+
+.v2-shell-signalstack .email-card.crit::before {
+  width: 6px;
+  opacity: 0.94;
+  background: linear-gradient(180deg, var(--color-critical), color-mix(in srgb, var(--color-critical) 18%, transparent));
+}
+
+.v2-shell-signalstack .email-card.crit .em-fdh {
+  font-size: 18px !important;
+}
+
+.v2-shell-signalstack .email-card.warn {
+  border-color: color-mix(in srgb, var(--color-review) 32%, var(--border)) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-review) 10%, var(--card-bg)), color-mix(in srgb, var(--bg) 14%, var(--card-bg))) !important;
+}
+
+.v2-shell-signalstack .email-card.warn::before {
+  opacity: 0.72;
+  background: linear-gradient(180deg, var(--color-review), color-mix(in srgb, var(--color-review) 24%, transparent));
+}
+
+.v2-shell-signalstack .email-card.ghost {
+  opacity: 0.72;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04) !important;
+}
+
+.v2-shell-signalstack .email-card:not(.crit):not(.warn):not(.ghost) {
+  opacity: 0.88;
 }
 
 .v2-shell-signalstack .email-card.selected {
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--border)) !important;
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border)) !important;
   box-shadow:
-    0 22px 40px rgba(59, 130, 246, 0.16),
+    0 22px 40px rgba(59, 130, 246, 0.18),
     0 8px 18px rgba(15, 23, 42, 0.08) !important;
+}
+
+.v2-shell-signalstack .email-card.selected::before {
+  opacity: 1;
 }
 
 .v2-shell-signalstack .em-chevron {
   opacity: 1 !important;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--card-bg));
+  color: var(--accent);
 }
 
 .v2-ss-endcap {
@@ -533,6 +631,65 @@ body.mobile-detail-open .v2-shell-signalstack .reading-pane {
   border: none !important;
 }
 
+.v2-ss-priority-module {
+  padding-top: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 52%),
+    color-mix(in srgb, var(--card-bg) 96%, transparent) !important;
+}
+
+.v2-ss-priority-module .qb-module-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.v2-ss-priority-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-insight) 14%, var(--card-bg));
+  color: var(--color-insight);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.v2-ss-priority-module .comment-area {
+  display: grid;
+  gap: 12px;
+}
+
+.v2-ss-priority-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+.v2-ss-priority-note {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-insight);
+}
+
+.v2-shell-signalstack .v2-ss-priority-module .review-actions {
+  position: sticky;
+  bottom: 0;
+  padding-top: 10px;
+  padding-bottom: 2px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--card-bg) 94%, transparent) 36%);
+}
+
 .v2-shell-signalstack .qb-module-header {
   padding: 0 0 12px !important;
   font-size: 11px !important;
@@ -569,6 +726,11 @@ body.mobile-detail-open .v2-shell-signalstack .reading-pane {
 }
 
 .v2-shell-signalstack .interaction-split {
+  display: grid;
+  gap: 12px;
+}
+
+.v2-ss-diagnostics-grid {
   display: grid;
   gap: 12px;
 }
@@ -1140,20 +1302,42 @@ body.dark-mode.v2-shell-signalstack #mobile-sf-sheet {
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    <div class="qb-module" id="velocity-production-card">
-                      <div class="qb-module-header" style="background:transparent; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-                        <span>Field Velocity & Production</span>
-                        <div id="p-light-pill" style="display:flex; align-items:center; gap:6px; font-size:10px; font-weight:800;" onmouseenter="hl('Light to Cabinets')" onmouseleave="hl('')"></div>
-                      </div>
-                      <div class="velocity-grid" id="p-prod-bars"></div>
-                      <div class="qb-vel-footer">
-                        <div style="font-size:10px; font-weight:900; color:var(--text-muted);" id="p-days-left">DAYS LEFT: 0</div>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                          <div id="p-tracker-pill" style="display:none;"></div>
-                          <div class="vel-footer-pill hover-trigger" id="p-bsls" onmouseenter="hl('HHPs')" onmouseleave="hl('')" style="cursor:pointer;">BSLS:</div>
-                          <div class="vel-footer-pill hover-trigger" id="p-ofs" onmouseenter="hl('Budget OFS')" onmouseleave="hl('')" style="cursor:pointer; display:none;">OFS:</div>
+                  <div class="qb-module v2-ss-priority-module">
+                    <div class="qb-module-header" style="background:transparent; border-bottom:1px solid var(--border);">
+                      <span>Primary Review Action</span>
+                      <span class="v2-ss-priority-tag">One-Handed</span>
+                    </div>
+
+                    <div class="comment-area hover-trigger" onmouseenter="hl('Action Required')" onmouseleave="hl('')">
+                      <div class="v2-ss-priority-meta">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                          <div class="v2-ss-priority-note">PM Note</div>
+                          <button class="btn-ai" onclick="askGeminiForDraft(this)">Draft W/Gemini</button>
                         </div>
+                        <div id="p-gemini-date" style="font-size:9px; font-style:italic; color:#a855f7;"></div>
+                      </div>
+                      <textarea id="p-comment" class="chat-bubble" oninput="this.dataset.generated='false'"></textarea>
+                      <div class="review-actions">
+                        <button class="btn btn-skip" onclick="skipReview()">Skip (Clear)</button>
+                        <button class="btn btn-primary" id="btn-commit" onclick="commitReview()">Commit</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="qb-module" id="velocity-production-card">
+                    <div class="qb-module-header" style="background:transparent; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                      <span>Field Velocity & Production</span>
+                      <div id="p-light-pill" style="display:flex; align-items:center; gap:6px; font-size:10px; font-weight:800;" onmouseenter="hl('Light to Cabinets')" onmouseleave="hl('')"></div>
+                    </div>
+                    <div class="velocity-grid" id="p-prod-bars"></div>
+                    <div class="qb-vel-footer">
+                      <div style="font-size:10px; font-weight:900; color:var(--text-muted);" id="p-days-left">DAYS LEFT: 0</div>
+                      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <div id="p-tracker-pill" style="display:none;"></div>
+                        <div class="vel-footer-pill hover-trigger" id="p-bsls" onmouseenter="hl('HHPs')" onmouseleave="hl('')" style="cursor:pointer;">BSLS:</div>
+                        <div class="vel-footer-pill hover-trigger" id="p-ofs" onmouseenter="hl('Budget OFS')" onmouseleave="hl('')" style="cursor:pointer; display:none;">OFS:</div>
                       </div>
                     </div>
                   </div>
@@ -1167,7 +1351,7 @@ body.dark-mode.v2-shell-signalstack #mobile-sf-sheet {
 
                     <div class="review-divider"></div>
 
-                    <div class="interaction-split">
+                    <div class="v2-ss-diagnostics-grid">
                       <div class="col-left-vendor">
                         <div class="section-label">Vendor Update</div>
                         <div class="vendor-bubble hover-trigger" id="p-vendor-bubble" onmouseenter="hl('Vendor Comment')" onmouseleave="hl('')">
@@ -1175,21 +1359,6 @@ body.dark-mode.v2-shell-signalstack #mobile-sf-sheet {
                         </div>
                         <div class="section-label">System Diagnostics</div>
                         <div id="p-action" class="action-box hover-trigger" onmouseenter="hl('Health Flags')" onmouseleave="hl('')"></div>
-                      </div>
-
-                      <div class="col-right-note comment-area hover-trigger" onmouseenter="hl('Action Required')" onmouseleave="hl('')">
-                        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; padding:0 4px;">
-                          <div style="display:flex; align-items:center; gap:8px;">
-                            <div class="section-label" style="color:var(--color-insight); margin:0;">PM NOTE</div>
-                            <button class="btn-ai" onclick="askGeminiForDraft(this)">DRAFT W/GEMINI</button>
-                          </div>
-                          <div id="p-gemini-date" style="font-size:9px; font-style:italic; color:#a855f7;"></div>
-                        </div>
-                        <textarea id="p-comment" class="chat-bubble" oninput="this.dataset.generated='false'"></textarea>
-                        <div class="review-actions">
-                          <button class="btn btn-skip" onclick="skipReview()">Skip (Clear)</button>
-                          <button class="btn btn-primary" id="btn-commit" onclick="commitReview()">Commit</button>
-                        </div>
                       </div>
                     </div>
 
@@ -1326,9 +1495,9 @@ body.dark-mode.v2-shell-signalstack #mobile-sf-sheet {
         </button>
       </div>
       <div class="v2-ss-fab-action">
-        <span class="v2-ss-fab-pill" id="v2-ss-fab-label-nav">Queue back</span>
+        <span class="v2-ss-fab-pill" id="v2-ss-fab-label-nav">Open timeline</span>
         <button class="v2-ss-fab-btn" id="v2-ss-fab-nav" onclick="signalStackNavAction()" aria-label="Context navigation">
-          <svg id="v2-ss-fab-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <svg id="v2-ss-fab-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="15" y2="12"></line><line x1="4" y1="18" x2="18" y2="18"></line></svg>
         </button>
       </div>
     </div>
@@ -1425,9 +1594,11 @@ body.dark-mode.v2-shell-signalstack #mobile-sf-sheet {
 
     function signalStackNavAction() {
       if (document.body.classList.contains('mobile-detail-open')) {
-        closeMobileDetail();
-      } else if (typeof navigateMobileQueue === 'function') {
-        navigateMobileQueue(1);
+        if (typeof openGanttForCurrentProject === 'function') {
+          openGanttForCurrentProject();
+        }
+      } else if (typeof openGanttView === 'function') {
+        openGanttView();
       }
       closeSignalStackFab();
     }
@@ -1444,11 +1615,11 @@ body.dark-mode.v2-shell-signalstack #mobile-sf-sheet {
       document.body.dataset.mview = isDetail ? 'detail' : 'queue';
 
       if (modeReadout) modeReadout.textContent = isDetail ? 'Detail active' : 'Queue live';
-      if (navLabel) navLabel.textContent = isDetail ? 'Back to queue' : 'Next project';
+      if (navLabel) navLabel.textContent = isDetail ? 'Project timeline' : 'Open timeline';
       if (navIcon) {
         navIcon.innerHTML = isDetail
-          ? '<polyline points="15 18 9 12 15 6"></polyline>'
-          : '<polyline points="6 9 12 15 18 9"></polyline>';
+          ? '<line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="15" y2="12"></line><line x1="4" y1="18" x2="18" y2="18"></line>'
+          : '<line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="15" y2="12"></line><line x1="4" y1="18" x2="18" y2="18"></line>';
       }
       if (mainFab) {
         mainFab.setAttribute('aria-label', document.body.classList.contains('signalstack-fab-open') ? 'Collapse actions' : 'Expand actions');
