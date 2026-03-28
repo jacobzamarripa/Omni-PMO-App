@@ -80,10 +80,13 @@
 ## Workstream 16 — Mobile Native Redesign
 
 > **Design spec:** `WORKSTREAM_16_NATIVE_DESIGN.md`
+> **Validation matrix:** `WORKSTREAM_16_VALIDATION_MATRIX.md`
+> **Next-step brief:** `WORKSTREAM_16_MOBILE_V2_EXPERIMENT.md`
+> **Archived setup docs:** `_docs_archive/workstream_16/`
 > **Philosophy:** Mobile is not the desktop app scaled down. It is a purpose-built native surface sharing the same data layer, routing contract, and state model. Target: intuitive, iOS-native UX feel.
 
 - [x] Phase 0 — Mobile debt audit + salvage map
-- [x] Phase 1 — Shell contract reset (viewport zones, nav model, z-index) → `WORKSTREAM_16_PHASE1_CONTRACT.md`
+- [x] Phase 1 — Shell contract reset (viewport zones, nav model, z-index) → `_docs_archive/workstream_16/WORKSTREAM_16_PHASE1_CONTRACT.md`
 - [x] Phase 2 — Remove WS12 legacy surfaces; scaffold `#mobile-rail`
 - [x] Phase 3 — Queue↔detail switching mechanism (`body.mobile-detail-open` CSS pattern)
 - [x] Phase 4 — Mobile design tokens + rail polish (icon-only rail, `--m-*` tokens, `#mobile-back-btn` nav bar, startup skip)
@@ -93,7 +96,6 @@
 - [x] Phase 8 — Filter bottom sheet (`.smart-dock` as sheet behind `body.mobile-filter-open`)
 - [x] Phase 9 — View transitions (CSS push/pop animation for queue↔detail; fixes queue auto-open bug)
 - [x] Phase 10 — Gantt mobile (auto-show full-screen in landscape; no rail button; restore on portrait)
-- [ ] Phase 11 — Cross-device validation matrix
 - [ ] Phase 11 — Cross-device validation matrix
 - [x] Phase 12 — Remove Grid from mobile; queue-first startup hardening
 - [x] Phase 13 — Mobile contextual floating dock (`#mobile-dock`)

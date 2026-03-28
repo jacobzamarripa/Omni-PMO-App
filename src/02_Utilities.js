@@ -172,9 +172,22 @@ function onOpen() {
 }
 
 function doGet(e) {
-  return HtmlService.createTemplateFromFile('WebApp')
+  // V2 Mobile Experiment Routing — WS16
+  // Agents: add your variant name and file to this table before starting Phase B.
+  // Format: 'VariantName': 'v2_shell_VariantName'
+  // Access your variant at: [appUrl]?v=VariantName
+  const V2_VARIANTS = {
+    // 'CardStack':  'v2_shell_CardStack',
+    // 'NativeList': 'v2_shell_NativeList',
+  };
+
+  const variant = (e && e.parameter && e.parameter.v) ? e.parameter.v : null;
+  const templateFile = (variant && V2_VARIANTS[variant]) ? V2_VARIANTS[variant] : 'WebApp';
+  const title = variant ? 'Omni PMO — V2: ' + variant : 'Omni PMO App';
+
+  return HtmlService.createTemplateFromFile(templateFile)
     .evaluate()
-    .setTitle('Omni PMO App')
+    .setTitle(title)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }

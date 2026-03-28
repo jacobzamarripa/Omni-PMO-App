@@ -1,6 +1,6 @@
 # Agent Log — Omni PMO App
 > Full execution history moved to `_docs_archive/AGENT_LOG_archive.md` (2026-03-26, after WS14 closeout).
-> Current state: WS13 complete (2026-03-27). All 6 performance items closed. No open workstreams. See PRD.md.
+> Current state: WS16 active (2026-03-28). Native mobile redesign is implemented; Phase 11 runtime signoff remains open. See PRD.md.
 
 > [!info] 2026-03-27: WS16 Phase 16 — Polymorphic dock + full-width panel polish
 > - **Direction pivot:** Replaced dual-layer system (`#mobile-dock` pill + `#mobile-rail` tab bar) with a single floating polymorphic dock per reference design (Centric Ops native app pattern).
@@ -22,6 +22,16 @@
 > - **Phase 15 (Search/Filter sheet):** Added `#mobile-sf-sheet` + `#mobile-sf-overlay` slide-up dialog, mirrored desktop filter chips/group/search into mobile sheet via `syncMobileSFFilterChips`, and wired shared search debounce/filter pipeline to `#m-sf-search-input`.
 > - **Stability hardening:** Removed leftover legacy `mobile-queue-search` markup and fixed malformed header markup in `WebApp.html`.
 > - **Validation:** VS Code diagnostics report no errors in `WebApp.html`, `_styles_layout.html`, `_module_webapp_core.html`, and `_module_queue_state.html`.
+
+> [!info] 2026-03-28: WS16 Phase 11 — Source validation harness
+> - Added `scripts/validate-ws16-mobile.js` and wired `npm test` to assert the WS16 mobile shell contract from source.
+> - Coverage includes the polymorphic dock, unified search/filter sheet, queue-to-detail state toggle, back navigation helper, mobile queue navigation, and phone-only CSS gates for queue/detail and filter sheet behavior.
+> - This closes the source-validation gap for Phase 11, while manual runtime checks remain pending for final device signoff.
+
+> [!info] 2026-03-28: WS16 docs consolidation + Mobile V2 experiment setup
+> - Archived completed WS16 setup docs to `_docs_archive/workstream_16/`: `WORKSTREAM_16_MOBILE_REBUILD.md`, `WORKSTREAM_16_PHASE0_AUDIT.md`, and `WORKSTREAM_16_PHASE1_CONTRACT.md`.
+> - Kept the active WS16 working set at repo root: `WORKSTREAM_16_NATIVE_DESIGN.md` and `WORKSTREAM_16_VALIDATION_MATRIX.md`.
+> - Added `WORKSTREAM_16_MOBILE_V2_EXPERIMENT.md` as the new blue-sky brief for multi-agent review before execution.
 
 > [!info] 2026-03-27: WS13 Complete — Performance & Animation Audit
 > - **Animation audit:** Removed layout-shifting `width` transitions from `.qb-time-fill` + `.qb-vel-fill`; replaced `.mobile-menu-panel` `max-height` transition with compositor-only `opacity + transform` — `_styles_components.html`
@@ -150,4 +160,3 @@
 - **Sheet affordance:** added drag-handle indicator via `.filter-strip.smart-dock::before` when open.
 - **Validation:** no diagnostics errors on `_styles_responsive.html`.
 - **Next:** Phase 9 — queue/detail push-pop transition animation.
-

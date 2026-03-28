@@ -151,7 +151,7 @@
   }
 
   function syncWidgetsToViewport() {
-      syncCalcWidgetToViewport();
+      if (typeof syncCalcWidgetToViewport === 'function') syncCalcWidgetToViewport();
       var brief = document.getElementById('brief-widget');
       if (brief && brief.classList.contains('open') && brief.style.left && brief.style.top) {
           applyToolWidgetPosition(brief, parseFloat(brief.style.left), parseFloat(brief.style.top));

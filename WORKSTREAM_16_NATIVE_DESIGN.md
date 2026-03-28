@@ -1,8 +1,10 @@
 # WORKSTREAM 16 — Native Mobile Design Specification
 
-> **Status:** Active — Phase 4 pending
+> **Status:** Active — Phase 11 validation and runtime signoff
 > **Date:** 2026-03-27
-> **Supersedes:** WORKSTREAM_16_MOBILE_REBUILD.md (objectives intact; design model replaced)
+> **Supersedes:** `_docs_archive/workstream_16/WORKSTREAM_16_MOBILE_REBUILD.md` (objectives intact; design model replaced)
+> **Validation:** `WORKSTREAM_16_VALIDATION_MATRIX.md`
+> **Follow-on experiment:** `WORKSTREAM_16_MOBILE_V2_EXPERIMENT.md`
 > **Author:** WS16 Agent Session
 
 ---

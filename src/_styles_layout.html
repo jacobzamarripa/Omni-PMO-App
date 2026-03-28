@@ -400,74 +400,37 @@
     /* ── Queue ↔ Detail push-pop (Phase 3 + Phase 9) ── */
     .inbox-sidebar {
         display: flex !important;
-        left: 0 !important;
-        right: 0 !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        top: 60px !important;
+        left: 12px !important;
+        right: 12px !important;
+        border-radius: 20px !important;
+        background: var(--card-bg) !important;
+        box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10) !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
+        touch-action: pan-y !important;
         transform: translateX(0);
         transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-        will-change: transform;
     }
     .reading-pane {
         display: flex !important;
-        left: 0 !important;
-        right: 0 !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
+        left: 12px !important;
+        right: 12px !important;
+        border-radius: 20px !important;
+        background: var(--card-bg) !important;
+        box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10) !important;
         transform: translateX(100%);
         transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-        will-change: transform;
     }
     body.mobile-detail-open .inbox-sidebar { transform: translateX(-100%); }
     body.mobile-detail-open .reading-pane  { transform: translateX(0); }
 
-    /* ── Mobile back nav bar ── */
-    #mobile-back-btn {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        min-height: var(--m-nav-h, 52px);
-        height: var(--m-nav-h, 52px);
-        padding: 0 var(--m-gutter, 16px);
-        background: color-mix(in srgb, var(--card-bg) 88%, transparent);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: none;
-        border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-        width: 100%;
-        box-sizing: border-box;
-        cursor: pointer;
-        color: var(--accent);
-        flex-shrink: 0;
-        position: sticky;
-        top: 0;
-        z-index: 20;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-    }
-    #mobile-back-btn:active { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-    #mobile-back-btn .mobile-back-left {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        color: var(--accent);
-        font-size: 16px;
-        font-weight: 600;
-        line-height: 1;
-    }
-    #mobile-back-btn .mobile-back-left svg { width: 18px; height: 18px; stroke-width: 2.5; flex-shrink: 0; }
-    #mobile-back-btn .mobile-back-title {
-        color: var(--text-main);
-        font-size: 16px;
-        font-weight: 700;
-        letter-spacing: -0.2px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        margin-left: 12px;
-        text-align: right;
-        max-width: 58%;
-    }
+    /* ── Mobile back nav bar — hidden; dock handles back navigation ── */
+    #mobile-back-btn { display: none !important; }
 
     /* ── Admin bottom-sheet pattern on phone ── */
     .outbox-overlay {
@@ -476,18 +439,18 @@
     }
     .outbox-pane {
         position: fixed !important;
-        left: 12px !important;
-        right: 12px !important;
+        left: 0 !important;
+        right: 0 !important;
         top: auto !important;
-        bottom: calc(var(--m-dock-h, 64px) + env(safe-area-inset-bottom) + 12px) !important;
-        width: auto !important;
+        bottom: 0 !important;
+        width: 100% !important;
         min-width: 0 !important;
-        height: min(72vh, 580px) !important;
-        max-height: min(72vh, 580px) !important;
+        height: min(80vh, 640px) !important;
+        max-height: min(80vh, 640px) !important;
         margin: 0 !important;
-        border-radius: 20px !important;
+        border-radius: 20px 20px 0 0 !important;
         border: none !important;
-        box-shadow: 0 8px 48px rgba(15,23,42,0.28) !important;
+        box-shadow: 0 -8px 48px rgba(15,23,42,0.28) !important;
         transform: translateY(120%) !important;
         transform-origin: center bottom !important;
         opacity: 1 !important;
@@ -496,6 +459,8 @@
         z-index: 3950 !important;
         backdrop-filter: blur(24px) !important;
         -webkit-backdrop-filter: blur(24px) !important;
+        padding-bottom: calc(var(--m-dock-h, 64px) + env(safe-area-inset-bottom) + 8px) !important;
+        box-sizing: border-box !important;
     }
     .outbox-pane.open {
         transform: translateY(0) !important;
@@ -517,6 +482,17 @@
     #admin-panel-close {
         display: none !important;
     }
+    /* Admin panel: identical to desktop, 12px side padding */
+    #ob-panel-admin,
+    #ob-panel-reviewed,
+    #ob-panel-changelog {
+        padding: 0 12px !important;
+    }
+    /* Fix: neutralize will-change + transform stacking context so .outbox-pane (fixed child) anchors to viewport */
+    .reading-pane.admin-open {
+        will-change: auto !important;
+        transform: none !important;
+    }
 }
 
 
@@ -536,17 +512,14 @@
         right: 16px;
         height: var(--m-dock-h, 64px);
         background: var(--card-bg);
-        border-radius: 20px;
-        box-shadow: 0 4px 24px rgba(15,23,42,0.12), 0 1px 4px rgba(15,23,42,0.08);
-        z-index: 3900;
+        border: 1px solid var(--border);
+        border-radius: 32px;
+        box-shadow: 0 10px 24px rgba(15,23,42,0.08), inset 0 1px 3px rgba(0,0,0,0.04);
+        z-index: 4100;
         align-items: stretch;
-        padding: 8px 10px;
+        padding: 6px 8px;
         gap: 4px;
-        transition: background 0.2s;
-    }
-    body.dark-mode #mobile-dock {
-        background: rgba(22,22,28,0.96);
-        box-shadow: 0 4px 32px rgba(0,0,0,0.36);
+        transition: background 0.2s, border-color 0.2s;
     }
     .m-dock-ctx {
         display: flex; align-items: center;
@@ -555,20 +528,20 @@
     .m-dock-btn {
         flex: 1;
         display: flex; align-items: center; justify-content: center;
-        min-height: 48px;
+        min-height: 44px;
         background: none; border: none;
         color: var(--text-muted);
-        border-radius: 14px;
+        border-radius: 24px;
         cursor: pointer;
         position: relative;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
-        transition: background 0.12s, color 0.12s;
+        transition: background 0.15s, color 0.15s;
     }
-    .m-dock-btn svg { width: 24px; height: 24px; stroke-width: 1.8; flex-shrink: 0; }
+    .m-dock-btn svg { width: 20px; height: 20px; stroke-width: 2.5; flex-shrink: 0; }
     .m-dock-btn:active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
-    .m-dock-btn--active { background: var(--accent); color: #fff; }
-    .m-dock-btn--active:active { background: var(--accent); }
+    .m-dock-btn--active { background: rgba(59,130,246,0.15); color: var(--accent); }
+    .m-dock-btn--active:active { background: rgba(59,130,246,0.22); }
     .m-dock-badge {
         position: absolute; top: 8px; right: 8px;
         width: 7px; height: 7px; background: var(--color-critical);
@@ -590,6 +563,15 @@
     /* Scroll clearance for floating dock */
     .inbox-sidebar, .reading-pane {
         bottom: calc(var(--m-dock-h, 64px) + env(safe-area-inset-bottom) + 20px) !important;
+    }
+    .inbox-header {
+        flex-shrink: 0 !important;
+    }
+    .inbox-list {
+        flex: 0 0 auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        padding-bottom: calc(var(--m-dock-h, 64px) + env(safe-area-inset-bottom) + 28px) !important;
     }
     .pane-content { padding-bottom: 20px !important; }
 
