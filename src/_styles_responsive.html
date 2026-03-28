@@ -422,7 +422,7 @@
         box-sizing: border-box !important;
     }
 
-    /* ── qb-top-row: single-column card stack ── */
+    /* ── qb-top-row: single-column stack ── */
     #project-schedule-card {
         flex-basis: 100% !important;
         min-width: 0 !important;
@@ -436,12 +436,14 @@
     .qb-top-row {
         border-bottom: 0 !important;
     }
+    /* Flat native sections — no card chrome on phone */
     .qb-module {
-        border-radius: 14px !important;
-        border: 1px solid var(--border) !important;
-        margin-bottom: 12px !important;
-        padding: 14px !important;
-        background: color-mix(in srgb, var(--card-bg) 96%, transparent) !important;
+        border-radius: 0 !important;
+        border: none !important;
+        border-bottom: 1px solid var(--border) !important;
+        margin-bottom: 0 !important;
+        padding: 16px var(--m-gutter, 16px) !important;
+        background: transparent !important;
     }
     .qb-module-header {
         font-size: 12px !important;
