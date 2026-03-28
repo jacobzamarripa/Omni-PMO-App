@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<base target="_top">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%231d4ed8'/%3E%3Cstop offset='100%25' stop-color='%230ea5e9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='4' y='4' width='56' height='56' rx='14' fill='url(%23g)'/%3E%3Cpath d='M18 36c0-9 6-15 14-15 7 0 12 4 14 10h-8c-2-3-6-4-10-2-2 2-3 4-3 7 0 5 3 8 8 8 3 0 6-2 7-5h-8v-6h16v3c-1 9-8 15-16 15-8 0-14-6-14-15z' fill='white'/%3E%3C/svg%3E">
+
+<!-- Shared design tokens & responsive overrides -->
+<?!= include('_styles_base') ?>
+<?!= include('_styles_ui_core') ?>
+<?!= include('_styles_badges') ?>
+<?!= include('_styles_panels') ?>
+<?!= include('_styles_responsive') ?>
+
+<!-- Shared brain (State & Registry) -->
+<?!= include('_registry') ?>
+<?!= include('_state_queue') ?>
+<?!= include('_state_router') ?>
+<?!= include('_state_session') ?>
+<?!= include('_state_payload') ?>
+<?!= include('_state_analytics') ?>
+<?!= include('_state_ui_shell') ?>
+
+<style>
+/* ============================================================
+   V2 SHELL: GlassFlow (FINAL)
+   ROLE: High-end mobile experience — spatial clarity & physical motion
+   ============================================================ */
+
+/* --- V2 Geometry Contract --- */
+.v2-shell-glassflow {
+  --v2-shell-inset: 12px;
+  --v2-shell-radius: 24px;
+  --v2-shell-top-offset: env(safe-area-inset-top, 0px);
+  --v2-shell-bottom-clearance: 84px;
+  --v2-shell-shadow: 0 8px 32px rgba(0,0,0,0.12);
+
+  height: -webkit-fill-available;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  --inbox-panel-width: 100vw;
+  font-size: 14px;
+  background-color: var(--bg);
+}
+
+.v2-shell-glassflow-viewport {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  height: -webkit-fill-available;
+}
+
+.v2-shell-glassflow-container {
+  margin: var(--v2-shell-inset);
+  margin-top: calc(var(--v2-shell-inset) + var(--v2-shell-top-offset));
+  margin-bottom: calc(var(--v2-shell-inset) + 10px);
+  background: var(--card-bg);
+  border-radius: var(--v2-shell-radius);
+  box-shadow: var(--v2-shell-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--border);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Glassy Header */
+.v2-shell-glassflow-header {
+  padding: 12px 20px;
+  background: color-mix(in srgb, var(--card-bg) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.v2-shell-glassflow-views {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.v2-shell-glassflow-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 120px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+
+#v2-glassflow-queue-panel { z-index: 10; opacity: 1; transform: translateX(0); }
+#v2-glassflow-detail-panel { z-index: 20; transform: translateX(100%); opacity: 0; background: var(--card-bg); }
+
+body.mobile-detail-open #v2-glassflow-queue-panel { transform: translateX(-30%); opacity: 0; pointer-events: none; }
+body.mobile-detail-open #v2-glassflow-detail-panel { transform: translateX(0); opacity: 1; }
+
+/* Dock Styling */
+.v2-shell-glassflow-dock {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom, 8px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 64px);
+  max-width: 320px;
+  height: 60px;
+  background: color-mix(in srgb, var(--card-bg) 95%, #000);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 30px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  z-index: 1000;
+  border: 1px solid var(--border);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.v2-shell-glassflow-dock-btn {
+  flex: 1; height: 44px; margin: 0 4px; border-radius: 22px; border: none; background: transparent;
+  color: var(--text-muted); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; font-size: 10px; font-weight: 800; transition: all 0.2s ease; position: relative;
+}
+
+.v2-shell-glassflow-dock-btn.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+.v2-shell-glassflow-dock-btn .m-dock-badge {
+    position: absolute; top: 4px; right: 12px; background: var(--color-critical);
+    color: white; font-size: 8px; padding: 1px 4px; border-radius: 6px; min-width: 12px;
+}
+
+/* Back Button */
+.v2-shell-glassflow-back {
+    display: none; align-items: center; gap: 6px; font-weight: 900; color: var(--accent);
+    background: none; border: none; padding: 0; font-size: 17px; letter-spacing: -0.5px;
+}
+body.mobile-detail-open .v2-shell-glassflow-back { display: flex; }
+body.mobile-detail-open #glassflow-logo { display: none; }
+
+/* Admin Sheet */
+#outbox-pane {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 82vh; background: var(--card-bg);
+    border-radius: 32px 32px 0 0; z-index: 2000;
+    display: flex; flex-direction: column;
+    visibility: hidden; pointer-events: none;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.4s;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.3); border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom, 20px); overflow: hidden;
+}
+#outbox-pane.open {
+    visibility: visible; pointer-events: auto; transform: translateY(0);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s;
+}
+#outbox-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+#outbox-overlay.open { opacity: 1; pointer-events: auto; }
+
+/* Detail Polish */
+.v2-shell-glassflow .qb-module {
+    border-radius: 0 !important; border: none !important; border-bottom: 1px solid var(--border) !important;
+    margin-bottom: 0 !important; padding: 16px 20px !important;
+}
+.v2-shell-glassflow .interaction-split { flex-direction: column !important; gap: 16px !important; }
+.v2-shell-glassflow .chat-bubble { border-radius: 12px !important; font-size: 14px !important; min-height: 72px !important; }
+
+/* Custom Queue Items */
+.v2-shell-glassflow .email-card {
+    margin: 6px 10px !important; border-radius: 12px !important; border: 1px solid var(--border) !important;
+    background: var(--card-bg) !important; box-shadow: 0 2px 6px rgba(0,0,0,0.03) !important;
+    padding: 12px 14px !important; transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease !important;
+}
+.v2-shell-glassflow .email-card:active { transform: scale(0.96) !important; background: color-mix(in srgb, var(--accent) 8%, var(--card-bg)) !important; }
+.v2-shell-glassflow .email-card.selected { border-color: var(--accent) !important; background: color-mix(in srgb, var(--accent) 4%, var(--card-bg)) !important; }
+
+/* Empty/End States */
+#inbox-list::after { content: "END OF LIVE QUEUE"; display: block; text-align: center; padding: 40px 0 80px; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; color: var(--text-muted); opacity: 0.4; }
+#inbox-list:empty::before { content: "✓ ALL CLEAR"; display: block; text-align: center; padding: 100px 20px; font-size: 24px; font-weight: 900; letter-spacing: -1px; color: var(--text-muted); opacity: 0.3; }
+
+/* Hero & Hierarchy */
+.v2-shell-glassflow .qb-proj-title { display: flex; flex-direction: row !important; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+.v2-shell-glassflow .qb-target-inner {
+    padding: 6px 10px !important; border-radius: 10px !important; background: color-mix(in srgb, var(--accent) 10%, var(--bg)) !important;
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border)) !important;
+}
+.v2-shell-glassflow .qb-target-label { font-size: 8px !important; text-transform: uppercase; font-weight: 800; opacity: 0.7; }
+.v2-shell-glassflow .qb-target-date { font-size: 13px !important; font-weight: 900 !important; }
+.v2-shell-glassflow .action-box { border: 1.5px solid var(--accent) !important; background: color-mix(in srgb, var(--accent) 4%, var(--bg)) !important; }
+
+/* Detail Card — Compact Hero */
+.v2-shell-glassflow #project-schedule-card { padding: 12px 16px !important; }
+.v2-shell-glassflow .qb-proj-id { font-size: 26px !important; line-height: 1 !important; }
+.v2-shell-glassflow .section-label { margin-top: 10px !important; }
+.v2-shell-glassflow .qb-module-header { padding-bottom: 8px !important; }
+
+/* Admin Panel — Inner Scroll Fix */
+#ob-panel-admin { overflow: hidden; }
+#admin-pane-content { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#outbox-list { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#changelog-list { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+/* Hide Desktop Chrome */
+#mobile-dock, .top-nav, .inbox-header:not(#outbox-pane .inbox-header), #mobile-back-btn { display: none !important; }
+</style>
+</head>
+<body class="v2-shell-glassflow">
+
+  <div class="v2-shell-glassflow-viewport">
+    <div class="v2-shell-glassflow-container">
+      <header class="v2-shell-glassflow-header">
+        <div id="glassflow-logo" style="font-weight:900; letter-spacing:-1px; font-size:22px;">OMNI<span style="color:var(--accent)">FLOW</span></div>
+        <button class="v2-shell-glassflow-back" onclick="closeMobileDetail()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Queue
+        </button>
+        <button onclick="openMobileSFSheet('filter')" style="background:none; border:none; color:var(--text-muted); padding:4px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+        </button>
+      </header>
+
+      <div class="v2-shell-glassflow-views">
+        <div id="v2-glassflow-queue-panel" class="v2-shell-glassflow-scroll">
+          <div id="inbox-list"></div>
+        </div>
+
+        <div id="v2-glassflow-detail-panel" class="v2-shell-glassflow-scroll">
+          <div class="pane-content" id="pane-content">
+            <div class="qb-grid" id="main-qb-grid">
+               <div class="qb-top-row">
+               <div class="qb-module" id="project-schedule-card">
+                   <div class="qb-module-header">Project Identity & Status</div>
+                   <div class="qb-proj-title">
+                       <div class="qb-proj-title-left">
+                           <div class="qb-proj-id" id="p-fdh" style="font-size:28px; line-height:1;">FDH-XXX</div>
+                           <div class="qb-proj-meta" id="p-meta" style="font-size:12px; margin-top:2px;">City</div>
+                           <div class="glass-pill" id="p-status" style="margin-top:8px; font-size:10px; padding:4px 10px;">Status</div>
+                       </div>
+                       <div id="p-target-wrap" class="qb-target-wrap">
+                           <div class="qb-target-inner" id="p-target-inner">
+                               <div class="qb-target-label">Target Date</div>
+                               <div class="qb-target-date" id="p-target">TBD</div>
+                               <div id="p-xing" style="display:none;">X-ING</div>
+                           </div>
+                       </div>
+                   </div>
+                   
+                   <div class="section-label" style="margin-top:12px;">System Diagnostic</div>
+                   <div id="p-action" class="action-box"></div>
+                   
+                   <div class="section-label" style="margin-top:16px;">Schedule Progress</div>
+                   <div class="qb-time-bar detail-schedule-bar">
+                       <div class="schedule-today-indicator" id="p-today-indicator" style="display:none;">
+                           <div class="schedule-today-line" id="p-today-line"></div>
+                           <div class="schedule-today-label" id="p-today-label">TODAY</div>
+                       </div>
+                       <div class="qb-time-fill" id="p-time-fill" style="width:0%;"></div>
+                       <div id="p-time-stars"></div>
+                   </div>
+                   <div class="qb-time-labels is-below-bar" style="margin-bottom:0;">
+                       <span id="p-cx-start">CX START: <span>TBD</span></span>
+                       <span id="p-cx-end">CX COMPLETE: <span>TBD</span></span>
+                   </div>
+               </div>
+
+               <div class="qb-module" style="background:transparent; border:none; padding-top:0;">
+                  <div class="interaction-split">
+                      <div class="col-left-vendor">
+                          <div class="section-label">Vendor Update</div>
+                          <div class="vendor-bubble" id="p-vendor-bubble" style="margin-bottom:0;">
+                              <div id="p-vendor-comment">"No update provided."</div>
+                          </div>
+                      </div>
+                      <div class="col-right-note comment-area">
+                          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                              <div style="display:flex; align-items:center; gap:8px;">
+                                  <div class="section-label" style="color:var(--color-insight); margin:0;">PM NOTE</div>
+                                  <button class="btn-ai" onclick="askGeminiForDraft(this)">DRAFT W/AI</button>
+                              </div>
+                              <div id="p-gemini-date" style="font-size:9px; font-style:italic; color:#a855f7;"></div>
+                          </div>
+                          <textarea id="p-comment" class="chat-bubble" oninput="this.dataset.generated='false'" placeholder="Tap to add note..." onfocus="this.scrollIntoView({behavior:'smooth', block:'center'})"></textarea>
+                          <div class="review-actions">
+                              <button class="btn btn-skip" onclick="skipReview()">Skip</button>
+                              <button class="btn btn-primary" id="btn-commit" onclick="commitReview()">✔ Commit</button>
+                          </div>
+                      </div>
+                  </div>
+                  <div class="comment-area-footer" style="margin-top:16px;">
+                      <div class="review-meta">
+                          <span id="p-date">REPORT DATE: TBD</span>
+                          <span class="review-meta-sep">|</span>
+                          <span id="p-last-check">LAST CHECKED: NEVER</span>
+                      </div>
+                      <span id="p-view-record"></span>
+                  </div>
+               </div>
+
+               <div class="qb-module" id="velocity-production-card">
+                   <div class="qb-module-header">
+                       <span>Field Velocity & Production</span>
+                       <div id="p-light-pill" style="display:flex; align-items:center; gap:6px; font-size:10px; font-weight:800;"></div>
+                   </div>
+                   <div class="velocity-grid" id="p-prod-bars"></div>
+                   <div class="qb-vel-footer">
+                       <div style="font-size:10px; font-weight:900; color:var(--text-muted);" id="p-days-left">DAYS LEFT: 0</div>
+                       <div style="display:flex; gap:8px;">
+                           <div id="p-tracker-pill" style="display:none;"></div>
+                           <div class="vel-footer-pill" id="p-bsls">BSLS: </div>
+                           <div class="vel-footer-pill" id="p-ofs" style="display:none;">OFS: </div>
+                       </div>
+                   </div>
+               </div>
+               </div>
+
+               <div id="p-network-path" style="padding:12px 20px; border-bottom:1px solid var(--border); background:color-mix(in srgb, var(--bg) 40%, transparent); display:flex; align-items:center; justify-content:flex-start; overflow-x:auto;"></div>
+
+               <div class="qb-module">
+                  <div class="qb-module-header">Diagnostic & Deliverables</div>
+                  <div id="p-deliverables-grid"></div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="v2-shell-glassflow-dock">
+      <button class="v2-shell-glassflow-dock-btn active" id="dock-btn-queue" onclick="closeMobileDetail()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+        <span>Queue</span>
+      </button>
+      <button class="v2-shell-glassflow-dock-btn" id="dock-btn-review" onclick="toggleAdminPanel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        <span>Admin</span>
+        <span class="m-dock-badge" id="admin-fab-badge" style="display:none;">0</span>
+      </button>
+      <button class="v2-shell-glassflow-dock-btn" onclick="triggerUIRefresh()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 19 10"></polyline><polyline points="1 20 1 14 5 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        <span>Sync</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Review Hub (Admin Panel) -->
+  <div id="outbox-overlay" onclick="toggleAdminPanel()"></div>
+  <div class="outbox-pane" id="outbox-pane">
+     <div id="review-hub-main-header" class="inbox-header">
+        <div class="inbox-title-stack" id="review-hub-title"><span>Review</span><span>Hub</span></div>
+        <div class="panel-tab-bar">
+          <button class="panel-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">Admin <span id="admin-badge" class="m-dock-badge" style="display:none; position:static; margin-left:4px;">0</span></button>
+          <button class="panel-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">Reviewed <span id="ob-count" class="m-dock-badge" style="display:none; position:static; margin-left:4px; background:var(--color-success);">0</span></button>
+          <button class="panel-tab" id="panel-tab-changelog" onclick="switchPanelTab('changelog')">Activity <span id="changelog-badge" class="m-dock-badge" style="display:none; position:static; margin-left:4px; background:var(--color-insight);">0</span></button>
+        </div>
+        <button class="panel-tab-close" onclick="toggleAdminPanel()">✕</button>
+     </div>
+     <div id="ob-panel-admin" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+        <div class="admin-strip" style="display:flex; padding:12px; gap:8px; flex-shrink:0;">
+           <div class="admin-kpi crossings" id="kpi-admin-crossings" onclick="toggleAdminFilter('crossings')" style="flex:1; background:var(--bg); padding:10px; border-radius:12px; border:1px solid var(--border); text-align:center;">
+              <div class="admin-kpi-val" id="kpi-crossings-val" style="font-size:18px; font-weight:900;">0</div>
+              <div class="admin-kpi-label" style="font-size:9px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Crossings</div>
+           </div>
+           <div class="admin-kpi status" id="kpi-admin-status" onclick="toggleAdminFilter('status')" style="flex:1; background:var(--bg); padding:10px; border-radius:12px; border:1px solid var(--border); text-align:center;">
+              <div class="admin-kpi-val" id="kpi-status-val" style="font-size:18px; font-weight:900;">0</div>
+              <div class="admin-kpi-label" style="font-size:9px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">QB Status</div>
+           </div>
+           <div class="admin-kpi boms" id="kpi-admin-boms" onclick="toggleAdminFilter('boms')" style="flex:1; background:var(--bg); padding:10px; border-radius:12px; border:1px solid var(--border); text-align:center;">
+              <div class="admin-kpi-val" id="kpi-boms-val" style="font-size:18px; font-weight:900;">0</div>
+              <div class="admin-kpi-label" style="font-size:9px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">BOMs</div>
+           </div>
+        </div>
+        <div id="admin-pane-content" style="flex:1; overflow-y:auto;"></div>
+     </div>
+     <div id="ob-panel-reviewed" style="display:none; flex-direction:column; flex:1; overflow:hidden;"><div id="outbox-list" style="flex:1; overflow-y:auto;"></div></div>
+     <div id="ob-panel-changelog" style="display:none; flex-direction:column; flex:1; overflow:hidden;"><div id="changelog-list" style="flex:1; overflow-y:auto;"></div></div>
+  </div>
+
+  <!-- Shared utils -->
+  <?!= include('_utils_shared') ?>
+  <?!= include('_utils_notifications') ?>
+  <?!= include('_utils_ui_tokens') ?>
+
+  <!-- Shared modules -->
+  <?!= include('_module_router') ?>
+  <?!= include('_module_tools_widgets') ?>
+  <?!= include('_module_changelog') ?>
+  <?!= include('_module_theme_controls') ?>
+  <?!= include('_module_queue_state') ?>
+  <?!= include('_module_digest') ?>
+  <?!= include('_module_admin') ?>
+  <?!= include('_module_special_crossings') ?>
+  <?!= include('_module_gantt') ?>
+  <?!= include('_module_deck') ?>
+  <?!= include('_module_tabs') ?>
+  <?!= include('_module_quick_peek') ?>
+  <?!= include('_module_grid') ?>
+  <?!= include('_module_critical_hub') ?>
+  <?!= include('_module_review_actions') ?>
+  <?!= include('_module_huds') ?>
+  <?!= include('_module_mini_sld') ?>
+  <?!= include('_module_ui_shell_helpers') ?>
+  <?!= include('_module_startup_boot') ?>
+  <?!= include('_module_startup_refdata') ?>
+  <?!= include('_module_webapp_core') ?>
+
+  <!-- V2 SF Sheet -->
+  <div id="mobile-sf-overlay" onclick="closeMobileSFSheet()"></div>
+  <div id="mobile-sf-sheet" role="dialog">
+      <div class="m-sf-handle"></div>
+      <div class="m-sf-header"><span class="m-sf-title">Search & Filter</span><button class="m-sf-close" onclick="closeMobileSFSheet()">&#10005;</button></div>
+      <div style="padding: 20px; overflow-y: auto; max-height: 70vh;">
+          <input type="text" id="m-sf-search-input" class="m-sf-input" placeholder="Search projects..." oninput="handleSearchInput(event)" style="width:100%; margin-bottom:20px; height:44px; border-radius:12px;">
+          <div class="m-sf-section-label">Health</div><div id="m-sf-wrap-severity" style="margin-bottom:16px;"></div>
+          <div class="m-sf-section-label">Vendor</div><div id="m-sf-wrap-vendor" style="margin-bottom:16px;"></div>
+          <div class="m-sf-section-label">City</div><div id="m-sf-wrap-city" style="margin-bottom:16px;"></div>
+          <button class="btn btn-primary" onclick="closeMobileSFSheet()" style="width:100%; height:44px; margin-top:20px;">Apply Filters</button>
+          <button class="btn btn-skip" onclick="clearAllFilters(); closeMobileSFSheet()" style="width:100%; height:44px; margin-top:10px; border:none;">Clear All</button>
+      </div>
+  </div>
+
+  <script>
+    setV2Variant('GlassFlow');
+
+    // Navigation Hooks
+    const originalOpenPane = window.openPane;
+    window.openPane = function(item, cardEl) {
+        if (typeof originalOpenPane === 'function') originalOpenPane(item, cardEl);
+        document.body.classList.add('mobile-detail-open');
+        syncMobileDockContext();
+        const detailPanel = document.getElementById('v2-glassflow-detail-panel');
+        if (detailPanel) detailPanel.scrollTop = 0;
+    };
+
+    const originalCloseMobileDetail = window.closeMobileDetail;
+    window.closeMobileDetail = function() {
+        if (typeof originalCloseMobileDetail === 'function') originalCloseMobileDetail();
+        document.body.classList.remove('mobile-detail-open');
+        syncMobileDockContext();
+    };
+
+    const originalToggleAdminPanel = window.toggleAdminPanel;
+    window.toggleAdminPanel = function() {
+        if (typeof originalToggleAdminPanel === 'function') originalToggleAdminPanel();
+        syncMobileDockContext();
+    };
+
+    // Dock Intelligence
+    window.syncMobileDockContext = function() {
+        const isDetail = document.body.classList.contains('mobile-detail-open');
+        const isAdmin = document.getElementById('outbox-pane')?.classList.contains('open');
+        const queueBtn = document.getElementById('dock-btn-queue');
+        const reviewBtn = document.getElementById('dock-btn-review');
+        if (queueBtn) queueBtn.classList.toggle('active', !isDetail && !isAdmin);
+        if (reviewBtn) reviewBtn.classList.toggle('active', isAdmin);
+        const logo = document.getElementById('glassflow-logo');
+        if (logo) logo.style.display = (isDetail) ? 'none' : 'block';
+    };
+
+    // Initialize
+    window.addEventListener('load', () => {
+       console.log('GlassFlow V2 Shell Finalized');
+       if (typeof applyFilters === 'function') applyFilters();
+    });
+  </script>
+</body>
+</html>

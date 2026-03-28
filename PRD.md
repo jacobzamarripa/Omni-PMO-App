@@ -101,3 +101,18 @@
 - [x] Phase 13 — Mobile contextual floating dock (`#mobile-dock`)
 - [x] Phase 14 — Mobile detail breathing room + action migration to dock
 - [x] Phase 15 — Search/Filter unified slide-up sheet (`#mobile-sf-sheet`)
+
+---
+
+## Workstream 17 — Desktop Context Dock
+
+> **Plan:** `WORKSTREAM_17_DESKTOP_CONTEXT_DOCK.md`
+> **Philosophy:** Shrink the dock, not the capability.
+
+- [x] Phase 0 — Research + desktop direction
+- [x] Phase 1 — Dock contract + surface design
+- [ ] Phase 2 — Markup refactor
+- [ ] Phase 3 — Interaction wiring
+- [ ] Phase 4 — Contextual choreography
+- [ ] Phase 5 — Collision hardening
+- [ ] Phase 6 — Final polish + signoff

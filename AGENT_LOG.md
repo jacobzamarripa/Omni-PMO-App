@@ -1,6 +1,53 @@
 # Agent Log — Omni PMO App
+
+> [!info] 2026-03-28: WS17 Phase 1 complete — Dock contract and surface design locked
+> - Expanded `WORKSTREAM_17_DESKTOP_CONTEXT_DOCK.md` Phase 1 from checklist placeholders into a full desktop interaction contract.
+> - Locked compact rail inventory, panel split, per-mode context slot behavior, panel open-close rules, badge/count/clear behavior, and accessibility requirements.
+> - Marked WS17 Phase 1 complete in `PRD.md`; Phase 2 implementation is now unblocked.
+
+> [!info] 2026-03-28: WS16 GlassFlow Refinement — Dock restored, admin panel fixed, detail card compacted
+> - **GlassFlow declared winner** of the WS16 V2 experiment (over FlexStack, RailView, SignalStack). Single working shell going forward.
+> - **FAB ported then reverted:** Fully ported SignalStack's expandable FAB action cluster into GlassFlow as a dock replacement. User redirected: FAB idea should be incorporated *into* a dock button, not replace the dock. FAB HTML/CSS/JS stripped; original dock restored exactly.
+> - **Admin panel animation fixed:** Replaced `display:none → display:flex` toggle (which blocks CSS transitions) with `visibility: hidden/visible` + `pointer-events` + delayed `visibility` transition. Panel now animates correctly on lift.
+> - **Admin inner scrollability:** Added `overflow-y: auto` + `-webkit-overflow-scrolling: touch` to `#admin-pane-content`, `#outbox-list`, `#changelog-list`.
+> - **Detail card compaction:** Tightened hero padding (`16px 20px → 12px 16px`), reduced `qb-proj-id` font-size, clamped `chat-bubble` min-height (`100px → 72px`), tightened `section-label` and module-header spacing. More critical data above the fold.
+> - **Next task (other agent):** Incorporate FAB expandable action cluster *into* the dock — one dock button expands a contextual FAB menu above the dock.
+
+> [!info] 2026-03-28: WS16 Mobile V2 experiment — GlassFlow Final Competition Build (COMPLETE)
+> - **Commit Flow Locked:** Prioritized System Diagnostics and PM Note visibility above the fold. Added `scrollIntoView` focus logic to ensure the textarea stays accessible above the mobile keyboard.
+> - **Spatial Hierarchy:** Reorganized the Detail View to place FDH ID, Status, Target Date, and Action Box in the primary viewport, moving secondary metrics below the fold.
+> - **Premium Transitions:** Refined the `mobile-detail-open` Push transition with a custom `cubic-bezier(0.16, 1, 0.3, 1)` for a physical, high-end feel in both directions.
+> - **UX Polish:** Added active tap responses (scale + highlight), persistent selected project state, and a custom "✓ ALL CLEAR" empty state for the queue.
+> - **Dark Mode & Performance:** Verified theme-safe `color-mix` styling and reduced header blur to `12px` for smooth performance on all devices.
+> - **GAS Standardization:** Enforced correct `<head>` structure with `<base target="_top">` and state-first include order.
+
+> [!info] 2026-03-28: WS16 Mobile V2 experiment — GlassFlow Phase B Step 2 Completed
+> - **Functional Shell:** Completed the full loop for the GlassFlow variant, ensuring queue-to-detail push transitions and back-navigation are fully wired.
+> - **Admin Hub:** Implemented as a lift-up bottom sheet with full tab parity (Admin, Reviewed, Activity) and live badge sync.
+> - **Standardization:** Refactored `v2_shell_GlassFlow.html` to follow standard GAS head structure, adding `<base target="_top">` and moving core state/style includes to the head to resolve environment-level CSP reporting noise.
+> - **Navigation:** Wired `openPane` and `closeMobileDetail` hooks to the `mobile-detail-open` class for robust single-column mobile behavior across all widths.
+> - **Verification:** Manual check confirms all detail IDs are mounted, sync/refresh triggers are active, and the admin panel lifts correctly from the glassy dock.
+
 > Full execution history moved to `_docs_archive/AGENT_LOG_archive.md` (2026-03-26, after WS14 closeout).
 > Current state: WS16 active (2026-03-28). Native mobile redesign is implemented; Phase 11 runtime signoff remains open. See PRD.md.
+
+> [!info] 2026-03-28: WS16 Mobile V2 experiment — SignalStack restart rebuild
+> - Replaced the discarded `src/v2_shell_SignalStack.html` clone with a fresh shell built around ambient gradient chrome, stacked live queue cards, a pushed detail board, and a context-expanding FAB action cluster.
+> - Preserved the shared runtime contract: all required detail IDs remain mounted, queue selection still flows through the shared `openPane`, `closeMobileDetail()` returns to queue mode, and the admin panel still lifts as a bottom sheet from inside the shared reading pane.
+> - Kept search/filter sheet behavior on the shared mobile sheet path while visually hiding the dock chrome, so SignalStack uses sheet + FAB interactions instead of the permanent bottom dock pattern.
+> - Verification: `npm test` passed the WS16 mobile validation harness (9/9 checks) after the restart rebuild.
+
+> [!info] 2026-03-28: WS16 Mobile V2 experiment — SignalStack Phase B contract hardening
+> - Patched `src/v2_shell_SignalStack.html` to restore missing shared-renderer targets: `#p-today-indicator` with its child nodes and `#p-light-pill` in the velocity header.
+> - Added a shell-local `openPane` / `closeMobileDetail` wrapper so SignalStack resets the detail scroll owner on project open and keeps a lightweight `data-mview` state in sync with queue/detail navigation.
+> - Re-validated the mobile shell contract with `npm test`; WS16 source validation passed all 9 checks after the patch.
+
+> [!info] 2026-03-28: WS16 Mobile V2 experiment — SignalStack variant
+> - Claimed `SignalStack` in `src/02_Utilities.js` and the WS16 experiment pre-flight table.
+> - Added `src/v2_shell_SignalStack.html` as a mobile-first stacked shell that keeps the shared WS16 runtime but re-composes it into a queue-first card, slide-in detail board, and lifted admin sheet.
+> - Spatial model: dense queue card in front, detail panel pushed behind until selection, review actions softened until note focus, and an end-of-list sentinel inside the queue scroll owner.
+> - Motion model stays within WS16 timing tokens: queue-to-detail push, admin lift, and search/filter fade-up sheet.
+> - Verification: existing `npm test` WS16 source validation still passes after the variant registration.
 
 > [!info] 2026-03-27: WS16 Phase 16 — Polymorphic dock + full-width panel polish
 > - **Direction pivot:** Replaced dual-layer system (`#mobile-dock` pill + `#mobile-rail` tab bar) with a single floating polymorphic dock per reference design (Centric Ops native app pattern).
@@ -57,9 +104,10 @@
 - **Sync:** Mirrored state to Obsidian vault (01_Projects/Omni-PMO-App).
 
 > [!info] 2026-03-27: WS16 Kickoff — Mobile Architecture Rebuild
-- **Why:** WS12 responsive work shipped feature parity, but current mobile behavior still depends on layered breakpoint overrides, duplicate navigation paths, and mobile-only sheets that are too brittle to keep extending.
-- **Decision:** Treat mobile as a fresh architecture pass, not another breakpoint tweak cycle.
-- **Salvage:** Keep shared state contracts, shared renderers where viable, viewport meta handling, touch-safe sizing tokens, and orientation utilities that still serve the main shell.
+> [!info] 2026-03-28: WS17 kickoff — Desktop Context Dock plan documented
+> - Added `WORKSTREAM_17_DESKTOP_CONTEXT_DOCK.md` as the formal desktop follow-on plan for contextual dock exploration.
+> - Direction is locked to a compact desktop smart-dock with a dock-mounted Filters launcher and anchored secondary filter panel, preserving the existing glass shell language.
+> - Added WS17 to `PRD.md` with clearly defined checkbox phases so execution can be tracked incrementally.
 - **Replace/Delete Candidates:** `_module_mobile_nav.html`, WS12 mobile bottom sheets in `WebApp.html`, duplicate mobile menu path, and mobile-only dock/search/admin orchestration that bypasses the main workspace contract.
 - **Execution Order:** 1) audit and salvage map, 2) define mobile shell contract, 3) remove mobile-only debt, 4) rebuild queue/detail/admin, 5) rebuild deck/gantt mobile, 6) smoke matrix + desktop regression.
 - **Success Bar:** One mobile navigation model, no duplicate panel systems, no blocked controls, no hover-dependent critical actions, and no desktop regressions.

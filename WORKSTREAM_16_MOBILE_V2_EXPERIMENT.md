@@ -63,9 +63,10 @@ Before starting Phase B work, you must do **both** of the following:
 
 | Variant Name | File | Agent / Session | Status |
 |---|---|---|---|
-| RailView | `v2_shell_RailView.html` | Claude Code / 2026-03-28 | In Progress |
-| GlassFlow | `v2_shell_GlassFlow.html` | Gemini CLI / 2026-03-28 | In Progress |
-| FlexStack | `v2_shell_FlexStack.html` | Claude Code / 2026-03-28 | In Progress |
+| RailView | `v2_shell_RailView.html` | Claude Code / 2026-03-28 | Ready for Review |
+| GlassFlow | `v2_shell_GlassFlow.html` | Gemini CLI / 2026-03-28 | Final |
+| FlexStack | `v2_shell_FlexStack.html` | CoPilot / 2026-03-28 | Ready for Review |
+| SignalStack | `v2_shell_SignalStack.html` | Codex / 2026-03-28 | Ready for Review |
 
 **Each shell file must call `setV2Variant('[YourVariantName]')` during its init** so the shared state knows which experiment is running.
 
@@ -314,3 +315,26 @@ Validate in this order. Do not proceed to the next item until the current one pa
 - **Visual Family:** Queue/Detail/Admin feel like one cohesive "Card" system.
 - **Maintenance Drop:** The number of phone-only CSS overrides decreases because the Shell handles the heavy lifting.
 - **Desktop Isolation:** Desktop users see zero changes.
+
+---
+
+## Evaluation Rubric (Pick a Winner)
+
+Score each variant 0–3 per category. Total is out of 18. Review on a physical phone in portrait only.
+
+| Category | 0 | 1 | 2 | 3 |
+|---|---|---|---|---|
+| **Scroll Confidence** | Iframe fights for control | Occasional stutter or bounce | Mostly smooth, minor edge cases | Perfect — user always owns the scroll |
+| **Queue Usability** | Can't find projects or rows are too small | Readable but slow to scan | Easy to scan, good row density | Instant — right project in one glance |
+| **Detail Readability** | Key data obscured or requires zoom | Readable with effort | Clear hierarchy, easy to skim | Target date + velocity + action visible at a glance, no scroll needed for critical info |
+| **One-Handed Action** | Commit/Skip unreachable with one thumb | Reachable but awkward | Accessible, minor stretch | Primary actions land naturally under thumb in portrait |
+| **Visual Family** | Feels like a different product | Same data, completely different aesthetic | Recognizable but composition feels foreign | Blood relative — same feel, recomposed for portrait |
+| **Transition Quality** | No transitions or jarring jump cuts | Transitions exist but feel slow or wrong | Smooth and directional, correct Push/Lift/Fade | Physical and immediate — feels like the content is really there |
+
+**Scoring guide:**
+- 15–18: Ship it
+- 10–14: Strong candidate with fixes
+- 6–9: Interesting ideas, needs significant rework
+- 0–5: Back to drawing board
+
+**Tiebreaker:** If two variants score within 2 points of each other, prefer the one with fewer CSS `!important` overrides — it will be easier to maintain.

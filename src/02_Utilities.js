@@ -177,11 +177,9 @@ function doGet(e) {
   // Format: 'VariantName': 'v2_shell_VariantName'
   // Access your variant at: [appUrl]?v=VariantName
   const V2_VARIANTS = {
-    // 'CardStack':  'v2_shell_CardStack',
-    // 'NativeList': 'v2_shell_NativeList',
-    'RailView':   'v2_shell_RailView',
-    'GlassFlow':  'v2_shell_GlassFlow',
-    'FlexStack':  'v2_shell_FlexStack',
+    // WS16 Experiment complete — GlassFlow selected as winner 2026-03-28
+    // Retired: RailView, FlexStack, SignalStack
+    'GlassFlow': 'v2_shell_GlassFlow',
   };
 
   const variant = (e && e.parameter && e.parameter.v) ? e.parameter.v : null;
