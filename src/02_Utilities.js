@@ -172,19 +172,16 @@ function onOpen() {
 }
 
 function doGet(e) {
-  // V2 Mobile Experiment Routing — WS16
-  // Agents: add your variant name and file to this table before starting Phase B.
-  // Format: 'VariantName': 'v2_shell_VariantName'
-  // Access your variant at: [appUrl]?v=VariantName
-  const V2_VARIANTS = {
-    // WS16 Experiment complete — GlassFlow selected as winner 2026-03-28
-    // Retired: RailView, FlexStack, SignalStack
+  // Mobile shell routing:
+  // `WebApp` remains the shared desktop shell.
+  // `GlassFlow` is the active mobile shell and is addressable via `?v=GlassFlow`.
+  const MOBILE_SHELLS = {
     'GlassFlow': 'v2_shell_GlassFlow',
   };
 
   const variant = (e && e.parameter && e.parameter.v) ? e.parameter.v : null;
-  const templateFile = (variant && V2_VARIANTS[variant]) ? V2_VARIANTS[variant] : 'WebApp';
-  const title = variant ? 'Omni PMO — V2: ' + variant : 'Omni PMO App';
+  const templateFile = (variant && MOBILE_SHELLS[variant]) ? MOBILE_SHELLS[variant] : 'WebApp';
+  const title = variant ? 'Omni PMO — Mobile: ' + variant : 'Omni PMO App';
 
   return HtmlService.createTemplateFromFile(templateFile)
     .evaluate()

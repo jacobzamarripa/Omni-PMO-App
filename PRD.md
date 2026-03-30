@@ -79,9 +79,10 @@
 
 ## Workstream 16 — Mobile Native Redesign
 
-> **Design spec:** `WORKSTREAM_16_NATIVE_DESIGN.md`
-> **Validation matrix:** `WORKSTREAM_16_VALIDATION_MATRIX.md`
-> **Next-step brief:** `WORKSTREAM_16_MOBILE_V2_EXPERIMENT.md`
+> **Status:** Archived as historical design context. Active mobile shell work moved to `WORKSTREAM_18_GLASSFLOW_PANEL_REFINEMENT.md`.
+> **Archived design spec:** `_docs_archive/workstream_16/WORKSTREAM_16_NATIVE_DESIGN.md`
+> **Archived validation matrix:** `_docs_archive/workstream_16/WORKSTREAM_16_VALIDATION_MATRIX.md`
+> **Archived V2 experiment brief:** `_docs_archive/workstream_16/WORKSTREAM_16_MOBILE_V2_EXPERIMENT.md`
 > **Archived setup docs:** `_docs_archive/workstream_16/`
 > **Philosophy:** Mobile is not the desktop app scaled down. It is a purpose-built native surface sharing the same data layer, routing contract, and state model. Target: intuitive, iOS-native UX feel.
 
@@ -96,7 +97,7 @@
 - [x] Phase 8 — Filter bottom sheet (`.smart-dock` as sheet behind `body.mobile-filter-open`)
 - [x] Phase 9 — View transitions (CSS push/pop animation for queue↔detail; fixes queue auto-open bug)
 - [x] Phase 10 — Gantt mobile (auto-show full-screen in landscape; no rail button; restore on portrait)
-- [ ] Phase 11 — Cross-device validation matrix
+- [ ] Phase 11 — Cross-device validation matrix → `_docs_archive/workstream_16/WORKSTREAM_16_VALIDATION_MATRIX.md`
 - [x] Phase 12 — Remove Grid from mobile; queue-first startup hardening
 - [x] Phase 13 — Mobile contextual floating dock (`#mobile-dock`)
 - [x] Phase 14 — Mobile detail breathing room + action migration to dock
@@ -106,13 +107,31 @@
 
 ## Workstream 17 — Desktop Context Dock
 
-> **Plan:** `WORKSTREAM_17_DESKTOP_CONTEXT_DOCK.md`
+> **Plan:** `_docs_archive/workstream_17/WORKSTREAM_17_DESKTOP_CONTEXT_DOCK.md`
 > **Philosophy:** Shrink the dock, not the capability.
 
 - [x] Phase 0 — Research + desktop direction
 - [x] Phase 1 — Dock contract + surface design
-- [ ] Phase 2 — Markup refactor
-- [ ] Phase 3 — Interaction wiring
-- [ ] Phase 4 — Contextual choreography
-- [ ] Phase 5 — Collision hardening
-- [ ] Phase 6 — Final polish + signoff
+- [x] Phase 2 — Markup refactor
+- [x] Phase 3 — Interaction wiring
+- [x] Phase 4 — Contextual choreography
+- [x] Phase 5 — Collision hardening
+- [x] Phase 6 — Final polish + signoff
+
+---
+
+## Workstream 18 — GlassFlow Panel-by-Panel Refinement ✅ Phases 1-5 Complete
+
+> **Plan:** `WORKSTREAM_18_GLASSFLOW_PANEL_REFINEMENT.md`
+> **Philosophy:** Contextual dock, creative interior. One panel at a time to completion before moving on.
+
+- [x] Phase 1 — Queue + contextual dock foundation
+- [x] Phase 2 — Detail card + contextual dock
+- [x] Phase 3 — Admin panel + contextual dock
+- [x] Phase 4 — Gantt + contextual dock
+- [x] Phase 5 — Filters & search unification
+- [x] Phase 6 — Dock Cleanup & Contextual Synchronization
+
+---
+
+## Workstream 19 — [To Be Defined]

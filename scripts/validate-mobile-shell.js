@@ -9,6 +9,11 @@ function read(relPath) {
 
 const checks = [
   {
+    label: 'WebApp auto-routes phone users into GlassFlow unless desktop is explicitly requested',
+    file: 'src/WebApp.html',
+    patterns: [/autoRoutePhoneToGlassFlow/, /searchParams\.get\('v'\) === 'GlassFlow'/, /searchParams\.get\('shell'\) === 'desktop'/, /matchMedia\('\(pointer: coarse\) and \(max-width: 480px\)'\)/, /searchParams\.set\('v', 'GlassFlow'\)/, /location\.replace\(url\.toString\(\)\)/],
+  },
+  {
     label: 'WebApp mounts the polymorphic mobile dock shell',
     file: 'src/WebApp.html',
     patterns: [/<div id="mobile-dock">/, /id="m-dock-queue"/, /id="m-dock-detail"/],
@@ -44,14 +49,30 @@ const checks = [
     patterns: [/function syncMobileDockContext\(\)/, /window\.innerWidth <= 480/, /mobile-detail-open/, /deck-mode-active/, /queueCtx\.style\.display/],
   },
   {
-    label: 'Phone-only layout rules drive queue/detail push-pop and mobile shell visibility',
+    label: 'Phone-only layout rules drive queue/detail push-pop and legacy shell visibility',
     file: 'src/_styles_layout.html',
-    patterns: [/#mobile-dock \{ display: none; \}/, /#mobile-sf-overlay \{ display: none; \}/, /#mobile-sf-sheet \{ display: none; \}/, /@media \(max-width: 480px\)/, /body\.mobile-detail-open \.inbox-sidebar \{ transform: translateX\(-100%\); \}/, /body\.mobile-detail-open \.reading-pane  \{ transform: translateX\(0\); \}/, /left: 12px !important;/, /right: 12px !important;/, /overflow-y: auto !important;/, /touch-action: pan-y !important;/],
+    patterns: [/#mobile-dock \{ display: none; \}/, /#mobile-sf-overlay \{\s*display: none;/, /#mobile-sf-sheet \{\s*display: flex !important;/, /@media \(max-width: 480px\)/, /body\.mobile-detail-open \.inbox-sidebar \{ transform: translateX\(-100%\); \}/, /body\.mobile-detail-open \.reading-pane  \{ transform: translateX\(0\); \}/, /left: 12px !important;/, /right: 12px !important;/, /overflow-y: auto !important;/, /touch-action: pan-y !important;/],
   },
   {
     label: 'Phone filter presentation stays sheet-based behind the shared smart dock',
     file: 'src/_styles_responsive.html',
     patterns: [/@media \(max-width: 480px\)/, /body\.mobile-filter-open::after/, /body\.mobile-filter-open \.filter-strip\.smart-dock/, /max-height: 60vh/],
+  },
+  {
+    label: 'GlassFlow detail hero keeps FDH, target date, and status above the fold',
+    file: 'src/v2_shell_GlassFlow.html',
+    patterns: [/class="glassflow-hero-top"/, /id="p-fdh"/, /id="p-target-wrap"/, /class="glassflow-hero-status-row"/, /id="p-status"/],
+  },
+  {
+    label: 'GlassFlow detail dock owns Back, Skip, Commit, and AI Draft actions',
+    file: 'src/v2_shell_GlassFlow.html',
+    patterns: [/id="dock-btn-back"/, /id="dock-btn-skip"/, /id="btn-commit"/, /id="dock-btn-ai-draft"/, /function syncDetailDockState\(\)/, /function handleDockCommit\(\)/],
+  },
+  {
+    label: 'GlassFlow detail commit state is textarea-driven and no inline commit buttons remain',
+    file: 'src/v2_shell_GlassFlow.html',
+    patterns: [/id="p-comment" class="chat-bubble" oninput="this\.dataset\.generated='false'; syncDetailDockState\(\)"/, /commitBtn\.classList\.toggle\('is-disabled', !hasNote\)/],
+    absentPatterns: [/onclick="commitReview\(\)"/],
   },
 ];
 
@@ -60,8 +81,18 @@ let failed = false;
 checks.forEach((check) => {
   const source = read(check.file);
   const missing = check.patterns.filter((pattern) => !pattern.test(source));
+  const presentButDisallowed = (check.absentPatterns || []).filter((pattern) => pattern.test(source));
   if (missing.length === 0) {
-    console.log(`PASS ${check.label}`);
+    if (presentButDisallowed.length === 0) {
+      console.log(`PASS ${check.label}`);
+      return;
+    }
+
+    failed = true;
+    console.error(`FAIL ${check.label}`);
+    presentButDisallowed.forEach((pattern) => {
+      console.error(`  Disallowed pattern in ${check.file}: ${pattern}`);
+    });
     return;
   }
 
@@ -70,11 +101,14 @@ checks.forEach((check) => {
   missing.forEach((pattern) => {
     console.error(`  Missing pattern in ${check.file}: ${pattern}`);
   });
+  presentButDisallowed.forEach((pattern) => {
+    console.error(`  Disallowed pattern in ${check.file}: ${pattern}`);
+  });
 });
 
 if (failed) {
-  console.error('\nWS16 mobile validation failed.');
+  console.error('\nMobile shell validation failed.');
   process.exit(1);
 }
 
-console.log(`\nWS16 mobile validation passed (${checks.length} checks).`);
+console.log(`\nMobile shell validation passed (${checks.length} checks).`);

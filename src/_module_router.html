@@ -179,6 +179,25 @@ function syncWorkspaceChrome() {
     updateFloatingPillsPosition();
     syncDockClearanceState();
     syncDockContextChoreography();
+    syncUnifiedFabState();
+}
+
+function syncUnifiedFabState() {
+    const fab = getEl('unified-filter-fab');
+    if (!fab) return;
+
+    // 1. Position: Gantt = Top-Right, Others = Bottom-Right
+    const isGantt = currentWorkspaceView === 'gantt';
+    fab.classList.toggle('fab-top-right', isGantt);
+    fab.classList.toggle('fab-bottom-right', !isGantt);
+
+    // 2. Badge: Sync with active filter count
+    const badge = getEl('fab-filter-badge');
+    if (badge) {
+        const count = typeof getDesktopFiltersActiveCount === 'function' ? getDesktopFiltersActiveCount() : 0;
+        badge.textContent = String(count);
+        badge.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
 }
 
 function syncDockPlacementState() {

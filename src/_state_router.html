@@ -66,11 +66,11 @@ let deckPrevPivot = 'velocity';
 // EXTRACT WITH: currentDetailFace, isDeckMode
 let pendingFaceAnimation = null;
 
-// STATE: currentV2Variant — WS16 Mobile Experiment
-// READS: v2 shell init, variant-aware rendering
-// WRITES: set once on load by v2_shell_[Name].html via setV2Variant()
+// STATE: currentV2Variant — mobile shell identifier
+// READS: mobile shell init, shell-aware rendering
+// WRITES: set once on load by the active mobile shell via setV2Variant()
 // EXTRACT WITH: currentWorkspaceView
-// WORKSTREAM 16 ONLY — null means standard desktop shell is active
+// null means the shared desktop shell is active
 let currentV2Variant = null;
 function getV2Variant() { return currentV2Variant; }
 function setV2Variant(name) { currentV2Variant = name || null; }

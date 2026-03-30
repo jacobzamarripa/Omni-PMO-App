@@ -131,37 +131,6 @@ function ensureGanttRendered(options) {
     let container = getEl('gantt-container');
     if (!container) return;
 
-    // 📱 WS12 Phase 5: Orientation Guard
-    const isMobilePortrait = window.matchMedia('(max-width: 932px) and (orientation: portrait)').matches;
-    if (isMobilePortrait) {
-        let panel = getEl('gantt-panel');
-        if (panel && !getEl('gantt-mobile-placeholder')) {
-            const placeholder = document.createElement('div');
-            placeholder.id = 'gantt-mobile-placeholder';
-            placeholder.className = 'gantt-mobile-placeholder';
-            placeholder.innerHTML = `
-                <svg class="gantt-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                </svg>
-                <div class="gantt-placeholder-title">Landscape Required</div>
-                <div class="gantt-placeholder-sub">Rotate your device to view the high-density construction timeline.</div>
-            `;
-            panel.appendChild(placeholder);
-
-            // Add listener to re-render when orientation changes
-            window.matchMedia('(orientation: landscape)').addEventListener('change', (e) => {
-                if (e.matches && currentWorkspaceView === 'gantt') {
-                    const existing = getEl('gantt-mobile-placeholder');
-                    if (existing) existing.remove();
-                    ganttNeedsRender = true;
-                    ensureGanttRendered({ immediate: true });
-                }
-            }, { once: true });
-        }
-        return; // Skip rendering the heavy timeline in portrait
-    }
-
     if (!ganttHasMounted) {
         container.innerHTML = `<div class="empty-msg" style="margin-top:20px;">Loading Timeline...</div>`;
         ganttHasMounted = true;

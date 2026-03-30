@@ -1042,11 +1042,19 @@ function applyFilters() {
             label: v === '60_DAYS' ? '< 60 Days' : v === '90_DAYS' ? '< 90 Days' : v
         }));
 
-        renderMultiSelect('wrap-filter-severity', 'sev', 'All Health', sevOpts);
-        renderMultiSelect('wrap-filter-vendor', 'vendor', 'All Vendors', validVen.map(v => ({ val: v, label: v })));
-        renderMultiSelect('wrap-filter-city', 'city', 'All Cities', validCit.map(v => ({ val: v, label: v })));
-        renderMultiSelect('wrap-filter-ofs', 'ofs', 'All OFS Dates', ofsOpts);
-        renderMultiSelect('wrap-filter-status', 'status', 'All Statuses', validStatus.map(v => ({ val: v, label: v })));
+        const MS_MAP = [
+            ['wrap-filter-severity', 'm-sf-wrap-severity', 'sev', 'All Health', sevOpts],
+            ['wrap-filter-vendor', 'm-sf-wrap-vendor', 'vendor', 'All Vendors', validVen.map(v => ({ val: v, label: v }))],
+            ['wrap-filter-city', 'm-sf-wrap-city', 'city', 'All Cities', validCit.map(v => ({ val: v, label: v }))],
+            ['wrap-filter-ofs', 'm-sf-wrap-ofs', 'ofs', 'All OFS Dates', ofsOpts],
+            ['wrap-filter-status', 'm-sf-wrap-status', 'status', 'All Statuses', validStatus.map(v => ({ val: v, label: v }))]
+        ];
+
+        MS_MAP.forEach(cfg => {
+            renderMultiSelect(cfg[0], cfg[2], cfg[3], cfg[4]);
+            renderMultiSelect(cfg[1], cfg[2], cfg[3], cfg[4]);
+        });
+
         if (typeof syncMobileSFFilterChips === 'function') syncMobileSFFilterChips();
 
         // Base filter: vendor/city/OFS/severity/search — NO admin filter
@@ -1221,6 +1229,7 @@ function applyFilters() {
             groupSelect.classList.toggle('is-active', currentGroupBy !== 'none');
         }
         if (typeof syncDesktopFiltersLauncherState === 'function') syncDesktopFiltersLauncherState();
+        if (typeof syncUnifiedFabState === 'function') syncUnifiedFabState();
         filteredItems = displayFiltered;
         if (typeof syncMobileDockContext === 'function') syncMobileDockContext();
         ganttNeedsRender = true;

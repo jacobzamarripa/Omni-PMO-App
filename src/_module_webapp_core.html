@@ -278,7 +278,8 @@
       function toggleDesktopFiltersPanel(forceOpen) {
           const panel = getEl('dock-filters-panel');
           const launcher = getEl('dock-btn-filters-launcher');
-          if (!panel || !launcher) return;
+          // UNIFIED FAB REPLACEMENT: launcher might be null, but panel still exists
+          if (!panel) return;
 
           const currentlyOpen = panel.classList.contains('is-open');
           const nextOpen = typeof forceOpen === 'boolean' ? forceOpen : !currentlyOpen;
@@ -288,14 +289,27 @@
               desktopFiltersPanelCloseTimer = null;
           }
 
-          setDesktopPanelLaunchVector(panel, launcher);
+          if (launcher) setDesktopPanelLaunchVector(panel, launcher);
+          else {
+              // If launcher is missing (e.g., in Gantt or via FAB), center it or anchor to FAB
+              const fab = getEl('unified-filter-fab');
+              if (fab) {
+                  const fabRect = fab.getBoundingClientRect();
+                  const isGantt = currentWorkspaceView === 'gantt';
+                  panel.style.setProperty('--dock-panel-shift-x', '0px');
+                  panel.style.setProperty('--dock-panel-shift-y', isGantt ? '84px' : '-84px');
+                  // We could refine this vector, but centering is safer for now
+              }
+          }
 
           if (nextOpen) {
               panel.classList.remove('is-closing');
               panel.classList.add('is-open');
-              launcher.classList.add('is-launching');
-              setTimeout(() => launcher.classList.remove('is-launching'), 430);
-              requestAnimationFrame(() => setDesktopPanelLaunchVector(panel, launcher));
+              if (launcher) {
+                  launcher.classList.add('is-launching');
+                  setTimeout(() => launcher.classList.remove('is-launching'), 430);
+              }
+              if (launcher) requestAnimationFrame(() => setDesktopPanelLaunchVector(panel, launcher));
           } else {
               panel.classList.add('is-closing');
               panel.classList.remove('is-open');
@@ -305,13 +319,37 @@
           }
 
           panel.setAttribute('aria-hidden', nextOpen ? 'false' : 'true');
-          launcher.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
-          launcher.classList.toggle('is-active', nextOpen);
+          if (launcher) {
+              launcher.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+              launcher.classList.toggle('is-active', nextOpen);
+          }
 
           syncDockLayoutSpacing();
           updateFloatingPillsPosition();
           syncDockClearanceState();
           syncDesktopFiltersLauncherState();
+      }
+
+      function handleFabClick() {
+          const isMobile = window.innerWidth <= 768 || currentWorkspaceView === 'gantt';
+          const sheet = getEl('mobile-sf-sheet');
+          const isSheetOpen = sheet && sheet.classList.contains('open');
+
+          if (isSheetOpen) {
+              closeMobileSFSheet();
+              return;
+          }
+          
+          if (isMobile) {
+              const fab = getEl('unified-filter-fab');
+              if (sheet && fab) {
+                  const rect = fab.getBoundingClientRect();
+                  sheet.style.transformOrigin = `${rect.left + rect.width/2}px ${rect.top + rect.height/2}px`;
+              }
+              openMobileSFSheet('filter');
+          } else {
+              toggleDesktopFiltersPanel();
+          }
       }
 
       // Dynamic Island State Memory
@@ -424,14 +462,14 @@
           panel.classList.toggle('open');
       }
 
-      // WS16: single filter toggle — operates on the shared .smart-dock, no DOM cloning
+      // Shared-shell mobile filter toggle — operates on the shared .smart-dock, no DOM cloning
       function toggleMobileFilter() {
           const isOpen = document.body.classList.toggle('mobile-filter-open');
           const dock = document.querySelector('.smart-dock');
           if (dock) dock.classList.toggle('mobile-filter-expanded', isOpen);
       }
 
-      // WS16: clear detail view on phone, return to queue
+      // Shared-shell phone back navigation — clear detail view and return to queue
       function closeMobileDetail() {
           document.body.classList.remove('mobile-detail-open');
           setTxt('mobile-back-title', 'Project');
@@ -442,6 +480,7 @@
           const sheet = getEl('mobile-sf-sheet');
           const overlay = getEl('mobile-sf-overlay');
           const title = getEl('m-sf-title');
+          const fab = getEl('unified-filter-fab');
           if (!sheet || !overlay) return;
 
           if (title) title.textContent = tab === 'filter' ? 'Filter' : 'Search';
@@ -449,6 +488,7 @@
           sheet.classList.add('open');
           overlay.classList.add('open');
           document.body.classList.add('mobile-sf-open');
+          if (fab) fab.classList.add('is-active');
 
           if (tab === 'search') {
               setTimeout(function() {
@@ -461,9 +501,11 @@
       function closeMobileSFSheet() {
           const sheet = getEl('mobile-sf-sheet');
           const overlay = getEl('mobile-sf-overlay');
+          const fab = getEl('unified-filter-fab');
           if (sheet) sheet.classList.remove('open');
           if (overlay) overlay.classList.remove('open');
           document.body.classList.remove('mobile-sf-open');
+          if (fab) fab.classList.remove('is-active');
       }
 
       function navigateMobileQueue(dir) {
@@ -502,19 +544,6 @@
       }
 
       function syncMobileSFFilterChips() {
-          const mappings = [
-              ['wrap-filter-severity', 'm-sf-wrap-severity'],
-              ['wrap-filter-vendor', 'm-sf-wrap-vendor'],
-              ['wrap-filter-city', 'm-sf-wrap-city'],
-              ['wrap-filter-status', 'm-sf-wrap-status']
-          ];
-
-          mappings.forEach(function(pair) {
-              const src = getEl(pair[0]);
-              const dst = getEl(pair[1]);
-              if (src && dst) dst.innerHTML = src.innerHTML;
-          });
-
           const srcGroup = getEl('group-by-select');
           const dstGroup = getEl('m-sf-group-select');
           if (srcGroup && dstGroup) dstGroup.value = srcGroup.value;
@@ -570,7 +599,7 @@
       window.addEventListener('resize', syncDockClearanceState);
     window.addEventListener('resize', syncMobileDockContext);
 
-      // WS16 Phase 10: auto-show Gantt on phone landscape; restore on portrait
+      // Shared-shell phone landscape behavior — auto-show Gantt and restore on portrait
       let _phonePreGanttView = 'detail';
       let _ganttLandscapeTimer = null;
       function _handleGanttLandscape() {
@@ -587,8 +616,8 @@
               }
           }, 150);
       }
-      window.addEventListener('resize', _handleGanttLandscape);
-      window.addEventListener('orientationchange', function() { setTimeout(_handleGanttLandscape, 100); });
+      // window.addEventListener('resize', _handleGanttLandscape);
+      // window.addEventListener('orientationchange', function() { setTimeout(_handleGanttLandscape, 100); });
       document.addEventListener('keydown', function(e) {
           if (e.key === 'Escape') {
               closeMobileSFSheet();
@@ -981,7 +1010,7 @@
 
       // TODO: DOM-COUPLED - extract after state layer is isolated
       // BOOTSTRAP ANCHOR: owns first payload fetch, viewport handoff, splash timeout, and startup error UI
-      // WS16 Phase 10: gantt scroll hint (phone only, once per session)
+      // Shared-shell gantt scroll hint (phone only, once per session)
       function showGanttScrollHint() {
           if (window.innerWidth > 480) return;
           try { if (sessionStorage.getItem('gantt_hint_ok')) return; } catch(e) {}
@@ -1166,8 +1195,8 @@
         reportStartupPhase('dashboard-init-complete');
       }
 
-      window.addEventListener('orientationchange', () => { setTimeout(scrollGanttToToday, 350); });
-      window.addEventListener('resize', syncGanttViewportLayout);
+      // window.addEventListener('orientationchange', () => { setTimeout(scrollGanttToToday, 350); });
+      // window.addEventListener('resize', syncGanttViewportLayout);
 
       // Calculator Keyboard Support
       document.addEventListener('keydown', function(e) {

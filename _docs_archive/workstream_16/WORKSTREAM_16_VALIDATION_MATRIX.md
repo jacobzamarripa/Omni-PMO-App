@@ -1,5 +1,7 @@
 # WORKSTREAM 16 — Validation Matrix
 
+> **Archive note:** Historical WS16 validation tracker. The current source-level check is `node scripts/validate-mobile-shell.js`.
+
 > **Date:** 2026-03-28
 > **Scope:** Phase 11 cross-device validation for the native mobile redesign
 > **Status:** Source validation automated; manual runtime pending
@@ -16,7 +18,7 @@ This matrix records what has been verified from source and what still needs hand
 - Phone-only mobile overrides constrained to `@media (max-width: 480px)`
 - Tablet/desktop isolation by keeping those overrides out of `>480px` layouts
 
-This repo now includes a lightweight source validation harness at `scripts/validate-ws16-mobile.js` and runs it via `npm test`. It verifies that the key WS16 shell contract still exists in source:
+This repo now includes a lightweight source validation harness at `scripts/validate-mobile-shell.js`. It verifies that the key mobile shell contract still exists in source:
 
 - `#mobile-dock` remains the only phone navigation surface
 - `#mobile-sf-sheet` remains the shared search/filter sheet
@@ -64,8 +66,8 @@ This is not a browser/runtime test harness, so final signoff still requires manu
 
 ## Automated Source Check
 
-- Command: `npm test`
-- Script: [`scripts/validate-ws16-mobile.js`](/Users/jacobzamarripa.omni/App-Projects/Omni-PMO-App/scripts/validate-ws16-mobile.js)
+- Command: `node scripts/validate-mobile-shell.js`
+- Script: [`scripts/validate-mobile-shell.js`](/Users/jacobzamarripa.omni/App-Projects/Omni-PMO-App/scripts/validate-mobile-shell.js)
 - Coverage: source-level assertions for markup, routing helpers, dock/sheet orchestration, and phone-scoped CSS selectors
 - Limits: does not verify layout feel, gesture smoothness, safe-area rendering, or runtime interactions in a real browser
 
