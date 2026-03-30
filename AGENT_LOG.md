@@ -1,5 +1,17 @@
 # Agent Log — Omni PMO App
 
+> [!info] 2026-03-30: WS18 Phase 6 — CSS extraction, UI polish, and Phase 7 definition
+- **CSS Extraction (Critical Fix):** Extracted ~1900 lines of inline CSS from `v2_shell_GlassFlow.html` into new partial `_styles_glassflow_core.html`. GAS HtmlService sanitizes/ignores large inline style blocks — this was a root cause of styles not rendering.
+- **Architecture Rule Added:** CLAUDE.md + GEMINI.md updated with rule: never put >500 lines of CSS inline in an HTML shell; use `<?!= include() ?>` instead.
+- **Admin Outbox:** Fixed comment truncation — removed `max-height:30px; overflow:hidden` so full comments display.
+- **Section Headers:** Updated crossings + outbox section headers: padding `16px→20px`, `background:var(--bg)→transparent` for glassy consistency.
+- **Mobile Menu:** `toggleMobileMenu()` now syncs `body.mobile-menu-open` class for CSS-driven states.
+- **Theme Sync:** `applyTheme()` now updates Gantt dock theme icon (`gantt-theme-icon`).
+- **Styles Dedup:** Removed duplicate `</style>` tag in `_styles_responsive.html`.
+- **DatePicker Relocated:** Moved `DatePicker.html` from repo root to `src/DatePicker.html`.
+- **Phase 7 Defined:** Review Hub Rework — scroll fix, KPI strip, card layout, swipe-dismiss, badge polish.
+- **File Map:** `CLAUDE.md` file map updated with `_styles_glassflow_core.html`.
+
 > [!info] 2026-03-30: Restore DatePicker.html from git history
 - **Action:** Surgically restored `DatePicker.html` from commit `b4a2517` using `git checkout b4a2517 -- DatePicker.html`.
 - **Reason:** File was deleted during WS12 modularization archival pass (commit `4dad151`).

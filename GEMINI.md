@@ -30,6 +30,10 @@
   withSuccessHandler AND withFailureHandler
 - QB_USER_TOKEN lives in Script Properties 
   only — never in code or HTML
+- GAS sanitizes massive inline style blocks —
+  never put more than 500 lines of CSS in 
+  an HTML shell. Move to a partial and 
+  use server-side includes.
 
 ## Backend File Map
 - 00_Config.js — constants, sheet names, 

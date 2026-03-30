@@ -28,6 +28,8 @@ function applyTheme(dark) {
     if (btn) btn.innerHTML = dark ? _MOON_SVG : _SUN_SVG;
     let mobBtn = document.getElementById('mob-theme-btn');
     if (mobBtn) mobBtn.textContent = dark ? 'Light Mode' : 'Dark Mode';
+    let ganttThemeIcon = document.getElementById('gantt-theme-icon');
+    if (ganttThemeIcon) ganttThemeIcon.innerHTML = dark ? _MOON_SVG : _SUN_SVG;
     let fabThemeIcon = document.getElementById('fab-theme-icon');
     if (fabThemeIcon) fabThemeIcon.innerHTML = dark ? _SUN_SVG : _MOON_SVG;
     let fabThemeLabel = document.getElementById('fab-theme-label');

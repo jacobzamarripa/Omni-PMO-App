@@ -171,4 +171,13 @@ After each phase, verify on mobile viewport (≤480px):
 - [x] Filter badge increments when filters applied, clears on clear-all
 - [x] Gantt mode triggers landscape orientation hint and focus mode
 - [x] SF Sheet dropdowns open/close correctly and filter data
-- [x] Executive glass effect is visible and performant
+---
+
+### Phase 7: Review Hub Rework (Upcoming)
+**Goal:** Fix scrolling issues and optimize the layout for the Review Hub panel.
+
+- [ ] Diagnose and fix scrolling blockage in `#admin-pane-content` and `#outbox-list`
+- [ ] Rework KPI strip for better interaction and visual hierarchy
+- [ ] Standardize card layouts within the hub
+- [ ] Ensure swipe-to-dismiss consistency across all sheets
+- [ ] Refine notification badge shape and placement (iOS-style pill)

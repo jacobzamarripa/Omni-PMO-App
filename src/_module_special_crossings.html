@@ -37,7 +37,7 @@ function renderSpecialCrossingsAdminSection(crossings) {
         </div>`;
     }).join('');
     return `<div style="border-bottom:1px solid var(--border); padding:0;">
-        <div style="padding:10px 16px 6px; font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; background:var(--bg);">
+        <div style="padding:10px 20px 6px; font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; background:transparent;">
             <span>Crossings to Verify <span style="background:var(--border); color:var(--text-main); padding:1px 7px; border-radius:10px; font-size:10px;">${crossings.length}</span></span>
             ${commitBtn}
         </div>

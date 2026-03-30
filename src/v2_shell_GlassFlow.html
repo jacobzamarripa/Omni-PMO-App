@@ -28,1933 +28,7 @@
 <?!= include('_state_analytics') ?>
 <?!= include('_state_ui_shell') ?>
 
-<style>
-/* ============================================================
-   V2 SHELL: GlassFlow (FINAL)
-   ROLE: High-end mobile experience — spatial clarity & physical motion
-   ============================================================ */
-
-/* --- V2 Geometry Contract --- */
-.v2-shell-glassflow {
-  --v2-shell-inset: 12px;
-  --v2-shell-radius: 24px;
-  --v2-shell-top-offset: env(safe-area-inset-top, 0px);
-  --v2-shell-bottom-clearance: 84px;
-  --v2-shell-shadow: 0 8px 32px rgba(0,0,0,0.12);
-
-  height: -webkit-fill-available;
-  overflow: hidden;
-  overscroll-behavior: contain;
-  --inbox-panel-width: 100vw;
-  font-size: 14px;
-  background-color: var(--bg);
-}
-
-.v2-shell-glassflow-viewport {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  height: -webkit-fill-available;
-}
-
-.v2-shell-glassflow-container {
-  margin: var(--v2-shell-inset);
-  margin-top: calc(var(--v2-shell-inset) + var(--v2-shell-top-offset));
-  margin-bottom: calc(var(--v2-shell-inset) + 10px);
-  background: var(--card-bg);
-  border-radius: var(--v2-shell-radius);
-  box-shadow: var(--v2-shell-shadow);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-  border: 1px solid var(--border);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.v2-shell-glassflow-container.glow-ofs {
-  border-color: #93c5fd;
-  box-shadow: var(--v2-shell-shadow), 0 0 44px rgba(37, 99, 235, 0.38), 0 0 16px rgba(37, 99, 235, 0.18);
-}
-.v2-shell-glassflow-container.glow-complete {
-  border-color: #86efac;
-  box-shadow: var(--v2-shell-shadow), 0 0 44px rgba(34, 197, 94, 0.38), 0 0 16px rgba(34, 197, 94, 0.18);
-}
-.v2-shell-glassflow-container.glow-permit {
-  border-color: #d8b4fe;
-  box-shadow: var(--v2-shell-shadow), 0 0 44px rgba(168, 85, 247, 0.38), 0 0 16px rgba(168, 85, 247, 0.18);
-}
-.v2-shell-glassflow-container.glow-overdue {
-  border-color: #f87171;
-  box-shadow: var(--v2-shell-shadow), 0 0 52px rgba(239, 68, 68, 0.48), 0 0 20px rgba(239, 68, 68, 0.24);
-}
-.v2-shell-glassflow-container.glow-active {
-  box-shadow: var(--v2-shell-shadow), 0 0 36px rgba(59, 130, 246, 0.22), 0 0 12px rgba(59, 130, 246, 0.10);
-}
-
-/* Glassy Header */
-.v2-shell-glassflow-header {
-  padding: 12px 20px;
-  background: color-mix(in srgb, var(--card-bg) 85%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-  z-index: 100;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
-  position: relative;
-  pointer-events: auto;
-}
-.v2-shell-glassflow-header-main {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-.v2-shell-glassflow-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.v2-shell-glassflow-logo-mark {
-  font-weight: 900;
-  letter-spacing: -1px;
-  font-size: 22px;
-  line-height: 1;
-  white-space: nowrap;
-}
-.v2-shell-glassflow-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 3;
-}
-.v2-shell-glassflow-header-btn {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  background: color-mix(in srgb, var(--bg) 70%, var(--card-bg));
-  color: var(--text-main);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  flex-shrink: 0;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-}
-.v2-shell-glassflow-header-btn svg {
-  width: 16px;
-  height: 16px;
-}
-.v2-shell-glassflow-header-btn#btn-help {
-  font-size: 18px;
-  font-weight: 900;
-}
-
-.v2-shell-glassflow-views {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-}
-
-.v2-shell-glassflow-scroll {
-  position: absolute;
-  inset: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 94px;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
-}
-
-#v2-glassflow-queue-panel {
-  z-index: 10;
-  opacity: 1;
-  transform: translateX(0);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding-bottom: 0;
-}
-#v2-glassflow-detail-panel { z-index: 20; transform: translateX(100%); opacity: 0; background: var(--card-bg); }
-
-body.mobile-detail-open #v2-glassflow-queue-panel { transform: translateX(-30%); opacity: 0; pointer-events: none; }
-body.mobile-detail-open #v2-glassflow-detail-panel { transform: translateX(0); opacity: 1; }
-
-/* EXECUTIVE GLASS UI (WS18 P6 - Standardized) */
-.v2-shell-glassflow-dock {
-  position: fixed;
-  bottom: calc(16px + env(safe-area-inset-bottom, 8px));
-  left: 50%;
-  transform: translateX(-50%);
-  width: auto !important;
-  min-width: 64px;
-  max-width: 92vw;
-  height: 60px;
-  background: color-mix(in srgb, var(--card-bg) 48%, transparent) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border-radius: 30px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0 12px;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.15) !important;
-  z-index: 9500;
-  border: 1px solid color-mix(in srgb, var(--border) 35%, transparent) !important;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Gantt Dock Position — Upper Right (Thumb optimized) */
-body.mobile-gantt-open .v2-shell-glassflow-dock {
-  top: 16px !important;
-  bottom: auto !important;
-  right: 16px !important;
-  left: auto !important;
-  transform: none !important;
-  min-width: 200px;
-  border-radius: 20px;
-  height: 54px;
-}
-
-/* SF Sheet — Executive Glass Upgrade */
-#mobile-sf-sheet {
-  background: color-mix(in srgb, var(--card-bg) 48%, transparent) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border: 1px solid color-mix(in srgb, var(--border) 35%, transparent) !important;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.4) !important;
-}
-/* Ensure dropdowns inside the glassy sheet start closed */
-.m-sf-filter-grid > div .ms-dropdown {
-  display: none !important;
-}
-.m-sf-filter-grid > div.open .ms-dropdown {
-  display: block !important;
-}
-
-/* 7-button Admin Dock Density */
-body.mobile-admin-open .v2-shell-glassflow-dock {
-  justify-content: space-evenly !important;
-  padding: 0 4px !important;
-}
-body.mobile-admin-open .v2-shell-glassflow-dock-btn {
-  flex: none !important;
-  margin: 0 1px !important;
-  min-width: 44px;
-}
-body.mobile-admin-open .v2-shell-glassflow-dock-btn.active {
-  background: color-mix(in srgb, var(--accent) 22%, var(--card-bg)) !important;
-  box-shadow: 
-    inset 0 0 0 1.5px var(--accent),
-    0 6px 16px color-mix(in srgb, var(--accent) 25%, transparent) !important;
-}
-
-.v2-shell-glassflow-dock-btn {
-  flex: 1; min-width: 0; height: 44px; margin: 0 3px; border-radius: 22px; border: none; background: transparent;
-  color: var(--text-muted); display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; font-size: 10px; font-weight: 800; transition: all 0.2s ease; position: relative;
-}
-.v2-shell-glassflow-dock-btn span:last-child {
-  min-width: 0;
-  white-space: nowrap;
-}
-.v2-shell-glassflow-dock-btn svg {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-
-.v2-shell-glassflow-dock-btn.primary {
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 80%, #000));
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-.v2-shell-glassflow-dock-btn.primary svg { stroke: currentColor; }
-.v2-shell-glassflow-dock-btn.is-disabled {
-  opacity: 0.3;
-  pointer-events: none;
-  filter: grayscale(1);
-}
-.v2-shell-glassflow-dock-btn.is-busy {
-  opacity: 0.72;
-  pointer-events: none;
-}
-.v2-shell-glassflow-dock-btn.success-pulse {
-  animation: dock-commit-confirm 0.38s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.v2-shell-glassflow-dock-btn .m-dock-badge {
-    position: absolute; top: 4px; right: 12px; background: var(--color-critical);
-    color: white; font-size: 8px; padding: 1px 4px; border-radius: 6px; min-width: 12px;
-}
-
-/* Back Button */
-.v2-shell-glassflow-back {
-    display: none; align-items: center; gap: 6px; font-weight: 900; color: var(--accent);
-    background: none; border: none; padding: 0; font-size: 17px; letter-spacing: -0.5px;
-}
-body.mobile-detail-open .v2-shell-glassflow-back { display: flex; }
-body.mobile-detail-open .v2-shell-glassflow-brand { display: none; }
-
-/* Admin Hub — Executive Glass Upgrade */
-#outbox-pane {
-    position: fixed; bottom: 0; left: 12px; right: 12px; height: 82vh; 
-    background: color-mix(in srgb, var(--card-bg) 48%, transparent) !important;
-    backdrop-filter: blur(24px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-    border-radius: 32px 32px 0 0; z-index: 2000;
-    display: flex; flex-direction: column;
-    visibility: hidden; pointer-events: none;
-    transform: translateY(100%);
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.4s;
-    box-shadow: 0 -10px 40px rgba(0,0,0,0.3); 
-    border: 1px solid color-mix(in srgb, var(--border) 35%, transparent) !important; 
-    border-bottom: none;
-    padding-bottom: env(safe-area-inset-bottom, 20px); overflow: hidden;
-}
-#outbox-pane.open {
-    visibility: visible; pointer-events: auto; transform: translateY(0);
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s;
-}
-#outbox-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-#outbox-overlay.open { opacity: 1; pointer-events: auto; }
-
-/* Focus Mode Overrides */
-.gantt-area.has-focus .gantt-row:not(.is-active) {
-  opacity: 0.25 !important;
-  filter: grayscale(80%) blur(1px) !important;
-  transition: all 0.4s ease !important;
-}
-.gantt-row.is-active {
-  opacity: 1 !important;
-  filter: none !important;
-  transform: scale(1.01) !important;
-  z-index: 10 !important;
-}
-
-/* Detail Polish */
-.v2-shell-glassflow .qb-module {
-    border-radius: 0 !important; border: none !important; border-bottom: 1px solid var(--border) !important;
-    margin-bottom: 0 !important; padding: 16px 20px !important;
-}
-.v2-shell-glassflow .pane-content,
-.v2-shell-glassflow .qb-grid,
-.v2-shell-glassflow .qb-top-row {
-    width: 100%;
-    max-width: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    gap: 0 !important;
-}
-/* Force .qb-top-row children to stack vertically and stretch full width.
-   Base style is flex-wrap:wrap which causes content-width-only items. */
-.v2-shell-glassflow .qb-top-row {
-    flex-direction: column !important;
-    flex-wrap: nowrap !important;
-    align-items: stretch !important;
-}
-/* Remove desktop flex-grow/min-width on the two main cards */
-.v2-shell-glassflow #project-schedule-card,
-.v2-shell-glassflow #velocity-production-card {
-    flex: none !important;
-    min-width: 0 !important;
-    border-right: none !important;
-}
-.v2-shell-glassflow .pane-content {
-    padding: 0 0 86px !important;
-    box-sizing: border-box;
-}
-.v2-shell-glassflow .qb-grid {
-    max-height: none !important;
-    min-height: auto !important;
-    background: transparent !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    overflow: visible !important;
-    align-self: stretch !important;
-}
-.v2-shell-glassflow .qb-top-row {
-    border-bottom: 0 !important;
-}
-.v2-shell-glassflow .glassflow-thread-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    align-items: stretch;
-}
-.v2-shell-glassflow .vendor-bubble {
-    display: flex !important;
-    flex-direction: column !important;
-    margin-bottom: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 10px 14px 11px !important;
-    border-radius: 10px;
-    border: 1px solid color-mix(in srgb, var(--border) 80%, #ca8a04);
-    background: color-mix(in srgb, #fefce8 32%, var(--card-bg));
-    box-shadow: none;
-    font-style: normal !important;
-    line-height: 1.45 !important;
-    box-sizing: border-box !important;
-}
-.v2-shell-glassflow.dark-mode .vendor-bubble {
-    border-color: color-mix(in srgb, #ca8a04 45%, var(--border));
-    background: color-mix(in srgb, #422006 60%, var(--card-bg));
-}
-.v2-shell-glassflow .glassflow-note-shell {
-    width: 100%;
-    max-width: 100%;
-    margin-left: 0;
-    padding: 10px 14px 12px !important;
-    border-radius: 10px;
-    border: 1px solid color-mix(in srgb, #a855f7 38%, var(--border));
-    background: color-mix(in srgb, #faf5ff 35%, var(--card-bg));
-    box-shadow: none;
-    box-sizing: border-box;
-}
-.v2-shell-glassflow.dark-mode .glassflow-note-shell {
-    border-color: color-mix(in srgb, #a855f7 35%, var(--border));
-    background: color-mix(in srgb, #3b0764 50%, var(--card-bg));
-}
-.v2-shell-glassflow .chat-bubble {
-    border-radius: 0 !important;
-    font-family: inherit !important;
-    font-size: 14px !important;
-    line-height: 1.5 !important;
-    font-style: normal !important;
-    color: var(--text-main) !important;
-    min-height: 88px !important;
-    height: auto !important;
-    max-height: none !important;
-    padding: 0 !important;
-    border: none !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    resize: none;
-    overflow-y: auto;
-    width: 100%;
-    box-sizing: border-box;
-    display: block;
-}
-.v2-shell-glassflow .glassflow-thread-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 8px;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-}
-.v2-shell-glassflow .glassflow-thread-meta.vendor {
-    color: #854d0e;
-}
-.v2-shell-glassflow .glassflow-thread-meta.pm {
-    color: #6b21a8;
-}
-.v2-shell-glassflow .glassflow-thread-body {
-    font-size: 14px;
-    line-height: 1.5;
-    color: var(--text-main);
-    word-break: break-word;
-}
-.v2-shell-glassflow.dark-mode .glassflow-thread-meta.vendor {
-    color: #fbbf24;
-}
-.v2-shell-glassflow.dark-mode .glassflow-thread-meta.pm {
-    color: #c4b5fd;
-}
-.v2-shell-glassflow.dark-mode #p-gemini-date {
-    color: #c4b5fd !important;
-}
-
-/* Custom Queue Items */
-.v2-shell-glassflow .glassflow-queue-header {
-    padding: 14px 14px 10px;
-    background: color-mix(in srgb, var(--card-bg) 92%, transparent);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
-    flex-shrink: 0;
-}
-.v2-shell-glassflow .glassflow-queue-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    justify-content: space-between;
-    margin-bottom: 0;
-}
-.v2-shell-glassflow .glassflow-queue-title {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-.v2-shell-glassflow .glassflow-queue-kicker {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    font-size: 13px;
-    line-height: 0.98;
-    font-weight: 900;
-    letter-spacing: -0.03em;
-    text-transform: uppercase;
-    color: var(--text-main);
-}
-.v2-shell-glassflow .glassflow-queue-kicker span:first-child {
-    color: var(--text-muted);
-}
-.v2-shell-glassflow .glassflow-queue-kicker span:last-child {
-    color: var(--accent);
-}
-.v2-shell-glassflow .glassflow-queue-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 50px;
-    height: 38px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 12%, var(--bg));
-    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-    color: var(--text-main);
-    font-size: 16px;
-    font-weight: 900;
-}
-.v2-shell-glassflow .glassflow-queue-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-}
-.v2-shell-glassflow .glassflow-queue-select,
-.v2-shell-glassflow .glassflow-queue-icon {
-    height: 38px;
-    border-radius: 19px;
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 76%, var(--card-bg));
-    color: var(--text-main);
-    font-size: 11px;
-    font-weight: 800;
-}
-.v2-shell-glassflow .glassflow-queue-icon {
-    min-width: 54px;
-    padding: 0 16px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-}
-.v2-shell-glassflow .glassflow-queue-select {
-    flex: 0 1 auto;
-    min-width: 0;
-    padding: 0 34px 0 12px;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 14px 14px;
-}
-.v2-shell-glassflow .glassflow-queue-select.is-group {
-    flex: 0 0 124px;
-    max-width: 124px;
-}
-.v2-shell-glassflow .glassflow-queue-select.is-pivot {
-    flex: 0 0 146px;
-    max-width: 146px;
-}
-.v2-shell-glassflow .glassflow-queue-filters {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-}
-.v2-shell-glassflow .glassflow-queue-filters::-webkit-scrollbar { display: none; }
-.v2-shell-glassflow .glassflow-queue-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex: 0 0 auto;
-    height: 30px;
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 84%, var(--card-bg));
-    color: var(--text-muted);
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-.v2-shell-glassflow .glassflow-queue-chip strong {
-    color: var(--text-main);
-    font-weight: 900;
-}
-.v2-shell-glassflow .glassflow-queue-lane {
-    margin: 0 12px 12px;
-    border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-    border-radius: 24px;
-    background: color-mix(in srgb, var(--card-bg) 98%, transparent);
-    overflow: hidden;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 10px 30px rgba(0,0,0,0.08);
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-.v2-shell-glassflow #inbox-list {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding-bottom: 8px;
-}
-.v2-shell-glassflow #inbox-list.grid-view {
-    display: grid !important;
-    grid-template-columns: 1fr;
-    align-content: start;
-    padding: 14px 14px 24px;
-    gap: 14px;
-}
-.v2-shell-glassflow #inbox-list.grid-view .grid-card {
-    margin: 0;
-}
-.v2-shell-glassflow #sidebar-pivot-select {
-    display: none;
-}
-.v2-shell-glassflow #v2-glassflow-queue-panel.grid-mode-active .glassflow-queue-select.is-pivot {
-    flex: 0 0 146px;
-    max-width: 146px;
-    height: 38px;
-    padding: 0 32px 0 10px;
-    font-size: 10px;
-}
-.v2-shell-glassflow .mobile-menu-panel {
-    position: fixed;
-    top: calc(var(--v2-shell-inset) + var(--v2-shell-top-offset) + 62px);
-    right: 16px;
-    left: auto;
-    width: min(240px, calc(100vw - 40px));
-    padding: 10px;
-    border-radius: 18px;
-    background: color-mix(in srgb, var(--card-bg) 96%, #000);
-    border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
-    box-shadow: 0 18px 40px rgba(0,0,0,0.28);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    display: none;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 200;
-    transform-origin: top right;
-}
-.v2-shell-glassflow .mobile-menu-panel.open {
-    display: flex;
-    animation: glassflow-menu-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.v2-shell-glassflow .mobile-menu-panel button {
-    width: 100%;
-    min-height: 44px;
-    padding: 0 14px;
-    border-radius: 12px;
-    border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-    background: color-mix(in srgb, var(--bg) 78%, var(--card-bg));
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-}
-@keyframes glassflow-menu-in {
-    0% {
-        opacity: 0;
-        transform: translate3d(0, -8px, 0) scale(0.96);
-    }
-    100% {
-        opacity: 1;
-        transform: translate3d(0, 0, 0) scale(1);
-    }
-}
-.v2-shell-glassflow .help-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.38);
-    z-index: 3000;
-    display: none;
-}
-.v2-shell-glassflow .help-overlay.open {
-    display: block;
-}
-/* Help Panel — Executive Glass Upgrade */
-.v2-shell-glassflow .help-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: min(360px, 92vw);
-    height: 100vh;
-    background: color-mix(in srgb, var(--card-bg) 48%, transparent) !important;
-    backdrop-filter: blur(24px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-    border-left: 1px solid color-mix(in srgb, var(--border) 35%, transparent) !important;
-    z-index: 3001;
-    display: flex;
-    flex-direction: column;
-    transform: translateX(100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: -8px 0 32px rgba(0,0,0,0.22);
-}
-.v2-shell-glassflow .help-panel.open {
-    transform: translateX(0);
-}
-.v2-shell-glassflow .help-hdr {
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-}
-.v2-shell-glassflow .help-hdr-title {
-    font-size: 13px;
-    font-weight: 900;
-    letter-spacing: -0.3px;
-}
-.v2-shell-glassflow .help-hdr-sub {
-    font-size: 10px;
-    color: var(--text-muted);
-    margin-top: 2px;
-}
-.v2-shell-glassflow .help-close {
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 4px 10px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 900;
-    color: var(--text-main);
-}
-.v2-shell-glassflow .help-body {
-    overflow-y: auto;
-    flex: 1;
-    padding: 16px 18px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-.v2-shell-glassflow .help-search-wrap {
-    position: sticky;
-    top: -16px;
-    z-index: 2;
-    margin: -16px -18px 0;
-    padding: 16px 18px 10px;
-    background: linear-gradient(to bottom, color-mix(in srgb, var(--card-bg) 96%, transparent), color-mix(in srgb, var(--card-bg) 92%, transparent));
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-}
-.v2-shell-glassflow #help-search-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 10px 14px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 600;
-    outline: none;
-}
-.v2-shell-glassflow .help-sec {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.v2-shell-glassflow .help-sec-title {
-    font-size: 10px;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: var(--text-muted);
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-}
-.v2-shell-glassflow .help-row {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-}
-.v2-shell-glassflow .hbadge {
-    font-size: 9px;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 2px 6px;
-    border-radius: 3px;
-    flex-shrink: 0;
-    margin-top: 2px;
-    white-space: nowrap;
-}
-.v2-shell-glassflow .hbadge-red { background: rgba(239,68,68,0.12); color: #b91c1c; border: 1px solid rgba(239,68,68,0.3); }
-.v2-shell-glassflow .hbadge-yellow { background: rgba(250,204,21,0.2); color: #854d0e; border: 1px solid rgba(250,204,21,0.5); }
-.v2-shell-glassflow .hbadge-purple { background: rgba(168,85,247,0.12); color: #7c3aed; border: 1px solid rgba(168,85,247,0.3); }
-.v2-shell-glassflow .hbadge-blue { background: rgba(59,130,246,0.12); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.3); }
-.v2-shell-glassflow .hbadge-gray { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
-.v2-shell-glassflow .hbadge-green { background: rgba(34,197,94,0.12); color: #15803d; border: 1px solid rgba(34,197,94,0.3); }
-.v2-shell-glassflow .hbadge-stripe { background: repeating-linear-gradient(-45deg,#facc15 0,#facc15 3px,#0f172a 3px,#0f172a 6px); border: 1px solid #facc15; color: #0f172a; }
-.v2-shell-glassflow .hdesc {
-    font-size: 11px;
-    line-height: 1.55;
-    color: var(--text-main);
-}
-.v2-shell-glassflow .hdesc b {
-    font-weight: 900;
-}
-.v2-shell-glassflow .help-wf-step {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    margin-bottom: 4px;
-}
-.v2-shell-glassflow .help-wf-num {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--text-main);
-    color: var(--card-bg);
-    font-size: 10px;
-    font-weight: 900;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    margin-top: 1px;
-}
-
-@media (max-width: 480px) {
-  .v2-shell-glassflow #v2-glassflow-queue-panel .glassflow-queue-header {
-    display: block !important;
-  }
-  .v2-shell-glassflow #v2-glassflow-queue-panel #view-toggle-btn {
-    display: inline-flex !important;
-  }
-  .v2-shell-glassflow #v2-glassflow-queue-panel #sidebar-pivot-select {
-    display: none;
-  }
-  .v2-shell-glassflow #v2-glassflow-queue-panel.grid-mode-active #sidebar-pivot-select,
-  .v2-shell-glassflow #v2-glassflow-queue-panel #sidebar-pivot-select.is-visible {
-    display: block !important;
-  }
-  .v2-shell-glassflow #v2-glassflow-queue-panel #group-by-select {
-    display: block;
-  }
-  .v2-shell-glassflow #v2-glassflow-queue-panel.grid-mode-active #group-by-select,
-  .v2-shell-glassflow #v2-glassflow-queue-panel #group-by-select.is-hidden {
-    display: none !important;
-  }
-  .v2-shell-glassflow #v2-glassflow-queue-panel .glassflow-queue-lane {
-    margin: 0 0 12px !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-bottom: none !important;
-    border-radius: 0 0 24px 24px !important;
-    box-shadow: none !important;
-  }
-  .v2-shell-glassflow #v2-glassflow-queue-panel #inbox-list {
-    padding: 0 !important;
-  }
-  .v2-shell-glassflow #v2-glassflow-queue-panel #inbox-list.grid-view {
-    padding: 12px 12px 24px !important;
-    gap: 12px !important;
-  }
-  .v2-shell-glassflow .glassflow-queue-title {
-    gap: 10px;
-  }
-  .v2-shell-glassflow .glassflow-queue-kicker {
-    font-size: 12px;
-  }
-  .v2-shell-glassflow .glassflow-queue-count {
-    min-width: 46px;
-    height: 36px;
-    font-size: 15px;
-    padding: 0 12px;
-  }
-  .v2-shell-glassflow .glassflow-queue-select,
-  .v2-shell-glassflow .glassflow-queue-icon {
-    height: 40px;
-  }
-  .v2-shell-glassflow .glassflow-queue-icon {
-    min-width: 52px;
-    padding: 0 14px;
-  }
-  .v2-shell-glassflow .glassflow-queue-select.is-group {
-    flex-basis: 116px;
-    max-width: 116px;
-  }
-  .v2-shell-glassflow .glassflow-queue-select.is-pivot,
-  .v2-shell-glassflow #v2-glassflow-queue-panel.grid-mode-active .glassflow-queue-select.is-pivot {
-    flex-basis: 136px;
-    max-width: 136px;
-  }
-  .v2-shell-glassflow-header {
-    padding: 12px 14px;
-  }
-  .v2-shell-glassflow-header-actions {
-    gap: 6px;
-  }
-  .v2-shell-glassflow-header-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 13px;
-  }
-}
-.v2-shell-glassflow .email-card {
-    margin: 0 !important;
-    border-radius: 0 !important;
-    border: none !important;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 84%, transparent) !important;
-    border-left-style: solid !important;
-    border-left-width: 4px !important;
-    background: color-mix(in srgb, var(--card-bg) 96%, transparent) !important;
-    box-shadow: none !important;
-    padding: 18px 18px 16px !important;
-    transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
-}
-.v2-shell-glassflow .email-card:hover {
-    transform: none !important;
-    background: color-mix(in srgb, var(--bg) 60%, var(--card-bg)) !important;
-}
-.v2-shell-glassflow .email-card:active { transform: none !important; background: color-mix(in srgb, var(--accent) 5%, var(--card-bg)) !important; }
-.v2-shell-glassflow .email-card.selected {
-    border-color: rgba(59,130,246,0.24) !important;
-    border-left-color: #3b82f6 !important;
-    background: rgba(59,130,246,0.08) !important;
-    box-shadow: inset 0 0 0 1px rgba(59,130,246,0.22) !important;
-}
-.v2-shell-glassflow .email-card.crit { border-left-color: var(--color-critical) !important; }
-.v2-shell-glassflow .email-card.warn { border-left-color: var(--color-review) !important; }
-.v2-shell-glassflow .email-card.info { border-left-color: var(--color-insight) !important; }
-.v2-shell-glassflow .email-card.ghost { border-left-color: #94a3b8 !important; }
-.v2-shell-glassflow #inbox-list:not(.grid-view) .em-chevron {
-    display: none !important;
-}
-.v2-shell-glassflow .em-header { align-items: flex-start !important; gap: 12px !important; }
-.v2-shell-glassflow .em-fdh {
-    font-size: 18px !important;
-    font-weight: 900 !important;
-    line-height: 1 !important;
-    letter-spacing: -0.03em;
-}
-.v2-shell-glassflow .em-vendor {
-    font-size: 11px !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--text-muted) !important;
-}
-.v2-shell-glassflow .em-pill-stack {
-    flex-shrink: 0;
-    display: flex !important;
-    align-items: flex-start;
-    gap: 8px;
-}
-.v2-shell-glassflow .em-pill-stack .glass-pill {
-    font-size: 10px !important;
-    padding: 6px 10px !important;
-    white-space: nowrap;
-}
-.v2-shell-glassflow .em-chevron {
-    font-size: 24px;
-    line-height: 1;
-    font-weight: 300;
-    color: color-mix(in srgb, var(--text-main) 88%, transparent);
-    padding-top: 2px;
-}
-.v2-shell-glassflow .em-tags {
-    display: flex !important;
-    flex-wrap: nowrap;
-    gap: 6px !important;
-    margin-top: 2px;
-    overflow: hidden;
-}
-.v2-shell-glassflow .em-tags .tag {
-    font-size: 9px !important;
-    font-weight: 900 !important;
-    letter-spacing: 0.05em;
-    border-radius: 999px !important;
-    padding: 4px 8px !important;
-}
-.v2-shell-glassflow #inbox-list.dense-view .email-card {
-    padding: 12px 18px !important;
-}
-.v2-shell-glassflow #inbox-list.dense-view .em-tags {
-    display: none !important;
-}
-.v2-shell-glassflow #inbox-list.dense-view .em-fdh {
-    font-size: 16px !important;
-}
-.v2-shell-glassflow #inbox-list.dense-view .em-vendor {
-    font-size: 10px !important;
-}
-.v2-shell-glassflow #inbox-list.dense-view .em-pill-stack .glass-pill {
-    font-size: 9px !important;
-    padding: 4px 8px !important;
-}
-.v2-shell-glassflow .queue-group {
-    gap: 0;
-    padding-top: 0;
-}
-.v2-shell-glassflow .queue-group-header {
-    margin: 0;
-    padding: 10px 14px;
-    border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-    border-radius: 0;
-    background: color-mix(in srgb, var(--bg) 76%, var(--card-bg));
-    top: 0;
-}
-.v2-shell-glassflow .queue-group-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-.v2-shell-glassflow .queue-group:last-child .email-card:last-child,
-.v2-shell-glassflow #inbox-list > .email-card:last-child {
-    border-bottom: none !important;
-}
-
-/* Empty/End States */
-#inbox-list::after { content: "END OF LIVE QUEUE"; display: block; text-align: center; padding: 40px 0 80px; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; color: var(--text-muted); opacity: 0.4; }
-#inbox-list:empty::before { content: "✓ ALL CLEAR"; display: block; text-align: center; padding: 100px 20px; font-size: 24px; font-weight: 900; letter-spacing: -1px; color: var(--text-muted); opacity: 0.3; }
-
-/* Hero & Hierarchy */
-.v2-shell-glassflow .glassflow-hero-top {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 14px;
-}
-.v2-shell-glassflow .glassflow-hero-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-}
-.v2-shell-glassflow .glassflow-hero-copy {
-  min-width: 0;
-}
-.v2-shell-glassflow .qb-proj-title { display: flex; flex-direction: row !important; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 0; }
-.v2-shell-glassflow .glassflow-hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.v2-shell-glassflow .glassflow-hero-eyebrow::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-.v2-shell-glassflow .qb-proj-title-left {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.v2-shell-glassflow .qb-proj-meta {
-  font-size: 12px !important;
-  margin-top: 0 !important;
-  line-height: 1.3;
-}
-.v2-shell-glassflow .glassflow-hero-status-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  margin: 0;
-}
-.v2-shell-glassflow #p-status {
-  margin-top: 0 !important;
-  padding: 5px 9px !important;
-  font-size: 9px !important;
-  border-radius: 999px !important;
-  line-height: 1;
-}
-.v2-shell-glassflow #p-target-wrap {
-  flex-shrink: 0;
-}
-/* In GlassFlow the target-date card floats in the hero — close the open bottom from base styles */
-.v2-shell-glassflow .qb-target-wrap.xing {
-  border-radius: 16px !important;
-  padding: 3px !important;
-}
-.v2-shell-glassflow .qb-target-wrap.xing .qb-target-inner {
-  border-radius: 13px !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border)) !important;
-}
-.v2-shell-glassflow .qb-target-inner {
-    min-width: 122px;
-    padding: 10px 12px !important;
-    border-radius: 14px !important;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, var(--card-bg)) 0%, color-mix(in srgb, var(--accent) 5%, var(--bg)) 100%) !important;
-    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border)) !important;
-    border-bottom: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border)) !important;
-    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
-    overflow: hidden;
-}
-.v2-shell-glassflow .qb-target-label { font-size: 8px !important; text-transform: uppercase; font-weight: 800; opacity: 0.7; }
-.v2-shell-glassflow .qb-target-date { font-size: 14px !important; font-weight: 900 !important; line-height: 1.1; }
-.v2-shell-glassflow .action-box { border: 1.5px solid var(--accent) !important; background: color-mix(in srgb, var(--accent) 4%, var(--bg)) !important; }
-
-/* Detail Card — Compact Hero */
-.v2-shell-glassflow #project-schedule-card {
-  padding: 20px 24px 18px !important;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 4%, transparent) 0%, transparent 100%) !important;
-}
-.v2-shell-glassflow .qb-proj-id { font-size: 30px !important; line-height: 0.96 !important; letter-spacing: -0.04em; }
-.v2-shell-glassflow .section-label { margin-top: 8px !important; }
-.v2-shell-glassflow .qb-module-header {
-  font-size: 12px !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.09em !important;
-  padding-bottom: 10px !important;
-  margin-bottom: 14px !important;
-}
-.v2-shell-glassflow .detail-schedule-bar { margin-top: 2px; }
-.v2-shell-glassflow .qb-time-labels.is-below-bar {
-  margin-top: 6px !important;
-  font-size: 9px !important;
-  gap: 10px !important;
-}
-.v2-shell-glassflow .glassflow-note-module {
-  padding: 18px 24px 18px !important;
-}
-.v2-shell-glassflow #velocity-production-card {
-  padding: 20px 24px 18px !important;
-}
-.v2-shell-glassflow #velocity-production-card .qb-module-header {
-  font-size: 13px !important;
-  margin-bottom: 14px !important;
-  padding-bottom: 10px !important;
-}
-.v2-shell-glassflow #p-light-pill {
-  font-size: 11px !important;
-  gap: 8px !important;
-}
-.v2-shell-glassflow #velocity-production-card .velocity-grid {
-  gap: 16px 20px !important;
-}
-.v2-shell-glassflow #velocity-production-card .qb-vel-item {
-  flex-basis: 100% !important;
-  min-width: 0 !important;
-}
-.v2-shell-glassflow #velocity-production-card .qb-vel-labels {
-  font-size: 12px !important;
-  margin-bottom: 6px !important;
-}
-.v2-shell-glassflow #velocity-production-card .qb-vel-labels span,
-.v2-shell-glassflow #velocity-production-card .qb-vel-labels div {
-  font-size: inherit !important;
-}
-.v2-shell-glassflow #velocity-production-card .qb-vel-labels > span:first-child {
-  font-size: 10px !important;
-}
-.v2-shell-glassflow #velocity-production-card .qb-vel-bar {
-  height: 14px !important;
-  border-radius: 8px !important;
-  margin-bottom: 6px !important;
-}
-.v2-shell-glassflow #velocity-production-card .qb-vel-fill {
-  border-radius: 7px !important;
-}
-.v2-shell-glassflow #velocity-production-card .qb-vel-bead {
-  width: 18px !important;
-  height: 18px !important;
-  top: -3px !important;
-  border-width: 4px !important;
-}
-.v2-shell-glassflow #velocity-production-card .qb-vel-footer {
-  padding-top: 12px !important;
-  gap: 10px !important;
-}
-.v2-shell-glassflow #p-days-left {
-  font-size: 12px !important;
-}
-.v2-shell-glassflow #velocity-production-card .vel-footer-pill {
-  font-size: 10px !important;
-  padding: 5px 12px !important;
-  border-radius: 8px !important;
-}
-.v2-shell-glassflow #velocity-production-card [style*="PACE:"] {
-  font-size: 10px !important;
-  margin-top: 4px !important;
-}
-.v2-shell-glassflow #p-network-path {
-  margin: 0;
-  padding: 14px 24px !important;
-  border: none;
-  border-bottom: 1px solid var(--border) !important;
-  border-radius: 0;
-  background: color-mix(in srgb, var(--bg) 55%, var(--card-bg));
-  box-shadow: none;
-  gap: 10px;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.35;
-  white-space: nowrap;
-  flex-direction: column;
-}
-.v2-shell-glassflow #p-network-path.is-hidden {
-  display: none !important;
-}
-.v2-shell-glassflow #p-network-path > div:first-child {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  gap: 10px !important;
-  width: 100%;
-}
-.v2-shell-glassflow #p-network-path > div:first-child > div:first-child {
-  display: inline-flex !important;
-  align-items: center;
-  gap: 8px;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-}
-.v2-shell-glassflow #p-network-path > div:first-child > div:first-child span {
-  font-size: 10px !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.14em !important;
-  text-transform: uppercase !important;
-  color: var(--text-muted) !important;
-}
-.v2-shell-glassflow #p-network-path > div:first-child > div:last-child {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  width: 100%;
-  overflow-x: auto !important;
-  scrollbar-width: none;
-}
-.v2-shell-glassflow #p-network-path > div:first-child > div:last-child::-webkit-scrollbar {
-  display: none;
-}
-.v2-shell-glassflow #p-network-path .node-pill,
-.v2-shell-glassflow #p-network-path .path-pill,
-.v2-shell-glassflow #p-network-path .glass-pill,
-.v2-shell-glassflow #p-network-path span,
-.v2-shell-glassflow #p-network-path div {
-  font-size: inherit;
-}
-.v2-shell-glassflow #p-network-path [style*="border-radius:10px"] {
-  border-radius: 14px !important;
-  padding: 10px 12px !important;
-  min-width: 112px;
-}
-.v2-shell-glassflow #p-network-path [style*="font-size:14px"] {
-  font-size: 18px !important;
-  opacity: 0.7;
-}
-.v2-shell-glassflow .comment-area-footer {
-  margin-top: 14px !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-.v2-shell-glassflow #p-deliverables-grid,
-.v2-shell-glassflow .qb-module:last-child {
-  padding-left: 24px !important;
-  padding-right: 24px !important;
-}
-.v2-shell-glassflow #p-deliverables-grid {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 16px !important;
-  margin-bottom: 0 !important;
-}
-.v2-shell-glassflow #p-deliverables-grid > div {
-  flex: none !important;
-  min-width: 0 !important;
-  width: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 8px !important;
-  align-items: flex-start !important;
-}
-/* Category label: strip the pill styling, render as a small section header */
-.v2-shell-glassflow #p-deliverables-grid > div > div:first-child {
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
-  font-size: 10px !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.12em !important;
-  color: var(--text-muted) !important;
-  text-transform: uppercase !important;
-}
-/* Chips row: full-width wrapping */
-.v2-shell-glassflow #p-deliverables-grid > div > div:last-child {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 6px !important;
-  width: 100%;
-}
-.v2-shell-glassflow #p-deliverables-grid .tag {
-  font-size: 10px !important;
-  padding: 5px 10px !important;
-  border-radius: 999px !important;
-}
-
-/* Admin Panel — Inner Scroll Fix */
-#ob-panel-admin { overflow: hidden; }
-#admin-pane-content { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 94px; }
-#outbox-list { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 94px; }
-#changelog-list { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 94px; }
-
-/* Admin Panel — KPI Strip Polish (WS18 P3) */
-.v2-shell-glassflow .admin-strip {
-  display: flex;
-  padding: 16px 14px 12px;
-  gap: 10px;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--bg) 40%, transparent);
-}
-.v2-shell-glassflow .admin-kpi {
-  flex: 1;
-  min-height: 72px;
-  padding: 12px 8px !important;
-  border-radius: 20px;
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  background: color-mix(in srgb, var(--card-bg) 95%, #fff);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-}
-.v2-shell-glassflow.dark-mode .admin-kpi {
-  background: color-mix(in srgb, var(--card-bg) 95%, #000);
-}
-.v2-shell-glassflow .admin-kpi svg {
-  width: 18px;
-  height: 18px;
-  margin-bottom: 1px;
-  color: var(--text-muted);
-  transition: color 0.2s ease;
-}
-.v2-shell-glassflow .admin-kpi:active {
-  transform: scale(0.96);
-  opacity: 0.8;
-}
-.v2-shell-glassflow .admin-kpi.active {
-  box-shadow: 0 8px 20px rgba(0,0,0,0.1), inset 0 0 0 1px rgba(255,255,255,0.1);
-}
-.v2-shell-glassflow .admin-kpi.crossings.active {
-  border-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
-}
-.v2-shell-glassflow .admin-kpi.crossings.active svg,
-.v2-shell-glassflow .admin-kpi.crossings.active .admin-kpi-val { color: #f59e0b; }
-
-.v2-shell-glassflow .admin-kpi.status.active {
-  border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
-}
-.v2-shell-glassflow .admin-kpi.status.active svg,
-.v2-shell-glassflow .admin-kpi.status.active .admin-kpi-val { color: #ef4444; }
-
-.v2-shell-glassflow .admin-kpi.boms.active {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
-}
-.v2-shell-glassflow .admin-kpi.boms.active svg,
-.v2-shell-glassflow .admin-kpi.boms.active .admin-kpi-val { color: #3b82f6; }
-
-.v2-shell-glassflow .admin-kpi-val {
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  color: var(--text-main);
-}
-.v2-shell-glassflow .admin-kpi-label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-
-/* Admin Panel — Card List Refinement (WS18 P3) */
-.v2-shell-glassflow .admin-list-card,
-.v2-shell-glassflow .ob-card,
-.v2-shell-glassflow .log-card {
-  margin: 12px 14px !important;
-  padding: 16px !important;
-  border-radius: 20px !important;
-  background: var(--card-bg) !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.04) !important;
-  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 8px !important;
-}
-.v2-shell-glassflow .admin-list-card:active,
-.v2-shell-glassflow .ob-card:active,
-.v2-shell-glassflow .log-card:active {
-  transform: scale(0.98);
-  background: color-mix(in srgb, var(--bg) 50%, var(--card-bg)) !important;
-}
-.v2-shell-glassflow .admin-list-card div[style*="font-size:12px"],
-.v2-shell-glassflow .ob-card div[style*="font-size:12px"],
-.v2-shell-glassflow .log-card div[style*="font-size:12px"] {
-  font-size: 16px !important;
-  font-weight: 900 !important;
-  letter-spacing: -0.02em !important;
-}
-.v2-shell-glassflow .admin-list-card .btn,
-.v2-shell-glassflow .ob-card .btn,
-.v2-shell-glassflow .log-card .btn {
-  border-radius: 12px !important;
-  padding: 12px 20px !important;
-  font-size: 12px !important;
-  font-weight: 900 !important;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18) !important;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-/* Specific Card Tweaks */
-.v2-shell-glassflow .ob-card div[style*="monospace"] {
-  font-family: inherit !important;
-  font-size: 12px !important;
-  color: var(--text-main) !important;
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border));
-  max-height: none !important;
-  margin-top: 4px !important;
-}
-.v2-shell-glassflow .log-card {
-  gap: 10px !important;
-}
-.v2-shell-glassflow .log-card .log-header {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 8px;
-  margin-bottom: 2px;
-}
-.v2-shell-glassflow .log-card div[style*="background:var(--bg)"] {
-  font-size: 12px !important;
-  padding: 10px 12px !important;
-  border-radius: 10px !important;
-}
-
-/* Section Headers */
-.v2-shell-glassflow .ob-header {
-  background: color-mix(in srgb, var(--bg) 60%, transparent);
-  margin-top: 8px;
-}
-
-/* ============================================================
-   CONTEXTUAL DOCK SYSTEM (WS18 P1)
-   Pattern: .dock-ctx-[x] buttons swap via body class toggles.
-   Contexts: (none)=queue, mobile-detail-open=detail
-   Future: mobile-admin-open=admin (P3), mobile-gantt-open=gantt (P4)
-   ============================================================ */
-
-/* Default: queue context visible, all others hidden */
-.dock-ctx-detail,
-.dock-ctx-admin,
-.dock-ctx-gantt { display: none; }
-
-/* Detail context: swap button sets */
-body.mobile-detail-open .dock-ctx-queue { display: none; }
-body.mobile-detail-open .dock-ctx-detail { display: flex; }
-
-/* Admin context overrides all other dock sets while sheet is open */
-body.mobile-admin-open .dock-ctx-queue,
-body.mobile-admin-open .dock-ctx-detail { display: none; }
-body.mobile-admin-open .dock-ctx-admin { display: flex; }
-
-/* Gantt context: dock swaps to gantt controls */
-body.mobile-gantt-open .dock-ctx-queue,
-body.mobile-gantt-open .dock-ctx-detail,
-body.mobile-gantt-open .dock-ctx-admin { display: none; }
-body.mobile-gantt-open .dock-ctx-gantt { display: flex; }
-
-body.mobile-gantt-open #gantt-panel {
-  display: flex !important;
-  position: fixed !important;
-  inset: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  max-width: none !important;
-  max-height: none !important;
-  border-radius: 0 !important;
-  margin: 0 !important;
-  background: var(--card-bg) !important;
-  z-index: 2000 !important;
-}
-body.mobile-gantt-open #gantt-panel .timeline-wrapper {
-  background: var(--card-bg) !important;
-}
-body.mobile-gantt-open #gantt-scroll {
-  overflow: auto !important;
-  -webkit-overflow-scrolling: touch;
-}
-body.mobile-gantt-open #gantt-area-main {
-  transform-origin: left top;
-}
-body.mobile-gantt-open .v2-shell-glassflow-container {
-  display: none !important;
-}
-
-/* Orientation-based UI Lockdown (Landscape = Gantt Only) */
-@media (orientation: landscape) {
-  .v2-shell-glassflow-header,
-  #v2-glassflow-queue-panel,
-  #v2-glassflow-detail-panel,
-  #outbox-overlay,
-  #outbox-pane {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-  }
-  .v2-shell-glassflow-container {
-    margin: 0 !important;
-    border-radius: 0 !important;
-    border: none !important;
-    height: 100vh !important;
-    width: 100vw !important;
-  }
-  #gantt-panel {
-    display: flex !important;
-    position: fixed !important;
-    inset: 0 !important;
-    top: 0 !important;
-    height: 100vh !important;
-    z-index: 5000 !important;
-    background: var(--card-bg) !important;
-  }
-  #gantt-panel .timeline-wrapper { background: var(--card-bg) !important; }
-}
-
-.glassflow-gantt-rotate-hint {
-  display: none;
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 6000;
-  border: 1px solid color-mix(in srgb, #a855f7 40%, transparent);
-  border-radius: 100px;
-  background: color-mix(in srgb, #a855f7 12%, var(--card-bg));
-  color: #a855f7;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-align: center;
-  padding: 8px 16px;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-  animation: hint-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes hint-pop {
-  0% { transform: translateY(-10px) scale(0.9); opacity: 0; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
-}
-@media (orientation: portrait) {
-  body.gantt-selection-pending .glassflow-gantt-rotate-hint {
-    display: block;
-  }
-  .gantt-hud { display: none !important; }
-}
-
-/* --- Force Gantt Consistency (Desktop Parity) --- */
-.g-color-blue { background-color: #3b82f6 !important; }
-.g-color-purple { background-color: #a855f7 !important; }
-.g-color-green { background-color: #22c55e !important; }
-.g-color-gray { background-color: #94a3b8 !important; }
-.g-color-red { background-color: #ef4444 !important; }
-.g-color-yellow { background-color: #facc15 !important; }
-
-#gantt-panel {
-  background: var(--card-bg) !important;
-  color: var(--text-main) !important;
-}
-.gantt-bar-text {
-  color: #ffffff !important;
-  font-weight: 800 !important;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
-}
-.tl-header-dates div {
-  color: var(--text-muted) !important;
-}
-
-body.mobile-admin-open #review-hub-main-header {
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 18px 20px 14px;
-  gap: 12px;
-  height: auto;
-  border-bottom: 1px solid var(--border);
-}
-body.mobile-admin-open #review-hub-main-header .glassflow-queue-title {
-  gap: 10px;
-}
-body.mobile-admin-open #review-hub-main-header .glassflow-queue-kicker {
-  font-size: 13px;
-  align-items: center;
-}
-body.mobile-admin-open #review-hub-main-header .glassflow-queue-count {
-  min-width: 46px;
-  height: 36px;
-  border-radius: 18px;
-  font-size: 14px;
-}
-body.mobile-admin-open .panel-tab-bar {
-  display: flex !important;
-  width: 100%;
-  justify-content: center;
-  gap: 8px;
-  padding: 0;
-}
-body.mobile-admin-open .panel-tab {
-  flex: 1;
-  max-width: 100px;
-  height: 32px;
-  font-size: 10px;
-  font-weight: 800;
-  border-radius: 8px;
-}
-body.mobile-admin-open .panel-tab-close {
-  display: none !important;
-}
-body.mobile-admin-open .outbox-pane::before {
-  content: "";
-  width: 44px;
-  height: 5px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-muted) 28%, transparent);
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-/* Dock context-switch pulse — brief scale dip signals the swap */
-@keyframes dock-ctx-pulse {
-  0%   { transform: translateX(-50%) scale(1); }
-  40%  { transform: translateX(-50%) scale(0.94); opacity: 0.75; }
-  100% { transform: translateX(-50%) scale(1); opacity: 1; }
-}
-.v2-shell-glassflow-dock.ctx-switching {
-  animation: dock-ctx-pulse 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes dock-commit-confirm {
-  0%   { transform: scale(1); box-shadow: 0 8px 20px rgba(34, 197, 94, 0.28); }
-  42%  { transform: scale(1.08); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.18), 0 14px 26px rgba(34, 197, 94, 0.34); }
-  100% { transform: scale(1); box-shadow: 0 8px 20px rgba(34, 197, 94, 0.28); }
-}
-
-/* Filter button active state — accented when filters are live */
-#dock-btn-filters.has-filters {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-#header-filter-pill {
-  display: none;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 900;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-  margin-left: 10px;
-}
-
-.m-sf-search-container {
-  position: relative;
-  width: 100%;
-  margin-bottom: 20px;
-}
-.m-sf-search-clear {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
-  color: var(--text-main);
-  border: none;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  cursor: pointer;
-}
-.m-sf-input:not(:placeholder-shown) + .m-sf-search-clear {
-  display: flex;
-}
-
-/* Multi-select Dropdown styling (needed for mobile sheet) */
-.m-sf-filter-grid > div {
-  position: relative;
-  width: 100%;
-  margin-bottom: 12px;
-}
-.ms-display {
-  width: 100%;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 14px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-main);
-  cursor: pointer;
-}
-.ms-display.is-active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-.ms-dropdown {
-  display: none;
-  position: absolute;
-  top: 48px;
-  left: 0;
-  right: 0;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-  z-index: 1000 !important;
-  padding: 8px;
-  max-height: 240px;
-  overflow-y: auto;
-}
-.m-sf-filter-grid > div.open > .ms-dropdown {
-  display: block !important;
-}
-.ms-opt {
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  color: var(--text-main);
-}
-.ms-opt:hover { background: color-mix(in srgb, var(--text-muted) 10%, transparent); }
-
-/* Narrow SF Sheet in Gantt mode */
-body.mobile-gantt-open #mobile-sf-sheet {
-  width: 320px !important;
-  left: auto !important;
-  right: 12px !important;
-  bottom: 12px !important;
-  height: calc(100% - 24px) !important;
-  border-radius: 24px !important;
-  box-shadow: -10px 0 40px rgba(0,0,0,0.4) !important;
-}
-body.mobile-gantt-open #mobile-sf-overlay {
-  background: rgba(0,0,0,0.2) !important;
-}
-body.mobile-gantt-open #unified-filter-fab {
-  display: none !important;
-}
-
-/* Purple Hint Pill */
-.gantt-hint-pill {
-  position: fixed;
-  bottom: calc(92px + env(safe-area-inset-bottom, 8px));
-  right: 16px;
-  background: color-mix(in srgb, var(--color-permit) 15%, var(--card-bg));
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid color-mix(in srgb, var(--color-permit) 30%, transparent);
-  color: var(--color-permit);
-  padding: 8px 18px;
-  border-radius: 22px;
-  font-size: 11px;
-  font-weight: 800;
-  z-index: 9000;
-  display: none;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  text-align: center;
-  white-space: nowrap;
-}
-body.mobile-gantt-open .gantt-hint-pill { display: flex; }
-
-/* Gantt Dock Context */
-.dock-ctx-gantt-btn {
-  background: color-mix(in srgb, var(--bg) 40%, var(--card-bg)) !important;
-  border: 1px solid var(--border) !important;
-}
-.dock-ctx-gantt-btn.primary {
-  background: var(--accent) !important;
-  color: #fff !important;
-  border: none !important;
-}
-
-/* --- Admin Filter Dock Colors Removed --- */
-
-/* --- Gemini AI Draft: contextual color cycling (in view) --- */
-@keyframes gemini-color-cycle {
-  0%   { color: #4285F4; }
-  25%  { color: #8E24AA; }
-  50%  { color: #D81B60; }
-  75%  { color: #F4B400; }
-  100% { color: #4285F4; }
-}
-@keyframes gemini-thinking {
-  0%, 100% { opacity: 0.55; box-shadow: 0 0 10px rgba(66,133,244,0.18); }
-  50%       { opacity: 1;    box-shadow: 0 0 18px rgba(66,133,244,0.48), 0 0 28px rgba(142,36,170,0.28); }
-}
-#dock-btn-ai-draft.gemini-ready svg,
-#dock-btn-ai-draft.gemini-ready span {
-  animation: gemini-color-cycle 3s linear infinite;
-}
-#dock-btn-ai-draft:disabled,
-#dock-btn-ai-draft.is-busy {
-  animation: gemini-thinking 1.1s ease-in-out infinite !important;
-  pointer-events: none;
-}
-
-/* --- Skip pulse feedback --- */
-@keyframes dock-skip-confirm {
-  0%   { transform: scale(1); opacity: 1; }
-  35%  { transform: scale(0.86); opacity: 0.55; }
-  100% { transform: scale(1); opacity: 1; }
-}
-#dock-btn-skip.skip-pulse {
-  animation: dock-skip-confirm 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* --- Dock nav strip (anchored above action row, detail context only) --- */
-.dock-nav-strip {
-  display: none;
-  position: absolute;
-  top: -34px;
-  left: 50%;
-  transform: translateX(-50%);
-  align-items: center;
-  background: color-mix(in srgb, var(--card-bg) 48%, transparent) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border: 1px solid color-mix(in srgb, var(--border) 35%, transparent) !important;
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  overflow: hidden;
-  white-space: nowrap;
-}
-body.mobile-detail-open .dock-nav-strip { display: flex; }
-.dock-nav-arrow {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 17px;
-  line-height: 1;
-  width: 36px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-.dock-nav-arrow:active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
-.dock-nav-arrow:disabled { opacity: 0.2; pointer-events: none; }
-#glassflow-nav-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  min-width: 42px;
-  text-align: center;
-}
-
-/* --- WS18 P6: Final Executive Glass Refinements --- */
-.help-panel, #outbox-pane {
-  background: color-mix(in srgb, var(--card-bg) 48%, transparent) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border: 1px solid color-mix(in srgb, var(--border) 35%, transparent) !important;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s, backdrop-filter 0.3s !important;
-}
-
-#outbox-pane { border-bottom: none !important; box-shadow: 0 -10px 40px rgba(0,0,0,0.3) !important; }
-.help-panel { border-top: none !important; border-right: none !important; border-bottom: none !important; box-shadow: -10px 0 40px rgba(0,0,0,0.2) !important; }
-
-/* Pulse Animation for Context Switching (Unified & Breathing) */
-@keyframes dockContextPulse {
-  0%   { transform: translateX(-50%) scale(1); }
-  40%  { transform: translateX(-50%) scale(1.04); }
-  100% { transform: translateX(-50%) scale(1); }
-}
-.v2-shell-glassflow-dock.ctx-switching {
-  animation: dockContextPulse 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Adjust pulse for Gantt (no center transform) */
-body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
-  animation: dockContextPulseGantt 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes dockContextPulseGantt {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.04); }
-  100% { transform: scale(1); }
-}
-</style>
+<?!= include("_styles_glassflow_core") ?>
 </head>
 <body class="v2-shell-glassflow">
 
@@ -1985,20 +59,27 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
         <div class="v2-shell-glassflow-header-actions">
           <button class="v2-shell-glassflow-header-btn" onclick="toggleDarkMode()" id="btn-theme" title="Toggle dark mode" aria-label="Toggle dark mode"></button>
           <button class="v2-shell-glassflow-header-btn" onclick="toggleHelpPanel()" id="btn-help" title="Help" aria-label="Open help">?</button>
-          <button class="v2-shell-glassflow-header-btn" id="btn-hamburger" onclick="toggleMobileMenu()" title="Menu" aria-label="Open sync menu">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="4" y1="7" x2="20" y2="7"></line>
-              <line x1="8" y1="12" x2="20" y2="12"></line>
-              <line x1="12" y1="17" x2="20" y2="17"></line>
-            </svg>
+          <button class="v2-shell-glassflow-header-btn" id="btn-hamburger" onclick="toggleMobileMenu()" title="Sync Menu" aria-label="Open sync menu">
+            <div class="hamburger-icon">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
           </button>
           <div class="mobile-menu-panel" id="mobile-menu-panel">
-            <button onclick="triggerQBSync(); toggleMobileMenu()">⟳ Sync QB</button>
-            <button onclick="triggerRunReview(); toggleMobileMenu()">▶ Run Review</button>
-            <button onclick="triggerUIRefresh(); toggleMobileMenu()">↻ Refresh</button>
-            <button onclick="toggleAdminPanel(); toggleMobileMenu()">☰ Review Hub</button>
-            <button onclick="toggleDarkMode(); toggleMobileMenu()" id="mob-theme-btn">Theme</button>
-            <button onclick="toggleHelpPanel(); toggleMobileMenu()">? Help</button>
+            <div class="mobile-menu-header">Sync Actions</div>
+            <button onclick="triggerQBSync(); toggleMobileMenu()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-9-9 9 9 0 0 1 9-9 9 9 0 0 1 9 9Z"></path><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg>
+              Sync QuickBase
+            </button>
+            <button onclick="triggerRunReview(); toggleMobileMenu()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              Run Daily Review
+            </button>
+            <button onclick="triggerUIRefresh(); toggleMobileMenu()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+              Refresh Interface
+            </button>
           </div>
         </div>
       </header>
@@ -2142,13 +223,13 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
   <!-- Review Hub (Admin Panel) -->
   <div id="outbox-overlay" onclick="toggleAdminPanel()"></div>
   <div class="outbox-pane" id="outbox-pane">
-     <div id="review-hub-main-header" class="inbox-header" style="justify-content:center; padding:18px 20px 14px;">
+     <div id="review-hub-main-header" class="inbox-header" style="justify-content:space-between;">
         <div class="glassflow-queue-title">
            <div class="glassflow-queue-kicker"><span>Review</span><span>Hub</span></div>
            <div class="glassflow-queue-count" id="ob-header-count">0</div>
         </div>
      </div>
-     <div id="ob-panel-admin" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+     <div id="ob-panel-admin" style="display:flex; flex-direction:column; flex:1; overflow:visible;">
           <div class="admin-strip">
             <div class="admin-kpi crossings" id="kpi-admin-crossings" onclick="toggleAdminFilter('crossings')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v8H2z"></path><line x1="6" y1="8" x2="6" y2="16"></line><line x1="10" y1="8" x2="10" y2="16"></line></svg>
@@ -2168,8 +249,8 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
         </div>
         <div id="admin-pane-content" style="flex:1; overflow-y:auto;"></div>
      </div>
-     <div id="ob-panel-reviewed" style="display:none; flex-direction:column; flex:1; overflow:hidden;"><div id="outbox-list" style="flex:1; overflow-y:auto;"></div></div>
-     <div id="ob-panel-changelog" style="display:none; flex-direction:column; flex:1; overflow:hidden;"><div id="changelog-list" style="flex:1; overflow-y:auto;"></div></div>
+     <div id="ob-panel-reviewed" style="display:none; flex-direction:column; flex:1; overflow:visible;"><div id="outbox-list" style="flex:1; overflow-y:auto;"></div></div>
+     <div id="ob-panel-changelog" style="display:none; flex-direction:column; flex:1; overflow:visible;"><div id="changelog-list" style="flex:1; overflow-y:auto;"></div></div>
   </div>
 
   <!-- Shared utils -->
@@ -2202,7 +283,12 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
 
   <!-- V2 SF Sheet -->  <div id="mobile-sf-overlay" onclick="handleFabClick()"></div>
   <div id="mobile-sf-sheet" role="dialog">
-      <div class="m-sf-header"><span class="m-sf-title">Search & Filter</span><button class="m-sf-close" onclick="handleFabClick()">&#10005;</button></div>
+      <div class="m-sf-header">
+          <div class="glassflow-queue-title">
+             <div class="glassflow-queue-kicker"><span>Search</span><span>& Filter</span></div>
+          </div>
+          <button class="m-sf-close" onclick="handleFabClick()">&#10005;</button>
+      </div>
       <div class="m-sf-scroll-area">
           <div class="m-sf-section-label" style="margin-top:0;">Group By</div>
           <div class="m-sf-group-row" style="margin-bottom:20px;">
@@ -2242,8 +328,8 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
   <div class="help-panel" id="help-panel">
     <div class="help-hdr">
       <div>
-        <div class="help-hdr-title">Omni PMO App — Help</div>
-        <div class="help-hdr-sub">Reference guide for reviewers and managers</div>
+        <div class="help-hdr-title">Omni PMO — Intelligence Guide</div>
+        <div class="help-hdr-sub">Comprehensive reference for review orchestration</div>
       </div>
       <button class="help-close" onclick="toggleHelpPanel()">✕</button>
     </div>
@@ -2253,52 +339,66 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
       </div>
 
       <div class="help-sec">
-        <div class="help-sec-title">Workspaces &amp; Views</div>
-        <div class="help-row"><span class="hbadge hbadge-gray">Detail View</span><div class="hdesc">The standard QA view. Focuses on one project at a time, providing full schedule, velocity, and AI diagnostic breakdowns.</div></div>
-        <div class="help-row"><span class="hbadge hbadge-gray">Grid View</span><div class="hdesc">High-density overview. Displays multiple projects at once. Use the pivot selector in the queue controls to switch between Schedule and Velocity data.</div></div>
-        <div class="help-row"><span class="hbadge hbadge-gray">Inbox View</span><div class="hdesc">Email-style queue lane with full chips and wider row rhythm for scanning project health.</div></div>
-        <div class="help-row"><span class="hbadge hbadge-gray">List View</span><div class="hdesc">Denser queue mode for quick FDH triage when you want tighter rows and less tag noise.</div></div>
+        <div class="help-sec-title">Core Operating Model</div>
+        <div class="hdesc">The Omni PMO App is a high-performance orchestration layer designed to bridge field data from vendors with PM project management. It utilizes the <b>GlassFlow Shell</b> for a context-aware mobile experience.</div>
       </div>
 
       <div class="help-sec">
-        <div class="help-sec-title">Daily Workflow</div>
-        <div class="help-wf-step"><div class="help-wf-num">1</div><div class="hdesc"><b>Sync QB</b> pulls the latest project data from QuickBase.</div></div>
-        <div class="help-wf-step"><div class="help-wf-num">2</div><div class="hdesc"><b>Run Review</b> processes daily vendor files and loads anomalies into the queue.</div></div>
-        <div class="help-wf-step"><div class="help-wf-num">3</div><div class="hdesc"><b>Review Hub</b> is where crossings, status mismatches, and BOM checks get cleared.</div></div>
-        <div class="help-wf-step"><div class="help-wf-num">4</div><div class="hdesc"><b>Commit</b> saves a PM review and moves that project forward.</div></div>
+        <div class="help-sec-title">Workspaces &amp; Layouts</div>
+        <div class="help-row">
+          <span class="hbadge hbadge-blue">Diagnostics Queue</span>
+          <div class="hdesc">Your primary inbox. Projects with anomalies appear here. Switch between <b>Inbox</b>, <b>List</b>, and <b>Grid</b> views using the toggle in the toolbar.</div>
+        </div>
+        <div class="help-row">
+          <span class="hbadge hbadge-purple">Detail Surface</span>
+          <div class="hdesc">Deep-dive into a single project. Access <b>Schedule Progress</b>, <b>Field Velocity</b>, and the <b>Field Thread</b>. Use the dock to commit reviews or skip to the next project.</div>
+        </div>
+        <div class="help-row">
+          <span class="hbadge hbadge-green">Gantt Interactive</span>
+          <div class="hdesc">Rotate your device to landscape to trigger the full-screen Gantt view. This isolated workspace provides high-density timeline visualization and focus mode.</div>
+        </div>
       </div>
 
       <div class="help-sec">
-        <div class="help-sec-title">Flag Glossary</div>
-        <div class="help-row"><span class="hbadge hbadge-red">Status Mismatch</span><div class="hdesc">Project status in QuickBase does not match the field report and needs review.</div></div>
-        <div class="help-row"><span class="hbadge hbadge-yellow">Check Crossings</span><div class="hdesc">Special crossings were detected and need permit or construction verification.</div></div>
-        <div class="help-row"><span class="hbadge hbadge-yellow">Please Input BOM</span><div class="hdesc">Main BOM quantities are zero, which blocks velocity calculations.</div></div>
-        <div class="help-row"><span class="hbadge hbadge-gray">Ghost Report</span><div class="hdesc">A project is marked active but the vendor did not submit a daily report.</div></div>
-        <div class="help-row"><span class="hbadge hbadge-stripe" style="color:#fde047;">CD Intel</span><div class="hdesc">AI detected noteworthy crossing or design risk in the construction drawing set.</div></div>
+        <div class="help-sec-title">System Actions</div>
+        <div class="help-wf-step"><div class="help-wf-num">⟳</div><div class="hdesc"><b>Sync QuickBase:</b> Pulls the latest reference data from the QB API. Critical for keeping the local dictionary in sync with system-of-record changes.</div></div>
+        <div class="help-wf-step"><div class="help-wf-num">▶</div><div class="hdesc"><b>Run Daily Review:</b> Executes the diagnostic engine (Benny Engine) to process raw vendor reports and identify new anomalies.</div></div>
+        <div class="help-wf-step"><div class="help-wf-num">↻</div><div class="hdesc"><b>Refresh Interface:</b> Performs a fast re-read of the mirror sheets to update the UI without re-running diagnostic rules.</div></div>
+      </div>
+
+      <div class="help-sec">
+        <div class="help-sec-title">Review Hub (Admin)</div>
+        <div class="hdesc">Accessible via the round icon in the Queue. Manages cross-cutting tasks:</div>
+        <div class="help-row"><span class="hbadge hbadge-yellow">Crossings</span><div class="hdesc">Permit or construction verification needed for special project intersections.</div></div>
+        <div class="help-row"><span class="hbadge hbadge-red">Status Mismatch</span><div class="hdesc">Auto-detected discrepancies between QB status and field reporting.</div></div>
+        <div class="help-row"><span class="hbadge hbadge-blue">BOM Checks</span><div class="hdesc">Zero-quantity BOM validation to ensure accurate velocity calculation.</div></div>
+      </div>
+
+      <div class="help-sec">
+        <div class="help-sec-title">Field Thread &amp; AI</div>
+        <div class="hdesc">Use <b>AI Draft</b> in the detail view to generate concise project summaries based on vendor comments and diagnostic data. All notes are saved to the backend for audit trail.</div>
+      </div>
+
+      <div class="help-sec">
+        <div class="help-sec-title">Shortcuts &amp; Gestures</div>
+        <div class="help-row"><span class="hbadge hbadge-gray">Swipe Right</span><div class="hdesc">Swipe this help panel right to dismiss it instantly.</div></div>
+        <div class="help-row"><span class="hbadge hbadge-gray">Tap Badge</span><div class="hdesc">Tap badges in the Queue to jump to specific diagnostic sections.</div></div>
       </div>
     </div>
   </div>
 
   <nav class="v2-shell-glassflow-dock">
-    <button class="v2-shell-glassflow-dock-btn active dock-ctx-queue" id="dock-btn-queue" onclick="closeMobileDetail()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-      <span>Queue</span>
-    </button>
-    <button class="v2-shell-glassflow-dock-btn dock-ctx-queue" id="dock-btn-review" onclick="toggleAdminPanel()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-      <span>Admin</span>
-      <span class="m-dock-badge" id="admin-fab-badge" style="display:none;">0</span>
-    </button>
-
+    <!-- Floating Nav Strip (Detail Only - Above Dock) -->
     <div class="dock-nav-strip">
       <button class="dock-nav-arrow" id="nav-pill-prev" onclick="navigateGlassFlowCard(-1)" aria-label="Previous">‹</button>
       <span id="glassflow-nav-label">– / –</span>
       <button class="dock-nav-arrow" id="nav-pill-next" onclick="navigateGlassFlowCard(1)" aria-label="Next">›</button>
-      <button id="dock-btn-detail-review" onclick="toggleAdminPanel()" style="display:none; margin-left:8px; padding:0 10px; border-left:1px solid var(--border); height:30px; align-items:center; gap:6px; color:var(--text-main); font-size:10px; font-weight:800; background:none; border-top:none; border-right:none; border-bottom:none; cursor:pointer;">
-         Admin <span class="m-dock-badge" id="admin-fab-badge-detail" style="display:none; position:static;">0</span>
+      <button id="dock-btn-detail-admin" onclick="toggleAdminPanel()" style="margin-left:8px; padding:0 10px; border-left:1px solid color-mix(in srgb, var(--border) 35%, transparent); height:24px; align-items:center; gap:6px; color:var(--text-main); font-size:10px; font-weight:800; background:none; border-top:none; border-right:none; border-bottom:none; cursor:pointer; display:flex;">
+         Admin <span class="m-dock-badge" id="admin-fab-badge-detail" style="display:none; position:static; margin-left:4px;">0</span>
       </button>
     </div>
 
+    <!-- Detail Context -->
     <button class="v2-shell-glassflow-dock-btn dock-ctx-detail" id="dock-btn-back" onclick="closeMobileDetail()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
       <span>Back</span>
@@ -2316,6 +416,7 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
       <span>AI Draft</span>
     </button>
 
+    <!-- Admin Context (Tabs) -->
     <button class="v2-shell-glassflow-dock-btn dock-ctx-admin" id="dock-btn-admin-tab-admin" onclick="switchPanelTab('admin')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M8 9h8"></path><path d="M8 13h8"></path></svg>
       <span>Admin</span>
@@ -2333,6 +434,7 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
       <span>Close</span>
     </button>
 
+    <!-- Gantt Context -->
     <button class="v2-shell-glassflow-dock-btn dock-ctx-gantt" id="dock-btn-gantt-zoom-out" onclick="zoomGlassFlowGantt(-1)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
       <span>Out</span>
@@ -2344,6 +446,10 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
     <button class="v2-shell-glassflow-dock-btn dock-ctx-gantt" id="dock-btn-gantt-today" onclick="jumpToGanttToday()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
       <span>Today</span>
+    </button>
+    <button class="v2-shell-glassflow-dock-btn dock-ctx-gantt" id="dock-btn-gantt-theme" onclick="toggleDarkMode()" title="Toggle theme">
+      <div id="gantt-theme-icon"></div>
+      <span>Theme</span>
     </button>
     <button class="v2-shell-glassflow-dock-btn dock-ctx-gantt primary" id="dock-btn-gantt-filter" onclick="handleFabClick()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
@@ -2407,12 +513,40 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
         }
     };
 
+    // Help Panel Swipe Logic
+    (function() {
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const helpPanel = document.getElementById('help-panel');
+        if (!helpPanel) return;
+
+        helpPanel.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, {passive: true});
+
+        helpPanel.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, {passive: true});
+
+        function handleSwipe() {
+            if (touchEndX - touchStartX > 80) { // Swipe Right (Close)
+                if (helpPanel.classList.contains('open')) {
+                    if (typeof toggleHelpPanel === 'function') toggleHelpPanel();
+                }
+            }
+        }
+    })();
+
     // Orientation Listener
     if (window.matchMedia) {
         const mql = window.matchMedia('(orientation: landscape)');
         const handleOrientation = (e) => {
             if (e.matches) {
                 // Entered Landscape
+                if (typeof setAdminPanelOpen === 'function') setAdminPanelOpen(false);
+                if (typeof toggleHelpPanel === 'function' && document.getElementById('help-panel').classList.contains('open')) toggleHelpPanel();
+
                 if (currentWorkspaceView !== 'gantt') {
                     lastNonGanttView = currentWorkspaceView || 'queue';
                     switchWorkspaceView('gantt');
@@ -2630,7 +764,7 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
         const textarea = document.getElementById('p-comment');
         const commitBtn = document.getElementById('btn-commit');
         const aiBtn = document.getElementById('dock-btn-ai-draft');
-        const adminBtn = document.getElementById('dock-btn-detail-review');
+        const adminBtn = document.getElementById('dock-btn-detail-admin');
         const adminBadge = document.getElementById('admin-fab-badge-detail');
 
         if (!commitBtn) return;
@@ -2640,12 +774,11 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
         commitBtn.setAttribute('title', hasNote ? 'Commit note' : 'Write a note to enable Commit');
         if (aiBtn) aiBtn.classList.toggle('is-busy', !!aiBtn.disabled);
 
-        // Show Admin button in detail dock if session has commits/staged items
+        // Update badge for admin button in detail dock
         const stagedCount = typeof stagedDeckItems !== 'undefined' ? stagedDeckItems.length : 0;
         const reviewedCount = typeof committedItems !== 'undefined' ? committedItems.length : 0;
         const total = stagedCount + reviewedCount;
         
-        if (adminBtn) adminBtn.style.display = total > 0 ? 'flex' : 'none';
         if (adminBadge) {
             adminBadge.textContent = String(total);
             adminBadge.style.display = total > 0 ? 'inline-flex' : 'none';
@@ -2870,24 +1003,37 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
         }, 20);
     };
 
-      const originalSwitchWorkspaceView = window.switchWorkspaceView;
-      if (typeof originalSwitchWorkspaceView === 'function') {
+    const originalSwitchWorkspaceView = window.switchWorkspaceView;
+    if (typeof originalSwitchWorkspaceView === 'function') {
         window.switchWorkspaceView = function(view) {
-          if (view !== 'gantt' && (typeof currentWorkspaceView === 'undefined' || currentWorkspaceView !== 'gantt')) {
-            lastNonGanttView = view;
-          }
-          const result = originalSwitchWorkspaceView.apply(this, arguments);
-          window.setTimeout(() => {
-            if (view !== 'gantt') resetGlassFlowGanttZoom();
-            if (view === 'gantt' && typeof ensureGanttRendered === 'function') {
-              ensureGanttRendered({ immediate: true });
+            if (view !== 'gantt' && (typeof currentWorkspaceView === 'undefined' || currentWorkspaceView !== 'gantt')) {
+                lastNonGanttView = view;
             }
-            pulseDockContext();
-            syncMobileDockContext();
-          }, 20);
-          return result;
+            const result = originalSwitchWorkspaceView.apply(this, arguments);
+            // Phase 6: Ensure body classes sync immediately for layout stability
+            if (view === 'gantt') {
+                document.body.classList.add('mobile-gantt-open', 'gantt-view-active');
+            } else {
+                document.body.classList.remove('mobile-gantt-open', 'gantt-view-active');
+            }
+            
+            window.setTimeout(() => {
+                if (view !== 'gantt') resetGlassFlowGanttZoom();
+                if (view === 'gantt' && typeof ensureGanttRendered === 'function') {
+                    ensureGanttRendered({ immediate: true });
+                }
+                pulseDockContext();
+                syncMobileDockContext();
+            }, 20);
+            return result;
         };
-      }
+    }
+
+    // Phase 6: No-op syncGanttIslandState for GlassFlow. 
+    // This desktop helper tries to manipulate IDs that don't exist in the mobile shell.
+    window.syncGanttIslandState = function() {
+        console.log('[GlassFlow] syncGanttIslandState suppressed');
+    };
 
     const originalSwitchPanelTab = window.switchPanelTab;
     if (typeof originalSwitchPanelTab === 'function') {
@@ -2951,32 +1097,46 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
     window.syncMobileDockContext = function() {
         const isDetail = document.body.classList.contains('mobile-detail-open');
         const isAdmin = document.body.classList.contains('mobile-admin-open');
+        const isLandscape = window.innerWidth > window.innerHeight;
         const isGanttView = typeof currentWorkspaceView !== 'undefined' ? currentWorkspaceView === 'gantt' : document.body.classList.contains('gantt-view-active');
-        const isGantt = !!isGanttView && !isAdmin;
+        
+        // WS18 FIX: In landscape, Gantt MUST override everything for isolation.
+        // In portrait, Admin overrides Gantt (which shows a placeholder anyway).
+        const isGantt = isLandscape ? (isGanttView) : (!!isGanttView && !isAdmin);
         const isQueue = !isDetail && !isAdmin && !isGantt;
         
-        const queueBtn = document.getElementById('dock-btn-queue');
         const reviewBtn = document.getElementById('dock-btn-review');
         const logo = document.getElementById('glassflow-logo');
         
-        // WS18 P6: Breathing Dock - Remove redundant Queue button when already in Queue
-        if (queueBtn) {
-            queueBtn.style.display = isQueue ? 'none' : 'flex';
-            queueBtn.classList.toggle('active', isQueue);
+        // WS18 P6: Corner Utility - Admin only in Queue
+        if (reviewBtn) {
+            reviewBtn.style.display = isQueue ? 'flex' : 'none';
+            reviewBtn.classList.toggle('active', isAdmin);
         }
         
-        if (reviewBtn) reviewBtn.classList.toggle('active', isAdmin);
-        
+        // Handle Detail controls visibility (Fix: Admin overrides Detail)
+        const showDetailControls = isDetail && !isAdmin;
+        const detailElements = document.querySelectorAll('.dock-ctx-detail');
+        detailElements.forEach(el => {
+            el.style.display = showDetailControls ? 'flex' : 'none';
+        });
+
+        // Handle Admin controls visibility (CSS fallback insurance)
+        const adminElements = document.querySelectorAll('.dock-ctx-admin');
+        adminElements.forEach(el => {
+            el.style.display = isAdmin ? 'flex' : 'none';
+        });
+
         // Logo visibility: only in Queue mode (and when logo exists)
         if (logo) logo.style.display = isQueue ? 'flex' : 'none';
         
         const dock = document.querySelector('.v2-shell-glassflow-dock');
         if (dock) {
-            dock.style.display = 'flex';
-            dock.style.visibility = 'visible';
-            dock.style.pointerEvents = 'auto';
-            // Trigger layout recalculation for the breathing effect
-            void dock.offsetWidth;
+            const shouldShowDock = isAdmin || isDetail || isGantt;
+            dock.style.display = shouldShowDock ? 'flex' : 'none';
+            dock.style.visibility = shouldShowDock ? 'visible' : 'hidden';
+            dock.style.pointerEvents = shouldShowDock ? 'auto' : 'none';
+            if (shouldShowDock) void dock.offsetWidth;
         }
         
         document.body.classList.toggle('mobile-gantt-open', isGantt);
@@ -3028,6 +1188,14 @@ body.mobile-gantt-open .v2-shell-glassflow-dock.ctx-switching {
       </svg>
     </div>
     <span id="fab-filter-badge" class="m-dock-badge" style="display:none; position:absolute; top:-6px; right:-6px; background:var(--color-critical); z-index:10;">0</span>
+  </button>
+
+  <!-- 🛠️ ADMIN HUB FAB (Stack below Search) -->
+  <button id="admin-hub-fab" class="unified-fab fab-bottom-right" onclick="toggleAdminPanel()" title="Review Hub">
+    <div class="fab-icon-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+    </div>
+    <span id="admin-fab-badge" class="m-dock-badge" style="display:none; position:absolute; top:-6px; left:-6px; right:auto; background:var(--color-critical); z-index:10;">0</span>
   </button>
 
   <!-- HIDDEN SOURCE CONTAINERS FOR FILTER LOGIC SYNC -->

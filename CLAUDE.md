@@ -18,6 +18,7 @@
 4. **HtmlService Routing:** `doGet()` MUST use `createTemplateFromFile('WebApp').evaluate()`.
 5. **Surgical Logic Changes:** Edit the specific `_module_*.html` file, not the main shell. Standardize by including `<script>` tags within the partial itself.
 6. **Mobile GAS Viewport:** Set viewport via `addMetaTag()` in `doGet()`. Use `width=device-width, initial-scale=1, viewport-fit=cover`.
+7. **No Massive Inline CSS:** Never put more than 500 lines of CSS inline in an HTML shell file. GAS `HtmlService` often sanitizes or completely ignores large inline `<style>` blocks. Move core shell styles to a partial like `_styles_glassflow_core.html` and use `<?!= include() ?>`.
 
 ## File Map (Lean Version 2026)
 > Last updated: March 26, 2026
@@ -62,6 +63,7 @@
 | `_styles_components.html` | Component visuals, overlays, and widget styles. |
 | `_styles_gantt.html` | Gantt timeline and orientation placeholders. |
 | `_styles_deck.html` | Deck presentation and card styles. |
+| `_styles_glassflow_core.html` | Core mobile shell styles (extracted from v2_shell_GlassFlow). |
 | `_utils_shared.html` | Pure helpers (escaping, dates) + DOM shorthand (`getEl`, `setHtml`). |
 | `_utils_notifications.html` | Shared toasts and status wrapper helpers. |
 
