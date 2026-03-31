@@ -332,6 +332,7 @@ function switchWorkspaceView(mode) {
 function syncOutboxPanelMode() {
     let title = getEl('review-hub-title');
     let tabBar = document.querySelector('#review-hub-main-header .panel-tab-bar');
+    let hubHeader = getEl('review-hub-main-header');
     let deckPanel = getEl('deck-action-panel');
     let adminPanel = getEl('ob-panel-admin');
     let reviewedPanel = getEl('ob-panel-reviewed');
@@ -341,6 +342,11 @@ function syncOutboxPanelMode() {
 
     if (title) {
         title.innerHTML = '<span>Review</span><span>Hub</span>';
+    }
+    if (hubHeader) {
+        hubHeader.classList.toggle('is-admin-tab', currentPanelTab === 'admin');
+        hubHeader.classList.toggle('is-reviewed-tab', currentPanelTab === 'reviewed');
+        hubHeader.classList.toggle('is-changelog-tab', currentPanelTab === 'changelog');
     }
     if (tabBar) tabBar.style.display = isDeckView ? 'none' : 'flex';
     if (deckPanel) deckPanel.style.display = isDeckView ? 'flex' : 'none';
@@ -367,6 +373,7 @@ function switchPanelTab(tab) {
     currentPanelTab = tab;
     let adminPanel = getEl('ob-panel-admin'), reviewedPanel = getEl('ob-panel-reviewed'), changelogPanel = getEl('ob-panel-changelog');
     let adminTab = getEl('panel-tab-admin'), reviewedTab = getEl('panel-tab-reviewed'), changelogTab = getEl('panel-tab-changelog');
+    let hubHeader = getEl('review-hub-main-header');
 
     if (adminPanel) adminPanel.style.display = (tab === 'admin') ? 'flex' : 'none';
     if (reviewedPanel) reviewedPanel.style.display = (tab === 'reviewed') ? 'flex' : 'none';
@@ -375,6 +382,11 @@ function switchPanelTab(tab) {
     if (adminTab) adminTab.classList.toggle('active', tab === 'admin');
     if (reviewedTab) reviewedTab.classList.toggle('active', tab === 'reviewed');
     if (changelogTab) changelogTab.classList.toggle('active', tab === 'changelog');
+    if (hubHeader) {
+        hubHeader.classList.toggle('is-admin-tab', tab === 'admin');
+        hubHeader.classList.toggle('is-reviewed-tab', tab === 'reviewed');
+        hubHeader.classList.toggle('is-changelog-tab', tab === 'changelog');
+    }
 
     if (tab === 'changelog') {
         try { sessionStorage.setItem(CHANGELOG_PULSE_SESSION_KEY, '1'); } catch (e) {}

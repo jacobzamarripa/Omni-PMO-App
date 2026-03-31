@@ -19,7 +19,7 @@
 // ============================================================
 function renderSpecialCrossingsAdminSection(crossings) {
     if (!crossings || crossings.length === 0) return '';
-    let commitBtn = `<button onclick="commitStagedCrossings(this)" style="padding:3px 8px; font-size:9px; font-weight:900; background:#0f172a; color:#fff; border:1px solid #0f172a; border-radius:4px; cursor:pointer; white-space:nowrap;">Commit Staged →</button>`;
+    let commitBtn = `<button class="btn review-hub-strip-btn" onclick="commitStagedCrossings(this)">Commit Staged</button>`;
     let cards = crossings.map(function(item) {
         let xVal = item.rawSpecialX || (item.isXing ? 'YES' : '—');
         let xDet = item.specXDetails ? `<div style="font-size:10px; color:var(--text-muted); margin-top:3px; line-height:1.4;">${item.specXDetails.substring(0, 120)}${item.specXDetails.length > 120 ? '…' : ''}</div>` : '';
@@ -36,12 +36,16 @@ function renderSpecialCrossingsAdminSection(crossings) {
             </div>
         </div>`;
     }).join('');
-    return `<div style="border-bottom:1px solid var(--border); padding:0;">
-        <div style="padding:10px 20px 6px; font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; background:transparent;">
-            <span>Crossings to Verify <span style="background:var(--border); color:var(--text-main); padding:1px 7px; border-radius:10px; font-size:10px;">${crossings.length}</span></span>
+    return `<div>
+        <div class="review-hub-section-header">
+            <div class="review-hub-section-title">
+                <div class="review-hub-section-label">Pinned Utility</div>
+                <div class="review-hub-section-name">Crossings Tray</div>
+                <div class="review-hub-section-count">${crossings.length}</div>
+            </div>
             ${commitBtn}
         </div>
-        ${cards}
+        <div class="review-hub-section-body">${cards}</div>
     </div>`;
 }
 

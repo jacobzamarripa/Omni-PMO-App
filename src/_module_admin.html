@@ -146,11 +146,20 @@ function openAdminPanelByDefault() {
     syncAdminFabAnchorToPanel();
 }
 
+function renderAdminEmptyState(message) {
+    return `<div class="empty-msg" style="padding:40px 20px;">${message}</div>`;
+}
+
 // TODO: MODULE CANDIDATE - admin module still mutates reviewed tray, currentActiveItem, queue filters, and shared queue state.
 function renderAdminPane(items) {
     let pane = getEl('admin-pane-content');
+    let crossingsArea = getEl('persistent-crossings-area');
     if (!pane) return;
-    if (!items || items.length === 0) { pane.innerHTML = '<div class="empty-msg" style="padding:40px 20px;">No admin tasks.</div>'; return; }
+    if (!items || items.length === 0) {
+        if (crossingsArea) crossingsArea.innerHTML = '';
+        pane.innerHTML = renderAdminEmptyState('No admin tasks.');
+        return;
+    }
 
     let crossings = items.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS"));
     let bomInput = items.filter(i => i.flags.includes("PLEASE INPUT BOM"));
@@ -161,16 +170,21 @@ function renderAdminPane(items) {
     let totalAdmin = crossings.length + bomsTotal + status.length;
     let badge = getEl('admin-badge');
     if (badge) { badge.textContent = totalAdmin; badge.style.display = totalAdmin > 0 ? 'inline-flex' : 'none'; }
+    setTxt('ob-header-count', totalAdmin);
 
     let kpiCv = getEl('kpi-crossings-val'), kpiSv = getEl('kpi-status-val'), kpiBv = getEl('kpi-boms-val');
     if (kpiCv) kpiCv.textContent = crossings.length;
     if (kpiSv) kpiSv.textContent = status.length;
     if (kpiBv) kpiBv.textContent = bomsTotal;
 
+    if (crossingsArea) {
+        crossingsArea.innerHTML = crossings.length > 0 ? renderSpecialCrossingsAdminSection(crossings) : '';
+    }
+
     let html = '';
 
-    if ((!activeAdminFilter || activeAdminFilter === 'crossings') && crossings.length > 0) {
-        html += renderSpecialCrossingsAdminSection(crossings);
+    if (activeAdminFilter === 'crossings') {
+        html = renderAdminEmptyState(crossings.length > 0 ? 'Crossings to verify are pinned in the tray above.' : 'No crossings are waiting for verification.');
     }
 
     if (!activeAdminFilter || activeAdminFilter === 'boms') {
@@ -205,7 +219,7 @@ function renderAdminPane(items) {
         });
     }
 
-    if (html === '') html = '<div class="empty-msg" style="padding:40px 20px;">No items in this category.</div>';
+    if (html === '') html = renderAdminEmptyState('No items in this category.');
     pane.innerHTML = html;
 }
 
@@ -281,6 +295,7 @@ function renderOutbox() {
     const reviewedItems = committedItems || [];
     const totalCount = stagedItems.length + reviewedItems.length;
     setTxt('ob-count', totalCount);
+    setTxt('ob-header-count', totalCount);
     let tabBadge = getEl('ob-count');
     if (tabBadge) {
         tabBadge.innerText = totalCount;
@@ -297,24 +312,26 @@ function renderOutbox() {
         let isCollapsible = !!opts.collapsible;
         let isCollapsed = !!opts.collapsed;
         let section = document.createElement('div');
-        if (type === 'staged') section.style.borderBottom = '1px solid var(--border)';
+        section.className = `review-hub-section review-hub-section-${type}`;
 
         let header = document.createElement('div');
-        header.className = 'ob-header-sticky';
-        header.style.cssText = 'padding:12px 16px; background:color-mix(in srgb, var(--accent) 12%, var(--bg)); border-bottom:1px solid var(--border); border-left:4px solid var(--accent); position:sticky; top:0; z-index:5;';
+        header.className = 'review-hub-section-header';
         if (isCollapsible) {
             header.style.cursor = 'pointer';
             header.onclick = function() { toggleStagedReviewSection(); };
         }
         let titleEl = document.createElement('div');
-        titleEl.style.cssText = 'font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px;';
-        titleEl.innerHTML = `${isCollapsible ? `<span style="display:inline-flex; align-items:center; justify-content:center; width:14px; color:var(--text-main); font-size:11px;">${isCollapsed ? '&#9656;' : '&#9662;'}</span>` : ''}<span>${title} <span style="margin-left:6px; color:var(--text-main);">${count}</span></span>`;
+        titleEl.className = 'review-hub-section-title';
+        titleEl.innerHTML = `
+            <div class="review-hub-section-label">${type === 'staged' ? 'Export Queue' : 'Completed Reviews'}</div>
+            <div class="review-hub-section-name">${isCollapsible ? `${isCollapsed ? '&#9656;' : '&#9662;'} ` : ''}${title}</div>
+            <div class="review-hub-section-count">${count}</div>
+        `;
         let actionWrap = document.createElement('div');
-        actionWrap.style.cssText = 'display:flex; gap:6px;';
+        actionWrap.className = 'review-hub-section-actions';
         actions.forEach(function(def) {
             let btn = document.createElement('button');
-            btn.className = 'btn';
-            btn.style.cssText = 'font-size:10px; padding:3px 8px;';
+            btn.className = 'btn review-hub-strip-btn';
             btn.textContent = def.label;
             btn.onclick = function(event) {
                 event.stopPropagation();
@@ -327,12 +344,13 @@ function renderOutbox() {
         section.appendChild(header);
 
         let body = document.createElement('div');
+        body.className = 'review-hub-section-body';
         body.style.display = isCollapsed ? 'none' : '';
 
         if (!items.length) {
             let empty = document.createElement('div');
             empty.className = 'empty-msg';
-            empty.style.cssText = 'padding:14px 16px; margin:0; font-size:11px;';
+            empty.style.cssText = 'padding:20px 0; margin:0; font-size:11px; min-height:0;';
             empty.textContent = type === 'staged' ? 'No staged items.' : 'No reviewed items.';
             body.appendChild(empty);
             section.appendChild(body);
@@ -345,10 +363,12 @@ function renderOutbox() {
             card.onclick = function() { openPane(item, null); };
             card.innerHTML = `
                 <div class="admin-card-split">
-                    <div class="admin-card-title">${esc(item.fdh)}</div>
-                    <span class="tag ${type === 'staged' ? 'chip-magic' : 'chip-complete'}">${type === 'staged' ? 'STAGED' : 'REVIEWED'}</span>
+                    <div>
+                        <div class="admin-card-title">${esc(item.fdh)}</div>
+                        <div class="admin-card-meta">${esc(item.vendor || item.city || 'Unknown')}</div>
+                    </div>
+                    <span class="tag review-row-tag ${type === 'staged' ? 'chip-magic' : 'chip-complete'}">${type === 'staged' ? 'STAGED' : 'FINAL'}</span>
                 </div>
-                <div class="admin-card-meta">${esc(item.vendor || item.city || 'Unknown')}</div>
                 <div class="admin-card-hint">${esc(type === 'staged' ? (item.comment || 'Ready for batch export') : (item.comment || 'Reviewed'))}</div>`;
             body.appendChild(card);
         });
@@ -365,10 +385,6 @@ function renderOutbox() {
     list.appendChild(createSection('Reviewed', reviewedItems.length, [
         { label: '↑ Export', onClick: function() { promptEmailExport(); } },
         { label: 'Clear', onClick: function() { clearReviewedTray(); } }
-    ], reviewedItems, 'reviewed'));
-}
-</script>
-n() { clearReviewedTray(); } }
     ], reviewedItems, 'reviewed'));
 }
 </script>

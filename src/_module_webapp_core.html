@@ -894,11 +894,17 @@
       function _adminSection(title, items, renderCard) {
           if (items.length === 0) return '';
           let cards = items.map(renderCard).join('');
-          return `<div style="border-bottom:1px solid var(--border); padding:0;">
-              <div style="padding:10px 20px 6px; font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; background:transparent;">
-                  <span>${title} <span style="background:var(--border); color:var(--text-main); padding:1px 7px; border-radius:10px; font-size:10px;">${items.length}</span></span>
+          return `<div class="review-hub-section">
+              <div class="review-hub-section-header">
+                  <div class="review-hub-section-title">
+                      <div class="review-hub-section-label">Queue Segment</div>
+                      <div class="review-hub-section-name">${title}</div>
+                      <div class="review-hub-section-count">${items.length}</div>
+                  </div>
               </div>
-              ${cards}
+              <div class="review-hub-section-body">
+                  ${cards}
+              </div>
           </div>`;
       }
 

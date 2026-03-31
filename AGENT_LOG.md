@@ -1,5 +1,22 @@
 # Agent Log — Omni PMO App
 
+> [!info] 2026-03-31: Session Wrap — WS19 remains active, handoff prepared
+- **WS19 Status:** Do **not** close the workstream. The current slice is implemented, but final visual fit-and-finish and live validation are still pending.
+- **Critical Constraint Captured:** The correct design boundary is to reimagine the Review Hub **within the existing GlassFlow slide-up container and existing dock system**. Do not replace the shell frame on resume.
+- **Completed This Session:** Reworked the internal Admin, Reviewed, and Activity layouts inside the existing container; restored dock-owned tab control; aligned the internal language more closely to GlassFlow without reopening the outer architecture.
+- **Resume Point for Another Agent:** Start with a live visual pass and smoke validation. Focus on spacing, rhythm, readability, and edge-case rendering with real data volume. Avoid structural rewrites unless explicitly requested.
+- **Validation State:** `node scripts/validate-mobile-shell.js` passes. `git diff --check` is clean.
+
+> [!success] 2026-03-31: WS19 Review Hub Reimagination — active implementation slice delivered
+- **Scope Locked:** Implemented Workstream 19 on the active GlassFlow shell only; legacy `WebApp.html` review hub remains unchanged.
+- **Container Constraint:** Final direction keeps the existing Review Hub slide-up sheet and existing admin dock; all reimagination work now lives inside that established frame.
+- **Admin Tab:** Reworked the admin surface into a denser list-oriented station with sticky KPI utility chips, restored SVG iconography, and a persistent crossings tray anchored above the main task list.
+- **Reviewed Tab:** Replaced generic reviewed card grouping with two clearly separated sections (`Staged`, `Reviewed`) that carry inline action strips for export/clear flows.
+- **Activity Tab:** Converted the changelog to a dense feed with event icons, inline two-line summaries, tap-to-expand rows, and a separate compact project navigation affordance.
+- **Native-Language Pass:** Softened section treatments, reduced “dashboard” weight, and tuned internal spacing/typography to sit closer to the existing GlassFlow visual language.
+- **State Wiring:** Preserved existing routing/action contracts (`switchPanelTab`, `renderAdminPane`, `renderOutbox`, `renderChangeLog`) while keeping the dock as the primary tab system.
+- **Validation:** `node scripts/validate-mobile-shell.js` passes after the WS19 changes. `git diff --check` is clean.
+
 > [!info] 2026-03-30: WS18 Phase 6 — CSS extraction, UI polish, and Phase 7 definition
 - **CSS Extraction (Critical Fix):** Extracted ~1900 lines of inline CSS from `v2_shell_GlassFlow.html` into new partial `_styles_glassflow_core.html`. GAS HtmlService sanitizes/ignores large inline style blocks — this was a root cause of styles not rendering.
 - **Architecture Rule Added:** CLAUDE.md + GEMINI.md updated with rule: never put >500 lines of CSS inline in an HTML shell; use `<?!= include() ?>` instead.
