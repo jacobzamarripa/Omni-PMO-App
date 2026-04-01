@@ -54,8 +54,12 @@ function renderChangeLog() {
     }
 
     if (timeFilter !== 'ALL') {
-        let cutoffTime = Date.now() - (parseInt(timeFilter, 10) * 60 * 60 * 1000);
-        logsToRender = logsToRender.filter(log => Number(log.timestampObj || 0) >= cutoffTime);
+        let hours = parseInt(timeFilter, 10);
+        let cutoffTime = Date.now() - (hours * 60 * 60 * 1000);
+        logsToRender = logsToRender.filter(log => {
+            let ts = log.timestampObj ? Number(log.timestampObj) : new Date(log.time).getTime();
+            return !isNaN(ts) && ts >= cutoffTime;
+        });
     }
 
     if (userFilter !== 'ALL') {
@@ -71,8 +75,20 @@ function renderChangeLog() {
         );
     }
 
-    logsToRender.sort((a, b) => Number(b.timestampObj || 0) - Number(a.timestampObj || 0));
-    setTxt('ob-header-count', logsToRender.length);
+    logsToRender.sort((a, b) => {
+        let tsA = a.timestampObj ? Number(a.timestampObj) : 0;
+        if (!tsA && a.time) tsA = new Date(a.time).getTime();
+        let tsB = b.timestampObj ? Number(b.timestampObj) : 0;
+        if (!tsB && b.time) tsB = new Date(b.time).getTime();
+        return tsB - tsA;
+    });
+
+    const displayCount = logsToRender.length;
+    setTxt('ob-header-count', displayCount);
+    let headerBadge = getEl('ob-header-count');
+    if (headerBadge) {
+        headerBadge.style.display = 'inline-flex'; // Always show in Hub for current tab
+    }
 
     if (logsToRender.length === 0) {
         list.innerHTML = `<div class="empty-msg" style="margin-top:20px; font-size:11px;">No activity matches current filters.</div>`;
@@ -85,9 +101,17 @@ function renderChangeLog() {
         let rowKey = escJs(getActivityRowKey(log));
         let rowOpen = expandedActivityRows.has(getActivityRowKey(log));
         let cleanVal = String(log.val ?? '').replace(/(?: \d{2}:\d{2}:\d{2} GMT.*)/, '');
+        
+        // Conditional navigation: only show if project exists in action items
+        const targetFdh = String(log.fdh || '');
+        const itemExists = typeof allActionItems !== 'undefined' && allActionItems.some(i => String(i.fdh) === targetFdh);
+        const navBtn = itemExists ? `
+            <button class="log-row-nav" style="display:inline-flex;" onclick="event.stopPropagation(); selectItemForNav('${escJs(targetFdh)}')" aria-label="Open ${esc(targetFdh)}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
+            </button>` : '';
+
         html += `
         <div class="log-row-dense ${rowOpen ? 'is-expanded' : ''}">
-            <div class="log-row-type">${getActivityIconMarkup(t)}</div>
             <div class="log-row-main log-row-expand" onclick="toggleActivityRow('${rowKey}')">
                 <div class="log-row-top">
                     <span class="log-row-fdh">${esc(log.fdh)}</span>
@@ -99,9 +123,7 @@ function renderChangeLog() {
                 </div>
                 <div class="log-row-val">${esc(cleanVal)}</div>
             </div>
-            <button class="log-row-nav" onclick="event.stopPropagation(); selectItemForNav('${escJs(String(log.fdh || ''))}')" aria-label="Open ${esc(String(log.fdh || 'project'))}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
-            </button>
+            ${navBtn}
         </div>`;
     });
 

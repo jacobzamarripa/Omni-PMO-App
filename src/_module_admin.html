@@ -36,6 +36,11 @@ function toggleAdminPanel() {
     let pane = getEl('outbox-pane');
     let isOpen = pane && pane.classList.contains('open');
     setAdminPanelOpen(!isOpen);
+    
+    // GlassFlow Shell specific: sync logo visibility
+    if (typeof syncGlassFlowLogoVisibility === 'function') {
+        syncGlassFlowLogoVisibility();
+    }
 }
 
 function shouldAutoOpenAdminPanel() {
@@ -153,10 +158,8 @@ function renderAdminEmptyState(message) {
 // TODO: MODULE CANDIDATE - admin module still mutates reviewed tray, currentActiveItem, queue filters, and shared queue state.
 function renderAdminPane(items) {
     let pane = getEl('admin-pane-content');
-    let crossingsArea = getEl('persistent-crossings-area');
     if (!pane) return;
     if (!items || items.length === 0) {
-        if (crossingsArea) crossingsArea.innerHTML = '';
         pane.innerHTML = renderAdminEmptyState('No admin tasks.');
         return;
     }
@@ -177,14 +180,10 @@ function renderAdminPane(items) {
     if (kpiSv) kpiSv.textContent = status.length;
     if (kpiBv) kpiBv.textContent = bomsTotal;
 
-    if (crossingsArea) {
-        crossingsArea.innerHTML = crossings.length > 0 ? renderSpecialCrossingsAdminSection(crossings) : '';
-    }
-
     let html = '';
 
-    if (activeAdminFilter === 'crossings') {
-        html = renderAdminEmptyState(crossings.length > 0 ? 'Crossings to verify are pinned in the tray above.' : 'No crossings are waiting for verification.');
+    if (!activeAdminFilter || activeAdminFilter === 'crossings') {
+        html += renderSpecialCrossingsAdminSection(crossings);
     }
 
     if (!activeAdminFilter || activeAdminFilter === 'boms') {

@@ -239,13 +239,17 @@ body.mobile-admin-open .v2-shell-glassflow-dock {
   font-weight: 900 !important;
   min-width: 18px !important;
   height: 18px !important;
-  display: inline-flex !important;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
   letter-spacing: -0.2px;
+  background: var(--color-critical); /* Default Red */
+  color: #fff !important;
+  border: none !important;
 }
 #admin-fab-badge {
+  position: absolute !important;
   left: -8px !important;
   right: auto !important;
   top: -8px !important;
@@ -255,7 +259,13 @@ body.mobile-admin-open .v2-shell-glassflow-dock {
   height: 22px !important;
   border-radius: 11px !important;
   border: none !important;
-  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.45);
+  color: #fff !important;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.12);
+}
+#admin-fab-badge-detail {
+  background: var(--color-critical) !important;
+  margin-left: 6px !important;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.12);
 }
 
 /* Hide FABs when expanded views are open to clear airspace */
@@ -389,9 +399,20 @@ body.mobile-detail-open .dock-nav-strip { display: flex; }
 }
 
 .v2-shell-glassflow-dock-btn .m-dock-badge {
-    position: absolute; top: 4px; right: 12px; background: var(--color-critical);
-    color: white; font-size: 8px; padding: 1px 4px; border-radius: 6px; min-width: 12px;
+  position: absolute;
+  top: -6px;
+  right: -2px;
+  background: var(--color-critical);
+  color: #fff;
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  min-width: 14px;
+  border: none !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
 }
+#ob-count.m-dock-badge { background: #16a34a; }
+#changelog-badge.m-dock-badge { background: #a855f7; }
 
 /* Back Button */
 .v2-shell-glassflow-back {
@@ -401,27 +422,7 @@ body.mobile-detail-open .dock-nav-strip { display: flex; }
 body.mobile-detail-open .v2-shell-glassflow-back { display: flex; }
 body.mobile-detail-open .v2-shell-glassflow-brand { display: none; }
 
-/* Admin Hub — Executive Glass Upgrade */
-.v2-shell-glassflow #outbox-pane {
-    position: fixed !important; bottom: 0 !important; left: 12px !important; right: 12px !important; 
-    width: auto !important; height: 82vh !important; max-height: 82vh !important;
-    background: color-mix(in srgb, var(--card-bg) 48%, transparent) !important;
-    backdrop-filter: blur(24px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-    border-radius: 32px 32px 0 0 !important; z-index: 9000 !important;
-    display: flex; flex-direction: column;
-    visibility: hidden; pointer-events: none;
-    transform: translateY(100%) !important;
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.4s;
-    box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
-    border: 1px solid color-mix(in srgb, var(--border) 35%, transparent) !important;
-    border-bottom: none !important;
-    margin: 0 !important;
-    overflow: hidden;
-}.v2-shell-glassflow #outbox-pane.open {
-    visibility: visible !important; pointer-events: auto !important; transform: translateY(0) !important;
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s;
-}
+
 #outbox-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
 #outbox-overlay.open { opacity: 1; pointer-events: auto; }
 
@@ -1496,16 +1497,14 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
 .v2-shell-glassflow #outbox-pane {
   position: fixed !important; bottom: 0 !important; left: 12px !important; right: 12px !important;
   width: auto !important; height: 82vh !important; max-height: 82vh !important;
-  background: color-mix(in srgb, var(--card-bg) 48%, transparent) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  background: var(--card-bg) !important;
   border-radius: 32px 32px 0 0 !important; z-index: 9000 !important;
   display: flex; flex-direction: column;
   visibility: hidden; pointer-events: none;
   transform: translateY(100%) !important;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.4s;
   box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
-  border: 1px solid color-mix(in srgb, var(--border) 35%, transparent) !important;
+  border: 1px solid var(--border) !important;
   border-bottom: none !important;
   margin: 0 !important;
   overflow: hidden;
@@ -1517,9 +1516,7 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
 
 .v2-shell-glassflow #review-hub-main-header {
   padding: 20px 20px 16px !important;
-  background: color-mix(in srgb, var(--card-bg) 80%, transparent) !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--card-bg) !important;
   border-bottom: 1px solid var(--border) !important;
   flex-shrink: 0;
 }
@@ -1542,7 +1539,7 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
   min-height: 0;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
-  padding: 0 18px 96px !important;
+  padding: 0 0 96px !important; /* Items span full width */
   margin: 0 !important;
   background: transparent !important;
 }
@@ -1557,8 +1554,16 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
   min-height: 0;
 }
 
-#review-hub-main-header:not(.is-admin-tab) #admin-kpi-header-wrap,
-#review-hub-main-header:not(.is-admin-tab) #persistent-crossings-area {
+#review-hub-main-header {
+  padding: 18px 14px 12px !important; /* Aligned with 14px list padding */
+  background: var(--card-bg) !important;
+  backdrop-filter: none !important;
+  border-bottom: 1px solid var(--border) !important;
+  position: relative !important; /* Not sticky itself within the pane flow */
+  top: auto !important;
+}
+
+#review-hub-main-header:not(.is-admin-tab) #admin-kpi-header-wrap {
   display: none !important;
 }
 
@@ -1567,48 +1572,46 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   align-items: stretch;
+  padding: 0; /* Remove horizontal padding here as it's now in the main header */
 }
 
 .admin-kpi-mini {
   min-width: 0;
-  min-height: 56px;
-  padding: 10px 12px;
+  min-height: 64px;
+  padding: 8px 6px;
   border-radius: 16px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 3px;
   font-weight: 900;
-  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  background: color-mix(in srgb, var(--bg) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  background: color-mix(in srgb, var(--bg) 35%, transparent);
   transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
 }
 
 .admin-kpi-mini svg {
-  width: 18px !important;
-  height: 18px !important;
+  width: 15px !important;
+  height: 15px !important;
   color: inherit;
-  opacity: 0.92;
+  opacity: 0.85;
   flex-shrink: 0;
-}
-
-.admin-kpi-mini-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
 }
 
 .admin-kpi-mini-label {
   font-size: 9px;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-muted);
+  line-height: 1;
 }
 
+
 .admin-kpi-mini-val {
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1;
 }
 
@@ -1624,32 +1627,6 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
 .admin-kpi-mini.boms { color: #3b82f6; }
 .admin-kpi-mini.boms.active { background: rgba(59, 130, 246, 0.14); border-color: rgba(59, 130, 246, 0.42); }
 
-.persistent-crossings-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-  padding: 2px 0 0;
-}
-
-.persistent-crossings-row > div {
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  overflow: hidden;
-}
-
-.persistent-crossings-row .admin-list-card {
-  margin: 0 !important;
-  border-radius: 0 !important;
-  border-left: none !important;
-  border-right: none !important;
-}
-
-.persistent-crossings-row .admin-list-card:first-of-type {
-  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent) !important;
-}
 
 .v2-shell-glassflow .admin-list-card,
 .v2-shell-glassflow .ob-card {
@@ -1657,11 +1634,17 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
   flex-direction: column;
   gap: 6px;
   margin: 0;
-  padding: 14px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  padding: 16px 14px; /* Horizontal padding restored to rows */
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
   background: transparent !important;
   border-radius: 0 !important;
   box-shadow: none !important;
+  transition: background 0.2s ease;
+}
+
+.v2-shell-glassflow .admin-list-card:active,
+.v2-shell-glassflow .ob-card:active {
+  background: color-mix(in srgb, var(--accent) 5%, transparent) !important;
 }
 
 .v2-shell-glassflow .admin-list-card:last-child,
@@ -1716,26 +1699,42 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
   color: var(--text-main);
 }
 
+/* Admin tab: sections must not clip children so sticky headers work */
+#admin-pane-content .review-hub-section {
+  overflow: visible;
+  border: none !important;
+  background: transparent !important;
+  margin-top: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+#admin-pane-content .review-hub-section-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--card-bg);
+  border-radius: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 12px 14px;
+}
+
 .review-hub-section {
-  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--card-bg) 94%, transparent);
-  overflow: hidden;
-  margin-top: 12px;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  overflow: visible !important;
+  margin-top: 0 !important;
+  box-shadow: none !important;
 }
 
 .review-hub-section:first-child {
-  margin-top: 10px;
+  margin-top: 0 !important;
 }
 
-.review-hub-section.review-hub-section-staged {
-  border-color: color-mix(in srgb, var(--accent) 26%, var(--border));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), color-mix(in srgb, var(--card-bg) 96%, transparent));
-}
-
+.review-hub-section.review-hub-section-staged,
 .review-hub-section.review-hub-section-reviewed {
-  border-color: color-mix(in srgb, #16a34a 20%, var(--border));
-  background: linear-gradient(180deg, color-mix(in srgb, #16a34a 5%, transparent), color-mix(in srgb, var(--card-bg) 96%, transparent));
+  border: none !important;
+  background: transparent !important;
 }
 
 .review-hub-section-header {
@@ -1743,8 +1742,12 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  padding: 12px 14px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border) !important;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .review-hub-section-title {
@@ -1756,29 +1759,29 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
 }
 
 .review-hub-section-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--accent);
 }
 
 .review-hub-section-name {
   font-size: 13px;
   font-weight: 900;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: var(--text-main);
 }
 
 .review-hub-section-count {
-  min-width: 24px;
-  height: 24px;
-  padding: 0 8px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 0;
   color: var(--text-main);
@@ -1796,17 +1799,19 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
 
 .review-hub-strip-btn {
   min-height: 28px !important;
-  padding: 0 10px !important;
+  padding: 0 12px !important;
   border-radius: 999px !important;
   font-size: 9px !important;
   font-weight: 900 !important;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   box-shadow: none !important;
+  background: color-mix(in srgb, var(--bg) 95%, #fff) !important;
+  border: 1px solid var(--border) !important;
 }
 
 .review-hub-section-body {
-  padding: 0 14px 4px;
+  padding: 0 !important;
 }
 
 .review-row-tag {
@@ -1814,16 +1819,76 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
   margin-top: 1px;
 }
 
+/* Hide detail nav pill when Review Hub is open */
+body.mobile-admin-open .dock-nav-strip {
+  display: none !important;
+}
+
+.activity-filter-fab {
+  position: absolute;
+  bottom: calc(56px + env(safe-area-inset-bottom, 8px)); /* Sitting tight on dock */
+  right: 16px;
+  width: 54px; 
+  height: 54px;
+  border-radius: 27px;
+  background: #a855f7; /* Activity Purple */
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.35);
+  border: none;
+  z-index: 90;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.activity-filter-fab svg {
+  width: 24px;
+  height: 24px;
+}
+
+.activity-filter-fab.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.8) translateY(10px);
+}
+
 .review-hub-filter-bar {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  position: absolute;
+  bottom: calc(56px + env(safe-area-inset-bottom, 8px)); 
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 100;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 0 10px;
-  background: var(--card-bg);
-  border-bottom: 1px solid var(--border);
+  gap: 10px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--card-bg) 98%, #fff);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  width: calc(100% - 32px);
+  max-width: 400px;
+  box-shadow: 0 15px 45px rgba(0,0,0,0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.review-hub-filter-bar.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+#ob-panel-changelog {
+  position: relative;
+}
+
+.review-hub-activity-list {
+  padding-bottom: 120px !important; 
 }
 
 .review-hub-filter-row {
@@ -1833,22 +1898,23 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
 
 .review-hub-filter-input,
 .review-hub-filter-select {
-  width: 100%;
-  height: 36px;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  height: 34px;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--bg) 40%, #fff);
   color: var(--text-main);
-  padding: 0 12px;
+  padding: 0 10px;
   font-size: 10px;
   font-weight: 800;
   outline: none;
+  flex: 1;
 }
 
 body.dark-mode .review-hub-filter-input,
-body.dark-mode .review-hub-filter-select,
-body.dark-mode .v2-shell-glassflow .log-row-nav {
-  background: #111827;
+body.dark-mode .review-hub-filter-select {
+  background: color-mix(in srgb, var(--bg) 60%, #000);
   border-color: #374151;
   color: #f9fafb;
 }
@@ -1856,6 +1922,7 @@ body.dark-mode .v2-shell-glassflow .log-row-nav {
 .review-hub-filter-toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   font-size: 9px;
   font-weight: 900;
@@ -1869,12 +1936,19 @@ body.dark-mode .v2-shell-glassflow .log-row-nav {
 }
 
 .v2-shell-glassflow .log-row-dense {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  gap: 10px;
-  padding: 11px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  padding: 16px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+  align-items: center;
+}
+
+.v2-shell-glassflow .empty-msg {
+  padding: 40px 14px !important;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .v2-shell-glassflow .log-row-dense:last-child {
@@ -1886,22 +1960,11 @@ body.dark-mode .v2-shell-glassflow .log-row-nav {
 }
 
 .v2-shell-glassflow .log-row-type {
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  color: var(--accent);
-}
-
-.v2-shell-glassflow .log-row-type svg {
-  width: 14px;
-  height: 14px;
+  display: none !important;
 }
 
 .v2-shell-glassflow .log-row-main {
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1955,9 +2018,10 @@ body.dark-mode .v2-shell-glassflow .log-row-nav {
 }
 
 .v2-shell-glassflow .log-row-val {
-  font-size: 10px;
+  font-size: 11px; /* Increased from 10px */
+  font-weight: 700; /* Added weight */
   line-height: 1.4;
-  color: var(--text-muted);
+  color: var(--text-main); /* Changed from muted to main for prominence */
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -1972,17 +2036,28 @@ body.dark-mode .v2-shell-glassflow .log-row-nav {
 }
 
 .v2-shell-glassflow .log-row-nav {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--border);
-  border-radius: 9px;
-  background: #ffffff;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 95%, #fff);
   color: var(--text-main);
-  display: inline-flex;
+  display: none; /* Conditional via JS */
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.v2-shell-glassflow .log-row-nav:active {
+  transform: scale(0.96);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.v2-shell-glassflow .log-row-nav svg {
+  width: 18px;
+  height: 18px;
 }
 
 .v2-shell-glassflow .log-row-nav:active {
@@ -2439,7 +2514,7 @@ body.mobile-detail-open .dock-nav-strip { display: flex; }
 }
 
 /* --- WS18 P6: Final Executive Glass Refinements --- */
-.help-panel, #outbox-pane {
+.help-panel {
   background: color-mix(in srgb, var(--card-bg) 48%, transparent) !important;
   backdrop-filter: blur(24px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(180%) !important;

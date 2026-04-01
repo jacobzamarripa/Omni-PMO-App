@@ -36,11 +36,11 @@ function renderSpecialCrossingsAdminSection(crossings) {
             </div>
         </div>`;
     }).join('');
-    return `<div>
+    return `<div class="review-hub-section">
         <div class="review-hub-section-header">
             <div class="review-hub-section-title">
-                <div class="review-hub-section-label">Pinned Utility</div>
-                <div class="review-hub-section-name">Crossings Tray</div>
+                <div class="review-hub-section-label">Admin Tasks</div>
+                <div class="review-hub-section-name">Crossings to Verify</div>
                 <div class="review-hub-section-count">${crossings.length}</div>
             </div>
             ${commitBtn}

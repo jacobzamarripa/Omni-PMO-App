@@ -24,34 +24,42 @@
 
 function updateAdminBadge() {
     if (!allActionItems) return;
-    let count = getActiveQueueItems().filter(i =>
-        i.flags.includes('ADMIN: CHECK CROSSINGS') ||
-        i.flags.includes('PLEASE INPUT BOM') ||
-        i.flags.includes('CHECK BOM (UG/AE)') ||
-        i.flags.includes('STATUS MISMATCH') ||
-        i.flags.includes('MISSING QB STATUS')
-    ).length;
+    const items = getActiveQueueItems() || [];
+    const crossings = items.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS")).length;
+    const bomInput = items.filter(i => i.flags.includes("PLEASE INPUT BOM")).length;
+    const bomCheck = items.filter(i => i.flags.includes("CHECK BOM (UG/AE)")).length;
+    const status = items.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS")).length;
+    
+    const count = crossings + bomInput + bomCheck + status;
+    const displayCount = count > 99 ? '99+' : count;
+
+    // GlassFlow Dock Badge
     let badge = getEl('admin-badge');
-    if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline-flex' : 'none'; }
+    if (badge) { 
+        badge.textContent = String(displayCount); 
+        badge.style.display = count > 0 ? 'inline-flex' : 'none'; 
+    }
+    
+    // FAB Badge
     let fabBadge = getEl('admin-fab-badge');
-    if (fabBadge) { fabBadge.textContent = count; fabBadge.style.display = count > 0 ? 'inline-flex' : 'none'; }
+    if (fabBadge) { 
+        fabBadge.textContent = String(displayCount); 
+        fabBadge.style.display = count > 0 ? 'inline-flex' : 'none'; 
+    }
 }
 
 function updateChangelogBadge() {
-    let recentActivityCount = 0;
-    let yesterdayTime = Date.now() - (24 * 60 * 60 * 1000);
-    allGlobalLogs.forEach(log => {
-        if (Number(log.timestampObj || 0) >= yesterdayTime) recentActivityCount++;
-    });
-
+    const logs = window.allGlobalLogs || [];
+    const totalCount = logs.length;
     const changelogBadge = getEl('changelog-badge');
     if (!changelogBadge) return;
 
     let pulseSeen = false;
     try { pulseSeen = sessionStorage.getItem(CHANGELOG_PULSE_SESSION_KEY) === '1'; } catch (e) {}
 
-    if (recentActivityCount > 0 && !pulseSeen) {
-        changelogBadge.innerText = recentActivityCount;
+    const displayCount = totalCount > 99 ? '99+' : totalCount;
+    if (totalCount > 0 && !pulseSeen) {
+        changelogBadge.textContent = String(displayCount);
         changelogBadge.style.display = 'inline-flex';
     } else {
         changelogBadge.style.display = 'none';
