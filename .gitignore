@@ -2,3 +2,11 @@
 node_modules/
 package.json
 package-lock.json
+
+# Playwright test artifacts
+.playwright-mcp/
+
+# Screenshot test artifacts
+ws20-*.png
+ws19-*.png
+page-*.png
