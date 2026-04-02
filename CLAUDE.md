@@ -20,6 +20,17 @@
 6. **Mobile GAS Viewport:** Set viewport via `addMetaTag()` in `doGet()`. Use `width=device-width, initial-scale=1, viewport-fit=cover`.
 7. **No Massive Inline CSS:** Never put more than 500 lines of CSS inline in an HTML shell file. GAS `HtmlService` often sanitizes or completely ignores large inline `<style>` blocks. Move core shell styles to a partial like `_styles_glassflow_core.html` and use `<?!= include() ?>`.
 
+## Autonomous Web Automation (Agent Loop Pattern)
+To perform multi-step, loop-until-completion web tasks (especially testing the GAS UI or scraping the deployed app):
+1. **Never use sequential MCP Playwright tool calls** for long loops (too slow, token-heavy, and struggles with nested GAS iframes).
+2. **Use Code-Driven Scripts:** Use the local Playwright environment.
+3. **The Workflow:**
+   - Copy `scripts/agent_automation/gas-mobile-loop-template.js` to a new script (e.g., `scripts/agent_automation/task-xyz.js`).
+   - Implement your specific logic inside the `while(!isTaskComplete)` block.
+   - Run the script locally via `run_shell_command` (`node scripts/agent_automation/task-xyz.js`).
+   - Read the output to verify completion.
+4. **Mobile Emulation:** The template natively emulates an iPhone 13 and pierces the inner `script.googleusercontent.com` iframe required for GAS Web Apps.
+
 ## File Map (Lean Version 2026)
 > Last updated: March 26, 2026
 

@@ -100,6 +100,14 @@ function syncReviewHubControlState(open) {
         headerClose.title = `Close ${tabLabel}`;
     }
 
+    // Desktop nav hub button active state
+    let navHubBtn = getEl('btn-review-hub');
+    if (navHubBtn) {
+        navHubBtn.classList.toggle('is-active', isOpen);
+        navHubBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        navHubBtn.setAttribute('aria-label', isOpen ? 'Close Review Hub' : 'Open Review Hub');
+    }
+
     syncAdminFabAnchorToPanel();
 }
 

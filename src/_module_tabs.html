@@ -40,11 +40,18 @@ function updateAdminBadge() {
         badge.style.display = count > 0 ? 'inline-flex' : 'none'; 
     }
     
-    // FAB Badge
+    // FAB Badge (mobile / floating)
     let fabBadge = getEl('admin-fab-badge');
-    if (fabBadge) { 
-        fabBadge.textContent = String(displayCount); 
-        fabBadge.style.display = count > 0 ? 'inline-flex' : 'none'; 
+    if (fabBadge) {
+        fabBadge.textContent = String(displayCount);
+        fabBadge.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+
+    // Desktop nav header badge
+    let navBadge = getEl('nav-hub-badge');
+    if (navBadge) {
+        navBadge.textContent = String(displayCount);
+        navBadge.style.display = count > 0 ? 'inline-flex' : 'none';
     }
 }
 

@@ -78,3 +78,13 @@
 - [x] Phase 3 — Reviewed Hub Visual Distinction
 - [x] Phase 4 — Activity Hub Extreme Compaction
 - [x] Phase 5 — Native-language polish, live visual tuning, and sign-off
+
+---
+
+## Workstream 20 — Desktop Executive Glass Parity
+- [x] Phase 1 — Shell Architecture Audit & Token Parity
+- [x] Phase 2 — Desktop Header, Dock, and Action Zoning Refactor
+- [x] Phase 3 — Queue/Detail Spatial Recomposition
+- [x] Phase 4 — Desktop Review Hub & Overlay Modernization
+- [ ] Phase 5 — Gantt / Grid / Deck Visual Consistency Sweep
+- [ ] Phase 6 — Desktop Motion, Density, and Regression Validation

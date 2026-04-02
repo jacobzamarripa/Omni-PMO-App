@@ -9,18 +9,18 @@
 // ============================================================
 -->
 <style>
-      .top-nav { background: transparent; height: auto; box-sizing: border-box; padding: 10px 18px 6px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; z-index: 100015; position: relative; flex-shrink: 0; transition: background 0.3s, border-color 0.3s; gap: 12px; border-bottom: none; }
+      .top-nav { background: color-mix(in srgb, var(--card-bg) 85%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); min-height: var(--desktop-header-height); height: auto; box-sizing: border-box; padding: 8px 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; z-index: 100015; position: relative; flex-shrink: 0; transition: background var(--transition-spring), border-color var(--transition-spring); gap: 12px; }
       .top-nav-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; justify-self: start; }
       .top-nav-center { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; justify-self: center; }
-
-      .nav-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; min-width: 0; flex-wrap: wrap; justify-self: end; }
+      .nav-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; min-width: 0; flex-wrap: nowrap; justify-self: end; }
+      .desktop-sync-fab { position: relative; display: flex; align-items: center; }
 
       #digest-workspace {
           display: none;
           width: 100%;
           flex: 1 1 auto;
           overflow-y: auto;
-          padding: 88px 28px 36px;
+          padding: calc(var(--desktop-header-height) + 28px) 28px 36px;
           box-sizing: border-box;
           max-width: none;
           margin: 0;
@@ -33,10 +33,90 @@
           width: 100%;
           max-width: none;
           margin: 0;
-          padding: 96px 32px 40px;
+          padding: calc(var(--desktop-header-height) + 36px) 32px 40px;
       }
 
       .btn-icon.mobile-menu-toggle { display: none; }
+
+      /* WS20: Desktop shell container geometry — workspace as framed card */
+      @media (min-width: 769px) {
+        .workspace {
+          margin: 0 var(--desktop-shell-inset) var(--desktop-shell-inset);
+          border: 1px solid var(--border);
+          border-top: none;
+          border-radius: 0 0 var(--desktop-shell-radius) var(--desktop-shell-radius);
+          box-shadow: var(--desktop-shell-shadow);
+          background: var(--card-bg);
+          transition: border-color var(--transition-spring), box-shadow var(--transition-spring);
+        }
+        /* Suppress empty workspace card when Gantt panel takes over */
+        body.gantt-view-active .workspace {
+          display: none !important;
+        }
+        /* WS20 Phase 4: hide floating admin-fab on desktop — Review Hub accessed via nav header button */
+        .admin-fab-anchor {
+          display: none !important;
+        }
+        /* Ensure outbox-pane bottom clears the workspace border-radius corner (overflow:hidden) */
+        .outbox-pane {
+          margin-bottom: var(--desktop-shell-radius, 16px) !important;
+        }
+        /* desktop-hub-btn: hide on mobile (default), show on desktop */
+        .desktop-hub-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 10px;
+        }
+        #btn-review-hub.is-active {
+          background: color-mix(in srgb, var(--accent) 12%, transparent);
+          border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+          color: var(--accent);
+        }
+        /* Desktop tab strip — replaces bottom-dock tab context */
+        .ob-desktop-tab-strip {
+          display: flex;
+          gap: 4px;
+        }
+        .ob-desktop-tab {
+          flex: 1;
+          padding: 6px 8px;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--text-muted);
+          font-size: 11px;
+          font-weight: 900;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          white-space: nowrap;
+          transition: background var(--transition-spring), color var(--transition-spring), border-color var(--transition-spring);
+        }
+        .ob-desktop-tab:hover {
+          background: var(--bg);
+          color: var(--text-main);
+        }
+        .ob-desktop-tab.active {
+          background: color-mix(in srgb, var(--accent) 10%, transparent);
+          border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+          color: var(--accent);
+        }
+        /* Override mobile 96px dock-clearance padding on desktop scroll areas */
+        .outbox-pane .review-hub-scroll-area {
+          padding-bottom: 20px !important;
+        }
+        /* KPI mini chips: full-width 3-col on the panel width */
+        .outbox-pane .admin-kpi-mini-wrap {
+          width: 100%;
+        }
+        /* Header: hide KPI wrap when not on admin tab */
+        #review-hub-main-header:not(.is-admin-tab) #admin-kpi-header-wrap {
+          display: none;
+        }
+      }
 
       /* 📱 TABLET (touch devices: iPad portrait + landscape; min-height excludes iPhones in landscape ~390px) */
       @media screen and (pointer: coarse) and (min-width: 769px) and (min-height: 600px) {
@@ -193,7 +273,7 @@
       }
       .pane-content {
           align-items: flex-start !important;
-          padding-top: 88px !important;
+          padding-top: calc(var(--desktop-header-height) + 32px) !important;
       }
       .qb-grid {
           width: 100% !important;
@@ -278,7 +358,8 @@
 
                                                                                                                                                                                                     /* Hide desktop-only header elements */
                                                                                                                                                                                                     .top-nav-center, .nav-fab-hide, #btn-nav-fab,
-                                                                                                                                                                                                    .nav-fab-dropdown, .gemini-badge, #nav-ref-age, .ref-age-badge {
+                                                                                                                                                                                                    .nav-fab-dropdown, .gemini-badge, #nav-ref-age, .ref-age-badge,
+                                                                                                                                                                                                    .desktop-sync-fab {
                                                                                                                                                                                                         display: none !important;
                                                                                                                                                                                                     }
                                                                                                                                                                                                     /* Keep hamburger, theme, help */
@@ -430,6 +511,7 @@
 
     /* ── Mobile back nav bar — hidden; dock handles back navigation ── */
     #mobile-back-btn { display: none !important; }
+    .desktop-hub-btn { display: none !important; }
 
     /* ── Admin bottom-sheet pattern on phone ── */
     .outbox-overlay {

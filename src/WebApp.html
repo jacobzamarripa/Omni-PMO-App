@@ -117,48 +117,47 @@
     
     <div class="top-nav">
       <div class="top-nav-left">
-                <div class="nav-brand">
-                    <span class="nav-brand-title">Omni PMO Operations Intelligence Hub</span>
-                    <span class="nav-brand-signature">Crafted by Jacob Zamarripa</span>
-                </div>
-
+        <div class="nav-brand">
+          <span class="nav-brand-title">Omni PMO Operations Intelligence Hub</span>
+          <span class="nav-brand-signature">Crafted by Jacob Zamarripa</span>
+        </div>
         <div class="kpi-nav-container">
-            <div class="kpi-hud-group">
-                <div class="kpi-hud-label">Pipeline</div>
-                <div class="kpi-nav-box metric-amber" id="nav-projects-pill"
-                     onmouseenter="showProjectsHUD()"
-                     onmouseleave="hideProjectsHUD()"
-                     onclick="toggleProjectsHUDLock(event)"
-                     style="cursor: pointer; transition: box-shadow 0.2s;">
-                    <div class="kpi-base">
-                        <div class="kpi-val" id="kpi-total-proj">0</div>
-                        <div class="kpi-label">Projects</div>
-                    </div>
-                    <div class="kpi-expand-wrap">
-                        <div class="kpi-expand-inner" id="kpi-projects-breakdown"></div>
-                    </div>
-                </div>
-                <div class="kpi-nav-box metric-blue" id="nav-bsls-pill"
-                     onmouseenter="showBslsHUD()"
-                     onmouseleave="hideBslsHUD()"
-                     onclick="toggleBslsHUDLock(event)">
-                    <div class="kpi-base">
-                        <div class="kpi-val" id="kpi-active-bsls">0</div>
-                        <div class="kpi-label">BSLs</div>
-                    </div>
-                    <div class="kpi-expand-wrap">
-                        <div class="kpi-expand-inner" id="kpi-bsls-breakdown"></div>
-                    </div>
-                </div>
-                <div class="kpi-nav-box metric-red has-tooltip" data-tooltip="Open Critical Hub" onclick="openCriticalHub()">
-                    <div class="kpi-base">
-                        <div class="kpi-val" id="kpi-active-crit">0</div>
-                        <div class="kpi-label">Critical</div>
-                    </div>
-                </div>
+          <div class="kpi-hud-group">
+            <div class="kpi-hud-label">Pipeline</div>
+            <div class="kpi-nav-box metric-amber" id="nav-projects-pill"
+                 onmouseenter="showProjectsHUD()"
+                 onmouseleave="hideProjectsHUD()"
+                 onclick="toggleProjectsHUDLock(event)"
+                 style="cursor: pointer; transition: box-shadow 0.2s;">
+              <div class="kpi-base">
+                <div class="kpi-val" id="kpi-total-proj">0</div>
+                <div class="kpi-label">Projects</div>
+              </div>
+              <div class="kpi-expand-wrap">
+                <div class="kpi-expand-inner" id="kpi-projects-breakdown"></div>
+              </div>
             </div>
-            <div id="bsls-pie-hud" class="projects-hud"></div>
-            <div id="projects-pie-hud" class="projects-hud"></div>
+            <div class="kpi-nav-box metric-blue" id="nav-bsls-pill"
+                 onmouseenter="showBslsHUD()"
+                 onmouseleave="hideBslsHUD()"
+                 onclick="toggleBslsHUDLock(event)">
+              <div class="kpi-base">
+                <div class="kpi-val" id="kpi-active-bsls">0</div>
+                <div class="kpi-label">BSLs</div>
+              </div>
+              <div class="kpi-expand-wrap">
+                <div class="kpi-expand-inner" id="kpi-bsls-breakdown"></div>
+              </div>
+            </div>
+            <div class="kpi-nav-box metric-red has-tooltip" data-tooltip="Open Critical Hub" onclick="openCriticalHub()">
+              <div class="kpi-base">
+                <div class="kpi-val" id="kpi-active-crit">0</div>
+                <div class="kpi-label">Critical</div>
+              </div>
+            </div>
+          </div>
+          <div id="bsls-pie-hud" class="projects-hud"></div>
+          <div id="projects-pie-hud" class="projects-hud"></div>
         </div>
       </div>
       <div class="top-nav-center">
@@ -192,15 +191,18 @@
       <div class="nav-actions">
         <span id="nav-ref-age" class="ref-age-badge" style="display:none;"></span>
         <span class="gemini-badge ai-ok" id="gemini-badge" title="Gemini API calls used today" style="display:none"></span>
-        <button class="btn-nav nav-fab-hide" onclick="triggerQBSync()"    id="btn-qb-sync">⟳ Sync QB</button>
-        <button class="btn-nav nav-fab-hide" onclick="triggerRunReview()" id="btn-run-review">▶ Run Review</button>
-        <button class="btn-nav nav-fab-hide" onclick="triggerUIRefresh()" id="btn-refresh">↻ Refresh</button>
-        <button class="btn-icon nav-fab-trigger" id="btn-nav-fab" onclick="toggleNavFab()" title="Actions">☰</button>
-        <div class="nav-fab-dropdown" id="nav-fab-dropdown">
-          <button onclick="triggerQBSync()">⟳ Sync QB</button>
-          <button onclick="triggerRunReview()">▶ Run Review</button>
-          <button onclick="triggerUIRefresh()">↻ Refresh</button>
+        <div class="desktop-sync-fab">
+          <button class="btn-icon" id="btn-nav-fab" onclick="toggleNavFab()" title="Sync Actions">☰</button>
+          <div class="nav-fab-dropdown" id="nav-fab-dropdown">
+            <button onclick="triggerQBSync(); toggleNavFab()">⟳ Sync QB</button>
+            <button onclick="triggerRunReview(); toggleNavFab()">▶ Run Review</button>
+            <button onclick="triggerUIRefresh(); toggleNavFab()">↻ Refresh</button>
+          </div>
         </div>
+        <button class="btn-nav desktop-hub-btn" id="btn-review-hub" onclick="toggleAdminPanel()" title="Review Hub" style="position:relative;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <span id="nav-hub-badge" style="display:none; position:absolute; top:-5px; right:-6px; min-width:16px; height:16px; border-radius:8px; background:#ef4444; color:#fff; font-size:9px; font-weight:900; padding:0 4px; align-items:center; justify-content:center; line-height:1; box-sizing:border-box;"></span>
+        </button>
         <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme" title="Toggle dark mode"></button>
         <button class="btn-nav" onclick="toggleHelpPanel()" id="btn-help">?</button>
         <button class="btn-icon mobile-menu-toggle" id="btn-hamburger" onclick="toggleMobileMenu()" title="Menu" style="font-size:18px;">☰</button>
@@ -536,72 +538,78 @@
             <div class="raw-data-strip" id="raw-data-strip"></div>
             </div>
                 <div class="outbox-pane" id="outbox-pane">
-                   <div id="review-hub-main-header" class="inbox-header" style="padding-top:14px; padding-bottom:14px; gap:12px;">
-                      <div class="inbox-title inbox-title-stack" id="review-hub-title" style="margin-right:4px;"><span>Review</span><span>Hub</span></div>
-                      <div class="panel-tab-bar" style="flex-grow:1; border:none; padding:0; background:transparent; min-height:0;">
-                        <button class="panel-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">
-                            Admin <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span>
-                        </button>
-                        <button class="panel-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">
-                            Reviewed <span id="ob-count" class="ob-tab-badge ob-tab-badge-green" style="display:none;">0</span>
-                        </button>
-                        <button class="panel-tab" id="panel-tab-changelog" onclick="switchPanelTab('changelog')">
-                            Activity <span id="changelog-badge" class="ob-tab-badge ob-tab-badge-purple" style="display:none;">0</span>
-                        </button>
+                   <!-- Header: GlassFlow-parity — title + count + KPI chips + tab strip -->
+                   <div id="review-hub-main-header" class="inbox-header is-admin-tab" style="flex-direction:column; align-items:stretch; padding-bottom:12px !important;">
+                      <div style="display:flex; align-items:center; gap:10px; width:100%;">
+                         <div class="inbox-title inbox-title-stack" id="review-hub-title"><span>Review</span><span>Hub</span></div>
+                         <span class="glassflow-queue-count" id="ob-header-count" style="font-size:11px; font-weight:900; color:var(--text-muted); background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:2px 7px;">0</span>
+                         <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel" style="margin-left:auto; flex-shrink:0;">✕</button>
                       </div>
-                      <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel" style="flex-shrink:0;">✕</button>
+                      <!-- KPI mini chips — identical structure to mobile GlassFlow -->
+                      <div class="admin-kpi-mini-wrap" id="admin-kpi-header-wrap" style="margin-top:10px;">
+                         <div class="admin-kpi-mini crossings" id="kpi-admin-crossings" onclick="toggleAdminFilter('crossings')" title="Filter: Crossings to verify">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v8H2z"></path><line x1="6" y1="8" x2="6" y2="16"></line><line x1="10" y1="8" x2="10" y2="16"></line></svg>
+                            <div class="admin-kpi-mini-label">Crossings</div>
+                            <div class="admin-kpi-mini-val" id="kpi-crossings-val">0</div>
+                         </div>
+                         <div class="admin-kpi-mini status" id="kpi-admin-status" onclick="toggleAdminFilter('status')" title="Filter: QB status issues">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+                            <div class="admin-kpi-mini-label">Status</div>
+                            <div class="admin-kpi-mini-val" id="kpi-status-val">0</div>
+                         </div>
+                         <div class="admin-kpi-mini boms" id="kpi-admin-boms" onclick="toggleAdminFilter('boms')" title="Filter: BOM reviews needed">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                            <div class="admin-kpi-mini-label">BOMs</div>
+                            <div class="admin-kpi-mini-val" id="kpi-boms-val">0</div>
+                         </div>
+                      </div>
+                      <!-- Desktop tab strip (replaces bottom-dock tab context) -->
+                      <div class="ob-desktop-tab-strip" style="margin-top:10px;">
+                         <button class="ob-desktop-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">Admin <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span></button>
+                         <button class="ob-desktop-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">Reviewed <span id="ob-count" class="ob-tab-badge ob-tab-badge-green" style="display:none;">0</span></button>
+                         <button class="ob-desktop-tab" id="panel-tab-changelog" onclick="switchPanelTab('changelog')">Activity <span id="changelog-badge" class="ob-tab-badge ob-tab-badge-purple" style="display:none;">0</span></button>
+                      </div>
                    </div>
 
                    <div id="deck-action-panel" style="display:none; flex-direction:column; flex-grow:1; overflow-y:auto; padding:20px; gap:16px;"></div>
-	                   <div id="ob-panel-admin" style="display:flex; flex-grow:1; flex-direction:column; overflow:hidden;">
-                      <div class="admin-strip" style="flex-shrink:0;">
-                         <div class="admin-kpi crossings" id="kpi-admin-crossings" onclick="toggleAdminFilter('crossings')" title="Filter: Crossings to verify">
-                            <div class="admin-kpi-val" id="kpi-crossings-val">0</div>
-                            <div class="admin-kpi-label">Check Crossings</div>
-                         </div>
-                         <div class="admin-kpi status" id="kpi-admin-status" onclick="toggleAdminFilter('status')" title="Filter: QB status issues">
-                            <div class="admin-kpi-val" id="kpi-status-val">0</div>
-                            <div class="admin-kpi-label">QB Status</div>
-                         </div>
-                         <div class="admin-kpi boms" id="kpi-admin-boms" onclick="toggleAdminFilter('boms')" title="Filter: BOM reviews needed">
-                            <div class="admin-kpi-val" id="kpi-boms-val">0</div>
-                            <div class="admin-kpi-label">Check BOMs</div>
-                         </div>
-                      </div>
-                      <div id="admin-pane-content" style="flex-grow:1; overflow-y:auto;"></div>
+
+                   <div id="ob-panel-admin" class="review-hub-panel" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+                      <div id="admin-pane-content" class="review-hub-scroll-area" style="flex:1; overflow-y:auto;"></div>
                    </div>
 
-                   <div id="ob-panel-reviewed" style="display:none; flex-direction:column; flex-grow:1; overflow:hidden;">
-                      <div class="ob-header" style="flex-shrink:0;">
-                         <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
-                            Reviewed
-                         </div>
-                      </div>
-                      <div class="ob-list" id="outbox-list" style="flex-grow:1; overflow-y:auto;">
+                   <div id="ob-panel-reviewed" class="review-hub-panel" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                      <div id="outbox-list" class="review-hub-scroll-area" style="flex:1; overflow-y:auto;">
                          <div class="empty-msg" style="margin-top:20px; font-size:11px;">No items reviewed.</div>
                       </div>
                    </div>
 
-                   <div id="ob-panel-changelog" style="display:none; flex-direction:column; flex-grow:1; overflow:hidden;">
-                      <div class="ob-header" style="flex-shrink:0; padding:10px 16px; display:flex; flex-direction:column; gap:8px;">
-                         <input type="text" id="changelog-search" placeholder="Search PM or FDH..." oninput="renderChangeLog()" style="width:100%; border-radius:8px; padding:8px 12px; font-size:11px; border:1px solid var(--border); outline:none;">
-                         <div style="display:flex; gap:6px;">
-                             <select id="changelog-time" onchange="renderChangeLog()" style="flex:1; font-size:10px; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
-                                 <option value="ALL">All Time (14d)</option>
-                                 <option value="24">Last 24 Hours</option>
-                                 <option value="48">Last 48 Hours</option>
-                                 <option value="168">Last 7 Days</option>
-                             </select>
-                             <select id="changelog-user" onchange="renderChangeLog()" style="flex:1; font-size:10px; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
-                                 <option value="ALL">All Users</option>
-                             </select>
+                   <div id="ob-panel-changelog" class="review-hub-panel" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                      <button id="activity-filter-trigger" class="activity-filter-fab" onclick="toggleActivityFilters()">
+                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                      </button>
+                      <div class="review-hub-filter-bar" id="activity-filter-bar">
+                         <input type="text" id="changelog-search" class="review-hub-filter-input" placeholder="Search PM, FDH, or event..." oninput="renderChangeLog()">
+                         <div class="review-hub-filter-row">
+                            <select id="changelog-time" class="review-hub-filter-select" onchange="renderChangeLog()">
+                               <option value="ALL">All Time (14d)</option>
+                               <option value="24">Last 24 Hours</option>
+                               <option value="48">Last 48 Hours</option>
+                               <option value="168">Last 7 Days</option>
+                            </select>
+                            <select id="changelog-user" class="review-hub-filter-select" onchange="renderChangeLog()">
+                               <option value="ALL">All Users</option>
+                            </select>
                          </div>
-                         <label style="font-size:10px; font-weight:800; color:var(--text-muted); display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:2px;">
-                             <input type="checkbox" id="changelog-current-fdh" onchange="renderChangeLog()" style="cursor:pointer; accent-color:#3b82f6;">
-                             Show only currently selected project
+                         <label class="review-hub-filter-toggle">
+                            <input type="checkbox" id="changelog-current-fdh" onchange="renderChangeLog()">
+                            <span>Current project only</span>
                          </label>
+                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; border-top:1px solid var(--border); padding-top:8px;">
+                            <span style="font-size:10px; font-weight:900; color:var(--accent); letter-spacing:0.05em;">FILTER ACTIVITY</span>
+                            <button onclick="toggleActivityFilters()" style="background:none; border:none; color:var(--text-muted); font-size:22px; padding:0 8px; line-height:1; cursor:pointer;">&times;</button>
+                         </div>
                       </div>
-                      <div class="ob-list" id="changelog-list" style="flex-grow:1; overflow-y:auto;"></div>
+                      <div id="changelog-list" class="review-hub-scroll-area review-hub-activity-list" style="flex:1; overflow-y:auto;"></div>
                    </div>
 
             </div>
