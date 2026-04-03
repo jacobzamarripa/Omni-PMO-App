@@ -323,6 +323,143 @@
           border-radius: 8px;
           padding: 2px 7px;
         }
+        /* ── Activity tab: filter bar full-width override ── */
+        .outbox-pane .review-hub-filter-bar {
+          box-sizing: border-box !important;
+          left: auto !important;
+          right: auto !important;
+          max-width: none !important;
+          width: 100% !important;
+        }
+        .outbox-pane .review-hub-filter-input {
+          font-size: 12px !important;
+          height: 36px !important;
+          background: color-mix(in srgb, var(--bg) 60%, transparent) !important;
+          border: 1px solid var(--border) !important;
+        }
+        .outbox-pane .review-hub-filter-select {
+          font-size: 11px !important;
+          height: 36px !important;
+          background: color-mix(in srgb, var(--bg) 60%, transparent) !important;
+          border: 1px solid var(--border) !important;
+        }
+        .outbox-pane .review-hub-filter-toggle {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--text-muted);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+        }
+        /* ── Activity tab: log rows — port from .v2-shell-glassflow ── */
+        .outbox-pane .log-row-dense {
+          display: flex;
+          gap: 12px;
+          padding: 14px 16px;
+          border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+          align-items: center;
+          cursor: pointer;
+          transition: background 0.12s ease;
+        }
+        .outbox-pane .log-row-dense:last-child {
+          border-bottom: none;
+        }
+        .outbox-pane .log-row-dense:hover {
+          background: color-mix(in srgb, var(--accent) 4%, transparent);
+        }
+        .outbox-pane .log-row-type {
+          display: none !important;
+        }
+        .outbox-pane .log-row-main {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .outbox-pane .log-row-top {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 10px;
+        }
+        .outbox-pane .log-row-fdh {
+          font-size: 13px;
+          font-weight: 900;
+          color: var(--text-main);
+        }
+        .outbox-pane .log-row-time {
+          font-size: 9px;
+          font-weight: 900;
+          color: var(--text-muted);
+          flex-shrink: 0;
+        }
+        .outbox-pane .log-row-meta {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .outbox-pane .log-row-user {
+          font-size: 8px;
+          font-weight: 900;
+          color: var(--accent);
+          text-transform: uppercase;
+          background: color-mix(in srgb, var(--accent) 10%, transparent);
+          padding: 2px 7px;
+          border-radius: 999px;
+          letter-spacing: 0.05em;
+        }
+        .outbox-pane .log-row-event {
+          font-size: 8px;
+          font-weight: 900;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+        .outbox-pane .log-row-val {
+          font-size: 11px;
+          font-weight: 700;
+          line-height: 1.4;
+          color: var(--text-main);
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
+          overflow: hidden;
+          word-break: break-word;
+        }
+        .outbox-pane .log-row-dense.is-expanded .log-row-val {
+          display: block;
+          -webkit-line-clamp: unset;
+          overflow: visible;
+        }
+        .outbox-pane .log-row-nav {
+          width: 32px;
+          height: 32px;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: color-mix(in srgb, var(--bg) 95%, #fff);
+          color: var(--text-main);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: transform 0.15s ease, background 0.15s ease;
+        }
+        .outbox-pane .log-row-nav:hover {
+          transform: scale(0.96);
+          background: color-mix(in srgb, var(--accent) 12%, transparent);
+          border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+        }
+        .outbox-pane .empty-msg {
+          padding: 40px 14px !important;
+          text-align: center;
+          color: var(--text-muted);
+          font-size: 12px;
+          font-weight: 700;
+        }
         /* WS20 Phase 5: Gantt panel — match workspace shell geometry when active */
         body.gantt-view-active #gantt-panel {
           left: var(--desktop-shell-inset, 16px) !important;
