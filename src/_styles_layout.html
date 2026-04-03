@@ -247,6 +247,38 @@
           background: rgba(59, 130, 246, 0.16);
           border-color: rgba(59, 130, 246, 0.5);
         }
+        /* ── Reviewed tab: section headers ── */
+        .outbox-pane .ob-header {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 20 !important;
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          gap: 8px !important;
+          background: var(--card-bg) !important;
+          border-left: 3px solid var(--accent) !important;
+          padding: 10px 14px 10px 11px !important;
+          border-bottom: 1px solid var(--border) !important;
+        }
+        /* ── Reviewed tab: item cards ── */
+        .outbox-pane .ob-card {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding: 12px 14px;
+          border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+          background: transparent;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+        .outbox-pane .ob-card:hover {
+          background: color-mix(in srgb, var(--accent) 4%, transparent);
+        }
+        .outbox-pane .ob-card:last-child {
+          border-bottom: none;
+        }
         /* Header count badge */
         .review-hub-header-count {
           font-size: 11px;
