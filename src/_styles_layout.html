@@ -113,9 +113,10 @@
         }
         /* Stylized sticky section headers — desktop panel */
         .outbox-pane .review-hub-section-header {
-          background: color-mix(in srgb, var(--card-bg) 96%, transparent) !important;
-          backdrop-filter: blur(10px) !important;
-          -webkit-backdrop-filter: blur(10px) !important;
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 20 !important;
+          background: var(--card-bg) !important;
           border-left: 3px solid var(--accent) !important;
           padding: 10px 14px 10px 11px !important;
           border-bottom: 1px solid var(--border) !important;
@@ -134,8 +135,11 @@
           letter-spacing: -0.01em;
         }
         .outbox-pane .review-hub-section-count {
-          font-size: 10px;
-          font-weight: 900;
+          display: inline-flex !important;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          width: auto !important;
           min-width: 20px;
           height: 20px;
           padding: 0 6px;
@@ -143,6 +147,8 @@
           background: color-mix(in srgb, var(--accent) 12%, transparent);
           border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
           color: var(--accent);
+          font-size: 10px;
+          font-weight: 900;
         }
         /* KPI mini chips: full-width 3-col on the panel width */
         .outbox-pane .admin-kpi-mini-wrap {
