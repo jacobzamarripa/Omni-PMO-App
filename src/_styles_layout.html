@@ -124,14 +124,16 @@
           border-bottom: 1px solid var(--border);
           flex-shrink: 0;
         }
-        /* Text-only chip overrides (no icon) */
+        /* Chip base — text-only, centered column */
         .review-hub-kpi-row .admin-kpi-mini {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          min-height: 48px;
+          min-height: 52px;
           gap: 4px;
           padding: 8px 6px;
+          border-radius: 14px;
+          border: 1px solid transparent;
         }
         .review-hub-kpi-row .admin-kpi-mini-val {
           font-size: 18px;
@@ -142,7 +144,37 @@
           font-size: 9px;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--text-muted);
+          color: inherit;
+          opacity: 0.72;
+        }
+        /* Per-type coloring — always-on container tint */
+        .review-hub-kpi-row .admin-kpi-mini.crossings {
+          color: #f59e0b;
+          background: rgba(245, 158, 11, 0.08);
+          border-color: rgba(245, 158, 11, 0.28);
+        }
+        .review-hub-kpi-row .admin-kpi-mini.status {
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.08);
+          border-color: rgba(239, 68, 68, 0.28);
+        }
+        .review-hub-kpi-row .admin-kpi-mini.boms {
+          color: #3b82f6;
+          background: rgba(59, 130, 246, 0.08);
+          border-color: rgba(59, 130, 246, 0.28);
+        }
+        /* Active state — deeper tint when filter engaged */
+        .review-hub-kpi-row .admin-kpi-mini.crossings.active {
+          background: rgba(245, 158, 11, 0.16);
+          border-color: rgba(245, 158, 11, 0.5);
+        }
+        .review-hub-kpi-row .admin-kpi-mini.status.active {
+          background: rgba(239, 68, 68, 0.16);
+          border-color: rgba(239, 68, 68, 0.5);
+        }
+        .review-hub-kpi-row .admin-kpi-mini.boms.active {
+          background: rgba(59, 130, 246, 0.16);
+          border-color: rgba(59, 130, 246, 0.5);
         }
         /* Header count badge */
         .review-hub-header-count {
