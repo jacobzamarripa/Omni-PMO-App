@@ -134,6 +134,19 @@
           color: var(--text-main);
           letter-spacing: -0.01em;
         }
+        /* Title row stays on one line; actions pin right */
+        .outbox-pane .review-hub-section-title {
+          flex-wrap: nowrap;
+          overflow: hidden;
+          min-width: 0;
+        }
+        .outbox-pane .review-hub-section-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+          margin-left: auto;
+        }
         .outbox-pane .review-hub-section-count {
           display: inline-flex !important;
           align-items: center;
