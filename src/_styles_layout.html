@@ -77,7 +77,7 @@
           flex: 1;
           padding: 6px 8px;
           border-radius: 10px;
-          border: 1px solid var(--border);
+          border: none;
           background: transparent;
           color: var(--text-muted);
           font-size: 11px;
@@ -88,15 +88,14 @@
           justify-content: center;
           gap: 5px;
           white-space: nowrap;
-          transition: background var(--transition-spring), color var(--transition-spring), border-color var(--transition-spring);
+          transition: background var(--transition-spring), color var(--transition-spring);
         }
         .ob-desktop-tab:hover {
-          background: var(--bg);
+          background: color-mix(in srgb, var(--bg) 60%, transparent);
           color: var(--text-main);
         }
         .ob-desktop-tab.active {
           background: color-mix(in srgb, var(--accent) 10%, transparent);
-          border-color: color-mix(in srgb, var(--accent) 35%, transparent);
           color: var(--accent);
         }
         /* Override mobile 96px dock-clearance padding on desktop scroll areas */
