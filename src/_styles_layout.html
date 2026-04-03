@@ -262,22 +262,24 @@
           padding: 10px 14px 10px 11px !important;
           border-bottom: 1px solid var(--border) !important;
         }
-        /* ── Reviewed tab: item cards ── */
+        /* ── Reviewed tab: item cards — match admin-list-card exactly ── */
         .outbox-pane .ob-card {
           display: flex;
           flex-direction: column;
           gap: 4px;
-          padding: 12px 14px;
-          border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-          background: transparent;
+          padding: 14px 16px 12px !important;
+          border-bottom: 1px solid var(--border) !important;
+          border-top: none !important;
+          background: color-mix(in srgb, var(--card-bg) 92%, transparent) !important;
           cursor: pointer;
-          transition: background 0.15s ease;
+          transition: all 0.15s ease;
         }
         .outbox-pane .ob-card:hover {
-          background: color-mix(in srgb, var(--accent) 4%, transparent);
+          background: var(--bg) !important;
+          transform: translateY(-1px);
         }
         .outbox-pane .ob-card:last-child {
-          border-bottom: none;
+          border-bottom: none !important;
         }
         /* Header count badge */
         .review-hub-header-count {
