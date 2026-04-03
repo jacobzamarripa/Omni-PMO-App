@@ -1,5 +1,15 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-03: Desktop Review Hub polish + desktop/mobile branding parity pass
+- **Review Hub containment fixed:** Manager Review no longer inherits Admin-only chrome. Tab-strip/KPI visibility is now driven explicitly by `switchPanelTab()` / `syncOutboxPanelMode()` so Reviewed state hides admin chrome reliably on desktop.
+- **Reviewed panel restoration:** Added narrowly scoped `#ob-panel-reviewed` desktop rules so reviewed rows/header regain stable spacing and comment content can expand without bleeding Admin styles back in.
+- **Activity filter bar refactor:** Rebuilt the desktop Activity search/filter layout into contained in-panel rows. Search now sits on its own row with filters below, inner-card chrome removed, overflow fixed, and desktop controls normalized.
+- **Brand alignment:** Desktop top bar now uses `OMNISIGHT` with the mobile two-tone brand treatment. Diagnostic Queue and Review Hub headers now share the same two-line hierarchy and compact counter pill language.
+- **Corner geometry parity:** Desktop shell radius token moved to `24px`, with deck/review hub surfaces updated to inherit the same radius for closer GlassFlow parity.
+- **Review Hub corner controls:** The launcher now targets the same upper-right corner zone as the in-panel X. Close button is anchored inside the panel container, and the open-state FAB is suppressed to keep a single open/close target.
+- **Motion cleanup:** Removed the harsh FAB/state blink by flattening FAB state changes and replacing the panel's scale-pop with a lighter translate/opacity transition.
+- **Pending:** Local visual result was iterated based on user feedback, but final deployed smoke test still needs to be run before calling the slice production-validated.
+
 > [!success] 2026-04-02: WS20 Phase 4 COMPLETE — Desktop Review Hub GlassFlow Parity
 - **Review Hub nav button:** Replaced floating `position:fixed` admin-fab badge with a proper icon button in `.nav-actions` (`#btn-review-hub`, `class="desktop-hub-btn"`). Calls `toggleAdminPanel()`, shows `#nav-hub-badge` count, toggles `.is-active` accent style when panel is open. Hidden on mobile via `@media (max-width:768px)`.
 - **Floating admin-fab removed on desktop:** `.admin-fab-anchor { display: none !important }` in `@media (min-width:769px)` block. `syncAdminFabAnchorToPanel()` still runs harmlessly.

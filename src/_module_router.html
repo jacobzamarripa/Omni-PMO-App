@@ -333,6 +333,8 @@ function syncOutboxPanelMode() {
     let title = getEl('review-hub-title');
     let tabBar = document.querySelector('#review-hub-main-header .panel-tab-bar');
     let hubHeader = getEl('review-hub-main-header');
+    let desktopTabStrip = document.querySelector('.ob-desktop-tab-strip');
+    let adminKpiRow = getEl('admin-kpi-header-wrap');
     let deckPanel = getEl('deck-action-panel');
     let adminPanel = getEl('ob-panel-admin');
     let reviewedPanel = getEl('ob-panel-reviewed');
@@ -349,6 +351,8 @@ function syncOutboxPanelMode() {
         hubHeader.classList.toggle('is-changelog-tab', currentPanelTab === 'changelog');
     }
     if (tabBar) tabBar.style.display = isDeckView ? 'none' : 'flex';
+    if (desktopTabStrip) desktopTabStrip.style.display = (!isDeckView && currentPanelTab !== 'reviewed') ? 'flex' : 'none';
+    if (adminKpiRow) adminKpiRow.style.display = (!isDeckView && currentPanelTab === 'admin') ? '' : 'none';
     if (deckPanel) deckPanel.style.display = isDeckView ? 'flex' : 'none';
     if (fab) {
         fab.title = 'Admin / Reviewed';
@@ -374,6 +378,8 @@ function switchPanelTab(tab) {
     let adminPanel = getEl('ob-panel-admin'), reviewedPanel = getEl('ob-panel-reviewed'), changelogPanel = getEl('ob-panel-changelog');
     let adminTab = getEl('panel-tab-admin'), reviewedTab = getEl('panel-tab-reviewed'), changelogTab = getEl('panel-tab-changelog');
     let hubHeader = getEl('review-hub-main-header');
+    let desktopTabStrip = document.querySelector('.ob-desktop-tab-strip');
+    let adminKpiRow = getEl('admin-kpi-header-wrap');
 
     if (adminPanel) adminPanel.style.display = (tab === 'admin') ? 'flex' : 'none';
     if (reviewedPanel) reviewedPanel.style.display = (tab === 'reviewed') ? 'flex' : 'none';
@@ -387,6 +393,8 @@ function switchPanelTab(tab) {
         hubHeader.classList.toggle('is-reviewed-tab', tab === 'reviewed');
         hubHeader.classList.toggle('is-changelog-tab', tab === 'changelog');
     }
+    if (desktopTabStrip) desktopTabStrip.style.display = (tab === 'reviewed') ? 'none' : 'flex';
+    if (adminKpiRow) adminKpiRow.style.display = (tab === 'admin') ? '' : 'none';
 
     if (tab === 'changelog') {
         try { sessionStorage.setItem(CHANGELOG_PULSE_SESSION_KEY, '1'); } catch (e) {}

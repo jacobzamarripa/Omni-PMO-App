@@ -95,9 +95,34 @@
       }
       /* .inbox-header overridden below */
       .inbox-title { font-size: 14px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); }
-      .inbox-title-stack { display: flex; flex-direction: column; gap: 1px; line-height: 0.92; letter-spacing: 0.04em; font-size: 10px; }
-      .inbox-title-stack span:last-child { color: var(--text-main); }
-      .inbox-count { background: var(--border); padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 900; color: var(--text-main);}
+      .inbox-title-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          line-height: 0.92;
+          letter-spacing: -0.03em;
+          font-size: 13px;
+          font-weight: 900;
+          text-transform: uppercase;
+          color: var(--text-main);
+      }
+      .inbox-title-stack span:first-child { color: var(--text-main); }
+      .inbox-title-stack span:last-child { color: var(--accent); }
+      .inbox-count,
+      .review-hub-header-count {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 30px;
+          height: 24px;
+          padding: 0 7px;
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+          border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+          color: var(--text-main);
+          font-size: 11px;
+          font-weight: 900;
+      }
       .mobile-queue-search-wrap { display: none; }
       .inbox-list { 
           overflow-y: auto !important; 

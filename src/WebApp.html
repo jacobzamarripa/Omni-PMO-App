@@ -118,8 +118,7 @@
     <div class="top-nav">
       <div class="top-nav-left">
         <div class="nav-brand">
-          <span class="nav-brand-title">Omni PMO Operations Intelligence Hub</span>
-          <span class="nav-brand-signature">Crafted by Jacob Zamarripa</span>
+          <span class="nav-brand-title"><span>OMNI</span><span>SIGHT</span></span>
         </div>
         <div class="kpi-nav-container">
           <div class="kpi-hud-group">
@@ -513,7 +512,7 @@
                  </div>
               </div>
                  <div id="deck-stage" style="display:none; flex:1; flex-direction:column; padding:40px; overflow-y:auto; align-items:center; justify-content:center; box-sizing:border-box;">
-                <div id="deck-stage-card" style="width:100%; max-width:1100px; max-height:75vh; aspect-ratio:16/9; height:auto; flex-shrink:1; background:var(--card-bg); border-radius:20px; border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;"></div>
+                <div id="deck-stage-card" style="width:100%; max-width:1100px; max-height:75vh; aspect-ratio:16/9; height:auto; flex-shrink:1; background:var(--card-bg); border-radius:var(--desktop-shell-radius, 24px); border:1px solid var(--border); box-shadow:0 30px 60px rgba(15,23,42,0.15); display:flex; flex-direction:column; overflow:hidden;"></div>
                 <div class="slide-action-deck" id="slide-action-deck">
                     <div class="slide-action-cluster">
                         <button class="dock-arrow prev" id="dock-nav-prev" onclick="navDeck(-1)">&#8249;</button>
@@ -538,7 +537,7 @@
                    <div id="review-hub-main-header" class="inbox-header is-admin-tab">
                       <div class="inbox-title inbox-title-stack" id="review-hub-title"><span>Review</span><span>Hub</span></div>
                       <span class="review-hub-header-count" id="ob-header-count">0</span>
-                      <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel" style="margin-left:auto; flex-shrink:0;">✕</button>
+                      <button class="panel-tab-close" onclick="toggleAdminPanel()" title="Close panel" style="flex-shrink:0;">✕</button>
                    </div>
                    <!-- Row 2: Tab strip -->
                    <div class="ob-desktop-tab-strip">

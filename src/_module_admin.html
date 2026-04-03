@@ -55,9 +55,9 @@ function syncAdminFabAnchorToPanel() {
     let marginRight = parseFloat(paneStyle.marginRight) || 0;
     let hostRect = host.getBoundingClientRect();
 
-    // Hang the control slightly outside the panel corner for a floating-corner affordance.
-    let top = Math.max(6, Math.round(hostRect.top + marginTop - 12));
-    let right = Math.max(6, Math.round((window.innerWidth - hostRect.right) + marginRight - 12));
+    // Keep the launcher aligned to the same in-panel corner target as the close button.
+    let top = Math.max(6, Math.round(hostRect.top + marginTop + 12));
+    let right = Math.max(6, Math.round((window.innerWidth - hostRect.right) + marginRight + 12));
 
     document.documentElement.style.setProperty('--admin-fab-top', `${top}px`);
     document.documentElement.style.setProperty('--admin-fab-right', `${right}px`);
