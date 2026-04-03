@@ -9,10 +9,42 @@
 // ============================================================
 -->
 <style>
-      .top-nav { background: color-mix(in srgb, var(--card-bg) 85%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); min-height: var(--desktop-header-height); height: auto; box-sizing: border-box; padding: 8px 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; z-index: 100015; position: relative; flex-shrink: 0; transition: background var(--transition-spring), border-color var(--transition-spring); gap: 12px; }
-      .top-nav-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; justify-self: start; }
-      .top-nav-center { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; justify-self: center; }
-      .nav-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; min-width: 0; flex-wrap: nowrap; justify-self: end; }
+      .desktop-shell-header {
+        background: color-mix(in srgb, var(--card-bg) 85%, transparent);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+        min-height: var(--desktop-header-height, 56px);
+        height: auto;
+        box-sizing: border-box;
+        padding: 8px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 100015;
+        position: relative;
+        flex-shrink: 0;
+        transition: background var(--transition-spring), border-color var(--transition-spring);
+        gap: 12px;
+      }
+      .desktop-shell-header-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+      .desktop-shell-header-center { display: flex; align-items: center; justify-content: center; flex: 1; }
+      .desktop-shell-header-right { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: 1; }
+
+      .view-picker {
+        display: flex;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 3px;
+        gap: 2px;
+      }
+
+      .desktop-action-cluster {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
       .desktop-sync-fab { position: relative; display: flex; align-items: center; }
 
       #digest-workspace {
@@ -40,6 +72,19 @@
 
       /* WS20: Desktop shell container geometry — workspace as framed card */
       @media (min-width: 769px) {
+        .desktop-shell-container {
+          margin: 0 var(--desktop-shell-inset) var(--desktop-shell-inset) !important;
+          border: 1px solid var(--border) !important;
+          border-top: none !important;
+          border-radius: 0 0 var(--desktop-shell-radius) var(--desktop-shell-radius) !important;
+          box-shadow: var(--desktop-shell-shadow) !important;
+          background: var(--card-bg) !important;
+          transition: border-color var(--transition-spring), box-shadow var(--transition-spring);
+          overflow: hidden;
+          display: flex;
+          flex-direction: row;
+        }
+        
         .workspace {
           margin: 0 var(--desktop-shell-inset) var(--desktop-shell-inset);
           border: 1px solid var(--border);

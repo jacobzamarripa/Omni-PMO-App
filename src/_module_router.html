@@ -118,7 +118,7 @@ function syncWorkspaceModeState() {
 }
 
 function syncWorkspaceChrome() {
-    ['detail', 'grid', 'gantt', 'command'].forEach(v => {
+    ['detail', 'grid', 'gantt'].forEach(v => {
         const btn = getEl(`view-btn-${v}`);
         if (btn) btn.classList.toggle('active', v === currentWorkspaceView);
     });
@@ -126,7 +126,6 @@ function syncWorkspaceChrome() {
     const isDetailMode = currentWorkspaceView === 'detail';
     const isGridModeView = currentWorkspaceView === 'grid';
     const isGanttView = currentWorkspaceView === 'gantt';
-    const isCommandView = currentWorkspaceView === 'command';
     const pivotZone = getEl('dock-pivot-zone');
     const groupZone = getEl('dock-group-zone');
     const filtersZone = getEl('dock-filters-zone');
@@ -137,18 +136,15 @@ function syncWorkspaceChrome() {
     const showSlideDeck = isSlideFaceActive() && !isGanttView;
     const groupSelect = getEl('group-by-select');
 
-    if (filtersZone) filtersZone.classList.toggle('collapsed', isCommandView);
-    if (groupZone) groupZone.classList.toggle('collapsed', isCommandView);
+    if (filtersZone) filtersZone.classList.remove('collapsed');
+    if (groupZone) groupZone.classList.remove('collapsed');
     if (pivotZone) pivotZone.classList.toggle('collapsed', !isGridModeView);
     if (focusZone) focusZone.classList.toggle('collapsed', !isDetailMode);
-    if (clearZone) clearZone.classList.toggle('collapsed', isCommandView || getEl('btn-clear-filters')?.classList.contains('collapsed') !== false);
-    
+    if (clearZone) clearZone.classList.toggle('collapsed', getEl('btn-clear-filters')?.classList.contains('collapsed') !== false);
     if (pivotZone) pivotZone.classList.toggle('dock-zone-context-active', isGridModeView);
     if (focusZone) focusZone.classList.toggle('dock-zone-context-active', isDetailMode && !isDeckMode);
-    
     const ganttZone = getEl('dock-gantt-actions-zone');
     if (ganttZone) ganttZone.classList.toggle('dock-zone-context-active', isGanttView);
-    
     if (slideDeck) slideDeck.classList.toggle('visible', showSlideDeck && !isGanttView);
     if (slideDeck) slideDeck.classList.toggle('dock-zone-context-active', !!(isDetailMode && isDeckMode));
     if (groupSelect) {
@@ -241,19 +237,16 @@ function syncGanttViewportLayout() {
 
 function switchWorkspaceView(mode) {
     const requestedMode = mode;
-    const normalizedMode = (requestedMode === 'deck' || requestedMode === 'slide' || requestedMode === 'digest' || requestedMode === 'command') ? requestedMode : requestedMode;
-    // Special handling: command and digest are distinct views but share the 'detail' layout slot occasionally? No, command is its own container.
-    
+    const normalizedMode = (requestedMode === 'deck' || requestedMode === 'slide' || requestedMode === 'digest') ? 'detail' : requestedMode;
     if (typeof toggleDesktopFiltersPanel === 'function') {
         const panel = getEl('dock-filters-panel');
         if (panel && panel.classList.contains('is-open')) toggleDesktopFiltersPanel(false);
     }
-    if (isDeckMode && normalizedMode !== 'detail' && normalizedMode !== 'slide') saveCurrentCardState();
+    if (isDeckMode && normalizedMode !== 'detail') saveCurrentCardState();
     if (currentWorkspaceView === 'gantt' && normalizedMode !== 'gantt') captureGanttScrollState();
 
     const prevWasSlide = isDeckMode;
-    currentWorkspaceView = (normalizedMode === 'command' || normalizedMode === 'grid' || normalizedMode === 'gantt') ? normalizedMode : 'detail';
-    
+    currentWorkspaceView = normalizedMode;
     if (requestedMode === 'detail') currentDetailFace = 'detail';
     if (requestedMode === 'deck' || requestedMode === 'slide') currentDetailFace = 'slide';
     syncWorkspaceModeState();
@@ -284,8 +277,6 @@ function switchWorkspaceView(mode) {
     const paneContent = getEl('pane-content');
     const deckStage = getEl('deck-stage');
     const ganttPanel = getEl('gantt-panel');
-    const commandView = getEl('command-view');
-
     if (grid) {
         grid.style.display = 'none';
         grid.style.flex = '';
@@ -308,24 +299,10 @@ function switchWorkspaceView(mode) {
         ganttPanel.style.flex = '';
         ganttPanel.style.height = '';
     }
-    if (commandView) {
-        commandView.style.display = 'none';
-        commandView.style.flex = '';
-    }
-
     if (grid) grid.classList.toggle('active', isGridMode);
 
     setTimeout(() => {
-        if (normalizedMode === 'command') {
-            setAdminPanelOpen(false);
-            if (welcome) welcome.style.display = 'none';
-            if (paneContent) paneContent.style.display = 'none';
-            if (deckStage) deckStage.style.display = 'none';
-            if (commandView) {
-                commandView.style.display = 'flex';
-                renderCommandView();
-            }
-        } else if (normalizedMode === 'detail') {
+        if (normalizedMode === 'detail') {
             renderDetailWorkspaceFace();
             if (grid) grid.style.display = 'none';
             applyFilters();
