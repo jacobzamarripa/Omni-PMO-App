@@ -265,7 +265,7 @@ function getDashboardData() {
   const getIdxByAliases = (aliases) => headers.findIndex(h => aliases.includes(String(h || '').trim().toUpperCase()));
   const fdhIdx = getIdx("FDH Engineering ID"), flagsIdx = getIdx("Health Flags"), draftIdx = getIdx("Action Required");
   const vendorIdx = getIdx("Contractor"), statusIdx = getIdx("Status"), cityIdx = getIdx("City"), stageIdx = getIdx("Stage");
-  const ofsIdx = getIdx("Budget OFS"), benchIdx = getIdx("Historical Milestones"), dateIdx = getIdx("Date");
+  const ofsIdx = getIdxByAliases(["OFS DATE", "BUDGET OFS"]), benchIdx = getIdx("Historical Milestones"), dateIdx = getIdx("Date");
   const targetIdx = getIdx("Target Completion Date"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete");
   const summaryIdx = getIdx("Field Production");
   const xingIdx = getIdx("QB Context & Gaps"), bslsIdx = getIdx("BSLs"), lightIdx = getIdx("Light to Cabinets");

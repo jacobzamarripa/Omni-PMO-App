@@ -6,15 +6,28 @@
 // ============================================================
 let bootInterval;
 
+function isMobileGlassFlowShell() {
+    return !!(document.body && document.body.classList.contains('v2-shell-glassflow'));
+}
+
 function runBootSequence() {
-    const bootSteps = [
-        "Authenticating Benny Diagnostics Engine...",
-        "Loading Master Archive records...",
-        "Cross-referencing vendor production data...",
-        "Calculating network topology & light paths...",
-        "Running AI heuristic models...",
-        "Compiling executive dashboard..."
-    ];
+    const bootSteps = isMobileGlassFlowShell()
+        ? [
+            "Opening OMNIFLOW mobile shell...",
+            "Staging queue and active project context...",
+            "Refreshing archive, vendor, and field signals...",
+            "Aligning schedule, review, and delivery states...",
+            "Preparing touch-first workspace controls...",
+            "Finalizing workflow handoff..."
+        ]
+        : [
+            "Bringing OMNISIGHT command surfaces online...",
+            "Refreshing archive, vendor, and field signals...",
+            "Aligning delivery, review, and risk states...",
+            "Staging portfolio and detail workspaces...",
+            "Preparing executive decision context...",
+            "Finalizing intelligence handoff..."
+        ];
     let stepIdx = 0;
     let progress = 0;
     const textEl = document.getElementById('boot-text');
@@ -38,7 +51,9 @@ function hideSplash() {
     let textEl = document.getElementById('boot-text');
     reportStartupPhase('hide-splash');
     if (barEl) barEl.style.width = '100%';
-    if (textEl) textEl.innerText = "Data loaded. Initializing UI...";
+    if (textEl) textEl.innerText = isMobileGlassFlowShell()
+        ? "Workflow ready. Opening OMNIFLOW..."
+        : "Workspace ready. Opening OMNISIGHT...";
     setTimeout(() => {
         let ls = document.getElementById('loading-screen');
         if (ls) ls.classList.add('hidden');

@@ -1177,8 +1177,8 @@
             openAdminPanelByDefault();
             populateDropdown('filter-vendor', [...new Set(activeQueueItems.map(i => i.vendor).filter(Boolean))]); populateDropdown('filter-city', [...new Set(activeQueueItems.map(i => i.city).filter(Boolean))]);
             let ofsMonths = activeQueueItems.map(i => {
-                if(!i.ofsDate || i.ofsDate === "-" || i.ofsDate === "Unknown") return null;
-                try { let d = safeDate(i.ofsDate); return d ? d.toLocaleDateString('en-US', {month:'short', timeZone:'UTC'}).toUpperCase() : null; } catch(e) { return null; }
+                let meta = getEffectiveOfsMonthMeta(i);
+                return meta.date ? meta.label : null;
             }).filter(Boolean);
             let ofsDropdown = getEl('filter-ofs');
             if (ofsDropdown) {

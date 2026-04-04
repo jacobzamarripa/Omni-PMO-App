@@ -36,35 +36,43 @@
     <body data-mview="queue">
     <div id="frosted-loader" class="frosted-loader">
       <div class="frosted-card">
-        <div id="frosted-core" class="frosted-data-core core-sync">
-          <div class="ring-1"></div>
-          <div class="ring-2"></div>
+        <div class="frosted-brand"><strong>OMNISIGHT</strong></div>
+        <div class="frosted-head">
+          <div id="frosted-core" class="frosted-data-core core-sync">
+            <div class="ring-1"></div>
+            <div class="ring-2"></div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
+            <div class="frosted-title" id="frosted-title">Refreshing Workspace</div>
+            <div class="frosted-sub" id="frosted-sub">Updating executive workflow context...</div>
+          </div>
         </div>
-        <div class="frosted-title" id="frosted-title">LOADING</div>
-        <div class="frosted-sub" id="frosted-sub">Please wait...</div>
         <div class="frost-progress-wrap">
           <div class="frost-progress-bar" id="frosted-progress"></div>
         </div>
         <div class="frost-terminal">
-          <span style="color: #10b981;">&gt;_</span> <span id="frosted-terminal-text">Processing...</span>
+          <span id="frosted-terminal-text">Processing workflow handoff...</span>
         </div>
       </div>
     </div>
 
     <div id="loading-screen" class="obsidian-loader">
       <div class="loader-content">
-        <div class="data-core">
-          <div class="core-ring outer"></div>
-          <div class="core-ring middle"></div>
-          <div class="core-dot"></div>
+        <div class="loader-kicker">Executive Operations Workspace</div>
+        <div class="loader-brand-stack">
+          <h1 class="loader-brand">OMNISIGHT <span class="loader-brand-label">Intelligence</span></h1>
         </div>
-        <h1 class="loader-brand">Omni PMO App</h1>
-        <div class="loader-version">v4.2.0 // BENNY ENGINE ACTIVE</div>
+        <div class="loader-version">Portfolio visibility, review posture, and operating context are being staged into a single executive surface.</div>
+        <div class="loader-pill-row">
+          <div class="loader-pill">Portfolio Signals</div>
+          <div class="loader-pill">Decision Context</div>
+        </div>
         <div class="loader-progress-wrap">
           <div class="loader-progress-bar" id="boot-progress"></div>
         </div>
         <div class="loader-terminal">
-          <span style="color: #10b981;">>_</span> <span id="boot-text">Initializing runtime environment...</span>
+          <span class="loader-terminal-indicator"></span>
+          <span id="boot-text">Preparing executive workspace...</span>
         </div>
       </div>
     </div>
@@ -257,6 +265,29 @@
 
     <div id="cal-widget" class="tool-widget">
         <div class="tool-header">Project Calendar<button class="tool-close" onclick="toggleWidget('cal-widget')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div>
+        <div class="cal-summary" id="cal-summary">
+            <div class="cal-summary-card">
+                <div class="cal-summary-label">Month Milestones</div>
+                <div class="cal-summary-value" id="cal-total-count">0</div>
+            </div>
+            <div class="cal-summary-card">
+                <div class="cal-summary-label">CX Start</div>
+                <div class="cal-summary-value" id="cal-start-count">0</div>
+            </div>
+            <div class="cal-summary-card">
+                <div class="cal-summary-label">CX Complete</div>
+                <div class="cal-summary-value" id="cal-complete-count">0</div>
+            </div>
+            <div class="cal-summary-card">
+                <div class="cal-summary-label">OFS</div>
+                <div class="cal-summary-value" id="cal-ofs-count">0</div>
+            </div>
+        </div>
+        <div class="cal-legend">
+            <button class="cal-legend-pill cal-legend-pill-start is-active" onclick="toggleCalendarFilter('start')">CX START</button>
+            <button class="cal-legend-pill cal-legend-pill-complete is-active" onclick="toggleCalendarFilter('complete')">CX COMPLETE</button>
+            <button class="cal-legend-pill cal-legend-pill-ofs is-active" onclick="toggleCalendarFilter('ofs')">OFS</button>
+        </div>
         <div class="cal-nav">
             <button onclick="changeMonth(-1)">&#8249;</button>
             <span id="cal-month-year">Month</span>
@@ -430,7 +461,7 @@
 	              <div class="pane-content" id="pane-content">
                  <div class="qb-grid" id="main-qb-grid">
                <div class="qb-top-row">
-               <div class="qb-module hover-trigger" id="project-schedule-card" onmouseenter="hl('Budget OFS')" onmouseleave="hl('')">
+               <div class="qb-module hover-trigger" id="project-schedule-card" onmouseenter="hl('OFS DATE')" onmouseleave="hl('')">
                    <div class="qb-module-header" style="background:transparent; border-bottom:none; margin-bottom:0;">Project Schedule</div>
                    <div class="qb-proj-title">
                        <div class="qb-proj-title-left">
@@ -474,7 +505,7 @@
                        <div style="display:flex; gap:8px;">
                            <div id="p-tracker-pill" style="display:none;"></div>
                            <div class="vel-footer-pill hover-trigger" id="p-bsls" onmouseenter="hl('HHPs')" onmouseleave="hl('')" style="cursor:pointer;">BSLS: </div>
-                           <div class="vel-footer-pill hover-trigger" id="p-ofs" onmouseenter="hl('Budget OFS')" onmouseleave="hl('')" style="cursor:pointer; display:none;">OFS: </div>
+                           <div class="vel-footer-pill hover-trigger" id="p-ofs" onmouseenter="hl('OFS DATE')" onmouseleave="hl('')" style="cursor:pointer; display:none;">OFS: </div>
                        </div>
                    </div>
                </div>

@@ -66,6 +66,33 @@
           return new Intl.DateTimeFormat('en-US', options).format(d);
       }
 
+      function getEffectiveOfsRaw(item) {
+          if (!item) return '';
+          return item.ofsDate || item.targetDate || '';
+      }
+
+      function getEffectiveOfsDate(item) {
+          return safeDate(getEffectiveOfsRaw(item));
+      }
+
+      function getEffectiveOfsLabel(item, fallback) {
+          let effective = getEffectiveOfsRaw(item);
+          return effective ? formatDate(effective) : (fallback || 'TBD');
+      }
+
+      function getEffectiveOfsMonthMeta(item, referenceDate) {
+          let d = getEffectiveOfsDate(item);
+          if (!d || isNaN(d.getTime())) {
+              return { label: 'TBD', isCurrentMonth: false, date: null };
+          }
+          let today = referenceDate instanceof Date ? new Date(referenceDate.getTime()) : new Date();
+          return {
+              label: d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase(),
+              isCurrentMonth: d.getUTCMonth() === today.getMonth() && d.getUTCFullYear() === today.getFullYear(),
+              date: d
+          };
+      }
+
       function getTimelineTodayIndicator(start, end, referenceDate) {
           let s = safeDate(start);
           let e = safeDate(end);

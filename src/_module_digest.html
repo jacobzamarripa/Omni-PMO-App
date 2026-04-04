@@ -202,7 +202,7 @@ function getDigestVendorGaugeStyle(actual, goal, now) {
 }
 
 function getDigestStageAgeDate(item, latestTs) {
-    return safeDate(item && item.cxEnd) || safeDate(item && item.cxStart) || safeDate(item && item.ofsDate) || safeDate(item && item.targetDate) || (latestTs ? new Date(latestTs) : safeDate(item && item.reportDate));
+    return safeDate(item && item.cxEnd) || safeDate(item && item.cxStart) || getEffectiveOfsDate(item) || safeDate(item && item.targetDate) || (latestTs ? new Date(latestTs) : safeDate(item && item.reportDate));
 }
 
 function getDigestAgeDays(item, latestTs) {

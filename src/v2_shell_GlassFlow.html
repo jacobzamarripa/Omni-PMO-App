@@ -32,6 +32,49 @@
 </head>
 <body class="v2-shell-glassflow">
 
+  <div id="frosted-loader" class="frosted-loader">
+    <div class="frosted-card">
+      <div class="frosted-brand"><strong>OMNIFLOW</strong></div>
+      <div class="frosted-head">
+        <div id="frosted-core" class="frosted-data-core core-sync">
+          <div class="ring-1"></div>
+          <div class="ring-2"></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
+          <div class="frosted-title" id="frosted-title">Refreshing Workflow</div>
+          <div class="frosted-sub" id="frosted-sub">Updating field-ready queue and delivery context...</div>
+        </div>
+      </div>
+      <div class="frost-progress-wrap">
+        <div class="frost-progress-bar" id="frosted-progress"></div>
+      </div>
+      <div class="frost-terminal">
+        <span id="frosted-terminal-text">Preparing mobile workflow handoff...</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading-screen" class="obsidian-loader">
+    <div class="loader-content">
+      <div class="loader-kicker">Field Workflow Shell</div>
+      <div class="loader-brand-stack">
+        <h1 class="loader-brand">OMNIFLOW <span class="loader-brand-label">Execution</span></h1>
+      </div>
+      <div class="loader-version">Queue, schedule, and action context are being assembled into the mobile workflow lane.</div>
+      <div class="loader-pill-row">
+        <div class="loader-pill">Queue Readiness</div>
+        <div class="loader-pill">Field Flow</div>
+      </div>
+      <div class="loader-progress-wrap">
+        <div class="loader-progress-bar" id="boot-progress"></div>
+      </div>
+      <div class="loader-terminal">
+        <span class="loader-terminal-indicator"></span>
+        <span id="boot-text">Preparing mobile workflow...</span>
+      </div>
+    </div>
+  </div>
+
   <div id="gantt-hud" class="gantt-hud"></div>
 
   <div class="gantt-panel" id="gantt-panel">

@@ -35,6 +35,8 @@
   // EXTRACT WITH: renderCalendar, changeMonth
   // WORKSTREAM 3 RISK: Low
   var currentCalDate = new Date();
+  var CALENDAR_MAX_VISIBLE_EVENTS = 3;
+  var activeCalendarFilters = { start: true, complete: true, ofs: true };
 
   // STATE: calcState
   // READS: calculator render/update
@@ -194,18 +196,181 @@
       if (id === 'cal-widget' && isOpen) renderCalendar();
   }
 
+  function escapeCalendarHtml(value) {
+      return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+  }
+
+  function escapeCalendarJs(value) {
+      return String(value == null ? '' : value)
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, "\\'");
+  }
+
+  function getCalendarItems() {
+      if (typeof getActiveQueueItems === 'function') {
+          var activeItems = getActiveQueueItems();
+          if (Array.isArray(activeItems) && activeItems.length) return activeItems;
+      }
+      if (Array.isArray(filteredItems) && filteredItems.length) return filteredItems;
+      if (Array.isArray(allActionItems) && allActionItems.length) return allActionItems;
+      return [];
+  }
+
+  function getCalendarMilestones(items, year, month) {
+      var typeOrder = { start: 0, complete: 1, ofs: 2 };
+      var counters = { start: 0, complete: 0, ofs: 0 };
+      var grouped = {};
+
+      function pushMilestone(item, rawDate, type, suffix, pillClass) {
+          var parsed = safeDate(rawDate);
+          if (!parsed || isNaN(parsed.getTime())) return;
+          if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month) return;
+
+          var day = parsed.getUTCDate();
+          var milestone = {
+              fdh: item && item.fdh ? String(item.fdh) : 'UNKNOWN',
+              day: day,
+              type: type,
+              suffix: suffix,
+              pillClass: pillClass,
+              item: item
+          };
+
+          if (!grouped[day]) grouped[day] = [];
+          grouped[day].push(milestone);
+          counters[type]++;
+      }
+
+      (items || []).forEach(function(item) {
+          if (!item) return;
+          pushMilestone(item, item.cxStart, 'start', 'START', 'cal-event-pill-start');
+          pushMilestone(item, item.cxEnd, 'complete', 'COMPLETE', 'cal-event-pill-complete');
+          pushMilestone(item, getEffectiveOfsRaw(item), 'ofs', 'OFS', 'cal-event-pill-ofs');
+      });
+
+      Object.keys(grouped).forEach(function(dayKey) {
+          grouped[dayKey].sort(function(a, b) {
+              if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type];
+              return a.fdh.localeCompare(b.fdh);
+          });
+      });
+
+      return {
+          grouped: grouped,
+          counts: counters,
+          total: counters.start + counters.complete + counters.ofs
+      };
+  }
+
+  function getFilteredCalendarMilestones(milestoneData) {
+      var grouped = {};
+      var counters = { start: 0, complete: 0, ofs: 0 };
+
+      Object.keys((milestoneData && milestoneData.grouped) || {}).forEach(function(dayKey) {
+          var dayEvents = (milestoneData.grouped[dayKey] || []).filter(function(evt) {
+              return !!activeCalendarFilters[evt.type];
+          });
+          if (!dayEvents.length) return;
+          grouped[dayKey] = dayEvents;
+          dayEvents.forEach(function(evt) {
+              counters[evt.type] = (counters[evt.type] || 0) + 1;
+          });
+      });
+
+      return {
+          grouped: grouped,
+          counts: counters,
+          total: counters.start + counters.complete + counters.ofs
+      };
+  }
+
+  function updateCalendarSummary(summary) {
+      var totalEl = document.getElementById('cal-total-count');
+      var startEl = document.getElementById('cal-start-count');
+      var completeEl = document.getElementById('cal-complete-count');
+      var ofsEl = document.getElementById('cal-ofs-count');
+      if (totalEl) totalEl.innerText = String(summary.total || 0);
+      if (startEl) startEl.innerText = String(summary.counts && summary.counts.start || 0);
+      if (completeEl) completeEl.innerText = String(summary.counts && summary.counts.complete || 0);
+      if (ofsEl) ofsEl.innerText = String(summary.counts && summary.counts.ofs || 0);
+  }
+
+  function syncCalendarFilterUi() {
+      var filterToClass = {
+          start: 'cal-legend-pill-start',
+          complete: 'cal-legend-pill-complete',
+          ofs: 'cal-legend-pill-ofs'
+      };
+      Object.keys(filterToClass).forEach(function(key) {
+          var el = document.querySelector('.' + filterToClass[key]);
+          if (!el) return;
+          el.classList.toggle('is-active', !!activeCalendarFilters[key]);
+      });
+  }
+
+  function clearCalendarMilestoneFilters() {
+      activeCalendarFilters = { start: true, complete: true, ofs: true };
+      syncCalendarFilterUi();
+      renderCalendar();
+  }
+
+  function toggleCalendarFilter(type) {
+      if (!Object.prototype.hasOwnProperty.call(activeCalendarFilters, type)) return;
+      var nextValue = !activeCalendarFilters[type];
+      var activeCount = Object.keys(activeCalendarFilters).filter(function(key) { return !!activeCalendarFilters[key]; }).length;
+      if (!nextValue && activeCount === 1) return;
+      activeCalendarFilters[type] = nextValue;
+      syncCalendarFilterUi();
+      renderCalendar();
+  }
+
+  function openCalendarProject(fdh) {
+      var target = (filteredItems || []).find(function(item) { return String(item.fdh || '') === String(fdh || ''); })
+          || (allActionItems || []).find(function(item) { return String(item.fdh || '') === String(fdh || ''); });
+      if (!target) return;
+
+      var widget = document.getElementById('cal-widget');
+      if (widget) widget.classList.remove('open');
+      if (typeof switchWorkspaceView === 'function') switchWorkspaceView('detail');
+      openPane(target, document.getElementById('card-' + target.fdh) || null);
+  }
+
   function renderCalendar() {
       var y = currentCalDate.getFullYear(), m = currentCalDate.getMonth();
       document.getElementById('cal-month-year').innerText = new Date(y, m).toLocaleString('default', { month: 'long', year: 'numeric' }).toUpperCase();
       var firstDay = new Date(y, m, 1).getDay();
       var daysInMonth = new Date(y, m + 1, 0).getDate();
       var grid = document.getElementById('cal-grid');
+      if (!grid) return;
+
+      var sourceItems = getCalendarItems();
+      var milestoneData = getCalendarMilestones(sourceItems, y, m);
+      var filteredMilestoneData = getFilteredCalendarMilestones(milestoneData);
+      syncCalendarFilterUi();
+      updateCalendarSummary(filteredMilestoneData);
+
       var html = '<div class="cal-day-header">Su</div><div class="cal-day-header">Mo</div><div class="cal-day-header">Tu</div><div class="cal-day-header">We</div><div class="cal-day-header">Th</div><div class="cal-day-header">Fr</div><div class="cal-day-header">Sa</div>';
       for (var i = 0; i < firstDay; i++) html += '<div class="cal-cell empty"></div>';
       var today = new Date();
       for (var d = 1; d <= daysInMonth; d++) {
           var isToday = (d === today.getDate() && m === today.getMonth() && y === today.getFullYear());
-          html += '<div class="cal-cell ' + (isToday ? 'today' : '') + '">' + d + '</div>';
+          var dayEvents = filteredMilestoneData.grouped[d] || [];
+          var visibleEvents = dayEvents.slice(0, CALENDAR_MAX_VISIBLE_EVENTS);
+          var overflowEvents = dayEvents.slice(CALENDAR_MAX_VISIBLE_EVENTS);
+          var eventsHtml = visibleEvents.map(function(evt) {
+              var label = escapeCalendarHtml(evt.fdh + ' · ' + evt.suffix);
+              return '<button class="cal-event-pill ' + evt.pillClass + '" onclick="openCalendarProject(\'' + escapeCalendarJs(evt.fdh) + '\')" title="' + label + '">' + label + '</button>';
+          }).join('');
+          if (overflowEvents.length) {
+              var overflowTitle = escapeCalendarHtml(overflowEvents.map(function(evt) { return evt.fdh + ' · ' + evt.suffix; }).join(', '));
+              eventsHtml += '<div class="cal-more" title="' + overflowTitle + '">+' + overflowEvents.length + ' more</div>';
+          }
+          html += '<div class="cal-cell ' + (isToday ? 'today' : '') + '"><div class="cal-cell-day"><span class="cal-cell-day-number">' + d + '</span></div><div class="cal-cell-events">' + eventsHtml + '</div></div>';
       }
       grid.innerHTML = html;
   }
@@ -254,6 +419,9 @@
   window.changeMonth = changeMonth;
   window.calcNum = calcNum;
   window.calcOp = calcOp;
+  window.openCalendarProject = openCalendarProject;
+  window.toggleCalendarFilter = toggleCalendarFilter;
+  window.clearCalendarMilestoneFilters = clearCalendarMilestoneFilters;
 
   initCalcWidgetDrag();
 })();

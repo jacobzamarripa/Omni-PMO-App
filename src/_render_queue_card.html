@@ -22,7 +22,7 @@ function renderQueueCard(item, filteredIndex) {
   const trackerChip = item && item.isTrackerLinked
     ? buildFlagBadge('Tracker Linked', 'admin')
     : '';
-  const ofsLabel = item && item.ofsDate ? 'Target OFS ' + formatDate(item.ofsDate) : 'Target OFS TBD';
+  const ofsLabel = item ? 'Target OFS ' + getEffectiveOfsLabel(item) : 'Target OFS TBD';
   return '' +
     '<button class="queue-card ' + cardHealthClass + '" type="button" data-queue-open="' + escapeHtml(String(filteredIndex)) + '">' +
       '<div class="queue-card__top">' +

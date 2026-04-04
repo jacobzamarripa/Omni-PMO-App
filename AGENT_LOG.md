@@ -1,5 +1,32 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-04: OFS consistency sweep across ingest + frontend render paths
+- **Root cause expanded:** Fixing the reference-data ingest header (`OFS DATE` vs `Budget OFS`) restored the payload, but several frontend modules were still bypassing that corrected path and reading raw `item.ofsDate` directly.
+- **Shared resolver added:** Introduced frontend OFS helpers in `src/_utils_shared.html` so the app now resolves one canonical effective OFS date via `item.ofsDate || item.targetDate`, then derives labels/month state from that shared source.
+- **Queue/detail/grid/deck aligned:** Rewired OFS month pills, detail footer pills, deck exports, queue sort logic, mobile queue summaries, quick-peek, digest aging, and OFS dropdown generation to use the shared effective OFS helper instead of ad hoc parsing.
+- **Calendar aligned too:** The calendar milestone builder now uses the same OFS resolver, so calendar OFS pills cannot drift from queue/deck/grid behavior.
+- **Label cleanup:** Updated visible desktop hover copy from `Budget OFS` to `OFS DATE` where the UI exposes that field directly, matching the actual reference-data column name.
+- **Validation note:** `node scripts/validate-mobile-shell.js` still fails only on the pre-existing desktop Review Hub marker assertions in `src/WebApp.html` (`review-hub-desktop-row-top`, `review-hub-desktop-row-tabs`, `review-hub-desktop-row-kpis`, `review-hub-kpi-strip`). No new validator regressions were introduced by the OFS sweep.
+
+> [!success] 2026-04-04: Calendar milestone reformat for CX / OFS planning
+- **Calendar widget rebuilt:** Reworked the existing `cal-widget` from a bare mini month grid into a larger executive planning calendar with month totals, milestone legend, taller day cards, and direct FDH pill rendering.
+- **Milestone scope locked:** The calendar now renders only `CX START`, `CX COMPLETE`, and `OFS` milestones using existing queue data already in memory (`cxStart`, `cxEnd`, `ofsDate`) instead of introducing new backend shape or fetch behavior.
+- **Pill semantics:** `CX START` and `CX COMPLETE` render as yellow/amber variants, while `OFS` uses the established teal pill treatment. Each pill shows the `FDH` identifier and milestone type in the day cell.
+- **Overflow handling:** Dense days now show up to three visible milestone pills before collapsing the remainder into a `+N more` summary chip.
+- **Navigation behavior:** Clicking any calendar pill opens the corresponding project in the shared detail pane through the existing `openPane()` selection flow rather than adding a second navigation path.
+- **Executive OFS fix:** Calendar OFS milestones now fall back to `targetDate` when `ofsDate` is blank, matching the rest of the app’s OFS handling so the executive OFS view does not silently drop rows.
+- **Root cause found:** The canonical OFS column in `5_Reference_Data` is `OFS DATE`, but shared ingest logic was still hardcoded to `Budget OFS`. Updated the reference-data and frontend payload mappers to accept both headers so OFS repopulates everywhere downstream.
+- **Calendar scope corrected:** Removed the cross-app calendar-pill filtering experiment after it caused regressions. Calendar milestone pills are local again; the OFS correctness fix is now at the data-ingest layer instead of a UI workaround.
+- **Validation note:** `node scripts/validate-mobile-shell.js` still fails only on the pre-existing desktop Review Hub marker assertions (`review-hub-desktop-row-top`, `review-hub-desktop-row-tabs`, `review-hub-desktop-row-kpis`, `review-hub-kpi-strip`) unrelated to the calendar slice.
+
+> [!success] 2026-04-04: OMNISIGHT / OMNIFLOW startup rebrand and loader polish
+- **Startup splash reworked:** Replaced the old “engine/terminal” startup screen with a calmer executive brand lockup built around `OMNISIGHT` and `OMNIFLOW`. The first impression now reads as portfolio intelligence + workflow execution rather than a faux console.
+- **Shell-specific branding split:** Refined the startup treatment so desktop now presents `OMNISIGHT` only, while the GlassFlow mobile shell presents `OMNIFLOW` only. The split keeps each shell sharper and prevents the loader from trying to explain both products at once.
+- **Dark / light mode parity:** Added a dual-theme splash treatment with soft atmospheric gradients, a glass panel, restrained shimmer on the progress rail, and neutral typography that stays premium in both light and dark mode.
+- **Shared blocking loader aligned:** Updated the in-app frosted loader to use the same brand language and calmer hierarchy, so sync/review refresh states no longer fall back to generic loading chrome.
+- **Boot copy normalized:** Startup step text now references shell-specific handoff language instead of “Benny engine” and fake low-level runtime messaging. Desktop speaks in `OMNISIGHT` decision-surface language; mobile speaks in `OMNIFLOW` workflow language.
+- **Validation note:** `node scripts/validate-mobile-shell.js` still fails on pre-existing missing desktop Review Hub marker patterns (`review-hub-desktop-row-top`, `review-hub-desktop-row-tabs`, `review-hub-desktop-row-kpis`, `review-hub-kpi-strip`) unrelated to this loader slice.
+
 > [!success] 2026-04-04: Review Hub activity recovery + dock clearance rollback
 - **Activity badge/count recovery:** Reworked changelog badge counting so Activity no longer depends on `timestampObj` being populated. The Review Hub activity badge now reflects milestone logs reliably instead of sitting hidden at `0`.
 - **Activity timestamp parsing hardened:** Added shared changelog timestamp parsing fallback (`timestampObj` -> `timestamp` -> `time/date`) for filtering and sorting, so older/newer activity rows render in the right order even when the payload is inconsistent.

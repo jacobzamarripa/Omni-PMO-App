@@ -317,13 +317,9 @@ function renderList(items) {
                 </div>`;
         } else if (pivot === 'velocity') {
             let v = item.vel;
-            let ofsMonthStr = "TBD";
-            let isOFSMonth = false;
-            let ofsDate = safeDate(item.ofsDate) || safeDate(item.targetDate);
-            if (ofsDate && !isNaN(ofsDate.getTime())) {
-                ofsMonthStr = ofsDate.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase();
-                if (ofsDate.getUTCMonth() === today.getMonth() && ofsDate.getUTCFullYear() === today.getFullYear()) isOFSMonth = true;
-            }
+            let ofsMeta = getEffectiveOfsMonthMeta(item, today);
+            let ofsMonthStr = ofsMeta.label;
+            let isOFSMonth = ofsMeta.isCurrentMonth;
             let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239, 246, 255, 0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--bg); border-color:var(--border);';
             if (v) {
                 bodyHtml = `
@@ -878,19 +874,9 @@ function openPane(item, cardEl) {
             trackerFooter.innerHTML = isVendorTrackerLinked(item) ? renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' }) : '';
         }
 
-        let ofsMonthStr = "TBD";
-        let isOFSMonth = false;
-
-        if (item.ofsDate && item.ofsDate !== "-" && item.ofsDate !== "Unknown") {
-            let d = safeDate(item.ofsDate);
-            if (d && !isNaN(d.getTime())) {
-                ofsMonthStr = d.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase();
-                let today = new Date();
-                if (d.getUTCMonth() === today.getMonth() && d.getUTCFullYear() === today.getFullYear()) {
-                    isOFSMonth = true;
-                }
-            }
-        }
+        let ofsMeta = getEffectiveOfsMonthMeta(item, new Date());
+        let ofsMonthStr = ofsMeta.label;
+        let isOFSMonth = ofsMeta.isCurrentMonth;
 
         setTxt('p-days-left', daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`);
         setTxt('p-bsls', `BSLS: ${item.bsls}`);
@@ -1117,7 +1103,7 @@ function applyFilters() {
             let v = item.vendor || "Unknown";
             currentFilterStats.bslByVendor[v] = (currentFilterStats.bslByVendor[v] || 0) + bslNum;
 
-            let ofsD = safeDate(item.ofsDate) || safeDate(item.targetDate);
+            let ofsD = getEffectiveOfsDate(item);
             let mKey = (ofsD && !isNaN(ofsD.getTime()))
                 ? ofsD.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase()
                 : 'TBD';
@@ -1195,8 +1181,8 @@ function applyFilters() {
                     valA = new Date(a.cxEnd);
                     valB = new Date(b.cxEnd);
                 } else if (sortVal === 'ofs') {
-                    valA = new Date(a.ofsDate);
-                    valB = new Date(b.ofsDate);
+                    valA = getEffectiveOfsDate(a);
+                    valB = getEffectiveOfsDate(b);
                 } else if (sortVal === 'report') {
                     valA = new Date(a.reportDate);
                     valB = new Date(b.reportDate);
@@ -1341,9 +1327,7 @@ function getProjectsHudFilterEntries() {
 function getOfsFilterBuckets(item, today) {
     let buckets = [];
     if (!item) return buckets;
-    let rawOfs = item.ofsDate;
-    let rawFallback = item.targetDate;
-    let d = safeDate(rawOfs) || safeDate(rawFallback);
+    let d = getEffectiveOfsDate(item);
     if (!d || isNaN(d.getTime())) return buckets;
     buckets.push(d.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase());
     let diffDays = (d - today) / 86400000;

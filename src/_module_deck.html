@@ -172,7 +172,7 @@ function promptBatchDeckExport() {
         const isXingSelected = mem['q_is_xing'] !== undefined ? (mem['q_is_xing'] === true || mem['q_is_xing'] === 'true') : item.isXing;
         payloads.push({ fdh: item.fdh, vendor: item.vendor, targetDate: item.targetDate || item.cxEnd || 'TBD', note: item.comment || '', answers: mem });
 
-        const ofsStr = item.ofsDate && item.ofsDate !== '-' ? item.ofsDate : 'TBD';
+        const ofsStr = getEffectiveOfsLabel(item);
         combinedText += `==================================================\n`;
         combinedText += `PROJECT: ${item.fdh} (${item.vendor || 'Unknown'} - ${item.city || 'Unknown'})\n`;
         combinedText += `Target OFS: ${ofsStr} | Stage: ${item.stage} | Status: ${item.status}\n\n`;
@@ -459,14 +459,9 @@ function renderDeckStage() {
         let isOverdue = pEnd && today > pEnd && !isComplete && !isOnHold && !isPermit;
 
         let sColor = isComplete ? '#22c55e' : isPermit ? '#a855f7' : isOnHold ? '#94a3b8' : isOverdue ? '#ef4444' : '#facc15';
-        let ofsMonthStr = 'TBD', isOFSMonth = false;
-        if (item.ofsDate && item.ofsDate !== '-' && item.ofsDate !== 'Unknown') {
-          let d = safeDate(item.ofsDate);
-          if (d) {
-            ofsMonthStr = d.toLocaleDateString('en-US', {month:'short', timeZone:'UTC'}).toUpperCase();
-            if (d.getUTCMonth() === today.getMonth() && d.getUTCFullYear() === today.getFullYear()) isOFSMonth = true;
-          }
-        }
+        let ofsMeta = getEffectiveOfsMonthMeta(item, today);
+        let ofsMonthStr = ofsMeta.label;
+        let isOFSMonth = ofsMeta.isCurrentMonth;
         let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239,246,255,0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--card-bg); border-color:var(--border);';
         let daysLeftTxt = daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`;
 
@@ -796,7 +791,7 @@ function exportDeckReport() {
 General Info:
 * Vendor: ${item.vendor || ''}
 * City: ${item.city || ''}
-* Target OFS: ${item.ofsDate || 'TBD'}
+* Target OFS: ${getEffectiveOfsLabel(item)}
 
 1. Deliverables (System Verified):
 * CD Distributed: ${item.hasCDDist ? 'YES' : 'NO'}

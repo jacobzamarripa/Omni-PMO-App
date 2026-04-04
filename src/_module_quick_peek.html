@@ -39,13 +39,9 @@ function renderQuickPeek(item) {
     const daysLeftTxt = daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`;
 
     const v = item.vel;
-    let ofsMonthStr = 'TBD';
-    let isOfsMonth = false;
-    const ofsDate = safeDate(item.ofsDate) || safeDate(item.targetDate);
-    if (ofsDate && !isNaN(ofsDate.getTime())) {
-        ofsMonthStr = ofsDate.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
-        isOfsMonth = ofsDate.getUTCMonth() === today.getMonth() && ofsDate.getUTCFullYear() === today.getFullYear();
-    }
+    const ofsMeta = getEffectiveOfsMonthMeta(item, today);
+    let ofsMonthStr = ofsMeta.label;
+    let isOfsMonth = ofsMeta.isCurrentMonth;
     const ofsPillStyle = isOfsMonth ? 'color:#2563eb; background:rgba(239,246,255,0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--card-bg); border-color:var(--border);';
     const velHtml = v ? `
         <div class="velocity-grid" style="gap:10px; align-content:flex-start;">

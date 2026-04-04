@@ -184,15 +184,9 @@ function renderGrid() {
         } else if (currentGridPivot === 'velocity') {
             let v = item.vel;
             let daysLeftTxt = daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`;
-            let ofsMonthStr = "TBD";
-            let isOFSMonth = false;
-            if (item.ofsDate && item.ofsDate !== "-" && item.ofsDate !== "Unknown") {
-                let d = safeDate(item.ofsDate);
-                if (d && !isNaN(d.getTime())) {
-                    ofsMonthStr = d.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase();
-                    if (d.getUTCMonth() === today.getMonth() && d.getUTCFullYear() === today.getFullYear()) isOFSMonth = true;
-                }
-            }
+            let ofsMeta = getEffectiveOfsMonthMeta(item, today);
+            let ofsMonthStr = ofsMeta.label;
+            let isOFSMonth = ofsMeta.isCurrentMonth;
             let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239, 246, 255, 0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--bg); border-color:var(--border);';
 
             if (v) {

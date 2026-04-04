@@ -149,8 +149,12 @@ function getReferenceDictionary() {
     // 🧠 FIX: Bulletproof indexing against nulls
     let getIdx = (name) => refHeaders.findIndex(h => h != null && h.trim().toUpperCase() === name.toUpperCase());
     
+    let getIdxByAliases = (aliases) => aliases
+      .map(getIdx)
+      .find(function(idx) { return idx > -1; });
+
     let cityIdx = getIdx("City"), stageIdx = getIdx("Stage"), statusIdx = getIdx("Status"), bslIdx = Math.max(getIdx("BSLs"), getIdx("HHPs"), getIdx("BSL")); 
-    let ofsIdx = getIdx("Budget OFS"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete");
+    let ofsIdx = getIdxByAliases(["OFS DATE", "Budget OFS"]), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete");
     let bomUGIdx = getIdx("UG BOM Qty."), bomAEIdx = getIdx("AE BOM Qty."), bomFIBIdx = getIdx("Fiber BOM Qty."), bomNAPIdx = getIdx("NAPs BOM Qty.");
     let ridIdx = getIdx("Record ID#"), bomDelIdx = getIdx("BOM in Deliverables"), spliceDelIdx = getIdx("Splice Sheet in Deliverables");
     let standDelIdx = getIdx("Stand Map in Deliverables"), cdDelIdx = getIdx("CD in Deliverables"), spliceDistIdx = getIdx("Splice Docs Distributed");
@@ -414,4 +418,3 @@ function getVendorLiveDictionary(refDict) {
   } catch (e) { logMsg(`⚠️ Vendor Tracker Error: ${e.toString()}`); }
   return vendorDict;
 }
-
