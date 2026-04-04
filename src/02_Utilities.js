@@ -1052,15 +1052,20 @@ function emailExportCSV(reviewsArray, targetEmail) {
 
 // ── SIGNAL CONSOLE DATA ──────────────────────────────────────
 
-// Milestones from "Permit Approved" onwards — anything before this is noise.
-const SIGNAL_MILESTONE_KEYWORDS = [
-  'permit approved', 'dot paperwork', 'special crossing', 'approval dist',
-  'cd distributed', 'splice docs', 'strand maps', 'bom sent', 'po number',
-  'sow signed', 'active set', 'active has power', 'active', 'complete', 'ofs'
-];
-function _isSignalMilestone(type) {
-  const t = type.toLowerCase();
-  return SIGNAL_MILESTONE_KEYWORDS.some(k => t.includes(k));
+// Keep only meaningful field changes; drop noise like Engineering ID, Phase, Design-stage updates.
+// Also drops Status/Stage rows where the new value is pre-Permitting (Design or empty).
+const SIGNAL_TRACKED_TYPES = ['status', 'stage', 'stage status', 'ofs date', 'cx start date', 'cx end date'];
+const SIGNAL_EXCLUDED_VALUES = ['design', ''];
+function _isSignalMilestone(type, newVal) {
+  const t = (type || '').toLowerCase().trim();
+  if (!SIGNAL_TRACKED_TYPES.includes(t)) return false;
+  // For Status/Stage fields, drop pre-Permitting values
+  if (t === 'status' || t === 'stage' || t === 'stage status') {
+    const v = (newVal || '').toLowerCase().trim();
+    if (SIGNAL_EXCLUDED_VALUES.includes(v) || v === '') return false;
+    if (v.includes('design')) return false;
+  }
+  return true;
 }
 
 // Fast path: sheet reads only (~1-2s). Called first so QB + Log render immediately.
@@ -1081,7 +1086,7 @@ function getSignalFast(tf) {
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       const ts = row[4];
-      if (ts instanceof Date && ts >= cutoff && _isSignalMilestone(String(row[1] || ''))) {
+      if (ts instanceof Date && ts >= cutoff && _isSignalMilestone(String(row[1] || ''), String(row[2] || ''))) {
         result.qbChanges.push({
           fdh: String(row[0] || ''),
           type: String(row[1] || ''),

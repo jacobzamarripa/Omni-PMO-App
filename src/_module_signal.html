@@ -123,11 +123,11 @@ function _renderSignalQB(changes) {
   }
   var html = '';
   changes.forEach(function(c) {
-    var pillClass = _signalQBPillClass(c.type);
+    var pillClass = _signalQBPillClass(c.type, c.newVal);
     html += '<div class="signal-row">'
       + '<div class="signal-row-main">'
       + '<span class="signal-fdh">' + _esc(c.fdh) + '</span>'
-      + '<span class="glass-pill ' + pillClass + '">' + _esc(c.type) + '</span>'
+      + '<span class="glass-pill ' + pillClass + '">' + _esc(c.newVal || c.type) + '</span>'
       + '</div>'
       + '<div class="signal-row-sub">'
       + '<span class="signal-val">' + _esc(c.newVal) + '</span>'
@@ -138,12 +138,16 @@ function _renderSignalQB(changes) {
   el.innerHTML = html;
 }
 
-function _signalQBPillClass(type) {
-  var t = String(type || '').toLowerCase();
-  if (t.includes('permit') || t.includes('dot') || t.includes('crossing') || t.includes('approval dist') || t.includes('cd dist')) return 'pill-permit';
-  if (t.includes('active') || t.includes('sow') || t.includes('bom') || t.includes('po number') || t.includes('splice') || t.includes('strand')) return 'pill-active';
-  if (t.includes('complete')) return 'pill-complete';
-  if (t.includes('ofs')) return 'pill-ofs';
+function _signalQBPillClass(type, val) {
+  var t = (type || '').toLowerCase().trim();
+  var v = (val || '').toLowerCase();
+  if (t === 'ofs date') return 'pill-ofs';
+  if (t === 'cx start date' || t === 'cx end date') return 'pill-active';
+  if (v.includes('ofs')) return 'pill-ofs';
+  if (v.includes('permitting') || v.includes('permit')) return 'pill-permit';
+  if (v.includes('vendor')) return 'pill-drg';
+  if (v.includes('cx') || v.includes('crossing') || v.includes('active')) return 'pill-active';
+  if (v.includes('complete')) return 'pill-complete';
   return 'pill-hold';
 }
 

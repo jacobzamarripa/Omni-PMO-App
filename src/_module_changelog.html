@@ -9,21 +9,27 @@
 // ============================================================
 let expandedActivityRows = new Set();
 
-const _CHANGELOG_MILESTONE_KEYWORDS = [
-  'permit approved', 'dot paperwork', 'special crossing', 'approval dist',
-  'cd distributed', 'splice docs', 'strand maps', 'bom sent', 'po number',
-  'sow signed', 'active set', 'active has power', 'active', 'complete', 'ofs'
-];
-function _isChangelogMilestone(type) {
-  const t = type.toLowerCase();
-  return _CHANGELOG_MILESTONE_KEYWORDS.some(k => t.includes(k));
+const _CHANGELOG_TRACKED_TYPES = ['status', 'stage', 'stage status', 'ofs date', 'cx start date', 'cx end date'];
+function _isChangelogMilestone(type, val) {
+  const t = (type || '').toLowerCase().trim();
+  if (!_CHANGELOG_TRACKED_TYPES.includes(t)) return false;
+  if (t === 'status' || t === 'stage' || t === 'stage status') {
+    const v = (val || '').toLowerCase().trim();
+    if (!v || v === 'design') return false;
+  }
+  return true;
 }
-function _getQBPillClass(type) {
-  const t = String(type || '').toLowerCase();
-  if (t.includes('permit') || t.includes('dot') || t.includes('crossing') || t.includes('approval dist') || t.includes('cd dist')) return 'pill-permit';
-  if (t.includes('active') || t.includes('sow') || t.includes('bom') || t.includes('po number') || t.includes('splice') || t.includes('strand')) return 'pill-active';
-  if (t.includes('complete')) return 'pill-complete';
-  if (t.includes('ofs')) return 'pill-ofs';
+function _getQBPillClass(type, val) {
+  const t = (type || '').toLowerCase().trim();
+  const v = (val || '').toLowerCase();
+  if (t === 'ofs date') return 'pill-ofs';
+  if (t === 'cx start date' || t === 'cx end date') return 'pill-active';
+  // Status/Stage — color by value
+  if (v.includes('ofs')) return 'pill-ofs';
+  if (v.includes('permitting') || v.includes('permit')) return 'pill-permit';
+  if (v.includes('vendor')) return 'pill-drg';
+  if (v.includes('cx') || v.includes('crossing') || v.includes('active')) return 'pill-active';
+  if (v.includes('complete')) return 'pill-complete';
   return 'pill-hold';
 }
 
@@ -66,7 +72,7 @@ function renderChangeLog() {
     let currentFdhOnly = getEl('changelog-current-fdh')?.checked;
 
     // Default: only show Permit Approved and beyond (reduces noise)
-    let logsToRender = allGlobalLogs.filter(log => _isChangelogMilestone(String(log.type || '')));
+    let logsToRender = allGlobalLogs.filter(log => _isChangelogMilestone(String(log.type || ''), String(log.val || '')));
 
     if (currentFdhOnly && typeof currentActiveItem !== 'undefined' && currentActiveItem) {
         logsToRender = logsToRender.filter(log => String(log.fdh || '') === String(currentActiveItem.fdh || ''));
@@ -138,7 +144,7 @@ function renderChangeLog() {
                 </div>
                 <div class="log-row-meta">
                     <span class="log-row-user">${esc(String(log.user || '').split(' ')[0])}</span>
-                    <span class="glass-pill ${_getQBPillClass(log.type)}">${esc(String(log.type || 'Activity'))}</span>
+                    <span class="glass-pill ${_getQBPillClass(log.type, log.val)}">${esc(String(log.val || log.type || 'Activity'))}</span>
                 </div>
                 <div class="log-row-val">${esc(cleanVal)}</div>
             </div>
