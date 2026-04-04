@@ -9,6 +9,24 @@
 // ============================================================
 let expandedActivityRows = new Set();
 
+const _CHANGELOG_MILESTONE_KEYWORDS = [
+  'permit approved', 'dot paperwork', 'special crossing', 'approval dist',
+  'cd distributed', 'splice docs', 'strand maps', 'bom sent', 'po number',
+  'sow signed', 'active set', 'active has power', 'active', 'complete', 'ofs'
+];
+function _isChangelogMilestone(type) {
+  const t = type.toLowerCase();
+  return _CHANGELOG_MILESTONE_KEYWORDS.some(k => t.includes(k));
+}
+function _getQBPillClass(type) {
+  const t = String(type || '').toLowerCase();
+  if (t.includes('permit') || t.includes('dot') || t.includes('crossing') || t.includes('approval dist') || t.includes('cd dist')) return 'pill-permit';
+  if (t.includes('active') || t.includes('sow') || t.includes('bom') || t.includes('po number') || t.includes('splice') || t.includes('strand')) return 'pill-active';
+  if (t.includes('complete')) return 'pill-complete';
+  if (t.includes('ofs')) return 'pill-ofs';
+  return 'pill-hold';
+}
+
 function getActivityRowKey(log) {
     return [log.fdh || '', log.timestampObj || '', log.type || '', log.user || ''].join('|');
 }
@@ -47,7 +65,8 @@ function renderChangeLog() {
     let userFilter = getEl('changelog-user')?.value || 'ALL';
     let currentFdhOnly = getEl('changelog-current-fdh')?.checked;
 
-    let logsToRender = allGlobalLogs.slice();
+    // Default: only show Permit Approved and beyond (reduces noise)
+    let logsToRender = allGlobalLogs.filter(log => _isChangelogMilestone(String(log.type || '')));
 
     if (currentFdhOnly && typeof currentActiveItem !== 'undefined' && currentActiveItem) {
         logsToRender = logsToRender.filter(log => String(log.fdh || '') === String(currentActiveItem.fdh || ''));
@@ -119,7 +138,7 @@ function renderChangeLog() {
                 </div>
                 <div class="log-row-meta">
                     <span class="log-row-user">${esc(String(log.user || '').split(' ')[0])}</span>
-                    <span class="log-row-event">${esc(String(log.type || 'Activity'))}</span>
+                    <span class="glass-pill ${_getQBPillClass(log.type)}">${esc(String(log.type || 'Activity'))}</span>
                 </div>
                 <div class="log-row-val">${esc(cleanVal)}</div>
             </div>

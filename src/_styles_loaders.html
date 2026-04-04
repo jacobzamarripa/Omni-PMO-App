@@ -445,15 +445,100 @@
       .signal-type { font-size: 10px; font-weight: 600; color: var(--text-muted); background: var(--bg); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); }
       .signal-val { font-size: 11px; font-weight: 700; color: var(--text-main); }
       .signal-meta { font-size: 10px; color: var(--text-muted); font-weight: 600; }
-      .signal-log-row { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--border); }
-      .signal-log-row:last-child { border-bottom: none; }
-      .signal-log-ts { font-size: 9px; font-weight: 700; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; font-family: monospace; }
-      .signal-log-msg { font-size: 11px; color: var(--text-main); font-weight: 600; line-height: 1.4; }
-      .signal-log-ok .signal-log-msg { color: #10b981; }
-      .signal-log-warn .signal-log-msg { color: #f59e0b; }
-      .signal-log-err .signal-log-msg { color: #ef4444; }
+      /* App Log — terminal style */
+      #signal-panel-log {
+        background: #0b0f14;
+        border-radius: 10px;
+        padding: 12px !important;
+        font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        margin: 4px 0;
+      }
+      .signal-log-empty {
+        font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        font-size: 11px;
+        color: #4b5563;
+        text-align: center;
+        padding: 32px 0;
+        letter-spacing: 0.5px;
+      }
+      .signal-log-row {
+        display: flex;
+        gap: 12px;
+        align-items: baseline;
+        padding: 3px 0;
+        border-bottom: none;
+      }
+      .signal-log-ts {
+        font-size: 9px;
+        font-weight: 400;
+        color: #374151;
+        white-space: nowrap;
+        flex-shrink: 0;
+        letter-spacing: 0.3px;
+      }
+      .signal-log-msg {
+        font-size: 11px;
+        color: #9ca3af;
+        font-weight: 400;
+        line-height: 1.5;
+        letter-spacing: 0.2px;
+      }
+      .signal-log-ok .signal-log-ts { color: #166534; }
+      .signal-log-ok .signal-log-msg { color: #4ade80; }
+      .signal-log-warn .signal-log-ts { color: #78350f; }
+      .signal-log-warn .signal-log-msg { color: #fbbf24; }
+      .signal-log-err .signal-log-ts { color: #7f1d1d; }
+      .signal-log-err .signal-log-msg { color: #f87171; }
       .signal-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 32px 0; font-weight: 600; }
       .signal-loading { font-size: 12px; color: var(--text-muted); text-align: center; padding: 32px 0; font-weight: 600; }
+
+      /* Drive hierarchical view */
+      .signal-drive-root { margin-bottom: 12px; }
+      .signal-drive-root-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--text-main);
+        padding: 6px 0 4px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 2px;
+      }
+      .signal-drive-root-header svg { color: #f59e0b; flex-shrink: 0; }
+      .signal-drive-subfolder {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text-muted);
+        padding: 5px 0 2px 12px;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .signal-drive-subfolder svg { color: #3b82f6; flex-shrink: 0; }
+      .signal-drive-file {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 4px 0 4px 12px;
+        border-bottom: 1px dashed var(--border);
+        gap: 8px;
+      }
+      .signal-drive-file:last-child { border-bottom: none; }
+      .signal-drive-file-nested { padding-left: 24px; }
+      .signal-drive-file-name { font-size: 11px; font-weight: 600; color: var(--text-main); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .signal-drive-link {
+        color: inherit;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .signal-drive-link[href]:hover {
+        color: #3b82f6;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
 
       .signal-footer {
         padding: 16px 24px;

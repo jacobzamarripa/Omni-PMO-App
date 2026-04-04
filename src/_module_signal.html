@@ -84,27 +84,34 @@ function loadSignalData(tf) {
   document.querySelectorAll('.signal-tf-pill').forEach(function(p) {
     p.classList.toggle('active', p.dataset.tf === tf);
   });
-  ['qb', 'log', 'drive'].forEach(function(tab) {
-    var el = document.getElementById('signal-panel-' + tab);
-    if (el) el.innerHTML = '<div class="signal-loading">Loading...</div>';
-  });
+
+  // Reset all panels
+  var qbEl = document.getElementById('signal-panel-qb');
+  var logEl = document.getElementById('signal-panel-log');
+  var driveEl = document.getElementById('signal-panel-drive');
+  if (qbEl) qbEl.innerHTML = '<div class="signal-loading">Loading...</div>';
+  if (logEl) logEl.innerHTML = '<div class="signal-log-empty">LOADING...</div>';
+  if (driveEl) driveEl.innerHTML = '<div class="signal-loading">Scanning folders...</div>';
+
+  // Call 1: fast sheet reads — renders QB + Log immediately
   google.script.run
-    .withSuccessHandler(function(data) { _renderSignalData(data); })
-    .withFailureHandler(function(err) { _signalError(err); })
-    .getSignalData(tf);
-}
-
-function _renderSignalData(data) {
-  _renderSignalQB(data.qbChanges || []);
-  _renderSignalLogs(data.systemLogs || []);
-  _renderSignalDrive(data.driveActivity || []);
-}
-
-function _signalError(err) {
-  ['qb', 'log', 'drive'].forEach(function(tab) {
-    var el = document.getElementById('signal-panel-' + tab);
-    if (el) el.innerHTML = '<div class="signal-empty">Failed to load data.</div>';
-  });
+    .withSuccessHandler(function(data) {
+      _renderSignalQB(data.qbChanges || []);
+      _renderSignalLogs(data.systemLogs || []);
+      // Call 2: Drive traversal (cached after first run)
+      google.script.run
+        .withSuccessHandler(function(activity) { _renderSignalDrive(activity || []); })
+        .withFailureHandler(function() {
+          var el = document.getElementById('signal-panel-drive');
+          if (el) el.innerHTML = '<div class="signal-empty">Drive scan failed.</div>';
+        })
+        .getSignalDrive(tf);
+    })
+    .withFailureHandler(function() {
+      if (qbEl) qbEl.innerHTML = '<div class="signal-empty">Failed to load.</div>';
+      if (logEl) logEl.innerHTML = '<div class="signal-log-empty">FAILED TO LOAD</div>';
+    })
+    .getSignalFast(tf);
 }
 
 function _renderSignalQB(changes) {
@@ -114,48 +121,58 @@ function _renderSignalQB(changes) {
     el.innerHTML = '<div class="signal-empty">No QB changes in this timeframe.</div>';
     return;
   }
-  var groups = { 'Status': [], 'Date': [], 'Other': [] };
-  changes.forEach(function(c) {
-    var t = (c.type || '').toLowerCase();
-    if (t.includes('status')) groups['Status'].push(c);
-    else if (t.includes('date') || t.includes('target') || t.includes('completion')) groups['Date'].push(c);
-    else groups['Other'].push(c);
-  });
   var html = '';
-  ['Status', 'Date', 'Other'].forEach(function(group) {
-    var rows = groups[group];
-    if (!rows.length) return;
-    html += '<div class="signal-group-label">' + group + ' Changes <span class="signal-count">' + rows.length + '</span></div>';
-    rows.forEach(function(c) {
-      html += '<div class="signal-row">'
-        + '<div class="signal-row-main">'
-        + '<span class="signal-fdh">' + _esc(c.fdh) + '</span>'
-        + '<span class="signal-type">' + _esc(c.type) + '</span>'
-        + '</div>'
-        + '<div class="signal-row-sub">'
-        + '<span class="signal-val">' + _esc(c.newVal) + '</span>'
-        + '<span class="signal-meta">' + _esc(c.updatedBy) + ' &middot; ' + _esc(c.timestamp) + '</span>'
-        + '</div>'
-        + '</div>';
-    });
+  changes.forEach(function(c) {
+    var pillClass = _signalQBPillClass(c.type);
+    html += '<div class="signal-row">'
+      + '<div class="signal-row-main">'
+      + '<span class="signal-fdh">' + _esc(c.fdh) + '</span>'
+      + '<span class="glass-pill ' + pillClass + '">' + _esc(c.type) + '</span>'
+      + '</div>'
+      + '<div class="signal-row-sub">'
+      + '<span class="signal-val">' + _esc(c.newVal) + '</span>'
+      + '<span class="signal-meta">' + _esc(c.updatedBy) + ' &middot; ' + _esc(c.timestamp) + '</span>'
+      + '</div>'
+      + '</div>';
   });
   el.innerHTML = html;
+}
+
+function _signalQBPillClass(type) {
+  var t = String(type || '').toLowerCase();
+  if (t.includes('permit') || t.includes('dot') || t.includes('crossing') || t.includes('approval dist') || t.includes('cd dist')) return 'pill-permit';
+  if (t.includes('active') || t.includes('sow') || t.includes('bom') || t.includes('po number') || t.includes('splice') || t.includes('strand')) return 'pill-active';
+  if (t.includes('complete')) return 'pill-complete';
+  if (t.includes('ofs')) return 'pill-ofs';
+  return 'pill-hold';
+}
+
+function _stripEmoji(s) {
+  return String(s).replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+    .replace(/[\u2600-\u27BF]/g, '')
+    .replace(/[\uFE00-\uFE0F]/g, '')
+    .trim();
 }
 
 function _renderSignalLogs(logs) {
   var el = document.getElementById('signal-panel-log');
   if (!el) return;
   if (!logs.length) {
-    el.innerHTML = '<div class="signal-empty">No system log entries found.</div>';
+    el.innerHTML = '<div class="signal-log-empty">NO ENTRIES FOUND</div>';
     return;
   }
   var html = '';
   logs.forEach(function(l) {
-    var msg = l.message || '';
-    var isOk = msg.startsWith('✅');
-    var isWarn = msg.startsWith('⚠') || msg.startsWith('WARN');
-    var isErr = msg.startsWith('❌') || msg.startsWith('ERROR');
-    var cls = isOk ? 'ok' : isWarn ? 'warn' : isErr ? 'err' : '';
+    var raw = l.message || '';
+    var msg = _stripEmoji(raw);
+    var upper = raw.toUpperCase();
+    var cls = (upper.includes('ERROR') || upper.includes('FAIL') || upper.includes('❌'))
+      ? 'err'
+      : (upper.includes('WARN') || upper.includes('⚠'))
+      ? 'warn'
+      : (upper.includes('COMPLETE') || upper.includes('SUCCESS') || upper.includes('✅'))
+      ? 'ok'
+      : '';
     html += '<div class="signal-log-row' + (cls ? ' signal-log-' + cls : '') + '">'
       + '<span class="signal-log-ts">' + _esc(l.timestamp) + '</span>'
       + '<span class="signal-log-msg">' + _esc(msg) + '</span>'
@@ -171,26 +188,68 @@ function _renderSignalDrive(activity) {
     el.innerHTML = '<div class="signal-empty">No Drive folder activity in this timeframe.</div>';
     return;
   }
-  // Sort groups by most recent file modified
-  activity.sort(function(a, b) {
-    var aMax = a.files.reduce(function(m, f) { return f.modified > m ? f.modified : m; }, '');
-    var bMax = b.files.reduce(function(m, f) { return f.modified > m ? f.modified : m; }, '');
+
+  // Re-group by root subfolder (segment index 1; segment 0 is the Omni Fiber root name)
+  // rootMap: rootKey -> { rootUrl, subgroups: [{ subPath, folderUrl, files }] }
+  var rootMap = {};
+  activity.forEach(function(group) {
+    var parts = group.folder.split(' / ');
+    var rootKey = parts.length > 1 ? parts[1] : parts[0];
+    var subPath = parts.length > 2 ? parts.slice(2).join(' / ') : '';
+    if (!rootMap[rootKey]) rootMap[rootKey] = { rootUrl: null, subgroups: [] };
+    // First entry at depth 1 (subPath empty) carries the root folder URL
+    if (!subPath && group.folderUrl) rootMap[rootKey].rootUrl = group.folderUrl;
+    rootMap[rootKey].subgroups.push({ subPath: subPath, folderUrl: group.folderUrl || null, files: group.files });
+  });
+
+  // Sort root keys by most recent activity
+  var rootKeys = Object.keys(rootMap).sort(function(a, b) {
+    var aMax = rootMap[a].subgroups.reduce(function(m, g) {
+      return g.files.reduce(function(m2, f) { return f.modified > m2 ? f.modified : m2; }, m);
+    }, '');
+    var bMax = rootMap[b].subgroups.reduce(function(m, g) {
+      return g.files.reduce(function(m2, f) { return f.modified > m2 ? f.modified : m2; }, m);
+    }, '');
     return bMax > aMax ? 1 : -1;
   });
+
   var html = '';
-  activity.forEach(function(group) {
-    // Show only the last 2 path segments for readability
-    var parts = group.folder.split(' / ');
-    var label = parts.length > 2 ? '&hellip; / ' + _esc(parts.slice(-2).join(' / ')) : _esc(group.folder);
-    var fullPath = _esc(group.folder);
-    html += '<div class="signal-group-label" title="' + fullPath + '">' + label
-      + ' <span class="signal-count">' + group.files.length + '</span></div>';
-    group.files.forEach(function(f) {
-      html += '<div class="signal-row">'
-        + '<div class="signal-row-main"><span class="signal-fdh">' + _esc(f.name) + '</span></div>'
-        + '<div class="signal-row-sub"><span class="signal-meta">' + _esc(f.modified) + '</span></div>'
-        + '</div>';
+  rootKeys.forEach(function(rootKey) {
+    var entry = rootMap[rootKey];
+    var totalFiles = entry.subgroups.reduce(function(n, g) { return n + g.files.length; }, 0);
+    var rootLink = entry.rootUrl
+      ? ' href="' + _esc(entry.rootUrl) + '" target="_blank"'
+      : '';
+
+    html += '<div class="signal-drive-root">'
+      + '<div class="signal-drive-root-header">'
+      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>'
+      + '<a class="signal-drive-link"' + rootLink + '>' + _esc(rootKey) + '</a>'
+      + ' <span class="signal-count">' + totalFiles + '</span>'
+      + '</div>';
+
+    entry.subgroups.forEach(function(sg) {
+      if (sg.subPath) {
+        var subLink = sg.folderUrl
+          ? ' href="' + _esc(sg.folderUrl) + '" target="_blank"'
+          : '';
+        html += '<div class="signal-drive-subfolder">'
+          + '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z" opacity="0.6"/></svg>'
+          + '<a class="signal-drive-link"' + subLink + '>' + _esc(sg.subPath) + '</a>'
+          + '</div>';
+      }
+      sg.files.forEach(function(f) {
+        var fileLink = f.url
+          ? ' href="' + _esc(f.url) + '" target="_blank"'
+          : '';
+        html += '<div class="signal-drive-file' + (sg.subPath ? ' signal-drive-file-nested' : '') + '">'
+          + '<a class="signal-drive-file-name signal-drive-link"' + fileLink + '>' + _esc(f.name) + '</a>'
+          + '<span class="signal-meta">' + _esc(f.modified) + '</span>'
+          + '</div>';
+      });
     });
+
+    html += '</div>';
   });
   el.innerHTML = html;
 }

@@ -351,7 +351,7 @@ function syncOutboxPanelMode() {
         hubHeader.classList.toggle('is-changelog-tab', currentPanelTab === 'changelog');
     }
     if (tabBar) tabBar.style.display = isDeckView ? 'none' : 'flex';
-    if (desktopTabStrip) desktopTabStrip.style.display = (!isDeckView && currentPanelTab !== 'reviewed') ? 'flex' : 'none';
+    if (desktopTabStrip) desktopTabStrip.style.display = !isDeckView ? 'flex' : 'none';
     if (adminKpiRow) adminKpiRow.style.display = (!isDeckView && currentPanelTab === 'admin') ? '' : 'none';
     if (deckPanel) deckPanel.style.display = isDeckView ? 'flex' : 'none';
     if (fab) {
@@ -393,7 +393,7 @@ function switchPanelTab(tab) {
         hubHeader.classList.toggle('is-reviewed-tab', tab === 'reviewed');
         hubHeader.classList.toggle('is-changelog-tab', tab === 'changelog');
     }
-    if (desktopTabStrip) desktopTabStrip.style.display = (tab === 'reviewed') ? 'none' : 'flex';
+    if (desktopTabStrip) desktopTabStrip.style.display = 'flex';
     if (adminKpiRow) adminKpiRow.style.display = (tab === 'admin') ? '' : 'none';
 
     if (tab === 'changelog') {

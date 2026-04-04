@@ -1051,29 +1051,37 @@ function emailExportCSV(reviewsArray, targetEmail) {
 }
 
 // ── SIGNAL CONSOLE DATA ──────────────────────────────────────
-function getSignalData(tf) {
+
+// Milestones from "Permit Approved" onwards — anything before this is noise.
+const SIGNAL_MILESTONE_KEYWORDS = [
+  'permit approved', 'dot paperwork', 'special crossing', 'approval dist',
+  'cd distributed', 'splice docs', 'strand maps', 'bom sent', 'po number',
+  'sow signed', 'active set', 'active has power', 'active', 'complete', 'ofs'
+];
+function _isSignalMilestone(type) {
+  const t = type.toLowerCase();
+  return SIGNAL_MILESTONE_KEYWORDS.some(k => t.includes(k));
+}
+
+// Fast path: sheet reads only (~1-2s). Called first so QB + Log render immediately.
+function getSignalFast(tf) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const now = new Date();
-  const result = { qbChanges: [], systemLogs: [], driveActivity: [] };
+  const result = { qbChanges: [], systemLogs: [] };
 
-  // Timeframe cutoff
   let cutoff = new Date(0);
-  if (tf === 'today') {
-    cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  } else if (tf === 'week') {
-    cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  } else if (tf === 'month') {
-    cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  }
+  if (tf === 'today') cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  else if (tf === 'week') cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  else if (tf === 'month') cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  // 1. QB Changes from 10-Change_Log
+  // QB Changes from 10-Change_Log
   const changeSheet = ss.getSheetByName(CHANGE_LOG_SHEET);
   if (changeSheet && changeSheet.getLastRow() > 1) {
     const data = changeSheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       const ts = row[4];
-      if (ts instanceof Date && ts >= cutoff) {
+      if (ts instanceof Date && ts >= cutoff && _isSignalMilestone(String(row[1] || ''))) {
         result.qbChanges.push({
           fdh: String(row[0] || ''),
           type: String(row[1] || ''),
@@ -1086,7 +1094,7 @@ function getSignalData(tf) {
     result.qbChanges.reverse();
   }
 
-  // 2. System Logs from 4-System_Logs (last 50, newest first)
+  // System Logs from 4-System_Logs (last 50, newest first)
   const logSheet = ss.getSheetByName(LOG_SHEET);
   if (logSheet && logSheet.getLastRow() > 1) {
     const logData = logSheet.getDataRange().getValues();
@@ -1100,13 +1108,33 @@ function getSignalData(tf) {
     });
   }
 
-  // 3. Drive Folder Activity — recursive traversal of Omni Fiber root
+  return result;
+}
+
+// Slow path: Drive traversal with 10-min CacheService layer.
+// Subsequent opens within 10 min return instantly from cache.
+function getSignalDrive(tf) {
+  const cacheKey = 'SIGNAL_DRIVE_' + tf;
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try { return JSON.parse(cached); } catch(e) {}
+  }
+
+  const now = new Date();
+  let cutoff = new Date(0);
+  if (tf === 'today') cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  else if (tf === 'week') cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  else if (tf === 'month') cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const driveActivity = [];
   try {
     const root = DriveApp.getFolderById(OMNI_FIBER_FOLDER_ID);
-    _collectDriveChanges(root, root.getName(), cutoff, result.driveActivity, { count: 0 });
+    _collectDriveChanges(root, root.getName(), cutoff, driveActivity, { count: 0 });
   } catch(e) { logMsg('SIGNAL: Drive traversal failed — ' + e.message); }
 
-  return result;
+  try { cache.put(cacheKey, JSON.stringify(driveActivity), 600); } catch(e) {}
+  return driveActivity;
 }
 
 // Recursive helper: walks folder tree depth-first, collecting files modified since cutoff.
@@ -1129,13 +1157,14 @@ function _collectDriveChanges(folder, path, cutoff, out, counter, depth) {
     if (lastUpdated >= cutoff) {
       found.push({
         name: file.getName(),
+        url: file.getUrl(),
         modified: Utilities.formatDate(lastUpdated, "GMT-5", "MM/dd/yy HH:mm")
       });
       counter.count++;
     }
   }
   if (found.length > 0) {
-    out.push({ folder: path, files: found });
+    out.push({ folder: path, folderUrl: folder.getUrl(), files: found });
   }
 
   // Recurse into subfolders
