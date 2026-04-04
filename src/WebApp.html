@@ -98,6 +98,57 @@
       </div>
     </div>
 
+    <!-- SIGNAL Operations Console -->
+    <div id="signal-overlay" class="signal-overlay" onclick="_signalBackdropClick(event)">
+      <div class="signal-modal">
+        <div class="signal-header">
+          <div class="signal-brand">
+            <div class="signal-brand-title"><span>SIG</span><span>NAL</span></div>
+            <div class="signal-brand-sub">What happened while you were away</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="signal-tf-pills">
+              <button class="signal-tf-pill" data-tf="today" onclick="_signalSetTab(_signalActiveTab); loadSignalData('today')">Today</button>
+              <button class="signal-tf-pill active" data-tf="week" onclick="_signalSetTab(_signalActiveTab); loadSignalData('week')">Week</button>
+              <button class="signal-tf-pill" data-tf="month" onclick="_signalSetTab(_signalActiveTab); loadSignalData('month')">Month</button>
+            </div>
+            <button class="signal-close-btn" id="signal-close-btn" onclick="_signalDismiss()" title="Close">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+        <div class="signal-tab-bar">
+          <button class="signal-tab active" id="signal-tab-qb" onclick="_signalSetTab('qb')">QB Changes</button>
+          <button class="signal-tab" id="signal-tab-log" onclick="_signalSetTab('log')">App Log</button>
+          <button class="signal-tab" id="signal-tab-drive" onclick="_signalSetTab('drive')">Drive Folders</button>
+        </div>
+        <div class="signal-body">
+          <div id="signal-panel-qb"><div class="signal-loading">Loading...</div></div>
+          <div id="signal-panel-log" style="display:none;"><div class="signal-loading">Loading...</div></div>
+          <div id="signal-panel-drive" style="display:none;"><div class="signal-loading">Loading...</div></div>
+        </div>
+        <div class="signal-footer">
+          <span class="signal-footer-label">Enter App</span>
+          <button class="signal-ws-btn" onclick="closeSignal('detail')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+            <span>Detail</span>
+          </button>
+          <button class="signal-ws-btn" onclick="closeSignal('grid')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span>Grid</span>
+          </button>
+          <button class="signal-ws-btn" onclick="closeSignal('gantt')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="15" y2="12"></line><line x1="3" y1="18" x2="18" y2="18"></line></svg>
+            <span>Gantt</span>
+          </button>
+          <button class="signal-ws-btn" onclick="closeSignal('slide')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>
+            <span>Slide</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div id="run-review-modal" class="startup-overlay">
       <div class="startup-modal" style="text-align:left; width:320px;">
          <h2 style="margin-top:0; font-size:18px; font-weight:900; color:var(--text-main);">Run System Diagnostics</h2>
@@ -173,8 +224,8 @@
               </button>
           </div>
           <div class="view-segment-group view-tools">
-              <button class="view-segment-btn" onclick="toggleWidget('brief-widget', event)" title="Morning Brief">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10l4 4v12a2 2 0 0 1-2 2z"></path><polyline points="14 4 14 8 19 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              <button class="view-segment-btn" onclick="openSignal(true)" title="SIGNAL Console">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
               </button>
               <button class="view-segment-btn" onclick="toggleWidget('calc-widget', event)" title="Benny Calculator">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="14"></line><line x1="16" y1="18" x2="16" y2="18"></line><line x1="8" y1="14" x2="8" y2="14"></line><line x1="8" y1="18" x2="8" y2="18"></line><line x1="12" y1="14" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>
@@ -202,24 +253,6 @@
         <button class="btn-nav" onclick="toggleHelpPanel()" id="btn-help">?</button>
         <button class="btn-icon mobile-menu-toggle" id="btn-hamburger" onclick="toggleMobileMenu()" title="Menu" style="font-size:18px;">☰</button>
       </div>
-    </div>
-
-    <div id="brief-widget" class="tool-widget">
-        <div class="tool-header" id="brief-widget-header">Morning Briefing<button class="tool-close" onclick="toggleWidget('brief-widget')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div>
-        <div class="brief-toggle-container">
-            <select class="brief-select" onchange="setBriefTimeframe(this.value)">
-                <option value="lifetime" selected>Lifetime</option>
-                <option value="today">Today</option>
-                <option value="recent7">This Week</option>
-                <option value="month">This Month</option>
-                <option value="prevMonth">Prev Month</option>
-                <option value="quarter">This Quarter</option>
-                <option value="prevQuarter">Prev Quarter</option>
-            </select>
-        </div>
-        <div id="brief-content" style="padding: 0 16px 16px; overflow-y: auto; max-height: 400px;">
-            <div class="digest-panel-empty">Loading production stats...</div>
-        </div>
     </div>
 
     <div id="cal-widget" class="tool-widget">
@@ -753,6 +786,7 @@
     <?!= include('_module_huds') ?>
     <?!= include('_module_startup_boot') ?>
     <?!= include('_module_startup_refdata') ?>
+    <?!= include('_module_signal') ?>
     <?!= include('_module_ui_shell_helpers') ?>
     <?!= include('_module_mini_sld') ?>
     <?!= include('_module_webapp_core') ?>

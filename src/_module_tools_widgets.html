@@ -152,21 +152,12 @@
 
   function syncWidgetsToViewport() {
       if (typeof syncCalcWidgetToViewport === 'function') syncCalcWidgetToViewport();
-      var brief = document.getElementById('brief-widget');
-      if (brief && brief.classList.contains('open') && brief.style.left && brief.style.top) {
-          applyToolWidgetPosition(brief, parseFloat(brief.style.left), parseFloat(brief.style.top));
-      }
   }
 
   function initCalcWidgetDrag() {
       var calcHeader = document.getElementById('calc-widget-header');
       if (calcHeader) {
           calcHeader.addEventListener('pointerdown', function(e) { startWidgetDrag(e, 'calc-widget'); });
-      }
-      
-      var briefHeader = document.getElementById('brief-widget-header');
-      if (briefHeader) {
-          briefHeader.addEventListener('pointerdown', function(e) { startWidgetDrag(e, 'brief-widget'); });
       }
 
       window.addEventListener('pointermove', moveWidgetDrag);
@@ -175,104 +166,22 @@
       window.addEventListener('resize', syncWidgetsToViewport);
   }
 
-  var currentBriefTimeframe = 'lifetime';
-
-  function setBriefTimeframe(tf) {
-      currentBriefTimeframe = tf;
-      renderMorningBrief();
-  }
-
-  function renderMorningBrief() {
-      var content = document.getElementById('brief-content');
-      if (!content) return;
-
-      // Sync dropdown to active timeframe on every render (handles reopen state)
-      var sel = document.querySelector('.brief-select');
-      if (sel) sel.value = currentBriefTimeframe;
-
-      var fiberStats = (window._lastDashboardPayload && window._lastDashboardPayload.fiberStats) || {};
-      if (Object.keys(fiberStats).length === 0) {
-          content.innerHTML = '<div class="digest-panel-empty">No historical fiber production data found.</div>';
-          return;
-      }
-
-      var sortedVendors = Object.keys(fiberStats).sort(function(a, b) {
-          var valA = fiberStats[a][currentBriefTimeframe] ? fiberStats[a][currentBriefTimeframe].miles : 0;
-          var valB = fiberStats[b][currentBriefTimeframe] ? fiberStats[b][currentBriefTimeframe].miles : 0;
-          return valB - valA;
-      });
-
-      // Simple esc helper if not available
-      var esc = window.esc || function(s) {
-          if (!s) return "";
-          return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-      };
-
-      // Days-in-period map for avg calculation
-      var now = new Date();
-      var daysInMonth = function(yr, mo) { return new Date(yr, mo + 1, 0).getDate(); };
-      var periodDays = {
-          lifetime:    null,
-          today:       1,
-          recent7:     7,
-          month:       daysInMonth(now.getFullYear(), now.getMonth()),
-          prevMonth:   daysInMonth(now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear(), now.getMonth() === 0 ? 11 : now.getMonth() - 1),
-          quarter:     91,
-          prevQuarter: 91
-      };
-
-      var html = '<div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">';
-
-      sortedVendors.forEach(function(v) {
-          var s = fiberStats[v][currentBriefTimeframe];
-          if (!s || s.miles === 0) return;
-
-          var subMetric = "";
-          if (currentBriefTimeframe === 'lifetime') {
-              subMetric = '<span class="brief-badge">' + (fiberStats[v].lifetime.fdhCount || 0) + ' FDHs</span>';
-          } else if (currentBriefTimeframe === 'today') {
-              subMetric = '<span style="color:var(--text-muted); font-size:9px; font-weight:600;">' + s.footage.toLocaleString() + ' ft today</span>';
-          } else {
-              var days = periodDays[currentBriefTimeframe] || 30;
-              var dailyAvg = (s.footage / days).toFixed(0);
-              subMetric = '<span style="color:var(--text-muted); font-size:9px; font-weight:600;">Avg: ' + Number(dailyAvg).toLocaleString() + ' ft/day</span>';
-          }
-
-          html += `
-              <div class="brief-stat-row">
-                  <div style="display:flex; flex-direction:column; gap:2px;">
-                      <span style="font-weight:800; font-size:12px; color:var(--text-main);">${esc(v)}</span>
-                      ${subMetric}
-                  </div>
-                  <div style="display:flex; flex-direction:column; align-items:flex-end;">
-                      <span style="color:#ef4444; font-weight:900; font-size:13px;">${s.miles.toLocaleString()} mi</span>
-                      <span style="color:var(--text-muted); font-size:9px; font-weight:600;">${s.footage.toLocaleString()} ft</span>
-                  </div>
-              </div>
-          `;
-      });
-      html += '</div>';
-      content.innerHTML = html;
-  }
-
-  window.setBriefTimeframe = setBriefTimeframe;
-
   // MODULE CANDIDATE: _module_tools_widgets.html
   // STATE DEPS: calcWidgetDragState, currentCalDate, calcState
   // EXTRACT ORDER: 1
   function toggleWidget(id, event) {
-      ['cal-widget', 'calc-widget', 'brief-widget'].forEach(function(w) {
+      ['cal-widget', 'calc-widget'].forEach(function(w) {
           var el = document.getElementById(w);
           if (el && w !== id) {
               el.classList.remove('open');
-              if (w === 'calc-widget' || w === 'brief-widget') endWidgetDrag();
+              if (w === 'calc-widget') endWidgetDrag();
           }
       });
       var widget = document.getElementById(id);
       if (!widget) return;
       var isOpen = widget.classList.toggle('open');
 
-      if ((id === 'calc-widget' || id === 'brief-widget') && !isOpen) {
+      if (id === 'calc-widget' && !isOpen) {
           endWidgetDrag();
       }
 
@@ -283,7 +192,6 @@
       }
 
       if (id === 'cal-widget' && isOpen) renderCalendar();
-      if (id === 'brief-widget' && isOpen) renderMorningBrief();
   }
 
   function renderCalendar() {

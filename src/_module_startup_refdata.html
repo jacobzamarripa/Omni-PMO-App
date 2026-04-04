@@ -12,25 +12,11 @@ function showStartupSelector() {
         document.body.classList.remove('mobile-detail-open');
         return completeStartup('detail');
     }
-
-    const overlay = getEl('startup-overlay');
-    const countEl = getEl('startup-countdown');
-    startupCountdown = 6;
-    clearInterval(startupTimer);
-    if (!overlay || !countEl) return completeStartup('detail');
-
-    overlay.classList.add('visible');
-    countEl.innerText = startupCountdown;
-
-    startupTimer = setInterval(() => {
-        startupCountdown--;
-        countEl.innerText = startupCountdown;
-        if (startupCountdown <= 0) {
-            clearInterval(startupTimer);
-            startupTimer = null;
-            completeStartup('detail');
-        }
-    }, 1000);
+    if (typeof openSignal === 'function') {
+        openSignal();
+    } else {
+        completeStartup('detail');
+    }
 }
 
 function completeStartup(mode) {

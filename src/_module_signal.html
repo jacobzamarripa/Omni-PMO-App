@@ -1,0 +1,219 @@
+<script>
+// ============================================================
+// FILE: _module_signal.html | ROLE: SIGNAL Operations Console
+// DEPENDS ON: _module_startup_refdata.html (completeStartup)
+// DEPENDED ON BY: WebApp.html (auto-open on load)
+// ============================================================
+
+var _signalCurrentTf = 'week';
+var _signalActiveTab = 'qb';
+var _signalMode = 'startup'; // 'startup' = must pick workspace | 'manual' = can dismiss freely
+
+function openSignal(force) {
+  if (window.innerWidth <= 480) {
+    return completeStartup('detail');
+  }
+  var overlay = document.getElementById('signal-overlay');
+  if (!overlay) return completeStartup('detail');
+
+  if (force) {
+    // Manual open from nav — always show, backdrop dismisses back to app
+    _signalMode = 'manual';
+    overlay.classList.add('visible', 'signal-manual');
+    _signalCurrentTf = 'week';
+    _signalActiveTab = 'qb';
+    _signalSetTab('qb');
+    loadSignalData(_signalCurrentTf);
+    return;
+  }
+
+  // Auto-open on load
+  var seen = sessionStorage.getItem('SIGNAL_SEEN');
+  if (seen) {
+    _showStartupAfterSignal();
+    return;
+  }
+  _signalMode = 'startup';
+  overlay.classList.add('visible');
+  overlay.classList.remove('signal-manual');
+  _signalCurrentTf = 'week';
+  _signalActiveTab = 'qb';
+  _signalSetTab('qb');
+  loadSignalData(_signalCurrentTf);
+}
+
+// Called when user picks a workspace (both modes)
+function closeSignal(mode) {
+  var overlay = document.getElementById('signal-overlay');
+  if (overlay) { overlay.classList.remove('visible', 'signal-manual'); }
+  try { localStorage.setItem('SIGNAL_LAST_OPEN', Date.now()); } catch(e) {}
+  sessionStorage.setItem('SIGNAL_SEEN', '1');
+  completeStartup(mode || 'detail');
+}
+
+// Called when user clicks backdrop in manual mode — return to app without workspace switch
+function _signalDismiss() {
+  if (_signalMode !== 'manual') return;
+  var overlay = document.getElementById('signal-overlay');
+  if (overlay) { overlay.classList.remove('visible', 'signal-manual'); }
+}
+
+function _signalBackdropClick(e) {
+  if (e.target === document.getElementById('signal-overlay')) _signalDismiss();
+}
+
+function _showStartupAfterSignal() {
+  var overlay = document.getElementById('startup-overlay');
+  var countEl = document.getElementById('startup-countdown');
+  if (!overlay || !countEl) return completeStartup('detail');
+  overlay.classList.add('visible');
+  var countdown = 6;
+  countEl.innerText = countdown;
+  var t = setInterval(function() {
+    countdown--;
+    countEl.innerText = countdown;
+    if (countdown <= 0) {
+      clearInterval(t);
+      completeStartup('detail');
+    }
+  }, 1000);
+}
+
+function loadSignalData(tf) {
+  _signalCurrentTf = tf;
+  document.querySelectorAll('.signal-tf-pill').forEach(function(p) {
+    p.classList.toggle('active', p.dataset.tf === tf);
+  });
+  ['qb', 'log', 'drive'].forEach(function(tab) {
+    var el = document.getElementById('signal-panel-' + tab);
+    if (el) el.innerHTML = '<div class="signal-loading">Loading...</div>';
+  });
+  google.script.run
+    .withSuccessHandler(function(data) { _renderSignalData(data); })
+    .withFailureHandler(function(err) { _signalError(err); })
+    .getSignalData(tf);
+}
+
+function _renderSignalData(data) {
+  _renderSignalQB(data.qbChanges || []);
+  _renderSignalLogs(data.systemLogs || []);
+  _renderSignalDrive(data.driveActivity || []);
+}
+
+function _signalError(err) {
+  ['qb', 'log', 'drive'].forEach(function(tab) {
+    var el = document.getElementById('signal-panel-' + tab);
+    if (el) el.innerHTML = '<div class="signal-empty">Failed to load data.</div>';
+  });
+}
+
+function _renderSignalQB(changes) {
+  var el = document.getElementById('signal-panel-qb');
+  if (!el) return;
+  if (!changes.length) {
+    el.innerHTML = '<div class="signal-empty">No QB changes in this timeframe.</div>';
+    return;
+  }
+  var groups = { 'Status': [], 'Date': [], 'Other': [] };
+  changes.forEach(function(c) {
+    var t = (c.type || '').toLowerCase();
+    if (t.includes('status')) groups['Status'].push(c);
+    else if (t.includes('date') || t.includes('target') || t.includes('completion')) groups['Date'].push(c);
+    else groups['Other'].push(c);
+  });
+  var html = '';
+  ['Status', 'Date', 'Other'].forEach(function(group) {
+    var rows = groups[group];
+    if (!rows.length) return;
+    html += '<div class="signal-group-label">' + group + ' Changes <span class="signal-count">' + rows.length + '</span></div>';
+    rows.forEach(function(c) {
+      html += '<div class="signal-row">'
+        + '<div class="signal-row-main">'
+        + '<span class="signal-fdh">' + _esc(c.fdh) + '</span>'
+        + '<span class="signal-type">' + _esc(c.type) + '</span>'
+        + '</div>'
+        + '<div class="signal-row-sub">'
+        + '<span class="signal-val">' + _esc(c.newVal) + '</span>'
+        + '<span class="signal-meta">' + _esc(c.updatedBy) + ' &middot; ' + _esc(c.timestamp) + '</span>'
+        + '</div>'
+        + '</div>';
+    });
+  });
+  el.innerHTML = html;
+}
+
+function _renderSignalLogs(logs) {
+  var el = document.getElementById('signal-panel-log');
+  if (!el) return;
+  if (!logs.length) {
+    el.innerHTML = '<div class="signal-empty">No system log entries found.</div>';
+    return;
+  }
+  var html = '';
+  logs.forEach(function(l) {
+    var msg = l.message || '';
+    var isOk = msg.startsWith('✅');
+    var isWarn = msg.startsWith('⚠') || msg.startsWith('WARN');
+    var isErr = msg.startsWith('❌') || msg.startsWith('ERROR');
+    var cls = isOk ? 'ok' : isWarn ? 'warn' : isErr ? 'err' : '';
+    html += '<div class="signal-log-row' + (cls ? ' signal-log-' + cls : '') + '">'
+      + '<span class="signal-log-ts">' + _esc(l.timestamp) + '</span>'
+      + '<span class="signal-log-msg">' + _esc(msg) + '</span>'
+      + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function _renderSignalDrive(activity) {
+  var el = document.getElementById('signal-panel-drive');
+  if (!el) return;
+  if (!activity.length) {
+    el.innerHTML = '<div class="signal-empty">No Drive folder activity in this timeframe.</div>';
+    return;
+  }
+  // Sort groups by most recent file modified
+  activity.sort(function(a, b) {
+    var aMax = a.files.reduce(function(m, f) { return f.modified > m ? f.modified : m; }, '');
+    var bMax = b.files.reduce(function(m, f) { return f.modified > m ? f.modified : m; }, '');
+    return bMax > aMax ? 1 : -1;
+  });
+  var html = '';
+  activity.forEach(function(group) {
+    // Show only the last 2 path segments for readability
+    var parts = group.folder.split(' / ');
+    var label = parts.length > 2 ? '&hellip; / ' + _esc(parts.slice(-2).join(' / ')) : _esc(group.folder);
+    var fullPath = _esc(group.folder);
+    html += '<div class="signal-group-label" title="' + fullPath + '">' + label
+      + ' <span class="signal-count">' + group.files.length + '</span></div>';
+    group.files.forEach(function(f) {
+      html += '<div class="signal-row">'
+        + '<div class="signal-row-main"><span class="signal-fdh">' + _esc(f.name) + '</span></div>'
+        + '<div class="signal-row-sub"><span class="signal-meta">' + _esc(f.modified) + '</span></div>'
+        + '</div>';
+    });
+  });
+  el.innerHTML = html;
+}
+
+function _signalSetTab(tab) {
+  _signalActiveTab = tab;
+  ['qb', 'log', 'drive'].forEach(function(t) {
+    var panel = document.getElementById('signal-panel-' + t);
+    var btn = document.getElementById('signal-tab-' + t);
+    if (panel) panel.style.display = t === tab ? 'block' : 'none';
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+}
+
+function _esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+window.openSignal = openSignal;
+window.closeSignal = closeSignal;
+window.loadSignalData = loadSignalData;
+window._signalSetTab = _signalSetTab;
+window._signalBackdropClick = _signalBackdropClick;
+window._signalDismiss = _signalDismiss;
+</script>

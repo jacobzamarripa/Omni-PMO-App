@@ -1049,3 +1049,99 @@ function emailExportCSV(reviewsArray, targetEmail) {
 
   return "✅ Success! CSV emailed to " + targetEmail;
 }
+
+// ── SIGNAL CONSOLE DATA ──────────────────────────────────────
+function getSignalData(tf) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const now = new Date();
+  const result = { qbChanges: [], systemLogs: [], driveActivity: [] };
+
+  // Timeframe cutoff
+  let cutoff = new Date(0);
+  if (tf === 'today') {
+    cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (tf === 'week') {
+    cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  } else if (tf === 'month') {
+    cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  }
+
+  // 1. QB Changes from 10-Change_Log
+  const changeSheet = ss.getSheetByName(CHANGE_LOG_SHEET);
+  if (changeSheet && changeSheet.getLastRow() > 1) {
+    const data = changeSheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const ts = row[4];
+      if (ts instanceof Date && ts >= cutoff) {
+        result.qbChanges.push({
+          fdh: String(row[0] || ''),
+          type: String(row[1] || ''),
+          newVal: String(row[2] || ''),
+          updatedBy: String(row[3] || ''),
+          timestamp: Utilities.formatDate(ts, "GMT-5", "MM/dd/yy HH:mm")
+        });
+      }
+    }
+    result.qbChanges.reverse();
+  }
+
+  // 2. System Logs from 4-System_Logs (last 50, newest first)
+  const logSheet = ss.getSheetByName(LOG_SHEET);
+  if (logSheet && logSheet.getLastRow() > 1) {
+    const logData = logSheet.getDataRange().getValues();
+    const rows = logData.slice(1).slice(-50).reverse();
+    rows.forEach(row => {
+      const ts = row[0];
+      result.systemLogs.push({
+        timestamp: ts instanceof Date ? Utilities.formatDate(ts, "GMT-5", "MM/dd/yy HH:mm") : String(ts),
+        message: String(row[1] || '')
+      });
+    });
+  }
+
+  // 3. Drive Folder Activity — recursive traversal of Omni Fiber root
+  try {
+    const root = DriveApp.getFolderById(OMNI_FIBER_FOLDER_ID);
+    _collectDriveChanges(root, root.getName(), cutoff, result.driveActivity, { count: 0 });
+  } catch(e) { logMsg('SIGNAL: Drive traversal failed — ' + e.message); }
+
+  return result;
+}
+
+// Recursive helper: walks folder tree depth-first, collecting files modified since cutoff.
+// Prunes entire subtrees where the folder itself hasn't been touched since cutoff.
+// Caps at 150 results and depth 5 to prevent GAS timeout on large trees.
+function _collectDriveChanges(folder, path, cutoff, out, counter, depth) {
+  if (counter.count >= 150 || (depth || 0) > 5) return;
+
+  // Prune: skip folder entirely if it hasn't been modified since cutoff
+  try {
+    if (folder.getLastUpdated() < cutoff) return;
+  } catch(e) { /* can't read date — proceed */ }
+
+  // Files in this folder
+  const files = folder.getFiles();
+  const found = [];
+  while (files.hasNext() && counter.count < 150) {
+    const file = files.next();
+    const lastUpdated = file.getLastUpdated();
+    if (lastUpdated >= cutoff) {
+      found.push({
+        name: file.getName(),
+        modified: Utilities.formatDate(lastUpdated, "GMT-5", "MM/dd/yy HH:mm")
+      });
+      counter.count++;
+    }
+  }
+  if (found.length > 0) {
+    out.push({ folder: path, files: found });
+  }
+
+  // Recurse into subfolders
+  const subs = folder.getFolders();
+  while (subs.hasNext() && counter.count < 150) {
+    const sub = subs.next();
+    _collectDriveChanges(sub, path + ' / ' + sub.getName(), cutoff, out, counter, (depth || 0) + 1);
+  }
+}
