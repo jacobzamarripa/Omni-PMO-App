@@ -187,7 +187,7 @@ function renderGrid() {
             let ofsMeta = getEffectiveOfsMonthMeta(item, today);
             let ofsMonthStr = ofsMeta.label;
             let isOFSMonth = ofsMeta.isCurrentMonth;
-            let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239, 246, 255, 0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--bg); border-color:var(--border);';
+            let ofsPillClass = 'vel-footer-pill vel-footer-pill--ofs' + (isOFSMonth ? ' is-current' : '');
 
             if (v) {
                 bodyHtml = `
@@ -201,7 +201,7 @@ function renderGrid() {
                         <div style="font-size:9px; font-weight:900; color:var(--text-muted);">${daysLeftTxt}</div>
                         <div style="display:flex; gap:6px;">
                             <div class="vel-footer-pill" style="font-size:8px; padding:2px 6px;">BSLS: ${item.bsls}</div>
-                            <div class="vel-footer-pill" style="font-size:8px; padding:2px 6px; ${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
+                            <div class="${ofsPillClass}" style="font-size:8px; padding:2px 6px;">OFS: ${ofsMonthStr}</div>
                         </div>
                     </div>
                 `;

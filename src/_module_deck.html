@@ -462,7 +462,7 @@ function renderDeckStage() {
         let ofsMeta = getEffectiveOfsMonthMeta(item, today);
         let ofsMonthStr = ofsMeta.label;
         let isOFSMonth = ofsMeta.isCurrentMonth;
-        let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239,246,255,0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--card-bg); border-color:var(--border);';
+        let ofsPillClass = 'vel-footer-pill vel-footer-pill--ofs' + (isOFSMonth ? ' is-current' : '');
         let daysLeftTxt = daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`;
 
         let deckReportDate = formatDate(item.reportDate || item.date);
@@ -640,7 +640,7 @@ function renderDeckStage() {
               </div>
               <div style="display:flex; gap:8px; align-items:center; white-space:nowrap; flex-shrink:0;">
                 <div style="font-size:10px; font-weight:800; padding:3px 8px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--text-main);">BSLS: ${item.bsls || 'N/A'}</div>
-                <div style="font-size:10px; font-weight:800; padding:3px 8px; border-radius:6px; border:1px solid; ${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
+                <div class="${ofsPillClass}" style="font-size:10px; padding:3px 8px; border-radius:6px;">OFS: ${ofsMonthStr}</div>
                 ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={'3'.EX.'${item.rid}'}" target="_blank" class="btn" style="padding:5px 12px; font-size:9px; color:var(--text-muted); background:var(--bg); border-color:var(--border); text-decoration:none;">⚙ EDIT IN ENGINE</a>` : ''}
               </div>
             </div>

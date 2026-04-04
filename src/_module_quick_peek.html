@@ -42,7 +42,7 @@ function renderQuickPeek(item) {
     const ofsMeta = getEffectiveOfsMonthMeta(item, today);
     let ofsMonthStr = ofsMeta.label;
     let isOfsMonth = ofsMeta.isCurrentMonth;
-    const ofsPillStyle = isOfsMonth ? 'color:#2563eb; background:rgba(239,246,255,0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--card-bg); border-color:var(--border);';
+    const ofsPillClass = 'vel-footer-pill vel-footer-pill--ofs' + (isOfsMonth ? ' is-current' : '');
     const velHtml = v ? `
         <div class="velocity-grid" style="gap:10px; align-content:flex-start;">
             ${buildVelocityBar('UG', v.ug.daily, v.ug.tot, v.ug.bom, 'UG', daysLeft)}
@@ -54,7 +54,7 @@ function renderQuickPeek(item) {
             <div style="font-size:10px; font-weight:900; color:var(--text-muted);">${daysLeftTxt}</div>
             <div style="display:flex; gap:8px;">
                 <div class="vel-footer-pill">BSLS: ${item.bsls || 0}</div>
-                <div class="vel-footer-pill" style="${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
+                <div class="${ofsPillClass}">OFS: ${ofsMonthStr}</div>
             </div>
         </div>
     ` : '<div class="empty-msg">No velocity data tracked.</div>';

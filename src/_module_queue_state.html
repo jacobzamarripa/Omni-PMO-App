@@ -320,7 +320,7 @@ function renderList(items) {
             let ofsMeta = getEffectiveOfsMonthMeta(item, today);
             let ofsMonthStr = ofsMeta.label;
             let isOFSMonth = ofsMeta.isCurrentMonth;
-            let ofsPillStyle = isOFSMonth ? 'color:#2563eb; background:rgba(239, 246, 255, 0.7); border-color:#2563eb;' : 'color:var(--text-main); background:var(--bg); border-color:var(--border);';
+            let ofsPillClass = 'vel-footer-pill vel-footer-pill--ofs' + (isOFSMonth ? ' is-current' : '');
             if (v) {
                 bodyHtml = `
                     <div class="velocity-grid" style="align-content:flex-start; gap:8px; margin-bottom:8px; flex-grow:0;">
@@ -333,7 +333,7 @@ function renderList(items) {
                         <div style="font-size:9px; font-weight:900; color:var(--text-muted);">${daysLeft < 0 ? `OVERDUE BY: ${Math.abs(daysLeft)} DAYS` : `DAYS LEFT: ${daysLeft}`}</div>
                         <div style="display:flex; gap:6px;">
                             <div class="vel-footer-pill" style="font-size:8px; padding:2px 6px;">BSLS: ${item.bsls}</div>
-                            <div class="vel-footer-pill" style="font-size:8px; padding:2px 6px; ${ofsPillStyle}">OFS: ${ofsMonthStr}</div>
+                            <div class="${ofsPillClass}" style="font-size:8px; padding:2px 6px;">OFS: ${ofsMonthStr}</div>
                         </div>
                     </div>`;
             } else {
@@ -884,15 +884,7 @@ function openPane(item, cardEl) {
         if (pOfs) {
             pOfs.style.display = 'inline-flex';
             pOfs.innerText = `OFS: ${ofsMonthStr}`;
-            if (isOFSMonth) {
-                pOfs.style.color = '#2563eb';
-                pOfs.style.background = 'rgba(239, 246, 255, 0.7)';
-                pOfs.style.borderColor = '#2563eb';
-            } else {
-                pOfs.style.color = 'var(--text-main)';
-                pOfs.style.background = 'var(--bg)';
-                pOfs.style.borderColor = 'var(--border)';
-            }
+            pOfs.className = 'vel-footer-pill hover-trigger vel-footer-pill--ofs' + (isOFSMonth ? ' is-current' : '');
         }
 
         let chkMatch = (item.gaps || "").match(/\[Chk:\s*([^\]]+)\]/);
