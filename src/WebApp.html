@@ -311,44 +311,7 @@
       <button onclick="toggleHelpPanel(); toggleMobileMenu()">? Help</button>
     </div>
 
-    <div class="workspace" id="main-workspace">
-      <div class="inbox-sidebar">
-        <div class="inbox-header">
-          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-              <div class="inbox-title inbox-title-stack"><span>Diagnostics</span><span>Queue</span></div>
-              <div class="inbox-count" id="inbox-count">0</div>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px; margin-left:auto; flex-shrink:0;">
-              <button class="btn-icon has-tooltip" id="view-toggle-btn" data-tooltip="Switch to List" onclick="cycleViewMode()" style="font-size:15px;">☰</button>
-              <select id="sidebar-pivot-select" onchange="applyFilters()" style="display:none; font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto; height:32px; margin-right:6px;">
-                 <option value="schedule">Project Schedule</option>
-                 <option value="velocity">Field Velocity</option>
-              </select>
-              <select id="sort-queue" onchange="applyFilters()" style="font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto; height:32px;">
-                 <option value="default">Default</option>
-                 <option value="admin">Admin Check</option>
-                 <option value="target">Target Date</option>
-                 <option value="start">CX Start</option>
-                 <option value="end">CX Complete</option>
-                 <option value="ofs">OFS Date</option>
-                 <option value="report">Report Date</option>
-              </select>
-          </div>
-        </div>
-        <div class="inbox-list" id="inbox-list"></div>
-      </div>
-      <div class="reading-pane">
-        <button id="mobile-back-btn" onclick="closeMobileDetail()" aria-label="Back to queue">
-                    <span class="mobile-back-left">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                        Queue
-                    </span>
-                    <span class="mobile-back-title" id="mobile-back-title">Project</span>
-        </button>
-        <div class="upper-workspace">
-          <div class="detail-layout" id="detail-layout" style="display:flex;">
-            <div class="detail-main">
-                 <div class="filter-strip smart-dock" id="filter-strip">
+    <div class="filter-strip smart-dock" id="filter-strip">
             <div class="dock-zone collapsed" id="dock-system-zone" style="justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
                 <span id="dock-sys-spinner" class="dock-spinner" style="display:none;"></span>
                 <span id="dock-sys-msg"></span>
@@ -424,6 +387,43 @@
                 <button class="btn hover-trigger" id="btn-clear-filters" onclick="clearAllFilters()" style="background:var(--card-bg); color:var(--text-main); border-color:var(--border); padding:0 12px;">Clear</button>
             </div>
         </div>
+    <div class="workspace" id="main-workspace">
+      <div class="inbox-sidebar">
+        <div class="inbox-header">
+          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+              <div class="inbox-title inbox-title-stack"><span>Diagnostics</span><span>Queue</span></div>
+              <div class="inbox-count" id="inbox-count">0</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; margin-left:auto; flex-shrink:0;">
+              <button class="btn-icon has-tooltip" id="view-toggle-btn" data-tooltip="Switch to List" onclick="cycleViewMode()" style="font-size:15px;">☰</button>
+              <select id="sidebar-pivot-select" onchange="applyFilters()" style="display:none; font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto; height:32px; margin-right:6px;">
+                 <option value="schedule">Project Schedule</option>
+                 <option value="velocity">Field Velocity</option>
+              </select>
+              <select id="sort-queue" onchange="applyFilters()" style="font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text-main); font-weight:bold; outline:none; cursor:pointer; width:auto; height:32px;">
+                 <option value="default">Default</option>
+                 <option value="admin">Admin Check</option>
+                 <option value="target">Target Date</option>
+                 <option value="start">CX Start</option>
+                 <option value="end">CX Complete</option>
+                 <option value="ofs">OFS Date</option>
+                 <option value="report">Report Date</option>
+              </select>
+          </div>
+        </div>
+        <div class="inbox-list" id="inbox-list"></div>
+      </div>
+      <div class="reading-pane">
+        <button id="mobile-back-btn" onclick="closeMobileDetail()" aria-label="Back to queue">
+                    <span class="mobile-back-left">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                        Queue
+                    </span>
+                    <span class="mobile-back-title" id="mobile-back-title">Project</span>
+        </button>
+        <div class="upper-workspace">
+          <div class="detail-layout" id="detail-layout" style="display:flex;">
+            <div class="detail-main">
         <div id="active-filter-pills"></div>
                  <div id="welcome-screen" class="empty-msg"><div style="font-size:32px; margin-bottom:12px;">Select a Project</div></div>
                  <div id="grid-content" style="display:none; width:100%; flex:1; overflow-y:auto; padding:20px; align-content:flex-start; gap:16px; box-sizing:border-box;"></div>

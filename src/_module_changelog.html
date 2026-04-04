@@ -10,12 +10,13 @@
 let expandedActivityRows = new Set();
 
 const _CHANGELOG_TRACKED_TYPES = ['status', 'stage', 'stage status', 'ofs date', 'cx start date', 'cx end date'];
+const _CHANGELOG_ALLOWED_STAGE_VALUES = ['permitting', 'vendor assignment', 'cx', 'ofs'];
 function _isChangelogMilestone(type, val) {
   const t = (type || '').toLowerCase().trim();
   if (!_CHANGELOG_TRACKED_TYPES.includes(t)) return false;
   if (t === 'status' || t === 'stage' || t === 'stage status') {
     const v = (val || '').toLowerCase().trim();
-    if (!v || v === 'design') return false;
+    return _CHANGELOG_ALLOWED_STAGE_VALUES.some(k => v.includes(k));
   }
   return true;
 }

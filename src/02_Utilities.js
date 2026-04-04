@@ -1053,17 +1053,15 @@ function emailExportCSV(reviewsArray, targetEmail) {
 // ── SIGNAL CONSOLE DATA ──────────────────────────────────────
 
 // Keep only meaningful field changes; drop noise like Engineering ID, Phase, Design-stage updates.
-// Also drops Status/Stage rows where the new value is pre-Permitting (Design or empty).
+// Status/Stage/Stage Status rows must match an allowed pipeline value.
 const SIGNAL_TRACKED_TYPES = ['status', 'stage', 'stage status', 'ofs date', 'cx start date', 'cx end date'];
-const SIGNAL_EXCLUDED_VALUES = ['design', ''];
+const SIGNAL_ALLOWED_STAGE_VALUES = ['permitting', 'vendor assignment', 'cx', 'ofs'];
 function _isSignalMilestone(type, newVal) {
   const t = (type || '').toLowerCase().trim();
   if (!SIGNAL_TRACKED_TYPES.includes(t)) return false;
-  // For Status/Stage fields, drop pre-Permitting values
   if (t === 'status' || t === 'stage' || t === 'stage status') {
     const v = (newVal || '').toLowerCase().trim();
-    if (SIGNAL_EXCLUDED_VALUES.includes(v) || v === '') return false;
-    if (v.includes('design')) return false;
+    return SIGNAL_ALLOWED_STAGE_VALUES.some(k => v.includes(k));
   }
   return true;
 }
@@ -1087,10 +1085,16 @@ function getSignalFast(tf) {
       const row = data[i];
       const ts = row[4];
       if (ts instanceof Date && ts >= cutoff && _isSignalMilestone(String(row[1] || ''), String(row[2] || ''))) {
+        const rawType = String(row[1] || '').toLowerCase().trim();
+        const rawVal = row[2];
+        const isDateField = rawType === 'ofs date' || rawType === 'cx start date' || rawType === 'cx end date';
+        const formattedVal = isDateField && rawVal instanceof Date
+          ? Utilities.formatDate(rawVal, "GMT-5", "MM/dd/yyyy")
+          : String(rawVal || '');
         result.qbChanges.push({
           fdh: String(row[0] || ''),
           type: String(row[1] || ''),
-          newVal: String(row[2] || ''),
+          newVal: formattedVal,
           updatedBy: String(row[3] || ''),
           timestamp: Utilities.formatDate(ts, "GMT-5", "MM/dd/yy HH:mm")
         });

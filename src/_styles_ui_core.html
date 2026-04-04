@@ -77,8 +77,8 @@
       .btn-icon:hover { background: var(--card-bg); transform: translateY(-1px); }
       /* 2. Smart Context-Aware Filter Dock */
       .filter-strip {
-          position: absolute !important;
-          top: 16px !important;
+          position: fixed !important;
+          top: var(--dock-clearance-top, 72px) !important;
           left: 50% !important;
           right: auto !important;
           transform: translateX(-50%) !important;
