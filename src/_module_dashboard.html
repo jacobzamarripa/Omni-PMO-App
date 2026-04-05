@@ -237,7 +237,7 @@ function renderDashFlagsFeed() {
     var container = getEl('dash-flag-feed');
     if (!container || !feedCard) return;
 
-    var items = (currentCriticalHubItems || []).slice(0, 5);
+    var items = (currentCriticalHubItems || []);
 
     if (!items.length) {
         feedCard.style.display = 'none';
@@ -247,19 +247,28 @@ function renderDashFlagsFeed() {
     feedCard.style.display = '';
 
     container.innerHTML = items.map(function(item) {
-        var sev = getSeverity(item.flags);
-        var flagType = typeof getCriticalType === 'function' ? getCriticalType(item) : 'Critical';
-        var isCrit = sev === 'crit';
-        var cls = isCrit ? 'is-crit' : 'is-warn';
         var fdh = esc(item.fdh || '');
         var vendor = esc(item.vendor || '');
+        var stage = esc(item.stage || '');
 
-        return '<div class="dash-flag-item ' + cls + '">' +
-            '<div>' +
+        // Extract the specific 🚨/🛑 flags that triggered critical severity
+        var critFlags = (item.flags || '').split('\n')
+            .map(function(f) { return f.trim(); })
+            .filter(function(f) { return f.includes('🚨') || f.includes('🛑'); });
+
+        // Clean emoji prefix for display, keep text readable
+        var triggerTags = critFlags.map(function(f) {
+            var icon = f.includes('🚨') ? '🚨' : '🛑';
+            var text = f.replace(/^[🚨🛑]\s*/, '').trim();
+            return '<span class="dash-trigger-tag">' + icon + ' ' + esc(text) + '</span>';
+        }).join('');
+
+        return '<div class="dash-flag-item is-crit">' +
+            '<div class="dash-flag-main">' +
                 '<div class="dash-flag-fdh">' + fdh + '</div>' +
-                '<div class="dash-flag-meta">' + vendor + (flagType ? ' · ' + esc(flagType) : '') + '</div>' +
+                '<div class="dash-flag-meta">' + vendor + (stage ? ' · ' + stage : '') + '</div>' +
+                (triggerTags ? '<div class="dash-trigger-row">' + triggerTags + '</div>' : '') +
             '</div>' +
-            '<span class="dash-flag-badge ' + cls + '">' + (isCrit ? 'CRITICAL' : 'WARNING') + '</span>' +
             '<button class="dash-flag-nav-btn" onclick="navigateFromDashboardFlag(\'' + fdh.replace(/'/g, "\\'") + '\')">' +
                 'View' +
             '</button>' +
