@@ -54,7 +54,7 @@ function renderDashboard() {
 
     renderDashKpiStrip();
     renderDashHealthDonut();
-    renderDashStageBar();
+    renderDashStatusBar();
     renderDashVendorBsl();
     renderDashFlagsFeed();
 }
@@ -161,47 +161,44 @@ function _buildDonutSVG(total, crit, warn, clean) {
     '</svg>';
 }
 
-function renderDashStageBar() {
+function renderDashStatusBar() {
     var container = getEl('dash-stage-bars');
     if (!container) return;
 
-    var stageCounts = (currentFilterStats && currentFilterStats.stageCounts) || {};
-    var entries = Object.keys(stageCounts).map(function(k) { return [k, stageCounts[k]]; })
+    // Aggregate item.status directly from allActionItems (no cached statusCounts exists)
+    var statusMap = {};
+    (allActionItems || []).forEach(function(item) {
+        var s = (item.status || 'Unknown').trim() || 'Unknown';
+        statusMap[s] = (statusMap[s] || 0) + 1;
+    });
+
+    var entries = Object.keys(statusMap).map(function(k) { return [k, statusMap[k]]; })
         .filter(function(e) { return e[1] > 0; })
         .sort(function(a, b) { return b[1] - a[1]; });
 
     if (!entries.length) {
-        container.innerHTML = '<div class="dash-bar-label" style="color:var(--text-muted)">No stage data</div>';
+        container.innerHTML = '<div class="dash-bar-label" style="color:var(--text-muted)">No status data</div>';
         return;
     }
 
     var maxVal = entries[0][1];
 
-    function stageColor(stageName) {
-        var s = (stageName || '').toLowerCase();
-        if (s.indexOf('ofs') !== -1 || s.indexOf('open for sale') !== -1) return 'var(--pill-ofs-bg)';
-        if (s.indexOf('permit') !== -1) return 'var(--pill-permit-bg)';
-        if (s.indexOf('complete') !== -1) return 'var(--pill-complete-bg)';
-        if (s.indexOf('hold') !== -1) return 'var(--pill-hold-bg)';
-        return 'var(--pill-active-bg)';
-    }
-
-    function stageBorderColor(stageName) {
-        var s = (stageName || '').toLowerCase();
+    function statusColor(statusName) {
+        var s = (statusName || '').toLowerCase();
         if (s.indexOf('ofs') !== -1 || s.indexOf('open for sale') !== -1) return 'var(--pill-ofs-bdr)';
         if (s.indexOf('permit') !== -1) return 'var(--pill-permit-bdr)';
         if (s.indexOf('complete') !== -1) return 'var(--pill-complete-bdr)';
-        if (s.indexOf('hold') !== -1) return 'var(--pill-hold-bdr)';
+        if (s.indexOf('hold') !== -1 || s.indexOf('assign') !== -1) return 'var(--pill-hold-bdr)';
         return 'var(--pill-active-bdr)';
     }
 
     container.innerHTML = entries.slice(0, 8).map(function(e) {
-        var stage = e[0], cnt = e[1];
+        var status = e[0], cnt = e[1];
         var pct = ((cnt / maxVal) * 100).toFixed(1);
         return '<div class="dash-bar-row">' +
-            '<div class="dash-bar-label" title="' + esc(stage) + '">' + esc(stage) + '</div>' +
+            '<div class="dash-bar-label" title="' + esc(status) + '">' + esc(status) + '</div>' +
             '<div class="dash-bar-track">' +
-                '<div class="dash-bar-fill" style="width:' + pct + '%;background:' + stageBorderColor(stage) + ';opacity:0.6;"></div>' +
+                '<div class="dash-bar-fill" style="width:' + pct + '%;background:' + statusColor(status) + ';opacity:0.7;"></div>' +
             '</div>' +
             '<div class="dash-bar-count">' + cnt + '</div>' +
         '</div>';

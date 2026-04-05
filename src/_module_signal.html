@@ -214,10 +214,15 @@ function _renderSignalQB(changes, tf) {
     var subVal = isDateField ? '<span class="signal-val">' + _esc(c.newVal) + '</span>' : '';
     var fdhHtml = q ? _signalHighlight(c.fdh, q) : _esc(c.fdh);
     var metaHtml = _esc(c.updatedBy) + ' &middot; ' + _esc(c.timestamp);
+    var hasItem = (allActionItems || []).some(function(i) { return String(i.fdh || '') === String(c.fdh || ''); });
+    var viewBtn = hasItem
+      ? '<button class="signal-nav-btn" onclick="_signalNavigateToItem(' + JSON.stringify(String(c.fdh || '')) + ')">View</button>'
+      : '';
     html += '<div class="signal-row">'
       + '<div class="signal-row-main">'
       + '<span class="signal-fdh">' + fdhHtml + '</span>'
       + '<span class="glass-pill ' + pillClass + '">' + pillLabel + '</span>'
+      + viewBtn
       + '</div>'
       + '<div class="signal-row-sub">'
       + subVal
@@ -483,6 +488,21 @@ function _signalOnSearch(val) {
   if (!_signalSearchQuery && countEl) countEl.style.display = 'none';
 }
 
+function _signalNavigateToItem(fdh) {
+  var wasStartup = _signalMode === 'startup';
+  if (wasStartup) {
+    // Signal is gating workspace entry — close it properly then route to detail
+    closeSignal('detail');
+    setTimeout(function() {
+      if (typeof selectItemForNav === 'function') selectItemForNav(fdh);
+    }, 350);
+  } else {
+    // Manual mode — dismiss overlay, item is already in an active workspace
+    _signalDismiss();
+    if (typeof selectItemForNav === 'function') selectItemForNav(fdh);
+  }
+}
+
 function _signalClearSearch() {
   _signalSearchQuery = '';
   var input = document.getElementById('signal-search-input');
@@ -499,4 +519,5 @@ window._signalBackdropClick = _signalBackdropClick;
 window._signalDismiss = _signalDismiss;
 window._signalOnSearch = _signalOnSearch;
 window._signalClearSearch = _signalClearSearch;
+window._signalNavigateToItem = _signalNavigateToItem;
 </script>
