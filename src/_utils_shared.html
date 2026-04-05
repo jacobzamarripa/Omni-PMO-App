@@ -132,9 +132,12 @@
           let rawFlags = (flagsStr || "").split('\n').map(f => f.trim()).filter(f => f !== "");
           let highestSev = "info";
           rawFlags.forEach(f => {
-              if (f.includes("🚨") || f.includes("🛑") || f.includes("🚩")) { highestSev = "crit"; }
-              else if (f.includes("ADMIN: CHECK CROSSINGS") || f.includes("ADMIN: REFRESH REF DATA") || f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")) { if (highestSev !== "crit") highestSev = "warn"; }
-              else if (f.includes("⚠️") || f.includes("🖍️") || f.includes("🚧")) { if (highestSev !== "crit") highestSev = "warn"; }
+              if (f.includes("🚨") || f.includes("🛑")) { highestSev = "crit"; }
+              else if (highestSev !== "crit" && (
+                  f.includes("🚩") || f.includes("⚠️") || f.includes("🖍️") || f.includes("🚧") ||
+                  f.includes("ADMIN: CHECK CROSSINGS") || f.includes("ADMIN: REFRESH REF DATA") ||
+                  f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")
+              )) { highestSev = "warn"; }
           });
           if (highestSev === "info" && rawFlags.some(f => f === "MISSING DAILY REPORT")) highestSev = "ghost";
           return highestSev;
@@ -160,7 +163,8 @@
           if (f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧')) return 'chip-warn';
           if (f.includes('🪄') || f.includes('🟣')) return 'chip-magic';
           if (f === 'MISSING DAILY REPORT') return 'chip-ghost';
-          if (f.includes('🚨') || f.includes('🛑') || f.includes('🚩')) return 'tag-red';
+          if (f.includes('🚨') || f.includes('🛑')) return 'tag-red';
+          if (f.includes('🚩')) return 'chip-warn';
           return 'chip-muted';
       }
 
