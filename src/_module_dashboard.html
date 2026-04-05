@@ -75,7 +75,11 @@ function renderDashKpiStrip() {
         else if (s.indexOf('complete') !== -1) completeCount += cnt;
     });
 
-    var critCount = (currentCriticalHubItems || []).length;
+    // Count only true-critical flags (🚨 / 🛑) — excludes broad 🚩 admin/ghost flags
+    var critCount = (allActionItems || []).filter(function(i) {
+        var f = i.flags || '';
+        return f.includes('🚨') || f.includes('🛑');
+    }).length;
 
     var cards = [
         { label: 'Total',      val: total,        cls: '' },
