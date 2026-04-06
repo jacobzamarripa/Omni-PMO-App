@@ -58,18 +58,27 @@
     touch-action: manipulation;
   }
 
-  /* ── 3. TOUCH TARGET FLOOR (44px) ─────────────────────────── */
+  /* ── 3. TOUCH TARGET FLOOR ────────────────────────────────── */
+  /* Nav bar elements (btn, btn-nav, btn-icon, hamburger) stay close
+     to desktop size (34px). Only heavy-interaction elements (dock
+     tabs, list buttons) get the full 36px floor.                  */
   html.surface-ipad .btn,
   html.surface-ipad .btn-nav,
   html.surface-ipad .btn-icon,
-  html.surface-ipad .view-segment-btn,
-  html.surface-ipad #btn-hamburger,
-  html.surface-ipad #btn-theme,
-  html.surface-ipad #btn-help,
   html.surface-ipad .dock-tab,
   html.surface-ipad .ob-desktop-tab {
     min-height: var(--ipad-touch-target) !important;
     min-width: var(--ipad-touch-target) !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Nav utility buttons: lock to 34px everywhere (portrait & landscape)
+     to match desktop btn-icon height and the portrait explicit overrides */
+  html.surface-ipad #btn-hamburger,
+  html.surface-ipad #btn-theme,
+  html.surface-ipad #btn-help {
+    height: 34px !important;
+    min-height: 34px !important;
     box-sizing: border-box !important;
   }
 
@@ -103,15 +112,19 @@
     margin-left: 6px !important;
   }
 
-  /* View picker buttons in top nav — icon-only, no text padding needed */
+  /* View picker buttons in top nav — 30px: barely above desktop 28px,
+     preserves density parity while giving a touch-friendly target     */
   html.surface-ipad .top-nav-center .view-segment-btn {
+    height: 30px !important;
+    min-width: 30px !important;
     padding: 0 !important;
+    box-sizing: border-box !important;
   }
 
-  /* Scale up icons inside nav view buttons for better fill ratio (16/36 = 44%) */
+  /* Scale up icons inside nav view buttons — 15px vs desktop 14px */
   html.surface-ipad .top-nav-center .view-segment-btn svg {
-    width: 16px !important;
-    height: 16px !important;
+    width: 15px !important;
+    height: 15px !important;
   }
 
   /* Smart dock zone tabs */
