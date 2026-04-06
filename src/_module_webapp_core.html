@@ -108,7 +108,7 @@
           document.documentElement.style.setProperty('--dock-content-offset', `${contentOffset}px`);
           document.documentElement.style.setProperty('--deck-card-max-height', `${Math.max(340, Math.floor(window.innerHeight - contentOffset - 132))}px`);
 
-          if (!dock || !workspace || window.innerWidth <= 768 || window.innerWidth > 1800 || currentWorkspaceView === 'gantt') {
+          if (!dock || !workspace || (window.innerWidth <= 768 && !window.__surfaceIpad) || window.innerWidth > 1800 || currentWorkspaceView === 'gantt') {
               document.documentElement.style.setProperty('--dock-panel-offset', '0px');
               body.classList.remove('dock-clearance-active');
               return;
@@ -335,7 +335,7 @@
       }
 
       function handleFabClick() {
-          const isMobile = window.innerWidth <= 768 || currentWorkspaceView === 'gantt';
+          const isMobile = (!window.__surfaceIpad && window.innerWidth <= 768) || currentWorkspaceView === 'gantt';
           const sheet = getEl('mobile-sf-sheet');
           const isSheetOpen = sheet && sheet.classList.contains('open');
 
@@ -672,7 +672,7 @@
       }
 
       applyViewMode(); // restore persisted queue view (card/list/grid)
-      if (navigator.maxTouchPoints > 1 && window.innerWidth >= 769) document.body.classList.add('touch-tablet');
+      if (navigator.maxTouchPoints > 1 && (window.innerWidth >= 769 || window.__surfaceIpad)) document.body.classList.add('touch-tablet');
       // ✨ KINETIC LOADER CONTROLLERS
       let frostedInterval;
 

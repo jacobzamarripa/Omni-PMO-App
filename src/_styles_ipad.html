@@ -246,7 +246,14 @@
     touch-action: pan-y;
   }
 
-  /* ── 14. SMART DOCK — PORTRAIT BREATHING ROOM ────────────── */
+  /* ── 14. SMART DOCK — PORTRAIT BREATHING ROOM AND CENTERING ─── */
+  /* Center dock over the reading pane at all orientations.
+     Without this, the dock sits at left:50% of the full viewport
+     in portrait (744px), overlapping the sidebar. */
+  html.surface-ipad .filter-strip {
+    left: calc(50% + var(--inbox-panel-width) / 2) !important;
+  }
+
   @media (max-width: 820px) {
     html.surface-ipad .filter-strip.smart-dock {
       padding: 6px 12px !important;
