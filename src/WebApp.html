@@ -32,8 +32,7 @@
         try {
           const ua = navigator.userAgent || '';
           const isIpad = /iPad/i.test(ua)
-            || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)
-            || window.matchMedia('(pointer: coarse) and (min-width: 600px) and (min-height: 600px)').matches;
+            || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
           if (!isIpad) return;
           document.documentElement.classList.add('surface-ipad');
           window.__surfaceIpad = true;

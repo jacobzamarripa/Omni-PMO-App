@@ -14,6 +14,7 @@
       .top-nav-center { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; justify-self: center; }
       .nav-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; min-width: 0; flex-wrap: nowrap; justify-self: end; }
       .desktop-sync-fab { position: relative; display: flex; align-items: center; }
+      .nav-pipeline-fab { display: none !important; }
 
       #digest-workspace {
           display: none;
@@ -517,8 +518,8 @@
           .kpi-hud-label { padding: 0 6px 0 4px !important; border-bottom: none !important; width: auto !important; }
           /* Header collapse: hide per-pill sub-labels, keep "Pipeline" heading; swap full button groups for compact fabs */
           .kpi-label { display: none !important; }
-          .view-segment-group { display: none !important; }
-          .nav-compact-fab { display: flex !important; }
+          html:not(.surface-ipad) .view-segment-group { display: none !important; }
+          html:not(.surface-ipad) .nav-compact-fab { display: flex !important; }
           .kpi-nav-box { padding: 4px 8px; min-width: 32px; }
           .kpi-expand-wrap { max-width: 0; overflow: hidden; }
           .kpi-expand-inner { gap: 4px; font-size: 8px; padding-left: 6px; margin-left: 6px; }
@@ -556,8 +557,8 @@
           .kpi-hud-group { flex-wrap: nowrap; }
           .kpi-label { display: none !important; }
           .nav-actions { flex-wrap: nowrap !important; gap: 4px !important; }
-          .view-segment-group { display: none !important; }
-          .nav-compact-fab { display: flex !important; }
+          html:not(.surface-ipad) .view-segment-group { display: none !important; }
+          html:not(.surface-ipad) .nav-compact-fab { display: flex !important; }
           .outbox-pane {
               position: fixed !important;
               top: var(--desktop-header-height, 56px) !important;
@@ -810,6 +811,8 @@
 
           html.surface-ipad .nav-pipeline-fab {
               display: none !important;
+              visibility: hidden !important;
+              pointer-events: none !important;
           }
 
           html.surface-ipad .nav-actions {
@@ -842,18 +845,25 @@
 
       }
 
-      @media screen and (orientation: portrait) {
+      @media screen and (max-width: 820px) and (orientation: portrait) {
           html.surface-ipad .kpi-nav-container { display: none !important; }
-          html.surface-ipad .nav-pipeline-fab { display: flex !important; align-items: center !important; }
+          html.surface-ipad .nav-pipeline-fab {
+              display: flex !important;
+              align-items: center !important;
+              visibility: visible !important;
+              pointer-events: auto !important;
+          }
           html.surface-ipad .view-segment-group { display: none !important; }
           html.surface-ipad .nav-compact-fab { display: flex !important; }
           html.surface-ipad .nav-pipeline-fab .btn-icon {
+              font-family: inherit !important;
               height: 34px !important;
               padding: 0 10px !important;
               font-size: 9px !important;
               font-weight: 900 !important;
               letter-spacing: 0.9px !important;
               text-transform: uppercase !important;
+              color: var(--text-muted) !important;
           }
           html.surface-ipad .nav-pipeline-dropdown {
               min-width: 144px !important;
@@ -863,14 +873,17 @@
               align-items: center !important;
               justify-content: space-between !important;
               gap: 12px !important;
+              font-family: inherit !important;
               font-size: 11px !important;
               font-weight: 800 !important;
+              color: var(--text-muted) !important;
           }
           html.surface-ipad .nav-pipeline-dropdown button span {
               font-size: 9px !important;
               font-weight: 900 !important;
               letter-spacing: 0.9px !important;
               text-transform: uppercase !important;
+              color: inherit !important;
           }
           html.surface-ipad .nav-pipeline-dropdown strong {
               font-size: 12px !important;
@@ -880,6 +893,22 @@
           html.surface-ipad .nav-pipeline-dropdown button:nth-child(1) strong { color: #d97706 !important; }
           html.surface-ipad .nav-pipeline-dropdown button:nth-child(2) strong { color: #2563eb !important; }
           html.surface-ipad .nav-pipeline-dropdown button:nth-child(3) strong { color: #dc2626 !important; }
+      }
+
+      @media screen and (min-width: 821px), screen and (orientation: landscape) {
+          html.surface-ipad .nav-pipeline-fab {
+              display: none !important;
+              visibility: hidden !important;
+              pointer-events: none !important;
+          }
+          html.surface-ipad .nav-compact-fab .btn-icon {
+              min-width: auto !important;
+              min-height: 34px !important;
+              height: 34px !important;
+              padding: 5px 11px !important;
+              font-size: 15px !important;
+              border-radius: 14px !important;
+          }
       }
 
       /* 📱 PHONE (≤480px) — vertical stack layout */
