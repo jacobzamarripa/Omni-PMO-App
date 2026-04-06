@@ -143,6 +143,13 @@
     padding: 0 16px !important;
   }
 
+  /* Use compact fab dropdowns (same as portrait) instead of individual
+     icon buttons — applies to all iPad orientations.
+     Portrait gets the same via _styles_layout.html portrait block;
+     these rules ensure landscape matches.                           */
+  html.surface-ipad .view-segment-group { display: none !important; }
+  html.surface-ipad .nav-compact-fab    { display: flex !important; }
+
   /* ── 5. WORKSPACE LAYOUT ─────────────────────────────────── */
   /* Reading pane must not shrink below available space */
   html.surface-ipad .reading-pane {
