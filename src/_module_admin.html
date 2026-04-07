@@ -25,8 +25,7 @@ let activeAdminFilter = null;
 
 function toggleAdminFilter(type) {
     activeAdminFilter = (activeAdminFilter === type) ? null : type;
-    let kpiC = getEl('kpi-admin-crossings'), kpiS = getEl('kpi-admin-status'), kpiB = getEl('kpi-admin-boms');
-    if (kpiC) kpiC.classList.toggle('active', activeAdminFilter === 'crossings');
+    let kpiS = getEl('kpi-admin-status'), kpiB = getEl('kpi-admin-boms');
     if (kpiS) kpiS.classList.toggle('active', activeAdminFilter === 'status');
     if (kpiB) kpiB.classList.toggle('active', activeAdminFilter === 'boms');
     applyFilters();
@@ -162,11 +161,10 @@ function syncReviewHubHeaderCount() {
 
     if (activeTab === 'admin') {
         let items = getActiveQueueItems() || [];
-        let crossings = items.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS")).length;
         let bomInput = items.filter(i => i.flags.includes("PLEASE INPUT BOM")).length;
         let bomCheck = items.filter(i => i.flags.includes("CHECK BOM (UG/AE)")).length;
         let status = items.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS")).length;
-        total = crossings + bomInput + bomCheck + status;
+        total = bomInput + bomCheck + status;
     } else if (activeTab === 'reviewed') {
         let stagedCount = typeof stagedDeckItems !== 'undefined' ? stagedDeckItems.length : 0;
         let reviewedCount = typeof committedItems !== 'undefined' ? committedItems.length : 0;
@@ -189,27 +187,21 @@ function renderAdminPane(items) {
         return;
     }
 
-    let crossings = items.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS"));
     let bomInput = items.filter(i => i.flags.includes("PLEASE INPUT BOM"));
     let bomCheck = items.filter(i => i.flags.includes("CHECK BOM (UG/AE)"));
     let status = items.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS"));
     let bomsTotal = bomInput.length + bomCheck.length;
 
-    let totalAdmin = crossings.length + bomsTotal + status.length;
+    let totalAdmin = bomsTotal + status.length;
     let badge = getEl('admin-badge');
     if (badge) { badge.textContent = totalAdmin; badge.style.display = totalAdmin > 0 ? 'inline-flex' : 'none'; }
     syncReviewHubHeaderCount();
 
-    let kpiCv = getEl('kpi-crossings-val'), kpiSv = getEl('kpi-status-val'), kpiBv = getEl('kpi-boms-val');
-    if (kpiCv) kpiCv.textContent = crossings.length;
+    let kpiSv = getEl('kpi-status-val'), kpiBv = getEl('kpi-boms-val');
     if (kpiSv) kpiSv.textContent = status.length;
     if (kpiBv) kpiBv.textContent = bomsTotal;
 
     let html = '';
-
-    if ((!activeAdminFilter || activeAdminFilter === 'crossings') && crossings.length > 0) {
-        html += renderSpecialCrossingsAdminSection(crossings);
-    }
 
     if (!activeAdminFilter || activeAdminFilter === 'boms') {
         html += _adminSection('BOMs to Input', bomInput, function(item) {

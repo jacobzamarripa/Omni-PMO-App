@@ -135,39 +135,46 @@ function include(filename) {
 function onOpen() {
   try {
     const ui = SpreadsheetApp.getUi();
-    ui.createMenu('🚀 Production Hub')
-      .addItem('▶️ 1a. Process Incoming (Auto-Scan & QB)', 'processIncomingForQuickBase')
-      .addItem('▶️ 1b. Load Specific Date to QB Tab', 'promptLoadSpecificDateToQB')
-      .addItem('📥 2. Export QuickBase CSV', 'promptExportQuickBaseCSV')
+    const main = ui.createMenu('Omni PMO');
+    
+    main.addSubMenu(ui.createMenu('Data Pipeline')
+      .addItem('Process Incoming Reports', 'processIncomingForQuickBase')
+      .addItem('Load Specific Date to QB Tab', 'promptLoadSpecificDateToQB')
       .addSeparator()
-      .addItem('🧠 3a. Generate Daily Review (Benny Diagnostics)', 'promptGenerateDailyReview')
-      .addItem('🔄 3b. Sync Corrections to Archive & QB', 'commitReviewToArchiveAndQB')
+      .addItem('Emergency: Force Re-scan All Files', 'forceRescanIncoming')
+      .addItem('Unlock Ingestion', 'resetIngestionLock')
+    );
+
+    main.addSubMenu(ui.createMenu('Review Engine')
+      .addItem('Generate Daily Review', 'promptGenerateDailyReview')
+      .addItem('Commit Review to Archive & QB', 'commitReviewToArchiveAndQB')
+    );
+
+    main.addSubMenu(ui.createMenu('Quickbase Hub')
+      .addItem('Refresh Reference Data', 'importReferenceData')
+      .addItem('Sync Projects from Quickbase', 'importFDHProjects')
+      .addItem('Discover Quickbase Fields', 'discoverAllQBFields')
       .addSeparator()
-      .addItem('📊 4a. Export Director Review (.xlsx)', 'exportDirectorReviewXLSX')
-      .addItem('📤 4b. Export Vendor Corrections (.xlsx)', 'exportVendorCorrectionsXLSX')
-      .addSeparator()
-      .addItem('🗄️ 5. Pull Weekly Reference Data (CSV)', 'importReferenceData')
-      .addSeparator()
-      .addItem('⏰ Enable Daily Automations', 'setupDailyTrigger')
-      .addSeparator()
-      .addItem('📁 Update Master Archive (Historical)', 'importArchiveFolder')
-      .addItem('🎨 Force Sync Styles & Checkboxes', 'applyFormatting')
-      .addItem('🔄 Reset "Processed" Tags', 'resetFileTags')
-      .addSeparator()
-      .addItem('🛠️ FIX: Remove Duplicates from Archive', 'removeDuplicatesFromArchive')
-      .addToUi();
-    ui.createMenu('Daily Analyzer')
-      .addItem('Sync from QuickBase',    'importFDHProjects')
-      .addItem('🔍 Discover All QB Fields', 'discoverAllQBFields')
-      .addSeparator()
-      .addItem('Run CD Analysis',        'runCDAnalysis')
-      .addItem('Check Gemini API Usage', 'checkCDApiUsage')
-      .addItem('Clear CD Sheet',         'clearCDSheet')
-      .addSeparator()
-      .addItem('Commit Verified Crossings to Queue', 'commitToQueue')
-      .addItem('Export Crossings Queue to CSV',      'exportCommittedQueueToCSV')
-      .addItem('QB Writeback (Coming Soon)',          'writebackQBDirect')
-      .addToUi();
+      .addItem('Commit Status Queue', 'commitToQueue')
+      .addItem('Export Status Queue (CSV)', 'exportCommittedQueueToCSV')
+      .addItem('Direct Quickbase Writeback', 'writebackQBDirect')
+    );
+
+    main.addSubMenu(ui.createMenu('Exports & Reporting')
+      .addItem('Export Director Review (XLSX)', 'exportDirectorReviewXLSX')
+      .addItem('Export Vendor Corrections (XLSX)', 'exportVendorCorrectionsXLSX')
+      .addItem('Export Quickbase Upload (CSV)', 'promptExportQuickBaseCSV')
+    );
+
+    main.addSubMenu(ui.createMenu('System Maintenance')
+      .addItem('Configure Daily Automations', 'setupDailyTrigger')
+      .addItem('Refresh Styles & Checkboxes', 'applyFormatting')
+      .addItem('Clear Processed File Tags', 'resetFileTags')
+      .addItem('Clean Archive Duplicates', 'removeDuplicatesFromArchive')
+      .addItem('Import Historical Archive', 'importArchiveFolder')
+    );
+
+    main.addToUi();
   } catch (e) {}
 }
 
@@ -587,14 +594,12 @@ function buildVendorCityCoordinateRecords(actionItems, cityCoordinates) {
   return rows;
 }
 
-function promptLoadSpecificDateToQB() { 
-  showDatePickerDialog("LoadQB", "Load QuickBase Tab");
-}
+function promptLoadSpecificDateToQB() { showDatePickerDialog("LoadQB", "Load QuickBase Tab"); }
+function promptGenerateDailyReview() { showDatePickerDialog("RunReview", "Generate Daily Review"); }
 function promptExportQuickBaseCSV() { exportQuickBaseCSVCore(false); }
-function promptGenerateDailyReview() { 
-  showDatePickerDialog("RunReview", "Generate Daily Review");
-}
+
 function showDatePickerDialog(actionName, title) {
+
   let tmpl = HtmlService.createTemplateFromFile("DatePicker");
   tmpl.action = actionName;
 
@@ -614,9 +619,35 @@ function processDateSelection(dateStr, actionName) {
   }
 }
 function importArchiveFolder() { const keys = getExistingKeys(); const refDict = getReferenceDictionary(); processFolderRecursive(DriveApp.getFolderById(ARCHIVE_FOLDER_ID), keys, refDict, "", true, null); SpreadsheetApp.getUi().alert("✅ Master Archive Updated."); }
-function setupDailyTrigger() { const triggers = ScriptApp.getProjectTriggers(); for (let i = 0; i < triggers.length; i++) ScriptApp.deleteTrigger(triggers[i]); ScriptApp.newTrigger('runMiddayAutomation').timeBased().atHour(12).everyDays(1).create(); ScriptApp.newTrigger('moveIncomingFoldersToArchive').timeBased().atHour(0).everyDays(1).create(); SpreadsheetApp.getUi().alert("✅ Daily Automations Enabled."); }
+function setupDailyTrigger() {
+  const triggers = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < triggers.length; i++) ScriptApp.deleteTrigger(triggers[i]);
+  
+  // 3 Ingestion Windows + 1 Final EOD Compilation (All before 5 PM)
+  ScriptApp.newTrigger('runMiddayAutomation').timeBased().atHour(9).everyDays(1).create();
+  ScriptApp.newTrigger('runMiddayAutomation').timeBased().atHour(12).everyDays(1).create();
+  ScriptApp.newTrigger('runMiddayAutomation').timeBased().atHour(15).everyDays(1).create();
+  
+  // Final EOD Compilation & Review: 4:30 PM
+  ScriptApp.newTrigger('runEveningAutomation').timeBased().atHour(16).nearMinute(30).everyDays(1).create();
+  
+  ScriptApp.newTrigger('moveIncomingFoldersToArchive').timeBased().atHour(0).everyDays(1).create();
+  SpreadsheetApp.getUi().alert("✅ Daily Automations Enabled: Ingestions at 9AM, 12PM, 3PM | EOD Report at 4:30PM.");
+}
+
 function runMiddayAutomation() {
   logMsg("🤖 STARTING MIDDAY AUTOMATION...");
+  executeDailyAutomationPipeline();
+  logMsg("✅ MIDDAY AUTOMATION COMPLETE.");
+}
+
+function runEveningAutomation() {
+  logMsg("🤖 STARTING EVENING EOD AUTOMATION...");
+  executeDailyAutomationPipeline();
+  logMsg("✅ EVENING AUTOMATION COMPLETE.");
+}
+
+function executeDailyAutomationPipeline() {
   setupSheets();
   
   // 1. Run the resumable ingestion
@@ -642,10 +673,22 @@ function runMiddayAutomation() {
   generateDailyReviewCore(targetDateStr, refDict, true);
   exportDirectorReviewXLSX(true);
   exportVendorCorrectionsXLSX(true);
-  
-  logMsg(`✅ MIDDAY AUTOMATION COMPLETE for Date: ${targetDateStr}`);
 }
-function moveIncomingFoldersToArchive() { logMsg("🧹 STARTING MIDNIGHT SWEEP..."); let inc = DriveApp.getFolderById(INCOMING_FOLDER_ID), arch = DriveApp.getFolderById(ARCHIVE_FOLDER_ID); let folders = inc.getFolders(); let count = 0; while (folders.hasNext()) { folders.next().moveTo(arch); count++; } logMsg(`✅ MIDNIGHT SWEEP COMPLETE: Moved ${count} folders.`); }
+function moveIncomingFoldersToArchive() { 
+  logMsg("🧹 STARTING MIDNIGHT SWEEP..."); 
+  let incIds = [INCOMING_FOLDER_ID, REFERENCE_FOLDER_ID];
+  let arch = DriveApp.getFolderById(ARCHIVE_FOLDER_ID);
+  let count = 0;
+  
+  incIds.forEach(id => {
+    let folders = DriveApp.getFolderById(id).getFolders();
+    while (folders.hasNext()) {
+      folders.next().moveTo(arch);
+      count++;
+    }
+  });
+  logMsg(`✅ MIDNIGHT SWEEP COMPLETE: Moved ${count} folders.`); 
+}
 function setupSheets() { const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheets = [{n: QB_UPLOAD_SHEET, h: QB_HEADERS}, {n: HISTORY_SHEET, h: HISTORY_HEADERS}, {n: MIRROR_SHEET, h: HISTORY_HEADERS}]; sheets.forEach(s => { let sh = ss.getSheetByName(s.n) || ss.insertSheet(s.n); if (sh.getLastRow() === 0) sh.appendRow(s.h); }); }
 
 // 🧠 DECK BACKEND: Upserts answers into 8-Deck_Answers
@@ -864,11 +907,11 @@ function applyFormatting(targetSheet = null) {
     }
     trimAndFilterSheet(sh, trueLastRow, expectedCols);
   });
-}
+  }
 
-function getExistingKeys() { const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HISTORY_SHEET); if (!sh) return new Set(); const data = sh.getDataRange().getValues(); const keys = new Set(); const trueLastRow = getTrueLastDataRow(sh); if (trueLastRow < 2) return keys; for (let i = 1; i < trueLastRow; i++) { let cellDate = data[i][0]; let fdhId = String(data[i][2]).toUpperCase().trim(); let dateStr = ""; if (cellDate) { if (cellDate instanceof Date) { dateStr = Utilities.formatDate(cellDate, "GMT-5", "yyyy-MM-dd"); } else { let d = new Date(cellDate); if (!isNaN(d.getTime())) { dateStr = Utilities.formatDate(d, "GMT-5", "yyyy-MM-dd"); } else { dateStr = String(cellDate).trim(); } } } keys.add(dateStr + "_" + fdhId); } return keys; }
-function removeDuplicatesFromArchive() { const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HISTORY_SHEET); const data = sh.getDataRange().getValues(); const trueLastRow = getTrueLastDataRow(sh); if (trueLastRow < 2) return; const keys = new Set(); let rowsToDelete = []; for (let i = 1; i < trueLastRow; i++) { let cellDate = data[i][0]; let fdhId = String(data[i][2]).toUpperCase().trim(); let dateStr = ""; if (cellDate) { if (cellDate instanceof Date) { dateStr = Utilities.formatDate(cellDate, "GMT-5", "yyyy-MM-dd"); } else { let d = new Date(cellDate); if (!isNaN(d.getTime())) dateStr = Utilities.formatDate(d, "GMT-5", "yyyy-MM-dd"); else dateStr = String(cellDate).trim(); } } let key = dateStr + "_" + fdhId; if (keys.has(key)) rowsToDelete.push(i + 1); else keys.add(key); } rowsToDelete.reverse(); let deleted = 0; rowsToDelete.forEach(r => { sh.deleteRow(r); deleted++; }); SpreadsheetApp.getUi().alert(`✅ Cleaned up ${deleted} duplicate rows from the Archive.`); }
-function resetFileTags() { const resetFolder = (folderId) => { let folder = DriveApp.getFolderById(folderId); let files = folder.getFiles(); while (files.hasNext()) files.next().setDescription(""); let subs = folder.getFolders(); while (subs.hasNext()) resetFolder(subs.next().getId()); }; [ARCHIVE_FOLDER_ID, INCOMING_FOLDER_ID].forEach(id => resetFolder(id)); SpreadsheetApp.getUi().alert("Tags cleared for Archive & Incoming."); }
+  function removeDuplicatesFromArchive() {
+ const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HISTORY_SHEET); const data = sh.getDataRange().getValues(); const trueLastRow = getTrueLastDataRow(sh); if (trueLastRow < 2) return; const keys = new Set(); let rowsToDelete = []; for (let i = 1; i < trueLastRow; i++) { let cellDate = data[i][0]; let fdhId = String(data[i][2]).toUpperCase().trim(); let dateStr = ""; if (cellDate) { if (cellDate instanceof Date) { dateStr = Utilities.formatDate(cellDate, "GMT-5", "yyyy-MM-dd"); } else { let d = new Date(cellDate); if (!isNaN(d.getTime())) dateStr = Utilities.formatDate(d, "GMT-5", "yyyy-MM-dd"); else dateStr = String(cellDate).trim(); } } let key = dateStr + "_" + fdhId; if (keys.has(key)) rowsToDelete.push(i + 1); else keys.add(key); } rowsToDelete.reverse(); let deleted = 0; rowsToDelete.forEach(r => { sh.deleteRow(r); deleted++; }); SpreadsheetApp.getUi().alert(`✅ Cleaned up ${deleted} duplicate rows from the Archive.`); }
+function resetFileTags() { const resetFolder = (folderId) => { let folder = DriveApp.getFolderById(folderId); let files = folder.getFiles(); while (files.hasNext()) files.next().setDescription(""); let subs = folder.getFolders(); while (subs.hasNext()) resetFolder(subs.next().getId()); }; [ARCHIVE_FOLDER_ID, INCOMING_FOLDER_ID, REFERENCE_FOLDER_ID].forEach(id => resetFolder(id)); SpreadsheetApp.getUi().alert("Tags cleared for Archive, Incoming, and Production Incoming."); }
 function commitReviewToArchiveAndQB() { syncReviewToArchive(); let ss = SpreadsheetApp.getActiveSpreadsheet(); let mirrorSheet = ss.getSheetByName(MIRROR_SHEET); let dateVal = mirrorSheet.getRange("A2").getValue(); let targetDateStr = (dateVal instanceof Date) ? Utilities.formatDate(dateVal, "GMT-5", "yyyy-MM-dd") : String(dateVal); populateQuickBaseTabCore(targetDateStr); exportDirectorReviewXLSX(); exportVendorCorrectionsXLSX(); }
 function syncReviewToArchive() { logMsg("🔄 SYNC START: Review to Archive"); const ss = SpreadsheetApp.getActiveSpreadsheet(); const mirrorSheet = ss.getSheetByName(MIRROR_SHEET); const archiveSheet = ss.getSheetByName(HISTORY_SHEET); if (getTrueLastDataRow(mirrorSheet) < 2) return; let mirrorHeaders = mirrorSheet.getRange(1, 1, 1, mirrorSheet.getLastColumn()).getValues()[0]; let archiveHeaders = archiveSheet.getRange(1, 1, 1, archiveSheet.getLastColumn()).getValues()[0]; let rowPtrIdx = mirrorHeaders.indexOf("Archive_Row"); if (rowPtrIdx === -1) { logMsg("⚠️ Sync Skipped: 'Archive_Row' column not found."); return; } let mirrorData = mirrorSheet.getRange(2, 1, getTrueLastDataRow(mirrorSheet) - 1, mirrorSheet.getLastColumn()).getValues(); let archiveData = archiveSheet.getDataRange().getValues(); let updateCount = 0; mirrorData.forEach(row => { let archiveRowIndex = row[rowPtrIdx]; if (archiveRowIndex && typeof archiveRowIndex === 'number' && archiveRowIndex <= archiveData.length) { mirrorHeaders.forEach((header, colIdx) => { if (ANALYTICS_QUADRANT.includes(header) || REVIEW_EXTRA_HEADERS.includes(header) || header === "Archive_Row") return; let archiveColIdx = archiveHeaders.indexOf(header); if (archiveColIdx > -1) { let newValue = row[colIdx]; if (typeof newValue === 'string' && newValue.includes('(BOM:')) { let cleanString = newValue.split('\n')[0].trim(); let cleanNum = Number(cleanString.replace(/,/g, '')); if (!isNaN(cleanNum)) newValue = cleanNum; else newValue = cleanString; } archiveSheet.getRange(archiveRowIndex, archiveColIdx + 1).setValue(newValue); } }); updateCount++; } }); SpreadsheetApp.flush(); logMsg(`✅ SYNC COMPLETE: Updated ${updateCount} rows in Master Archive.`); }
 function exportSpreadsheetToXLSX(ssId, fileName) { let url = "https://docs.google.com/spreadsheets/export?id=" + ssId + "&exportFormat=xlsx"; let params = { method: "get", headers: {"Authorization": "Bearer " + ScriptApp.getOAuthToken()}, muteHttpExceptions: true }; let response = UrlFetchApp.fetch(url, params); if (response.getResponseCode() !== 200) { logMsg(`❌ EXPORT FAILED: ${response.getContentText()}`); return false; } let blob = response.getBlob(); blob.setName(fileName + ".xlsx"); DriveApp.getFolderById(COMPILED_FOLDER_ID).createFile(blob); return true; }
@@ -1174,8 +1217,8 @@ function getSignalFast(tf) {
   return result;
 }
 
-// Slow path: Drive traversal with 10-min CacheService layer.
-// Subsequent opens within 10 min return instantly from cache.
+// 📡 High-Resolution Portfolio Monitoring: Drive traversal with 10-min CacheService layer.
+// CORE FEATURE: Provides real-time visibility into field documentation and changes.
 function getSignalDrive(tf) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timeframe = _normalizeSignalTimeframe(tf);
@@ -1235,4 +1278,47 @@ function _collectDriveChanges(folder, path, cutoff, out, counter, depth) {
     const sub = subs.next();
     _collectDriveChanges(sub, path + ' / ' + sub.getName(), cutoff, out, counter, (depth || 0) + 1);
   }
+}
+
+/**
+ * EMERGENCY TOOL: Ignores the "PROCESSED" tag and re-evaluates every file in the incoming folders.
+ * Safe to run: The deduplication engine prevents duplicate rows in the Master Archive.
+ */
+function forceRescanIncoming() {
+  logMsg("🆘 EMERGENCY: Starting Force Re-scan of Incoming folders...");
+  setupSheets();
+  const keys = getExistingKeys();
+  const refDict = getReferenceDictionary();
+  let newRowsAppended = [];
+  let allProcessedDates = [];
+  let allParsedRowsForQB = [];
+  const startTime = new Date().getTime();
+
+  const targetFolders = [REFERENCE_FOLDER_ID, INCOMING_FOLDER_ID];
+  
+  targetFolders.forEach(folderId => {
+    try {
+      let folder = DriveApp.getFolderById(folderId);
+      // Pass 'false' for recursive to keep the emergency scan targeted
+      processFolderRecursive(folder, keys, refDict, "", false, newRowsAppended, allProcessedDates, true, allParsedRowsForQB, startTime, false);
+    } catch (e) {
+      logMsg("⚠️ Emergency scan failed for folder " + folderId + ": " + e.message);
+    }
+  });
+
+  // Cleanup
+  populateQuickBaseTabDirectly(allParsedRowsForQB);
+  autoArchiveProcessedFiles();
+  
+  logMsg("✅ EMERGENCY SCAN COMPLETE: Recovered " + newRowsAppended.length + " new rows.");
+  SpreadsheetApp.getUi().alert("Emergency Scan Complete.\n\nRecovered " + newRowsAppended.length + " rows that were previously skipped.\nFiles have been archived.");
+}
+
+/**
+ * Resets the INGESTION_IN_PROGRESS flag to allow new runs after a crash or cancellation.
+ */
+function resetIngestionLock() {
+  PropertiesService.getScriptProperties().setProperty("INGESTION_IN_PROGRESS", "false");
+  logMsg("🔓 MANUAL RESET: Ingestion lock has been cleared.");
+  SpreadsheetApp.getUi().alert("🔓 Ingestion Lock Cleared.\n\nYou can now run 'Process Incoming' again.");
 }

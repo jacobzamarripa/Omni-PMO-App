@@ -269,34 +269,6 @@ function getReferenceDictionary() {
   return refDict;
 }
 
-// 🧠 NEW: Reads the AI CD Analysis Sheet
-function getSpecialXingsDictionary() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(XING_SHEET);
-  let dict = {};
-  if (!sheet || sheet.getLastRow() < 2) return dict;
-
-  let data = sheet.getDataRange().getValues();
-  let headers = data[0].map(h => h.toString().trim());
-
-  let fdhIdx = headers.indexOf("Project ID / FDH");
-  let sumIdx = headers.indexOf("AI Summary / Major Flags");
-  let hwIdx = headers.indexOf("Highway / RR / Bridge Crossings");
-
-  if (fdhIdx === -1) return dict;
-
-  for (let i = 1; i < data.length; i++) {
-    let fdh = data[i][fdhIdx] ? data[i][fdhIdx].toString().trim().toUpperCase() : "";
-    if (fdh) {
-      dict[fdh] = {
-        summary: sumIdx > -1 ? data[i][sumIdx].toString().trim() : "",
-        highway: hwIdx > -1 ? data[i][hwIdx].toString().trim() : ""
-      };
-    }
-  }
-  return dict;
-}
-
 function parseTrackerPct(val) {
     if (val === "" || val === null || val === undefined) return 0;
     if (typeof val === 'number') return val > 1 ? val / 100 : val;

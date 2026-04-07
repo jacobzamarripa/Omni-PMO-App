@@ -728,13 +728,9 @@
                    </div>
 
                    <!-- Row 3: KPI Mini Chips (Visible on Admin tab) -->
-                   <div class="admin-kpi-mini-wrap" id="admin-kpi-header-wrap" style="padding: 10px 14px; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-                      <div class="admin-kpi-mini crossings" id="kpi-admin-crossings" onclick="toggleAdminFilter('crossings')" title="Filter: Crossings to verify">
-                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v8H2z"></path><line x1="6" y1="8" x2="6" y2="16"></line><line x1="10" y1="8" x2="10" y2="16"></line></svg>
-                         <div class="admin-kpi-mini-label">Crossings</div>
-                         <div class="admin-kpi-mini-val" id="kpi-crossings-val">0</div>
-                      </div>
+                   <div class="admin-kpi-mini-wrap" id="admin-kpi-header-wrap" style="padding: 10px 14px; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
                       <div class="admin-kpi-mini status" id="kpi-admin-status" onclick="toggleAdminFilter('status')" title="Filter: Status issues">
+
                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
                          <div class="admin-kpi-mini-label">Status</div>
                          <div class="admin-kpi-mini-val" id="kpi-status-val">0</div>
@@ -925,7 +921,6 @@
     <?!= include('_module_queue_state') ?>
     <?!= include('_module_digest') ?>
     <?!= include('_module_admin') ?>
-    <?!= include('_module_special_crossings') ?>
     <?!= include('_module_gantt') ?>
     <?!= include('_module_deck') ?>
     <?!= include('_module_tabs') ?>

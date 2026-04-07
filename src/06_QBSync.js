@@ -622,13 +622,13 @@ function exportCommittedQueueToCSV() {
 
   let csvContent = csvRows.join("\n");
   let dateStamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
-  let fileName = "Special_Crossings_Export_" + dateStamp + ".csv";
+  let fileName = "QB_Status_Update_Export_" + dateStamp + ".csv";
 
   let blob = Utilities.newBlob(csvContent, "text/csv", fileName);
   DriveApp.getFolderById(COMPILED_FOLDER_ID).createFile(blob);
 
-  logMsg("Crossings queue exported: " + fileName);
-  ui.alert("\u2705 Exported to Google Drive (Compiled Reports):\n" + fileName);
+  logMsg("Quickbase status queue exported: " + fileName);
+  ui.alert("✅ Exported to Google Drive (Compiled Reports):\n" + fileName);
 }
 
 function writebackQBDirect() {

@@ -57,8 +57,20 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
   let allProcessedDates = [];
   let allParsedRowsForQB = [];
   
-  // 🔄 Execute recursive scan with time budget
-  let status = processFolderRecursive(DriveApp.getFolderById(INCOMING_FOLDER_ID), keys, refDict, "", false, newRowsAppended, allProcessedDates, false, allParsedRowsForQB, startTime);
+  // 🔄 Execute scan across both folders (Top-level only for speed and isolation)
+  const targetFolders = [REFERENCE_FOLDER_ID, INCOMING_FOLDER_ID];
+  let status = { completed: true };
+  
+  for (let folderId of targetFolders) {
+    try {
+      let folder = DriveApp.getFolderById(folderId);
+      // Pass 'false' for recursive to lock to top-level only
+      let res = processFolderRecursive(folder, keys, refDict, "", false, newRowsAppended, allProcessedDates, false, allParsedRowsForQB, startTime, false);
+      if (res && res.completed === false) { status.completed = false; break; }
+    } catch (e) {
+      logMsg(`⚠️ Scan failed for folder ${folderId}: ${e.message}`);
+    }
+  }
   
   if (status.completed === false) {
     // ⏰ TIMEOUT: Schedule resume
@@ -71,7 +83,7 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
     // ✅ COMPLETE
     props.setProperty("INGESTION_IN_PROGRESS", "false");
     populateQuickBaseTabDirectly(allParsedRowsForQB);
-    autoArchiveProcessedFiles();
+    // 🧠 autoArchiveProcessedFiles() is no longer needed here as files move immediately
     logMsg(`✅ INGESTION COMPLETE: Added ${newRowsAppended.length} rows to Archive.`);
 
     if (!isSilent && !isContinuation) {
@@ -181,47 +193,95 @@ function applyQuickBaseTabStyling(qbSheet) {
   }
 }
 
-function processFolderRecursive(folder, existingKeys, refDict, folderDate, isArchive, newRowsAppended = null, allProcessedDates = null, forceReprocess = false, allParsedRowsForQB = null, startTime = null) {
+function processFolderRecursive(folder, existingKeys, refDict, folderDate, isArchive, newRowsAppended = null, allProcessedDates = null, forceReprocess = false, allParsedRowsForQB = null, startTime = null, recursive = true) {
   let resolvedFolderDate = extractDateFromName(folder.getName());
   if (resolvedFolderDate) folderDate = resolvedFolderDate;
-  
+
   const files = folder.getFiles();
   while (files.hasNext()) {
-    // ⏰ Time Budget Check: Exit if over 5 minutes (300,000ms)
-    if (startTime && (new Date().getTime() - startTime > 300000)) {
+    // ⏰ Time Budget Check: Exit if over 4.5 minutes (270,000ms) to allow for safe cleanup
+    if (startTime && (new Date().getTime() - startTime > 270000)) {
       return { completed: false };
     }
 
     let file = files.next();
-    if (!file.getName().toLowerCase().endsWith(".xlsx")) continue;
-    if (file.getDescription() === "PROCESSED" && !forceReprocess) continue;
-    
+    const mime = file.getMimeType();
+    const isExcel = (mime === MimeType.MICROSOFT_EXCEL || mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+    if (!file.getName().toLowerCase().endsWith(".xlsx") && !isExcel) {
+      logMsg(`⏭️ Skipping non-spreadsheet file: ${file.getName()} (MIME: ${mime})`);
+      continue;
+    }
+    if (file.getDescription() === "PROCESSED" && !forceReprocess) {
+      // 🧠 SAFETY: If it's already processed but still in the incoming folder, move it now
+      if (!isArchive) {
+        let fDate = folderDate || extractDateFromName(file.getName()) || deriveFallbackTargetDate(file);
+        let targetFolder = getArchiveFolderForDate(fDate);
+        file.moveTo(targetFolder);
+        logMsg(`📦 Cleaned up "PROCESSED" file that was left in incoming: ${file.getName()}`);
+      }
+      continue;
+    }
+
+    logMsg(`📂 Processing file: ${file.getName()}`);
+
     let fDate = folderDate || extractDateFromName(file.getName()) || deriveFallbackTargetDate(file);
     if (fDate && allProcessedDates !== null) allProcessedDates.push(fDate);
-    
-    try { 
-        let rows = parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppended, allProcessedDates, allParsedRowsForQB); 
+
+    try {
+        let rows = parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppended, allProcessedDates, allParsedRowsForQB);
         if (rows && rows.length > 0) {
             const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HISTORY_SHEET);
             const trueLastRow = getTrueLastDataRow(sh);
             ensureCapacity(sh, trueLastRow + rows.length, HISTORY_HEADERS.length);
             sh.getRange(trueLastRow + 1, 1, rows.length, HISTORY_HEADERS.length).setValues(rows);
-            SpreadsheetApp.flush(); // Commit each file's data to avoid loss on unexpected crash
+            SpreadsheetApp.flush(); 
         }
-        file.setDescription("PROCESSED"); 
+
+        file.setDescription("PROCESSED");
+
+        // 🚀 IMMEDIATE MOVE: Prevent re-scanning on timeout/resume
+        if (!isArchive) {
+          let targetFolder = getArchiveFolderForDate(fDate);
+          file.moveTo(targetFolder);
+          logMsg(`✅ File archived: ${file.getName()}`);
+        }
     } catch (e) {
-        logMsg(`Failed to process file ${file.getName()}: ${e.message}`);
+        logMsg(`❌ Failed to process file ${file.getName()}: ${e.message}`);
     }
   }
 
-  const subfolders = folder.getFolders();
-  while (subfolders.hasNext()) {
-    let result = processFolderRecursive(subfolders.next(), existingKeys, refDict, folderDate, isArchive, newRowsAppended, allProcessedDates, forceReprocess, allParsedRowsForQB, startTime);
-    if (result && result.completed === false) return result;
+  if (recursive) {
+    const subfolders = folder.getFolders();
+    while (subfolders.hasNext()) {
+      let result = processFolderRecursive(subfolders.next(), existingKeys, refDict, folderDate, isArchive, newRowsAppended, allProcessedDates, forceReprocess, allParsedRowsForQB, startTime, true);
+      if (result && result.completed === false) return result;
+    }
   }
   return { completed: true };
 }
 
+/**
+ * Shared helper to find or create a date-stamped folder in the archive.
+ */
+function getArchiveFolderForDate(dateStr) {
+  const archiveFolder = DriveApp.getFolderById(ARCHIVE_FOLDER_ID);
+  if (!dateStr) return archiveFolder;
+
+  let existingFolders = archiveFolder.getFolders();
+  while (existingFolders.hasNext()) {
+    let f = existingFolders.next();
+    let fDate = extractDateFromName(f.getName());
+    if (fDate === dateStr) return f;
+  }
+
+  let parts = dateStr.split("-");
+  let m = parseInt(parts[1], 10);
+  let d = parseInt(parts[2], 10);
+  let yy = parts[0].substring(2);
+  let formattedFolderName = `${m}.${d}.${yy}`;
+  return archiveFolder.createFolder(formattedFolderName);
+}
 function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppended, allProcessedDates, allParsedRowsForQB = null) {
   let tempFile = Drive.Files.insert({ title: "[TEMP]_" + file.getName(), parents: [{id: file.getParents().next().getId()}] }, file.getBlob(), {convert: true});
   let tempSS = SpreadsheetApp.openById(tempFile.id);
@@ -634,10 +694,10 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
   let targetDates = Array.isArray(targetDateStr) ? targetDateStr : [targetDateStr];
   
   let refDict = optionalRefDict || getReferenceDictionary();
-  let vendorDict = getVendorLiveDictionary(refDict); 
-  let xingsDict = getSpecialXingsDictionary(); // 🧠 FETCH CD AI DATA
-  
+  let vendorDict = getVendorLiveDictionary(refDict);
+
   const histData = histSheet.getDataRange().getValues();
+
   let benchmarkDict = buildBenchmarkDictionary(histData, HISTORY_HEADERS, refDict);
 
   let currentMirrorHeaders = mirrorSheet.getLastColumn() > 0 ? mirrorSheet.getRange(1, 1, 1, mirrorSheet.getLastColumn()).getValues()[0] : [];
@@ -690,20 +750,10 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
           benchmarkDict[fdhId] = benchmarkDict[fdhId].replace(/NAP: Pending \[Possible Reroute\]/g, "NAP: Pending [Scope Deviation]");
       }
 
-      let cdIntelText = ""; 
-      if (xingsDict[fdhId]) {
-          let cdData = xingsDict[fdhId];
-          if (cdData.summary !== "") {
-              cdIntelText = cdData.summary; 
-          }
-          if (cdData.highway && cdData.highway.toLowerCase() !== "none" && cdData.highway.trim() !== "") {
-              if (diag.flags !== "✅ No Anomalies" && diag.flags !== "") diag.flags += "\n🚧 CD: MAJOR CROSSING RISK";
-              else diag.flags = "🚧 CD: MAJOR CROSSING RISK";
-              diag.flagColors.push("#b45309"); 
-          }
-      }
+      let cdIntelText = "";
 
       let refData = null;
+
       if (diag.healedId) { fdhId = diag.healedId; refData = refDict[fdhId]; }
       else refData = refDict[fdhId];
       
@@ -1084,54 +1134,4 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
   } else if (!isSilent) {
     SpreadsheetApp.getUi().alert(`No data found in Master Archive for Date(s): ${targetDates.join(", ")}`);
   }
-}
-
-function autoArchiveProcessedFiles() {
-  const incomingFolder = DriveApp.getFolderById(INCOMING_FOLDER_ID);
-  const archiveFolder = DriveApp.getFolderById(ARCHIVE_FOLDER_ID);
-
-  function getArchiveFolderForDate(dateStr) {
-    if (!dateStr) return archiveFolder;
-
-    let existingFolders = archiveFolder.getFolders();
-    while (existingFolders.hasNext()) {
-      let f = existingFolders.next();
-      let fDate = extractDateFromName(f.getName());
-      if (fDate === dateStr) return f;
-    }
-
-    let parts = dateStr.split("-");
-    let m = parseInt(parts[1], 10);
-    let d = parseInt(parts[2], 10);
-    let yy = parts[0].substring(2);
-    let formattedFolderName = `${m}.${d}.${yy}`;
-    return archiveFolder.createFolder(formattedFolderName);
-  }
-
-  function sweep(currentFolder, parentDateStr) {
-    let currentFolderDate = extractDateFromName(currentFolder.getName()) || parentDateStr;
-
-    let files = currentFolder.getFiles();
-    while (files.hasNext()) {
-      let file = files.next();
-      if (file.getDescription() !== "PROCESSED") continue;
-
-      let fileDate = extractDateFromName(file.getName()) || currentFolderDate || deriveFallbackTargetDate(file);
-      let targetFolder = getArchiveFolderForDate(fileDate);
-      file.moveTo(targetFolder);
-      file.setDescription("");
-    }
-
-    let subfolders = currentFolder.getFolders();
-    while (subfolders.hasNext()) {
-      let sub = subfolders.next();
-      sweep(sub, currentFolderDate);
-
-      if (!sub.getFiles().hasNext() && !sub.getFolders().hasNext()) {
-        sub.setTrashed(true);
-      }
-    }
-  }
-
-  sweep(incomingFolder, "");
 }
