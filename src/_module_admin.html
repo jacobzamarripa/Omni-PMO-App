@@ -105,18 +105,27 @@ function setAdminPanelOpen(open) {
         if (dockPanel && dockPanel.classList.contains('is-open')) toggleDesktopFiltersPanel(false);
     }
 
+    // Toggle global body class for CSS orchestration (e.g. smart dock centering)
+    document.body.classList.toggle('admin-open', open);
+
     if (open) {
-        pane.style.display = 'flex';
+        if (pane) pane.style.display = 'flex';
         setTimeout(() => {
-            pane.classList.add('open');
+            if (pane) pane.classList.add('open');
             if (readingPane) readingPane.classList.add('admin-open');
             syncAdminFabAnchorToPanel();
+            if (typeof syncDockClearanceState === 'function') syncDockClearanceState();
         }, 10);
     } else {
-        pane.classList.remove('open');
+        if (pane) pane.classList.remove('open');
         if (readingPane) readingPane.classList.remove('admin-open');
+        if (typeof syncDockClearanceState === 'function') syncDockClearanceState();
         setTimeout(() => {
-            if (!pane.classList.contains('open')) pane.style.display = 'none';
+            if (!pane.classList.contains('open')) {
+                if (pane) pane.style.display = 'none';
+                // Final sync once transition is fully done and display is none
+                if (typeof syncDockClearanceState === 'function') syncDockClearanceState();
+            }
         }, 300);
     }
 

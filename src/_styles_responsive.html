@@ -35,7 +35,7 @@
           .action-box { font-size: 10px !important; padding: 10px !important; }
 
           body.deck-mode-active #deck-stage {
-              padding: max(92px, var(--dock-content-offset, 92px)) 24px 20px !important;
+              padding: var(--dock-content-offset, 92px) 24px 20px !important;
               gap: 20px !important;
           }
           #deck-stage-card {
@@ -61,12 +61,12 @@
           .deck-stage .slide-q-action.checkbox-action { min-width: 40px !important; max-width: 60px !important; }
 
           .pane-content {
-              padding: max(60px, var(--dock-content-offset, 88px)) 16px calc(16px + var(--raw-strip-height, 0px)) !important;
+              padding: var(--dock-content-offset, 88px) 16px calc(16px + var(--raw-strip-height, 0px)) !important;
           }
           #grid-content {
               grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
               gap: 12px !important;
-              padding: 60px 16px 16px !important;
+              padding: var(--dock-content-offset, 60px) 16px 16px !important;
           }
 
           .top-nav {

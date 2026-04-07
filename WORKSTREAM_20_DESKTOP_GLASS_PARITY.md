@@ -1,35 +1,20 @@
 # Workstream 20 — Desktop Executive Glass Parity
 
-> **Status:** Phase 4 complete — Phases 5 & 6 remain | **Branch:** main | **Started:** 2026-04-01
+> **Status:** CLOSED ✅ | **Branch:** main | **Started:** 2026-04-01 | **Closed:** 2026-04-06
 > **Benchmark:** `src/v2_shell_GlassFlow.html` + `src/_styles_glassflow_core.html`
 > **Target:** `src/WebApp.html` + desktop style chain
-> **Deployed:** @643 (2026-04-02)
+> **Deployed:** @643 (2026-04-02) | @Latest (2026-04-06)
 
-## ⚡ Agent Handoff — Resume Here
+## ⚡ Agent Handoff — Workstream Closed
 
-**Phases complete:** 1 ✅ 2 ✅ 3 ✅ 4 ✅ | **Next:** Phase 5 → Phase 6
+**Phases complete:** 1 ✅ 2 ✅ 3 ✅ 4 ✅ 5 ✅ 6 ✅
 
-**Current live app URL:**
-`https://script.google.com/macros/s/AKfycby3-IXETAY0YKEIDj3mz_ZPWVKx5ArpTrcskpz71gXPRtBCO8RyPxLg5Hk7kECc-M_h/exec`
-
-**Shell state as of Phase 4:**
-- Header: glassy `backdrop-filter: blur(12px)`, `--desktop-header-height: 56px`, framed card workspace below
-- Sync actions: behind `☰` hamburger FAB (`toggleNavFab()`) in nav-actions
-- Review Hub trigger: icon button `#btn-review-hub` in nav-actions (calls `toggleAdminPanel()`)
-- Review Hub panel: GlassFlow-parity HTML — mini KPI chips, desktop tab strip, `review-hub-panel`/`review-hub-scroll-area` classes
-- Gantt view: workspace card suppressed (`body.gantt-view-active .workspace { display:none !important }`)
-- Key token: `--desktop-header-height: 56px`, `--desktop-shell-inset: 16px`, `--desktop-shell-radius: 16px`
-
-**Known issues to address in Phase 5:**
-1. `--dock-content-offset: 88px` still hardcoded in `_styles_base.html:21` — grep all consumers and migrate to `calc(var(--desktop-header-height) + X)` where needed
-2. Gantt / Grid / Deck views not yet visually validated inside the new shell
-3. Deck presentation mode — confirm it breaks out of the workspace card frame
-
-**How to push + redeploy:**
-```bash
-/Users/jacobzamarripa.omni/.npm-global/bin/clasp push -f
-/Users/jacobzamarripa.omni/.npm-global/bin/clasp deploy --deploymentId AKfycby3-IXETAY0YKEIDj3mz_ZPWVKx5ArpTrcskpz71gXPRtBCO8RyPxLg5Hk7kECc-M_h
-```
+**Summary of Final Polish (Phases 5-6):**
+- **Dock Centering:** The search/filter dock is now dynamically anchored to the horizontal center of the active information card (Detail/Deck).
+- **Vertical Equidistance:** Exact 12px gap symmetry enforced between Nav -> Dock and Dock -> Content.
+- **Spring Physics:** All layout transitions and dock movements use the canonical `cubic-bezier(0.16, 1, 0.3, 1)` spring contract.
+- **Visual Sweep:** Confirmed Gantt, Grid, and Deck views fill the new framed shell correctly. Deck presentation mode now breaks out of the frame correctly for full-immersion viewing.
+- **Token Discipline:** Migrated hardcoded `--dock-content-offset` to dynamic calc expressions.
 
 ---
 

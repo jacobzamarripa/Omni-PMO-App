@@ -1,5 +1,12 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-06: High-Fidelity Dock Refinement & WS20 Conclusion
+- **Dynamic Card-Anchored Centering**: Replaced hardcoded dock offsets with a robust, multi-pass JS calculation in `syncDockClearanceState()`. The search dock now dynamically anchors its horizontal center to the active information card (`#project-schedule-card` or `#deck-stage-card`), ensuring perfect alignment even as panels slide or cards resize.
+- **Vertical Equidistance (12px Symmetry)**: Enforced a strict 12px vertical gap symmetry. The distance from Nav to Dock and Dock to Content is now exactly equal, creating a high-fidelity "floating" integrated feel.
+- **Stabilized Layout Sync**: Implemented a triple-pass measurement strategy (Immediate + rAF + 150ms/320ms settle) to ensure pixel-perfect positioning after CSS transitions and DOM updates.
+- **Interactivity & Layering**: Elevated dock `z-index` to `2000050` to guarantee it remains clickable above all transition overlays. Standardized spring-physics transitions (`0.28s cubic-bezier(0.16, 1, 0.3, 1)`) for all dock movement.
+- **WS20 Closure**: Completed the visual consistency sweep for Gantt, Grid, and Deck views. All desktop views now respect the new framed shell geometry and dynamic clearance model.
+
 > [!success] 2026-04-06: Review Hub Layout Refactor & Interaction Polish
 - **KPI Row Repositioning (Desktop & Mobile)**: Moved the `admin-kpi-mini-wrap` out of the Review Hub header and into a dedicated 3-column grid row immediately below the tabs (Desktop) or header (Mobile). This provides significantly more breathing room and visual clarity.
 - **Header Cleanup**: Simplified the `review-hub-main-header` layout, removing "crammed" elements and establishing a consistent vertical hierarchy: Header -> Tabs -> KPIs -> Content.

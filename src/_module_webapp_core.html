@@ -84,39 +84,80 @@
       }
 
       // TODO: DOM-COUPLED - extract after state layer is isolated
-      function syncDockClearanceState() {
-          let offset = 0;
-          let shouldShift = false;
-          let dock = getEl('filter-strip');
-          let workspace = getEl('main-workspace');
-          let pills = getEl('active-filter-pills');
-          let body = document.body;
-          let topNav = document.querySelector('.top-nav');
-          let navRect = topNav ? topNav.getBoundingClientRect() : null;
-          if (navRect) {
-              document.documentElement.style.setProperty('--dock-clearance-top', `${Math.ceil(navRect.bottom + 10)}px`);
-          }
+      function syncDockClearanceState(isSecondPass) {
+          const dock = getEl('filter-strip');
+          const workspace = getEl('main-workspace');
+          const topNav = document.querySelector('.top-nav');
+          if (!dock || !workspace || !topNav) return;
 
-          let contentOffset = 88;
-          if (dock && workspace) {
-              let workspaceRect = workspace.getBoundingClientRect();
-              let dockRect = dock.getBoundingClientRect();
-              if (dockRect.width > 0 && dockRect.height > 0) {
-                  contentOffset = Math.max(88, Math.ceil((dockRect.bottom - workspaceRect.top) + 14));
+          const GAP = 12; // Precise vertical gap for equidistance
+          const navRect = topNav.getBoundingClientRect();
+          const workspaceRect = workspace.getBoundingClientRect();
+          
+          // 1. HORIZONTAL: ANCHOR DOCK TO ACTIVE CARD CENTER
+          let horizontalOffset = 0;
+          if (currentWorkspaceView !== 'gantt') {
+              let target = null;
+              if (isDeckMode) {
+                  target = getEl('deck-stage-card');
+              } else if (currentWorkspaceView === 'detail') {
+                  // Use the main grid container or the detail column as the horizontal reference
+                  target = getEl('main-qb-grid') || workspace.querySelector('.detail-main') || workspace.querySelector('.reading-pane');
+              } else if (currentWorkspaceView === 'grid') {
+                  target = getEl('grid-content');
               }
+
+              // Final fallback to pane center if primary target not found/rendered
+              if (!target || !isElementVisiblyRendered(target)) {
+                  target = workspace.querySelector('.reading-pane') || workspace.querySelector('#deck-stage');
+              }
+
+              if (target && isElementVisiblyRendered(target)) {
+                  const targetRect = target.getBoundingClientRect();
+                  const targetCenter = targetRect.left + (targetRect.width / 2);
+                  const viewportCenter = window.innerWidth / 2;
+                  horizontalOffset = Math.round(targetCenter - viewportCenter);
+              }
+          }
+          document.documentElement.style.setProperty('--dock-offset-x', `${horizontalOffset}px`);
+
+          // 2. VERTICAL: POSITION DOCK (GAP 1: Nav -> Dock)
+          const safeNavBottom = Math.max(navRect.bottom, 56);
+          const dockTop = Math.ceil(safeNavBottom + GAP);
+          document.documentElement.style.setProperty('--dock-clearance-top', `${dockTop}px`);
+
+          // 3. VERTICAL: EQUALIZE CLEARANCE (GAP 2: Dock -> Content)
+          let contentOffset = 52;
+          let dockRect = dock.getBoundingClientRect();
+          if (dockRect.width > 0 && dockRect.height > 0) {
+              const workspaceRect = workspace.getBoundingClientRect();
+              const intendedDockBottom = dockTop + dockRect.height;
+              contentOffset = Math.max(52, Math.ceil((intendedDockBottom - workspaceRect.top) + GAP));
           }
           document.documentElement.style.setProperty('--dock-content-offset', `${contentOffset}px`);
           document.documentElement.style.setProperty('--deck-card-max-height', `${Math.max(340, Math.floor(window.innerHeight - contentOffset - 132))}px`);
 
-          if (!dock || !workspace || (window.innerWidth <= 768 && !window.__surfaceIpad) || window.innerWidth > 1800 || currentWorkspaceView === 'gantt') {
+          // Schedule follow-up passes to handle rendering delays and CSS transitions after view switches
+          if (!isSecondPass) {
+              requestAnimationFrame(() => syncDockClearanceState(true));
+              // Catch the end of typical 300ms transitions (sidebar/admin panel)
+              setTimeout(() => syncDockClearanceState(true), 320);
+          }
+
+          if ((window.innerWidth <= 768 && !window.__surfaceIpad) || currentWorkspaceView === 'gantt') {
               document.documentElement.style.setProperty('--dock-panel-offset', '0px');
-              body.classList.remove('dock-clearance-active');
+              if (currentWorkspaceView === 'gantt') {
+                  document.documentElement.style.setProperty('--dock-offset-x', '0px');
+              }
+              document.body.classList.remove('dock-clearance-active');
               return;
           }
 
+          let offset = 0;
+          let shouldShift = false;
+          
           if (dock && workspace) {
-              let workspaceRect = workspace.getBoundingClientRect();
-              let dockRect = dock.getBoundingClientRect();
+              // Note: collision detection below still uses live dockRect
               let panel = getEl('dock-filters-panel');
               let panelRect = (panel && panel.classList.contains('is-open') && isElementVisiblyRendered(panel)) ? panel.getBoundingClientRect() : null;
               let collisionRect = dockRect;
@@ -212,7 +253,7 @@
           }
 
           document.documentElement.style.setProperty('--dock-panel-offset', `${offset}px`);
-          body.classList.toggle('dock-clearance-active', shouldShift);
+          document.body.classList.toggle('dock-clearance-active', shouldShift);
       }
 
       function getActiveSortValue() {

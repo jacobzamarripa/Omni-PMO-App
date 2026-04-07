@@ -331,6 +331,10 @@ function switchWorkspaceView(mode) {
         }
 
         syncGanttIslandState();
+        if (typeof syncDockClearanceState === 'function') {
+            syncDockClearanceState();
+            setTimeout(syncDockClearanceState, 150);
+        }
     }, 40);
 }
 
