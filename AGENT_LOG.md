@@ -7,6 +7,7 @@
 - **Legacy Logic Purge**: Fully removed **CD Analysis** and **Special Crossings** logic, including `src/05_CDAnalyzer.js`, `src/_module_special_crossings.html`, and their associated backend functions and UI components.
 - **Professional Menu Reorganization**: Rebuilt the Google Sheets UI under a single **Omni PMO** menu with a logical hierarchy (Data Pipeline, Review Engine, Quickbase Hub, Reporting, Maintenance). Removed all emojis for a cleaner, enterprise-grade look.
 - **Signal Promotion**: Formally promoted the Signal monitoring logic from "experimental" to a Core Production Feature with updated high-resolution portfolio monitoring labels.
+- **Special Crossings Restoration**: Recovered from a frontend crash by re-implementing `renderSpecialCrossingsAdminSection` directly into `_module_admin.html`. Restored full visibility of locally-populated crossing data in KPI chips and detail cards while maintaining the removal of legacy AI ingestion code.
 - **Files touched:** `src/00_Config.js`, `src/01_Engine_Archive.js`, `src/01_Engine_DataDicts.js`, `src/02_Utilities.js`, `src/06_QBSync.js`, `src/WebApp.html`, `src/_module_admin.html`, `src/v2_shell_GlassFlow.html`, `src/05_CDAnalyzer.js` (deleted), `src/_module_special_crossings.html` (deleted).
 
 > [!success] 2026-04-07: Standardized Headers & FAB Alignment Refinement
