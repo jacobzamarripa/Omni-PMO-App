@@ -71,7 +71,7 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
-  z-index: 100;
+  z-index: var(--z-nav);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -105,7 +105,7 @@
   gap: 8px;
   flex-shrink: 0;
   position: relative;
-  z-index: 3;
+  z-index: calc(var(--z-base) + 3);
 }
 .v2-shell-glassflow-header-btn {
   width: 42px;
@@ -170,7 +170,7 @@ body.mobile-menu-open .hamburger-icon span:nth-child(3) { transform: translateY(
 }
 
 #v2-glassflow-queue-panel {
-  z-index: 10;
+  z-index: var(--z-drawer);
   opacity: 1;
   transform: translateX(0);
   display: flex;
@@ -178,7 +178,7 @@ body.mobile-menu-open .hamburger-icon span:nth-child(3) { transform: translateY(
   overflow: hidden;
   padding-bottom: 0;
 }
-#v2-glassflow-detail-panel { z-index: 20; transform: translateX(100%); opacity: 0; background: var(--card-bg); }
+#v2-glassflow-detail-panel { z-index: var(--z-drawer); transform: translateX(100%); opacity: 0; background: var(--card-bg); }
 
 body.mobile-detail-open #v2-glassflow-queue-panel { transform: translateX(-30%); opacity: 0; pointer-events: none; }
 body.mobile-detail-open #v2-glassflow-detail-panel { transform: translateX(0); opacity: 1; }
@@ -202,7 +202,7 @@ body.mobile-detail-open #v2-glassflow-detail-panel { transform: translateX(0); o
   align-items: center;
   padding: 0 8px;
   box-shadow: 0 12px 40px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.15) !important;
-  z-index: 9500;
+  z-index: var(--z-dock);
   border: 1px solid color-mix(in srgb, var(--border) 45%, transparent) !important;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -353,7 +353,7 @@ body.mobile-admin-open .v2-shell-glassflow-dock-btn.active svg { color: #ffffff 
   gap: 8px;
   box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
   white-space: nowrap;
-  z-index: 9501;
+  z-index: calc(var(--z-dock) + 10);
 }
 body.mobile-detail-open .dock-nav-strip { display: flex; }
 
@@ -425,7 +425,7 @@ body.mobile-detail-open .v2-shell-glassflow-back { display: flex; }
 body.mobile-detail-open .v2-shell-glassflow-brand { display: none; }
 
 
-#outbox-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+#outbox-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: var(--z-overlay); opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
 #outbox-overlay.open { opacity: 1; pointer-events: auto; }
 
 /* Focus Mode Overrides */
@@ -439,7 +439,7 @@ body.mobile-detail-open .v2-shell-glassflow-brand { display: none; }
   opacity: 1 !important;
   filter: none !important;
   transform: scale(1.02) !important;
-  z-index: 50 !important;
+  z-index: calc(var(--z-content) + 40) !important;
   box-shadow: 0 0 30px rgba(168, 85, 247, 0.3) !important;
 }
 
@@ -469,7 +469,7 @@ body.mobile-gantt-open .v2-shell-glassflow-dock {
   border-radius: 22px;
   font-size: 11px;
   font-weight: 900;
-  z-index: 9000;
+  z-index: var(--z-tooltip);
   display: none;
   align-items: center;
   gap: 8px;
@@ -797,7 +797,7 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
     display: none;
     flex-direction: column;
     gap: 8px;
-    z-index: 200;
+    z-index: var(--z-popover);
     transform-origin: top right;
 }
 .v2-shell-glassflow .mobile-menu-panel.open {
@@ -858,7 +858,7 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.38);
-    z-index: 3000;
+    z-index: var(--z-overlay);
     display: none;
 }
 .v2-shell-glassflow .help-overlay.open {
@@ -875,7 +875,7 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
     backdrop-filter: blur(24px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
     border-left: 1px solid color-mix(in srgb, var(--border) 35%, transparent) !important;
-    z-index: 3001;
+    z-index: var(--z-modal);
     display: flex;
     flex-direction: column;
     transform: translateX(100%);
@@ -924,7 +924,7 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
 .v2-shell-glassflow .help-search-wrap {
     position: sticky;
     top: -16px;
-    z-index: 2;
+    z-index: calc(var(--z-base) + 2);
     margin: -16px -18px 0;
     padding: 16px 18px 10px;
     background: linear-gradient(to bottom, color-mix(in srgb, var(--card-bg) 96%, transparent), color-mix(in srgb, var(--card-bg) 92%, transparent));
@@ -1500,7 +1500,7 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
   position: fixed !important; bottom: 0 !important; left: 12px !important; right: 12px !important;
   width: auto !important; height: 82vh !important; max-height: 82vh !important;
   background: var(--card-bg) !important;
-  border-radius: 32px 32px 0 0 !important; z-index: 9000 !important;
+  border-radius: 32px 32px 0 0 !important; z-index: var(--z-drawer) !important;
   display: flex; flex-direction: column;
   visibility: hidden; pointer-events: none;
   transform: translateY(100%) !important;
@@ -1862,7 +1862,7 @@ body.mobile-admin-open .dock-nav-strip {
   bottom: calc(56px + env(safe-area-inset-bottom, 8px)); 
   left: 50%;
   transform: translateX(-50%) translateY(20px);
-  z-index: 100;
+  z-index: var(--z-sticky);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2134,7 +2134,7 @@ body.mobile-gantt-open #gantt-panel {
   width: 100vw !important;
   height: 100vh !important;
   background: var(--card-bg) !important;
-  z-index: 8000 !important; /* Above everything except Dock */
+  z-index: var(--z-max) !important; /* Above everything except Dock */
 }
 
 /* Force timeline visibility - prevents legacy portrait media query from hiding it */
@@ -2179,7 +2179,7 @@ body.mobile-gantt-open .help-panel {
   position: fixed;
   top: 20px;
   right: 20px;
-  z-index: 6000;
+  z-index: var(--z-toast);
   border: 1px solid color-mix(in srgb, #a855f7 40%, transparent);
   border-radius: 100px;
   background: color-mix(in srgb, #a855f7 12%, var(--card-bg));
@@ -2351,7 +2351,7 @@ body.mobile-admin-open .panel-tab { flex: 1; max-width: 100px; height: 32px; fon
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-  z-index: 1000 !important;
+  z-index: var(--z-popover) !important;
   padding: 8px;
   max-height: 240px;
   overflow-y: auto;
@@ -2401,7 +2401,7 @@ body.mobile-gantt-open #unified-filter-fab {
   border-radius: 22px;
   font-size: 11px;
   font-weight: 900;
-  z-index: 9000;
+  z-index: var(--z-tooltip);
   display: none;
   align-items: center;
   gap: 8px;
@@ -2423,7 +2423,7 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
   opacity: 1 !important;
   filter: none !important;
   transform: scale(1.02) !important;
-  z-index: 50 !important;
+  z-index: calc(var(--z-content) + 40) !important;
   box-shadow: 0 0 30px rgba(168, 85, 247, 0.3) !important;
 }
 

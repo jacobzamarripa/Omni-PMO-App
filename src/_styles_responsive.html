@@ -110,7 +110,7 @@
         backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%);
         border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 28px;
         box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.6);
-        z-index: 100012; display: none; flex-direction: column; overflow: hidden;
+        z-index: var(--z-widget); display: none; flex-direction: column; overflow: hidden;
         transform-origin: top center;
         will-change: transform, opacity;
     }
@@ -125,7 +125,7 @@
     }
     body.deck-mode-active .tool-widget,
     body.presentation-active .tool-widget {
-        z-index: 2000010 !important;
+        z-index: var(--z-popover) !important;
     }
     @keyframes widget-spring-pop {
         0%   { opacity: 0; transform: scale(0.5) translate(-40px, -30px); }
@@ -539,7 +539,7 @@
         position: fixed;
         inset: 0;
         background: rgba(15, 23, 42, 0.34);
-        z-index: 3440;
+        z-index: var(--z-overlay);
         pointer-events: none;
     }
     body.mobile-filter-open .filter-strip.smart-dock {
@@ -549,7 +549,7 @@
         left: 0 !important;
         right: 0 !important;
         top: auto !important;
-        z-index: 3500 !important;
+        z-index: var(--z-drawer) !important;
         border-radius: 18px 18px 0 0 !important;
         padding: 16px 16px calc(16px + env(safe-area-inset-bottom)) !important;
         max-height: 60vh !important;

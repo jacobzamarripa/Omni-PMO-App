@@ -9,7 +9,7 @@
 // ============================================================
 -->
 <style>
-      .top-nav { background: color-mix(in srgb, var(--card-bg) 85%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); min-height: var(--desktop-header-height); height: auto; box-sizing: border-box; padding: 8px 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; z-index: 100015; position: relative; flex-shrink: 0; transition: background var(--transition-spring), border-color var(--transition-spring); gap: 12px; }
+      .top-nav { background: color-mix(in srgb, var(--card-bg) 85%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); min-height: var(--desktop-header-height); height: auto; box-sizing: border-box; padding: 8px 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; z-index: var(--z-nav); position: relative; flex-shrink: 0; transition: background var(--transition-spring), border-color var(--transition-spring); gap: 12px; }
       .top-nav-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; justify-self: start; }
       .top-nav-center { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; justify-self: center; }
       .nav-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; min-width: 0; flex-wrap: nowrap; justify-self: end; }
@@ -320,7 +320,7 @@
           right: 12px !important;
           top: 8px !important;
           flex-shrink: 0;
-          z-index: 100;
+          z-index: var(--z-sticky);
         }
         /* ── Activity tab: filter bar full-width override ── */
         .outbox-pane .review-hub-filter-bar {
@@ -517,7 +517,7 @@
               border-left: 1px solid var(--border) !important;
               border-top: none !important;
               box-shadow: -6px 0 24px rgba(0,0,0,0.10) !important;
-              z-index: 10050 !important;
+              z-index: var(--z-drawer) !important;
               margin-bottom: 0 !important;
               background: var(--card-bg) !important;
           }
@@ -553,7 +553,7 @@
               border-radius: 16px 0 0 16px !important;
               border-left: 1px solid var(--border) !important;
               box-shadow: -6px 0 24px rgba(0,0,0,0.10) !important;
-              z-index: 10050 !important;
+              z-index: var(--z-drawer) !important;
               margin-bottom: 0 !important;
               background: var(--card-bg) !important;
           }
@@ -944,7 +944,7 @@
           margin-bottom: var(--panel-gutter-y);
           background: color-mix(in srgb, var(--card-bg) 94%, transparent);
           border-left: 1px solid var(--border);
-          z-index: 100010;
+          z-index: var(--z-drawer);
           border: 1px solid var(--border);
           border-radius: var(--desktop-shell-radius, 24px);
           box-shadow: 0 28px 60px rgba(15,23,42,0.24);
@@ -992,7 +992,8 @@
       /* Restore Review Hub Launcher Access */
       .admin-fab-anchor { 
           display: block !important; 
-          z-index: 2000050 !important; 
+          z-index: var(--z-drawer) !important; 
+          pointer-events: none !important;
       }      .review-hub-desktop-row {
           width: 100%;
           display: flex;
@@ -1107,13 +1108,13 @@
       }
 
 
-    .outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 119; backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .outbox-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: var(--z-overlay); backdrop-filter: none; -webkit-backdrop-filter: none; }
     .outbox-overlay.open { display: block; }
 
       /* 📖 HELP PANEL */
-      .help-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100020; display: none; }
+      .help-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: var(--z-overlay); display: none; }
       .help-overlay.open { display: block; }
-      .help-panel { position: fixed; top: 0; right: 0; width: 360px; max-width: 92vw; height: 100vh; background: var(--card-bg); border-left: 1px solid var(--border); z-index: 100021; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -8px 0 32px rgba(0,0,0,0.2); }
+      .help-panel { position: fixed; top: 0; right: 0; width: 360px; max-width: 92vw; height: 100vh; background: var(--card-bg); border-left: 1px solid var(--border); z-index: var(--z-modal); display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -8px 0 32px rgba(0,0,0,0.2); }
       .help-panel.open { transform: translateX(0); }
       .help-hdr { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0; gap: 12px; }
       .help-hdr-title { font-size: 13px; font-weight: 900; letter-spacing: -0.3px; }
@@ -1152,11 +1153,11 @@
       }
       body.deck-mode-active .detail-main,
       body.presentation-active .detail-main {
-          z-index: 2000000 !important;
+          z-index: var(--z-content) !important;
       }
       body.deck-mode-active .top-nav,
       body.presentation-active .top-nav {
-          z-index: 2000011 !important;
+          z-index: var(--z-nav) !important;
       }
       .pane-content {
           align-items: flex-start !important;
@@ -1197,7 +1198,7 @@
                                                                                                                                                                                                         padding: 0 16px !important;
                                                                                                                                                                                                         align-items: center !important;
                                                                                                                                                                                                         align-content: center !important;
-                                                                                                                                                                                                        z-index: 100015 !important;
+                                                                                                                                                                                                        z-index: var(--z-nav) !important;
                                                                                                                                                                                                         background: var(--card-bg) !important;
                                                                                                                                                                                                         backdrop-filter: none !important;
                                                                                                                                                                                                         -webkit-backdrop-filter: none !important;
@@ -1350,7 +1351,7 @@
                                                                                                                                                                                                         right: 0 !important;
                                                                                                                                                                                                         bottom: calc(var(--m-dock-h, 64px) + env(safe-area-inset-bottom) + 12px) !important;
                                                                                                                                                                                                         width: 100vw !important;
-                                                                                                                                                                                                        z-index: 200 !important;
+                                                                                                                                                                                                        z-index: var(--z-drawer) !important;
                                                                                                                                                                                                         overflow: auto !important;
                                                                                                                                                                                                         display: none !important;
                                                                                                                                                                                                     }
@@ -1402,7 +1403,7 @@
 
     /* ── Admin bottom-sheet pattern on phone ── */
     .outbox-overlay {
-        z-index: 3920 !important;
+        z-index: var(--z-overlay) !important;
         background: rgba(15, 23, 42, 0.38) !important;
     }
     .outbox-pane {
@@ -1424,7 +1425,7 @@
         opacity: 1 !important;
         pointer-events: auto !important;
         transition: transform 0.32s cubic-bezier(0.4,0,0.2,1) !important;
-        z-index: 3950 !important;
+        z-index: var(--z-drawer) !important;
         backdrop-filter: blur(24px) !important;
         -webkit-backdrop-filter: blur(24px) !important;
         padding-bottom: calc(var(--m-dock-h, 64px) + env(safe-area-inset-bottom) + 8px) !important;
@@ -1483,7 +1484,7 @@
         border: 1px solid var(--border);
         border-radius: 32px;
         box-shadow: 0 10px 24px rgba(15,23,42,0.08), inset 0 1px 3px rgba(0,0,0,0.04);
-        z-index: 4100;
+        z-index: var(--z-dock);
         align-items: stretch;
         padding: 6px 8px;
         gap: 4px;
@@ -1548,7 +1549,7 @@
         display: none;
         position: fixed; inset: 0;
         background: rgba(15,23,42,0.42);
-        z-index: 4100;
+        z-index: var(--z-overlay);
         backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
     }
     #mobile-sf-overlay.open { display: block; }
@@ -1560,7 +1561,7 @@
         border-radius: 20px 20px 0 0;
         border-top: 1px solid var(--border);
         box-shadow: 0 -12px 48px rgba(15,23,42,0.18);
-        z-index: 4200;
+        z-index: var(--z-modal);
         transform: translateY(100%);
         transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
         overflow-y: auto; -webkit-overflow-scrolling: touch;

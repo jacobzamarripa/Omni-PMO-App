@@ -11,7 +11,7 @@
 <style>
       /* 🗞️ Daily Digest Modal */
       .digest-overlay {
-          position: fixed; inset: 0; z-index: 999995;
+          position: fixed; inset: 0; z-index: var(--z-overlay);
           background: rgba(15, 23, 42, 0.6);
           backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
           display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -64,7 +64,7 @@
       .has-tooltip { position: relative; cursor: pointer; }
       .has-tooltip:hover::after {
           content: attr(data-tooltip); position: absolute; top: 120%; left: 50%; transform: translateX(-50%);
-          background: #0f172a; color: #ffffff; font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: 999999; pointer-events: none; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+          background: #0f172a; color: #ffffff; font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: var(--z-tooltip); pointer-events: none; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
       }
       body.dark-mode .has-tooltip:hover::after { background: #ffffff; color: #0f172a; }
 
@@ -91,7 +91,7 @@
           max-width: 95% !important;
           min-width: 0 !important;
           margin: 0 !important;
-          z-index: 4000 !important;
+          z-index: var(--z-dock) !important;
           padding: 8px 10px !important;
           border-radius: 34px !important;
           background: rgba(255, 255, 255, 0.92) !important;
@@ -106,7 +106,7 @@
           flex-shrink: 0 !important;
           overflow: visible !important;
           scrollbar-width: none;
-          z-index: 2000050 !important;
+          z-index: var(--z-dock) !important;
           transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1), top 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease !important;
       }
       body.dock-clearance-active:not(.deck-mode-active) .filter-strip {
@@ -116,7 +116,7 @@
           right: auto !important;
           transform: translateX(-50%) !important;
           max-width: min(calc(100vw - 40px), max-content) !important;
-          z-index: 10030 !important;
+          z-index: var(--z-dock) !important;
       }
       body.dock-clearance-active.deck-mode-active:not(.presentation-active) .filter-strip {
           position: fixed !important;
@@ -125,7 +125,7 @@
           right: auto !important;
           transform: translateX(-50%) !important;
           max-width: min(calc(100vw - 40px), max-content) !important;
-          z-index: 2000009 !important;
+          z-index: var(--z-dock) !important;
       }
       body.dark-mode .filter-strip {
           background: rgba(24, 24, 27, 0.92) !important;
@@ -140,7 +140,7 @@
       body.gantt-view-active .filter-strip {
           top: auto !important;
           bottom: 16px !important;
-          z-index: 100030 !important;
+          z-index: var(--z-dock) !important;
       }
       body.deck-mode-active:not(.presentation-active) #deck-stage {
           padding-top: var(--dock-content-offset, 92px) !important;
@@ -417,7 +417,7 @@
           -webkit-backdrop-filter: blur(26px) saturate(185%);
           border: 1px solid rgba(255, 255, 255, 0.82);
           box-shadow: 0 14px 36px rgba(15, 23, 42, 0.14), inset 0 1px 1px rgba(255,255,255,1);
-          z-index: 4010;
+          z-index: var(--z-popover);
           opacity: 0;
           visibility: hidden;
           pointer-events: none;
@@ -591,7 +591,7 @@
           -webkit-backdrop-filter: blur(32px) saturate(200%);
           border: 1px solid rgba(255, 255, 255, 0.82);
           box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14), inset 0 1px 1px rgba(255,255,255,1);
-          z-index: 2001;
+          z-index: var(--z-drawer);
           opacity: 0;
           pointer-events: none;
           transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease, filter 0.8s ease;
@@ -775,7 +775,7 @@
       }
       .ms-wrap { position: relative; display: inline-block; pointer-events: auto !important; }
       .ms-wrap * { pointer-events: auto !important; }
-      .ms-wrap.open { z-index: 10000 !important; }      .ms-display {
+      .ms-wrap.open { z-index: var(--z-popover) !important; }      .ms-display {
           border-radius: 20px !important;
           background: rgba(255, 255, 255, 0.6) !important;
           border: 1px solid var(--border) !important;
@@ -827,7 +827,7 @@
           min-width: 160px;
           max-height: 250px;
           overflow-y: auto;
-          z-index: 100000;
+          z-index: var(--z-popover);
       }
       body.gantt-view-active .filter-strip .ms-dropdown {
           top: auto;
@@ -846,12 +846,12 @@
           gap: 4px;
           width: auto;
           max-width: 80vw;
-          z-index: 3000 !important;
+          z-index: var(--z-popover) !important;
           pointer-events: none;
           transition: top 0.24s cubic-bezier(0.19, 1, 0.22, 1), bottom 0.24s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.24s ease;
       }
       body.gantt-view-active #active-filter-pills {
-          z-index: 10021 !important;
+          z-index: var(--z-popover) !important;
       }
       .filter-pill {
           pointer-events: auto;
@@ -897,7 +897,7 @@
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          z-index: 2000000;
+          z-index: var(--z-popover);
           pointer-events: auto !important;
           transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
           padding: 0;
@@ -1416,7 +1416,7 @@
       #nav-bsls-pill.is-locked { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4); }
       .projects-hud {
           position: fixed;
-          z-index: 999999;
+          z-index: var(--z-tooltip);
           background: rgba(9, 9, 11, 0.85);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(16px);
