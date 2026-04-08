@@ -364,12 +364,9 @@ function syncOutboxPanelMode() {
     if (desktopTabStrip) desktopTabStrip.style.display = !isDeckView ? 'flex' : 'none';
     if (adminKpiRow) adminKpiRow.style.display = (!isDeckView && currentPanelTab === 'admin') ? '' : 'none';
     if (deckPanel) deckPanel.style.display = isDeckView ? 'flex' : 'none';
-    if (fab) {
-        fab.title = 'Admin / Reviewed';
-        fab.setAttribute('aria-label', 'Open admin panel');
-    }
 
     if (isDeckView) {
+
         // FULLSCREEN ORCHESTRATION: suppresses panel-tab surfaces while the deck action panel owns the outbox lane
         // Z-INDEX DEPENDENCY: outbox pane, panel tab bar, deck action panel, and admin FAB anchor
         if (adminPanel) adminPanel.style.display = 'none';

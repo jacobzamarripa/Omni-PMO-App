@@ -62,34 +62,30 @@ function syncAdminFabAnchorToPanel() {
 function syncReviewHubControlState(open) {
     let pane = getEl('outbox-pane');
     let fab = getEl('admin-fab') || getEl('admin-hub-fab');
-    let fabIcon = fab ? fab.querySelector('.admin-fab-icon') : null;
-    let closeBtn = getEl('admin-panel-close');
-    let headerClose = document.querySelector('#review-hub-main-header .review-hub-close-btn') || 
-                      document.querySelector('#review-hub-main-header .panel-tab-close');
     let activeTab = typeof currentPanelTab !== 'undefined' ? currentPanelTab : 'admin';
+    let isDeck = typeof isSlideFaceActive === 'function' && isSlideFaceActive();
     
     // Standardize labels for parity
-    let tabLabel = activeTab === 'reviewed' ? 'Manager Review' : activeTab === 'changelog' ? 'Activity' : 'Admin';
+    let tabLabel = isDeck ? 'Manager Review' : (activeTab === 'reviewed' ? 'Manager Review' : activeTab === 'changelog' ? 'Activity' : 'Admin');
     let isOpen = typeof open === 'boolean' ? open : !!(pane && pane.classList.contains('open'));
 
     if (fab) {
         fab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        fab.setAttribute('aria-label', isOpen ? `Close ${tabLabel} panel` : `Open ${tabLabel} panel`);
+        fab.setAttribute('aria-label', isOpen ? `Close ${tabLabel}` : `Open ${tabLabel}`);
         fab.title = isOpen ? `Close ${tabLabel}` : `Open ${tabLabel}`;
         fab.classList.toggle('is-open', isOpen);
     }
 
-    if (closeBtn) {
-        closeBtn.setAttribute('aria-label', `Close ${tabLabel} panel`);
-        closeBtn.title = `Close ${tabLabel}`;
-        closeBtn.setAttribute('aria-hidden', !isOpen ? 'true' : 'false');
-        closeBtn.tabIndex = isOpen ? 0 : -1;
-    }
-
-    if (headerClose) {
-        headerClose.setAttribute('aria-label', `Close ${tabLabel} panel`);
-        headerClose.title = `Close ${tabLabel}`;
-    }
+    // Handle all potential close buttons (Header and Deck Action Panel)
+    const closeButtons = document.querySelectorAll('#admin-panel-close, .review-hub-close-btn, .panel-tab-close');
+    closeButtons.forEach(btn => {
+        btn.setAttribute('aria-label', `Close ${tabLabel}`);
+        btn.title = `Close ${tabLabel}`;
+        if (btn.id === 'admin-panel-close') {
+            btn.setAttribute('aria-hidden', !isOpen ? 'true' : 'false');
+            btn.tabIndex = isOpen ? 0 : -1;
+        }
+    });
 
     // syncReviewHubControlState is still used to update the FAB state.
     syncAdminFabAnchorToPanel();

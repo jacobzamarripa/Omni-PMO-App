@@ -1089,12 +1089,13 @@
           box-shadow: 0 10px 18px rgba(15, 23, 42, 0.16);
       }
       /* When the Review Hub is open, the close affordance lives in the panel corner */
-      .reading-pane.admin-open #admin-fab {
+      body.admin-open #admin-fab {
           opacity: 0;
           visibility: hidden;
           transform: none;
           pointer-events: none;
       }
+
       /* FAB SVG icon sizing */
       .admin-fab-icon svg {
           width: 18px !important;
@@ -1452,7 +1453,7 @@
         padding: 0 12px !important;
     }
     /* Fix: neutralize will-change + transform stacking context so .outbox-pane (fixed child) anchors to viewport */
-    .reading-pane.admin-open {
+    body.admin-open .reading-pane {
         will-change: auto !important;
         transform: none !important;
     }
