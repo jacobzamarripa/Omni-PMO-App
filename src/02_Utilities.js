@@ -164,6 +164,8 @@ function onOpen() {
       .addItem('Export Director Review (XLSX)', 'exportDirectorReviewXLSX')
       .addItem('Export Vendor Corrections (XLSX)', 'exportVendorCorrectionsXLSX')
       .addItem('Export Quickbase Upload (CSV)', 'promptExportQuickBaseCSV')
+      .addSeparator()
+      .addItem('Backfill Missing Reports (7-Day)', 'backfillMissingReports')
     );
 
     main.addSubMenu(ui.createMenu('System Maintenance')
@@ -673,6 +675,7 @@ function executeDailyAutomationPipeline() {
   generateDailyReviewCore(targetDateStr, refDict, true);
   exportDirectorReviewXLSX(true);
   exportVendorCorrectionsXLSX(true);
+  exportQuickBaseCSVCore(true);
 }
 function moveIncomingFoldersToArchive() { 
   logMsg("🧹 STARTING MIDNIGHT SWEEP..."); 
@@ -1321,4 +1324,85 @@ function resetIngestionLock() {
   PropertiesService.getScriptProperties().setProperty("INGESTION_IN_PROGRESS", "false");
   logMsg("🔓 MANUAL RESET: Ingestion lock has been cleared.");
   SpreadsheetApp.getUi().alert("🔓 Ingestion Lock Cleared.\n\nYou can now run 'Process Incoming' again.");
+}
+
+/**
+ * 🔍 GAP SCAN: Compares Archive dates against existing reports in Drive.
+ * Generates any missing Daily Production Reports for the last 7 days.
+ */
+function backfillMissingReports() {
+  logMsg("🔍 STARTING: Missing Reports Gap Scan (7-Day Lookback)");
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const histSheet = ss.getSheetByName(HISTORY_SHEET);
+  if (!histSheet) return;
+
+  // 1. Calculate 7-day cutoff
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 7);
+  
+  // 2. Get all unique dates from the Master Archive within the window
+  const histData = histSheet.getRange("A:A").getValues();
+  const archiveDates = new Set();
+  histData.forEach((row, i) => {
+    if (i === 0 || !row[0]) return;
+    let dObj = (row[0] instanceof Date) ? row[0] : new Date(row[0]);
+    if (isNaN(dObj.getTime())) return;
+    
+    if (dObj >= cutoffDate) {
+      let dStr = Utilities.formatDate(dObj, "GMT-5", "M.d.yy");
+      archiveDates.add(dStr);
+    }
+  });
+
+  if (archiveDates.size === 0) {
+    logMsg("✅ GAP SCAN: No archive data found in the last 7 days.");
+    SpreadsheetApp.getUi().alert("Gap Scan Complete.\n\nNo production data found in the Master Archive for the last 7 days.");
+    return;
+  }
+
+  // 3. Get existing reports from Pending and Uploaded folders
+  const existingReports = new Set();
+  const checkFolders = [COMPILED_FOLDER_ID, UPLOADED_FOLDER_ID];
+  
+  checkFolders.forEach(id => {
+    try {
+      let folder = DriveApp.getFolderById(id);
+      let files = folder.getFiles();
+      while (files.hasNext()) {
+        let name = files.next().getName();
+        // Match Daily_Production_Report_M.d.yy.csv or Daily_Production_Report_MM.dd.yy.csv
+        let match = name.match(/Daily_Production_Report_(\d{1,2}\.\d{1,2}\.\d{2})\.csv/);
+        if (match) existingReports.add(match[1]);
+      }
+    } catch(e) { logMsg(`⚠️ Gap Scan folder check failed (${id}): ${e.message}`); }
+  });
+
+  // 4. Identify gaps
+  const missingDates = [...archiveDates].filter(d => !existingReports.has(d));
+
+  if (missingDates.length === 0) {
+    logMsg("✅ GAP SCAN COMPLETE: No missing reports found in the 7-day window.");
+    SpreadsheetApp.getUi().alert("Gap Scan Complete.\n\nAll dates in the last 7 days already have a corresponding compiled report.");
+    return;
+  }
+
+  logMsg(`🛠️ BACKFILL: Found ${missingDates.length} missing reports. Generating...`);
+
+  // 5. Batch generate missing reports into 01_Pending_Upload
+  missingDates.forEach(dStr => {
+    try {
+      // dStr is M.d.yy -> convert to yyyy-MM-dd for engine
+      let parts = dStr.split('.');
+      let isoDate = `20${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+      
+      populateQuickBaseTabCore(isoDate);
+      exportQuickBaseCSVCore(true); // Silent run
+      logMsg(`✅ Backfilled report for: ${dStr}`);
+    } catch(e) {
+      logMsg(`❌ Backfill failed for ${dStr}: ${e.message}`);
+    }
+  });
+
+  logMsg(`✅ BACKFILL COMPLETE: Generated ${missingDates.length} reports.`);
+  SpreadsheetApp.getUi().alert(`Backfill Complete.\n\nGenerated ${missingDates.length} missing reports into the 01_Pending_Upload folder.`);
 }

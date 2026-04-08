@@ -6,6 +6,7 @@
 const ARCHIVE_FOLDER_ID   = "1EqGpR7HYlMfTezGXol2kNZ9vVvGTtP4-"; // Production_Archive
 const INCOMING_FOLDER_ID  = "1ofH6CIxjeoazZqxZ1EBulmwY02_WdieG"; // Daily_Production_Reports
 const COMPILED_FOLDER_ID  = "1YJiF1bdfZkHscRfYuYCOI91kzT22dONV"; // Compiled_Daily_Production_Reports / 01_Pending_Upload
+const UPLOADED_FOLDER_ID  = "1b6n2GCX_qJYWp0lgVgP1JE9iWm9VQqJr"; // 02_Uploaded
 const REFERENCE_FOLDER_ID = "1KBFJ5SWrTgRnU5zWUmcDOZtOiTNLonRk"; // Production_Incoming
 const OMNI_FIBER_FOLDER_ID = "1wuz8GwOpwDSl_Xmc08uZbQKf_JICwdNt"; // Omni Fiber Root
 const VENDOR_TRACKER_ID   = "1O9PiwSxkoI6md8XEIUfohV3yY4ot5uqqO9VKU8HfEl0"; 
