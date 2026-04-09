@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        padding: 20px;
+        background: #f8fafc;
+        color: #0f172a;
+        text-align: center;
+      }
+      h3 { margin-top: 0; font-size: 15px; color: #334155; margin-bottom: 16px; }
+      label { display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px; text-transform: uppercase; text-align: left; }
+      select, input[type="date"] {
+        padding: 10px 12px;
+        font-size: 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 12px;
+        outline: none;
+        background: white;
+      }
+      .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
+      button {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: 0.2s;
+        flex: 1;
+      }
+      .btn-primary { background: #0f172a; color: white; }
+      .btn-primary:hover { background: #334155; }
+      .btn-secondary { background: #e2e8f0; color: #475569; }
+      .btn-secondary:hover { background: #cbd5e1; }
+      #loading { display: none; font-size: 13px; color: #3b82f6; margin-top: 15px; font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <h3>QuickBase Export Filters</h3>
+    
+    <label>Vendor</label>
+    <select id="vendorSelect">
+      <option value="ALL">All Vendors</option>
+      <? vendors.forEach(function(v) { ?>
+        <option value="<?= v ?>"><?= v ?></option>
+      <? }); ?>
+    </select>
+
+    <div style="display:flex; gap:8px;">
+      <div style="flex:1;">
+        <label>Start Date</label>
+        <input type="date" id="startDate" onchange="syncDates()">
+      </div>
+      <div style="flex:1;">
+        <label>End Date</label>
+        <input type="date" id="endDate">
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="google.script.host.close()">Cancel</button>
+      <button class="btn-primary" id="runBtn" onclick="submit()">Load QB Tab</button>
+    </div>
+
+    <div id="loading">⏳ Processing... please wait.</div>
+
+    <script>
+      let d = new Date();
+      let tzOffset = d.getTimezoneOffset() * 60000;
+      let localToday = new Date(d.getTime() - tzOffset);
+      let dateStr = localToday.toISOString().split('T')[0];
+      
+      document.getElementById('startDate').value = dateStr;
+      document.getElementById('endDate').value = dateStr;
+
+      function syncDates() {
+          let start = document.getElementById('startDate').value;
+          document.getElementById('endDate').value = start;
+      }
+
+      function submit() {
+        document.getElementById('runBtn').disabled = true;
+        document.getElementById('loading').style.display = 'block';
+
+        let vendor = document.getElementById('vendorSelect').value;
+        let start = document.getElementById('startDate').value;
+        let end = document.getElementById('endDate').value;
+
+        google.script.run
+          .withSuccessHandler(function() { google.script.host.close(); })
+          .withFailureHandler(function(err) { alert("Error: " + err.message); google.script.host.close(); })
+          .processVendorRangeSelection(vendor, start, end);
+      }
+    </script>
+  </body>
+</html>

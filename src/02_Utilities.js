@@ -140,6 +140,7 @@ function onOpen() {
     main.addSubMenu(ui.createMenu('Data Pipeline')
       .addItem('Process Incoming Reports', 'processIncomingForQuickBase')
       .addItem('Load Specific Date to QB Tab', 'promptLoadSpecificDateToQB')
+      .addItem('Load Vendor Range to QB Tab', 'promptLoadVendorRangeToQB')
       .addSeparator()
       .addItem('Emergency: Force Re-scan All Files', 'forceRescanIncoming')
       .addItem('Unlock Ingestion', 'resetIngestionLock')
@@ -598,6 +599,45 @@ function buildVendorCityCoordinateRecords(actionItems, cityCoordinates) {
 
 function promptLoadSpecificDateToQB() { showDatePickerDialog("LoadQB", "Load QuickBase Tab"); }
 function promptGenerateDailyReview() { showDatePickerDialog("RunReview", "Generate Daily Review"); }
+
+function promptLoadVendorRangeToQB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const histSheet = ss.getSheetByName(HISTORY_SHEET);
+  let vendors = [];
+  if (histSheet && histSheet.getLastRow() > 1) {
+      const data = histSheet.getDataRange().getValues();
+      const headers = data[0];
+      const contractorIdx = headers.indexOf("Contractor");
+      if (contractorIdx > -1) {
+          let vSet = new Set();
+          for (let i = 1; i < data.length; i++) {
+              let v = data[i][contractorIdx];
+              if (v) vSet.add(String(v).trim());
+          }
+          vendors = Array.from(vSet).sort();
+      }
+  }
+
+  let tmpl = HtmlService.createTemplateFromFile("VendorDateRangePicker");
+  tmpl.vendors = vendors;
+  let html = tmpl.evaluate().setWidth(350).setHeight(300);
+  SpreadsheetApp.getUi().showModalDialog(html, "📅 Load Vendor Range to QB Tab");
+}
+
+function processVendorRangeSelection(vendor, startDateStr, endDateStr) {
+  if (!startDateStr) return;
+  let targetDates = [];
+  let currentD = new Date(startDateStr + "T12:00:00");
+  let endD = endDateStr ? new Date(endDateStr + "T12:00:00") : new Date(currentD);
+  
+  while (currentD <= endD) {
+      targetDates.push(currentD.toISOString().split('T')[0]);
+      currentD.setDate(currentD.getDate() + 1);
+  }
+  
+  populateQuickBaseTabCore(targetDates, vendor);
+}
+
 function promptExportQuickBaseCSV() { exportQuickBaseCSVCore(false); }
 
 function showDatePickerDialog(actionName, title) {

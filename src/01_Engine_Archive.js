@@ -375,7 +375,7 @@ function populateQuickBaseTabDirectly(parsedRows) {
 }
 
 // 🧠 UPGRADED TO HANDLE BATCH ARRAYS & STYLE MASTER FORMATTING
-function populateQuickBaseTabCore(targetDates) {
+function populateQuickBaseTabCore(targetDates, vendorFilter = "ALL") {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const histSheet = ss.getSheetByName(HISTORY_SHEET);
   const qbSheet = ss.getSheetByName(QB_UPLOAD_SHEET);
@@ -385,6 +385,13 @@ function populateQuickBaseTabCore(targetDates) {
 
   const filteredRows = histSheet.getDataRange().getValues().filter((row, idx) => {
     if (idx === 0) return false; 
+
+    // Check Vendor Filter
+    if (vendorFilter && vendorFilter !== "ALL") {
+        let rowVendor = String(row[HISTORY_HEADERS.indexOf("Contractor")] || "").trim();
+        if (rowVendor.toUpperCase() !== vendorFilter.toUpperCase()) return false;
+    }
+
     let rowDate = (row[0] instanceof Date) ? Utilities.formatDate(row[0], "GMT-5", "yyyy-MM-dd") : String(row[0]).split("T")[0].trim();
     
     let altDate = "";
@@ -404,7 +411,7 @@ function populateQuickBaseTabCore(targetDates) {
     ensureCapacity(qbSheet, qbData.length + 1, QB_HEADERS.length);
     qbSheet.getRange(2, 1, qbData.length, QB_HEADERS.length).setValues(qbData);
   } else {
-    logMsg(`⚠️ populateQuickBaseTab: No data found for dates: ${dateArr.join(", ")}`);
+    logMsg(`⚠️ populateQuickBaseTab: No data found for dates: ${dateArr.join(", ")}${vendorFilter !== "ALL" ? " (Vendor: " + vendorFilter + ")" : ""}`);
   }
 
   applyQuickBaseTabStyling(qbSheet);
