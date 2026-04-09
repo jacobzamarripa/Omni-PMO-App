@@ -254,10 +254,33 @@ function exportInboxReviewsCSV() {
   return file.getUrl();
 }
 
+// Splits large strings into ≤90 KB chunks to stay under CacheService's 100 KB-per-key limit.
+function putChunkedCache(cache, baseKey, dataStr, ttl) {
+  const CHUNK_SIZE = 90000;
+  const numChunks = Math.ceil(dataStr.length / CHUNK_SIZE);
+  cache.put(baseKey + '_meta', String(numChunks), ttl);
+  for (let i = 0; i < numChunks; i++) {
+    cache.put(baseKey + '_' + i, dataStr.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE), ttl);
+  }
+}
+
+function getChunkedCache(cache, baseKey) {
+  const metaStr = cache.get(baseKey + '_meta');
+  if (!metaStr) return null;
+  const numChunks = parseInt(metaStr, 10);
+  let result = '';
+  for (let i = 0; i < numChunks; i++) {
+    const chunk = cache.get(baseKey + '_' + i);
+    if (chunk === null) return null; // partial expiry → fall through to cold path
+    result += chunk;
+  }
+  return result;
+}
+
 function getDashboardData() {
   const CACHE_KEY = 'dashboard_data_cache_v11';
   const cache = CacheService.getScriptCache();
-  const cached = cache.get(CACHE_KEY);
+  const cached = getChunkedCache(cache, CACHE_KEY);
   if (cached) { try { return JSON.parse(cached); } catch(e) {} }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -472,11 +495,16 @@ function getDashboardData() {
     fiberStats: fiberStats
   };
   const serializedPayload = JSON.stringify(payload);
-  try { cache.put(CACHE_KEY, serializedPayload, 1800); } catch(e) {}
+  try { putChunkedCache(cache, CACHE_KEY, serializedPayload, 1800); } catch(e) {}
   return JSON.parse(serializedPayload);
 }
 
 function getVendorDailyGoals() {
+  const GOALS_CACHE_KEY = 'vendor_daily_goals_v1';
+  const cache = CacheService.getScriptCache();
+  const cachedGoals = cache.get(GOALS_CACHE_KEY);
+  if (cachedGoals) { try { return JSON.parse(cachedGoals); } catch(e) {} }
+
   let goalDict = Object.assign({}, DEFAULT_VENDOR_DAILY_GOALS || {});
   let sources = [];
   try {
@@ -517,10 +545,16 @@ function getVendorDailyGoals() {
     } catch (e) {}
   });
 
+  try { cache.put(GOALS_CACHE_KEY, JSON.stringify(goalDict), 21600); } catch(e) {}
   return goalDict;
 }
 
 function getCityCoordinates() {
+  const COORDS_CACHE_KEY = 'city_coords_v1';
+  const cache = CacheService.getScriptCache();
+  const cachedCoords = cache.get(COORDS_CACHE_KEY);
+  if (cachedCoords) { try { return JSON.parse(cachedCoords); } catch(e) {} }
+
   let cityDict = Object.assign({}, DEFAULT_CITY_COORDS || {});
   let sources = [];
   try {
@@ -561,6 +595,7 @@ function getCityCoordinates() {
     } catch (e) {}
   });
 
+  try { cache.put(COORDS_CACHE_KEY, JSON.stringify(cityDict), 21600); } catch(e) {}
   return cityDict;
 }
 
@@ -980,7 +1015,7 @@ function webAppTrigger3a(targetDateStr) {
 
 // 🧠 WEB APP BRIDGE: Logs the Admin Check permanently and cleans the Daily Review sheet instantly
 function markAdminCheckComplete(fdhId) {
-  CacheService.getScriptCache().remove('dashboard_data_cache_v11');
+  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current']);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if(!adminSheet) return false;
@@ -1026,7 +1061,7 @@ function markAdminCheckComplete(fdhId) {
 }
 
 function verifySpecialCrossings(fdhId) {
-  CacheService.getScriptCache().remove('dashboard_data_cache_v11');
+  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current']);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if (!adminSheet) return false;
@@ -1073,7 +1108,7 @@ function verifySpecialCrossings(fdhId) {
 
 // 🧠 NEW: Status Sync Log Bridge
 function markStatusSyncComplete(fdhId) {
-  CacheService.getScriptCache().remove('dashboard_data_cache_v11');
+  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current']);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if(!adminSheet) return false;
@@ -1218,6 +1253,13 @@ function _getSignalCutoff(tf, ss, now) {
 
 // Fast path: sheet reads only (~1-2s). Called first so QB + Log render immediately.
 function getSignalFast(tf) {
+  const timeframe = _normalizeSignalTimeframe(tf);
+  const TTL_MAP = { current: 300, week: 900, month: 1800 };
+  const cacheKey = 'SIGNAL_FAST_' + timeframe;
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(cacheKey);
+  if (cached) { try { return JSON.parse(cached); } catch(e) {} }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const now = new Date();
   const result = { qbChanges: [], systemLogs: [], topMovers: [] };
@@ -1293,6 +1335,7 @@ function getSignalFast(tf) {
     });
   }
 
+  try { cache.put(cacheKey, JSON.stringify(result), TTL_MAP[timeframe] || 300); } catch(e) {}
   return result;
 }
 
@@ -1351,6 +1394,7 @@ function _collectDriveChanges(folder, path, cutoff, out, counter, depth) {
   const found = [];
   while (files.hasNext() && counter.count < 150) {
     const file = files.next();
+    if (file.getName().charAt(0) === '.') continue; // skip hidden/system files
     const lastUpdated = file.getLastUpdated();
     if (lastUpdated >= cutoff) {
       found.push({
@@ -1365,10 +1409,11 @@ function _collectDriveChanges(folder, path, cutoff, out, counter, depth) {
     out.push({ folder: path, folderUrl: folder.getUrl(), files: found });
   }
 
-  // Recurse into subfolders
+  // Recurse into subfolders — skip hidden folders (names starting with '.')
   const subs = folder.getFolders();
   while (subs.hasNext() && counter.count < 150) {
     const sub = subs.next();
+    if (sub.getName().charAt(0) === '.') continue; // skip hidden folders (.playwright-mcp, .git, etc.)
     _collectDriveChanges(sub, path + ' / ' + sub.getName(), cutoff, out, counter, (depth || 0) + 1);
   }
 }

@@ -1095,7 +1095,7 @@
                   'Apps Script did not respond. Please refresh the page.',
                   null
               );
-          }, 20000);
+          }, 45000);
 
           // DATA CALL: window.onload initial dashboard load
           // COUPLED TO: boot timeout state, splash/welcome/detail panes, initDashboard bootstrap, pane-content error UI
@@ -1137,6 +1137,12 @@
                   reportStartupPhase('gemini-usage-failure', err && err.message ? err.message : err);
               })
               .getGeminiUsage();
+
+          // SIGNAL prefetch: fire in parallel with getDashboardData() so SIGNAL 'current'
+          // is already in _signalCache.fast when openSignal() runs — zero extra wait.
+          if (typeof _signalPrefetch === 'function') {
+              _signalPrefetch('current');
+          }
       };
 
       function updateCityDropdown() {
