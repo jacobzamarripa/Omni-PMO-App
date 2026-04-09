@@ -132,11 +132,19 @@
           let rawFlags = (flagsStr || "").split('\n').map(f => f.trim()).filter(f => f !== "");
           let highestSev = "info";
           rawFlags.forEach(f => {
-              if (f.includes("🚨") || f.includes("🛑")) { highestSev = "crit"; }
+              const plain = cleanDiagnosticFlagText(f).toUpperCase();
+              if (
+                  f.includes("🚨") || f.includes("🛑") ||
+                  plain.includes("LIGHTING RISK") || plain.includes("OVERRUN")
+              ) { highestSev = "crit"; }
               else if (highestSev !== "crit" && (
                   f.includes("🚩") || f.includes("⚠️") || f.includes("🖍️") || f.includes("🚧") ||
-                  f.includes("ADMIN: CHECK CROSSINGS") || f.includes("ADMIN: REFRESH REF DATA") ||
-                  f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS")
+                  plain.includes("ADMIN: CHECK CROSSINGS") || plain.includes("ADMIN: REFRESH REF DATA") ||
+                  plain.includes("STATUS MISMATCH") || plain.includes("MISSING QB STATUS") ||
+                  plain.includes("SCOPE DEVIATION") || plain.includes("PACE") ||
+                  plain.includes("CHECK BOM") || plain.includes("PLEASE INPUT BOM") ||
+                  plain.includes("BLOCKED BY UPSTREAM") || plain.includes("DELAYING DOWNSTREAM") ||
+                  plain.includes("FORMAT ERROR")
               )) { highestSev = "warn"; }
           });
           if (highestSev === "info" && rawFlags.some(f => f === "MISSING DAILY REPORT")) highestSev = "ghost";
@@ -155,15 +163,22 @@
 
       function getDiagnosticTagClass(flag) {
           let f = String(flag || '').toUpperCase();
+          let plain = cleanDiagnosticFlagText(f).toUpperCase();
           if (f.includes('OFS') || f.includes('OPEN FOR SALE')) return 'chip-ofs';
           if (f.includes('COMPLETE')) return 'chip-complete';
           if (f.includes('ON HOLD')) return 'chip-hold';
-          if (f.includes('ADMIN: CHECK CROSSINGS') || f.includes('ADMIN: REFRESH REF DATA')) return 'chip-admin';
-          if (f.includes('STATUS MISMATCH') || f.includes('MISSING QB STATUS')) return 'chip-warn';
-          if (f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧')) return 'chip-warn';
-          if (f.includes('🪄') || f.includes('🟣')) return 'chip-magic';
+          if (plain.includes('ADMIN: CHECK CROSSINGS') || plain.includes('ADMIN: REFRESH REF DATA')) return 'chip-admin';
+          if (plain.includes('STATUS MISMATCH') || plain.includes('MISSING QB STATUS')) return 'chip-warn';
+          if (
+            f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧') ||
+            plain.includes('SCOPE DEVIATION') || plain.includes('PACE') ||
+            plain.includes('CHECK BOM') || plain.includes('PLEASE INPUT BOM') ||
+            plain.includes('FORMAT ERROR') || plain.includes('BLOCKED BY UPSTREAM') ||
+            plain.includes('DELAYING DOWNSTREAM')
+          ) return 'chip-warn';
+          if (f.includes('🪄') || f.includes('🟣') || plain.includes('TRACKER UPDATE') || plain.includes('TRANSPORT OVERRIDE')) return 'chip-magic';
           if (f === 'MISSING DAILY REPORT') return 'chip-ghost';
-          if (f.includes('🚨') || f.includes('🛑')) return 'tag-red';
+          if (f.includes('🚨') || f.includes('🛑') || plain.includes('LIGHTING RISK') || plain.includes('OVERRUN')) return 'tag-red';
           if (f.includes('🚩')) return 'chip-warn';
           return 'chip-muted';
       }
@@ -172,13 +187,25 @@
           return String(flag || '').replace(/[\u{1F6A8}\u{1F6D1}\u{1F6A9}\u26A0\uFE0F\u{1F58D}\u{1F6A7}\u{1FA84}\u{1F7E3}\u{1F535}\u{1F7E2}\u26AA]/gu, '').trim();
       }
 
+      function getQueueCombinedPill(item) {
+          const flags = String((item && item.flags) || '');
+          const isOutOfCxScope = flags.includes("LIKELY OFS / OUT OF CX SCOPE");
+          const isMissingQbStatus = flags.includes("MISSING QB STATUS");
+          const isNotInQb = flags.includes("NOT IN QB REFERENCE");
+          if (isOutOfCxScope) return "OFS (Inferred) | Out of CX Scope";
+          if (isMissingQbStatus && !isNotInQb) return "Reference Status Missing";
+          if (isNotInQb) return "Reference Data Missing";
+          return `${item.stage || "-"} | ${item.status || "-"}`;
+      }
+
       function getGanttClass(stage, status, isOverdue) {
           let st = (stage || "").toLowerCase(), stat = (status || "").toLowerCase();
           if (st.includes('ofs')) return 'g-color-blue';
           if (st.includes('permit')) return 'g-color-purple';
           if (stat.includes('complete')) return 'g-color-green';
           if (stat.includes('hold')) return 'g-color-gray';
-          if (isOverdue || st === "NOT IN QB REFERENCE" || st === "-") return 'g-color-red';
+          if (st === "ofs (inferred) | out of cx scope") return 'g-color-blue';
+          if (isOverdue || st === "reference data missing" || st === "-") return 'g-color-red';
           return 'g-color-yellow';
       }
 

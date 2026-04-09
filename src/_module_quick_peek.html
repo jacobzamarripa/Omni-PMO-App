@@ -14,7 +14,7 @@ function renderQuickPeek(item) {
 
     const isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
     const pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
-    const combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+    const combinedPill = getQueueCombinedPill(item);
     const vComment = item.vendorComment ? item.vendorComment.trim() : 'No update.';
     const targetDateVal = item.targetDate || item.cxEnd || '';
     const targetDateLabel = targetDateVal ? formatDate(targetDateVal) : 'TBD';

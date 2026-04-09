@@ -277,6 +277,39 @@ function getChunkedCache(cache, baseKey) {
   return result;
 }
 
+function _parseDashboardDateValue(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : new Date(value.getTime());
+  }
+  const raw = String(value || '').trim();
+  if (!raw || raw === '-' || raw.toLowerCase() === 'unknown') return null;
+
+  let match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+
+  match = raw.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  if (match) return new Date(Number(match[3]), Number(match[1]) - 1, Number(match[2]));
+
+  const parsed = new Date(raw);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function _shouldHideStaleOfsQueueItem(stage, status, flags, primaryOfsDate, fallbackOfsDate, reportDate) {
+  const stageStr = String(stage || '').toUpperCase();
+  const statusStr = String(status || '').toUpperCase();
+  const flagsStr = String(flags || '').toUpperCase();
+  const isOfsScoped = stageStr.includes('OFS') || statusStr.includes('OUT OF CX SCOPE') || flagsStr.includes('LIKELY OFS / OUT OF CX SCOPE');
+  if (!isOfsScoped) return false;
+
+  const ofsDate = _parseDashboardDateValue(primaryOfsDate) || _parseDashboardDateValue(fallbackOfsDate) || _parseDashboardDateValue(reportDate);
+  if (!ofsDate) return false;
+
+  const cutoff = new Date(ofsDate.getFullYear(), ofsDate.getMonth() + 1, 7);
+  cutoff.setHours(23, 59, 59, 999);
+  return Date.now() > cutoff.getTime();
+}
+
 function getDashboardData() {
   const CACHE_KEY = 'dashboard_data_cache_v11';
   const cache = CacheService.getScriptCache();
@@ -423,6 +456,17 @@ function getDashboardData() {
          const normalizedCanonicalOfsDate = (!canonicalOfsDate || canonicalOfsDate === '-' || canonicalOfsDate === 'Unknown')
              ? ""
              : canonicalOfsDate;
+
+         if (_shouldHideStaleOfsQueueItem(
+             stageIdx > -1 ? data[i][stageIdx] : "",
+             statusIdx > -1 ? data[i][statusIdx] : "",
+             flags,
+             normalizedCanonicalOfsDate,
+             rawMirrorOfsDate,
+             dateIdx > -1 ? data[i][dateIdx] : ""
+         )) {
+             continue;
+         }
 
          actionItems.push({
              fdh: fdhIdx > -1 ? String(data[i][fdhIdx] || "") : "",

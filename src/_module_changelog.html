@@ -169,33 +169,35 @@ function renderChangeLog() {
 
     let html = '';
     logsToRender.forEach(log => {
-        let rowKey = escJs(getActivityRowKey(log));
-        let rowOpen = expandedActivityRows.has(getActivityRowKey(log));
         let cleanVal = _formatChangelogValue(log.type, log.val || log.type || 'Activity');
-        
-        // Conditional navigation: only show if project exists in action items
-        const targetFdh = String(log.fdh || '');
-        const itemExists = typeof allActionItems !== 'undefined' && allActionItems.some(i => String(i.fdh) === targetFdh);
-        const navBtn = itemExists ? `
-            <button class="log-row-nav" style="display:inline-flex;" onclick="event.stopPropagation(); selectItemForNav('${escJs(targetFdh)}')" aria-label="Open ${esc(targetFdh)}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
-            </button>` : '';
+        let normalizedType = String(log.type || '').toLowerCase().trim();
+        let isDateField = normalizedType === 'ofs date' || normalizedType === 'cx start date' || normalizedType === 'cx end date';
+        let fdhText = String(log.fdh || '').trim() || 'FDH Unavailable';
+        let metaTime = _getChangelogTimestamp(log) ? formatDate(new Date(_getChangelogTimestamp(log)), true) : esc(String(log.time || ''));
+        let metaHtml = esc(String(log.user || 'System')) + '<br>' + metaTime;
 
-        html += `
-        <div class="log-row-dense ${rowOpen ? 'is-expanded' : ''}">
-            <div class="log-row-main log-row-expand" onclick="toggleActivityRow('${rowKey}')">
-                <div class="log-row-top">
-                    <span class="log-row-fdh">${esc(log.fdh)}</span>
-                    <span class="log-row-time">${formatDate(_getChangelogTimestamp(log) ? new Date(_getChangelogTimestamp(log)) : log.time, true)}</span>
-                </div>
-                <div class="log-row-meta">
-                    <span class="log-row-user">${esc(String(log.user || '').split(' ')[0])}</span>
-                    <span class="glass-pill ${_getQBPillClass(log.type, cleanVal)}">${esc(cleanVal)}</span>
-                </div>
-                <div class="log-row-val">${esc(cleanVal)}</div>
-            </div>
-            ${navBtn}
-        </div>`;
+        const itemExists = typeof allActionItems !== 'undefined' && allActionItems.some(i => String(i.fdh) === fdhText);
+        const navBtn = itemExists
+          ? '<button class="signal-qb-open-btn" onclick="event.stopPropagation(); selectItemForNav(' + JSON.stringify(fdhText) + ');">Open Detail</button>'
+          : '';
+
+        const pillText = isDateField
+          ? (normalizedType === 'ofs date' ? 'OFS DATE' : normalizedType === 'cx start date' ? 'CX START' : 'CX END') + ' | ' + esc(cleanVal)
+          : esc(cleanVal || log.type);
+
+        html += '<div class="signal-qb-card">'
+          + '<div class="signal-qb-header">'
+          + '<div class="signal-qb-fdh">' + esc(fdhText) + '</div>'
+          + '<div class="signal-qb-meta">' + metaHtml + '</div>'
+          + '</div>'
+          + '<div class="signal-qb-footer">'
+          + '<div class="signal-qb-pills">'
+          + '<span class="glass-pill ' + _getQBPillClass(log.type, cleanVal) + '">' + pillText + '</span>'
+          + (isDateField ? '' : '<span class="glass-pill pill-hold" style="opacity:0.6;">' + esc(log.type) + '</span>')
+          + '</div>'
+          + navBtn
+          + '</div>'
+          + '</div>';
     });
 
     list.innerHTML = html;

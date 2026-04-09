@@ -335,7 +335,7 @@ function _renderSignalQB(changes, tf, topMovers) {
     var t = (c.type || '').toLowerCase().trim();
     var isDateField = t === 'ofs date' || t === 'cx start date' || t === 'cx end date';
     
-    var fdhText = String(c.fdh || '').trim() || 'FDH Missing';
+    var fdhText = String(c.fdh || '').trim() || 'FDH Unavailable';
     var fdhHtml = q ? _signalHighlight(fdhText, q) : _esc(fdhText);
     var metaHtml = _esc(c.updatedBy) + '<br>' + _esc(c.timestamp);
     var hasItem = (allActionItems || []).some(function(i) { return String(i.fdh || '') === fdhText; });

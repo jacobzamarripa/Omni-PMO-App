@@ -135,7 +135,7 @@ function _performRenderGrid() {
 
     grid.innerHTML = itemsToRender.map(item => {
         let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
-        let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+        let combinedPill = getQueueCombinedPill(item);
         let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
         let bodyHtml = '';
         let topBadgeHtml = '';
@@ -175,7 +175,7 @@ function _performRenderGrid() {
             let xingBadge = item.isXing ? `<div style="position:absolute; bottom:4px; right:4px; display:flex; align-items:center; gap:4px; background:#171717; color:#facc15; padding:1px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #facc15;">X-ING</div>` : '';
             let targetRadius = item.isXing ? "9px 9px 0 0" : "12px 12px 0 0";
             if (item.flags.includes("ADMIN: CHECK CROSSINGS")) {
-                topBadgeHtml = `<div style="margin-top:6px;"><span style="background:rgba(254,226,226,0.5); color:#991b1b; padding:3px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #fca5a5;">🚩 CHECK CROSSINGS</span></div>`;
+                topBadgeHtml = `<div style="margin-top:6px;"><span style="background:rgba(254,226,226,0.5); color:#991b1b; padding:3px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #fca5a5;">CHECK CROSSINGS</span></div>`;
                 glowCls = 'glow-danger';
             }
             bodyHtml = `

@@ -440,6 +440,7 @@ function exportQuickBaseCSVCore(isSilent = false) {
 
 function runBennyDiagnostics(row, refDict, vendorDict) {
   let flags = [], drafts = [], summary = [], qbGaps = [], hCols = { warn: [], mismatch: [], ug: [], ae: [], fib: [], nap: [] }, flagColors = [], healedId = null;
+  let inferredStage = "", inferredStatus = "";
   let fdhId = row[HISTORY_HEADERS.indexOf("FDH Engineering ID")] ? row[HISTORY_HEADERS.indexOf("FDH Engineering ID")].toString().toUpperCase().trim() : "";
   let vendorComment = row[HISTORY_HEADERS.indexOf("Vendor Comment")] ? row[HISTORY_HEADERS.indexOf("Vendor Comment")].toString().trim() : "";
   
@@ -537,7 +538,18 @@ function runBennyDiagnostics(row, refDict, vendorDict) {
   }
   
   let isFormatValid = /^[A-Z]{3}\d{2,3}-F\d{2,4}$/i.test(fdhId);
-  if (fdhId !== "" && !isFormatValid) { flags.push(`🖍️ FORMAT ERROR`); flagColors.push(TEXT_COLORS.WARN); hCols.warn.push("FDH Engineering ID"); } else if (fdhId !== "" && !refData) { flags.push(`🛑 NOT IN QB`); flagColors.push(TEXT_COLORS.WARN); hCols.warn.push("FDH Engineering ID"); }
+  if (fdhId !== "" && !isFormatValid) {
+      flags.push(`🖍️ FORMAT ERROR`);
+      flagColors.push(TEXT_COLORS.WARN);
+      hCols.warn.push("FDH Engineering ID");
+  } else if (fdhId !== "" && !refData) {
+      flags.push(`LIKELY OFS / OUT OF CX SCOPE`);
+      flagColors.push(TEXT_COLORS.DONE);
+      drafts.push(`Missing from current CX reference data, but present historically in Master Archive. Treat as likely advanced beyond CX, most likely OFS.`);
+      inferredStage = "OFS (Inferred)";
+      inferredStatus = "OUT OF CX SCOPE";
+      hCols.warn.push("FDH Engineering ID");
+  }
   
   if (targetDate && !isNaN(targetDate.getTime()) && !lightToCab && rowState !== "COMPLETE") { let daysToTarget = Math.ceil((targetDate - new Date()) / (1000 * 60 * 60 * 24)); if (daysToTarget <= 14) { flags.push(`🚨 LIGHTING RISK`); flagColors.push(TEXT_COLORS.WARN); hCols.warn.push("Target Completion Date", "Light to Cabinets"); } }
   if (refData) {
@@ -687,7 +699,7 @@ function runBennyDiagnostics(row, refDict, vendorDict) {
       rowState: rowState, adaePaletteIdx: adaePaletteIdx, flags: flags.join("\n"), 
       flagColors: flagColors, draft: drafts.join("\n"), summary: summary.join("\n").trim(), 
       gaps: qbGaps.join("  "), colors: hCols, cleanComment: vendorComment, 
-      healedId: healedId, overrides: overrides 
+      healedId: healedId, overrides: overrides, inferredStage: inferredStage, inferredStatus: inferredStatus
   };
 }
 
@@ -748,12 +760,14 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
           diag.flags = diag.flags.replace(/POSSIBLE REROUTE \(NAP\)/g, "SCOPE DEVIATION (NAP)");
           diag.draft = diag.draft.replace(/QB shows 0 BOM for NAP, but vendor reported activity\. Verify if a reroute occurred\./g, "Vendor reported Splicing activity, but BOM shows 0 NAPs. Verify if scope was expanded.");
       }
-      
-      if (diag.flags.includes("NOT IN QB")) {
-          diag.flags = diag.flags.replace(/NOT IN QB/g, "NOT IN QB REFERENCE");
-          diag.draft = diag.draft.replace(/Not found in QuickBase/g, "Not found in QuickBase Reference Data");
+      if (diag.flags.includes("NOT IN QB REFERENCE") || diag.flags.includes("NOT IN QB")) {
+          diag.flags = diag.flags.replace(/NOT IN QB REFERENCE/g, "LIKELY OFS / OUT OF CX SCOPE").replace(/NOT IN QB/g, "LIKELY OFS / OUT OF CX SCOPE");
+          diag.draft = diag.draft.replace(/Not found in QuickBase Reference Data/g, "Missing from current CX reference data, but present historically in Master Archive. Treat as likely advanced beyond CX, most likely OFS.")
+                                 .replace(/Not found in QuickBase/g, "Missing from current CX reference data, but present historically in Master Archive. Treat as likely advanced beyond CX, most likely OFS.");
+          if (!diag.inferredStage) diag.inferredStage = "OFS (Inferred)";
+          if (!diag.inferredStatus) diag.inferredStatus = "OUT OF CX SCOPE";
       }
-
+      
       if (benchmarkDict[fdhId] && benchmarkDict[fdhId].includes("Possible Reroute")) {
           benchmarkDict[fdhId] = benchmarkDict[fdhId].replace(/NAP: Pending \[Possible Reroute\]/g, "NAP: Pending [Scope Deviation]");
       }
@@ -785,8 +799,8 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       });
       
       rowObj["City"] = refData ? refData.city : "-"; 
-      rowObj["Stage"] = refData ? refData.stage : "-"; 
-      rowObj["Status"] = refData ? refData.status : "-"; 
+      rowObj["Stage"] = refData ? refData.stage : (diag.inferredStage || "-"); 
+      rowObj["Status"] = refData ? refData.status : (diag.inferredStatus || "-"); 
       rowObj["BSLs"] = refData ? refData.bsls : "-";
       rowObj["Budget OFS"] = refData ? (refData.canonicalOfsDate || refData.forecastedOFS) : "-";
       rowObj["CX Start"] = refData && refData.cxStart ? refData.cxStart : "";

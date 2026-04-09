@@ -249,8 +249,7 @@ function renderList(items) {
         if (rawFlags.length > visibleTagLimit) tagParts.push(`<span class="tag chip-muted">+${rawFlags.length - visibleTagLimit}</span>`);
 
         let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
-        let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
-        if (item.flags.includes("MISSING QB STATUS") && !item.flags.includes("NOT IN QB REFERENCE")) combinedPill = "MISSING QB STATUS";
+        let combinedPill = getQueueCombinedPill(item);
 
         let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
         let isSelected = (currentActiveItem && currentActiveItem.fdh === item.fdh) ? 'selected' : '';
@@ -278,7 +277,7 @@ function renderList(items) {
         let today = new Date();
         today.setHours(0, 0, 0, 0);
         let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
-        let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
+        let combinedPill = getQueueCombinedPill(item);
         let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
 
         let pEnd = safeDate(item.cxEnd);
@@ -464,6 +463,7 @@ function generateSmartComment(item, daysLeft, isOverdue) {
     if (f.includes("ADMIN: CHECK CROSSINGS")) parts.push("Crossing check required before proceeding.");
     if (f.includes("LIGHTING RISK")) parts.push("Pending light to cabinets is a delivery risk.");
     if (f.includes("POSSIBLE REROUTE")) parts.push("Possible reroute detected — confirm scope with vendor.");
+    if (f.includes("LIKELY OFS / OUT OF CX SCOPE")) parts.push("Project is no longer in current CX reference data and was found historically in archive. Treat as likely advanced beyond CX, most likely OFS.");
     if (f.includes("NOT IN QB REFERENCE")) parts.push("Project missing from Reference Data export. Verify it exists in QuickBase.");
 
     if (parts.length === 0) parts.push("No anomalies detected. Monitor progress.");
@@ -589,8 +589,7 @@ function openPane(item, cardEl) {
         let pill = getEl('p-status');
         if (pill) {
             let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
-            let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || "-"} | ${item.status || "-"}`;
-            if (item.flags.includes("MISSING QB STATUS") && !item.flags.includes("NOT IN QB REFERENCE")) combinedPill = "MISSING QB STATUS";
+            let combinedPill = getQueueCombinedPill(item);
             pill.innerText = combinedPill;
             pill.className = `glass-pill ${getQBStatusClass(item.stage, item.status, isNotInQb)}`;
         }

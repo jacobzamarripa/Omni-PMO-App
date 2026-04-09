@@ -10,7 +10,6 @@
 
 const QB_REALM        = "omnifiber.quickbase.com";
 const QB_TABLE_ID     = "bts3c49e9";
-const QB_REPORT_ID    = "1000071";
 const QB_API_BASE     = "https://api.quickbase.com/v1";
 const QB_PAGE_SIZE    = 1000;
 const QB_MAX_PAGES    = 20;
@@ -149,30 +148,11 @@ function syncFromQBWebApp() {
     let sheet   = ss.getSheetByName(REF_SHEET);
     if (!sheet) sheet = ss.insertSheet(REF_SHEET);
 
-    const allRows = [];
-    let fieldMap = null, skip = 0, pageCount = 0, totalRecords = Infinity;
+    const snapshot = _fetchReferenceTableSnapshot(token);
+    const allRows = snapshot.rows;
+    if (allRows.length === 0) return { success: false, error: "QuickBase returned 0 records. Check the table access and token permissions." };
 
-    while (skip < totalRecords && pageCount < QB_MAX_PAGES) {
-      const page = _fetchReportPage(token, skip);
-      if (!fieldMap) fieldMap = _buildFieldMap(page.fields);
-      page.data.forEach(function(record) {
-        const row = page.fields.map(function(f) {
-          const cell = record[String(f.id)];
-          var raw = cell ? _extractValue(cell.value) : "";
-          if (f.label && f.label.toString().trim().toLowerCase() === "cx vendor") raw = _normalizeVendor(raw);
-          return raw;
-        });
-        allRows.push(row);
-      });
-      totalRecords = page.metadata.totalRecords;
-      skip        += page.metadata.numRecords;
-      pageCount++;
-      if (page.metadata.numRecords === 0) break;
-    }
-
-    if (allRows.length === 0) return { success: false, error: "QuickBase returned 0 records. Check the Report ID and token permissions." };
-
-    const headers = (fieldMap && fieldMap._order) ? fieldMap._order.map(function(id) { return fieldMap[id]; }) : [];
+    const headers = snapshot.headers;
     const outputData = [headers].concat(allRows);
     const numRows = outputData.length, numCols = headers.length;
 
@@ -186,7 +166,7 @@ function syncFromQBWebApp() {
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy HH:mm");
     PropertiesService.getScriptProperties().setProperties({
       "refDataImportDate": timestamp,
-      "refDataFileName":   "QuickBase API \u2014 Report " + QB_REPORT_ID,
+      "refDataFileName":   "QuickBase API \u2014 Table " + QB_TABLE_ID,
       "QB_SYNC_DATE":      timestamp,
       "QB_SYNC_COUNT":     String(allRows.length)
     });
@@ -287,6 +267,8 @@ function syncChangeLogs() {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(CHANGE_LOG_SHEET) || ss.insertSheet(CHANGE_LOG_SHEET);
+  const refFdhSet = _getSheetFdhSet(ss.getSheetByName(REF_SHEET), "FDH Engineering ID");
+  const archiveFdhSet = _getSheetFdhSet(ss.getSheetByName(HISTORY_SHEET), "FDH Engineering ID");
 
   const headers = ["FDH Engineering ID", "Type of Change", "New Value", "Updated By", "Date & Time Updated"];
   const fieldUrl = QB_API_BASE + "/fields?tableId=" + CHANGE_LOG_TABLE_ID;
@@ -392,26 +374,43 @@ function syncChangeLogs() {
       displayDate
     ];
   });
-  const blankFdhCount = rows.filter(function(row) { return !String(row[0] || "").trim(); }).length;
+  const scrubbedRows = [];
+  let blankFdhCount = 0;
+  let droppedUnknownFdhCount = 0;
+  rows.forEach(function(row) {
+    const fdh = String(row[0] || "").trim().toUpperCase();
+    if (!fdh) {
+      blankFdhCount++;
+      return;
+    }
+    if (refFdhSet.has(fdh) || archiveFdhSet.has(fdh)) {
+      scrubbedRows.push(row);
+      return;
+    }
+    droppedUnknownFdhCount++;
+  });
   if (blankFdhCount > 0) {
-    logMsg("QB Change Log sync: " + blankFdhCount + " rows still have blank FDH after raw extraction fallback.");
+    logMsg("QB Change Log sync: " + blankFdhCount + " rows dropped for blank FDH after raw extraction fallback.");
+  }
+  if (droppedUnknownFdhCount > 0) {
+    logMsg("QB Change Log sync: " + droppedUnknownFdhCount + " rows dropped because FDH was in neither reference data nor archive.");
   }
 
   sheet.clear();
-  ensureCapacity(sheet, Math.max(rows.length + 1, 2), headers.length);
+  ensureCapacity(sheet, Math.max(scrubbedRows.length + 1, 2), headers.length);
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  if (rows.length > 0) {
-    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  if (scrubbedRows.length > 0) {
+    sheet.getRange(2, 1, scrubbedRows.length, headers.length).setValues(scrubbedRows);
   }
   sheet.getRange("1:1").setBackground("#0f172a").setFontColor("white").setFontWeight("bold");
   sheet.setFrozenRows(1);
-  trimAndFilterSheet(sheet, rows.length + 1, headers.length);
+  trimAndFilterSheet(sheet, scrubbedRows.length + 1, headers.length);
   CacheService.getScriptCache().removeAll([
     'dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11',
     'SIGNAL_FAST_current', 'SIGNAL_FAST_week', 'SIGNAL_FAST_month',
     'SIGNAL_FAST_V2_current', 'SIGNAL_FAST_V2_week', 'SIGNAL_FAST_V2_month'
   ]);
-  return { success: true, count: rows.length };
+  return { success: true, count: scrubbedRows.length };
 }
 
 
@@ -445,53 +444,16 @@ function importFDHProjects() {
       });
     }
 
-    // --- Paginate through the report ---
-    const allRows  = [];
-    let fieldMap   = null;
-    let skip       = 0;
-    let pageCount  = 0;
-    let totalRecords = Infinity;
-
-    while (skip < totalRecords && pageCount < QB_MAX_PAGES) {
-      const page = _fetchReportPage(token, skip);
-
-      if (!fieldMap) {
-        fieldMap = _buildFieldMap(page.fields);
-      }
-
-      page.data.forEach(function(record) {
-        const row = page.fields.map(function(f) {
-          const cell = record[String(f.id)];
-          var raw = cell ? _extractValue(cell.value) : "";
-          // Normalize vendor names so case variants all map to a canonical form
-          if (f.label && f.label.toString().trim().toLowerCase() === "cx vendor") {
-            raw = _normalizeVendor(raw);
-          }
-          return raw;
-        });
-        allRows.push(row);
-      });
-
-      totalRecords = page.metadata.totalRecords;
-      skip        += page.metadata.numRecords;
-      pageCount++;
-
-      if (page.metadata.numRecords === 0) break;
-    }
-
-    if (pageCount >= QB_MAX_PAGES) {
-      logMsg("QB Sync: safety limit of " + QB_MAX_PAGES + " pages reached. Some records may be missing.");
-    }
+    const snapshot = _fetchReferenceTableSnapshot(token);
+    const allRows = snapshot.rows;
 
     if (allRows.length === 0) {
-      ui.alert("QuickBase returned 0 records. Check the Report ID and your token permissions.");
+      ui.alert("QuickBase returned 0 records. Check the table access and your token permissions.");
       return;
     }
 
     // --- Build header row from field labels ---
-    const headers = (fieldMap && fieldMap._order)
-      ? fieldMap._order.map(function(id) { return fieldMap[id]; })
-      : [];
+    const headers = snapshot.headers;
 
     const outputData = [headers].concat(allRows);
     const numRows    = outputData.length;
@@ -516,7 +478,7 @@ function importFDHProjects() {
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy HH:mm");
     PropertiesService.getScriptProperties().setProperties({
       "refDataImportDate": timestamp,
-      "refDataFileName":   "QuickBase API \u2014 Report " + QB_REPORT_ID,
+      "refDataFileName":   "QuickBase API \u2014 Table " + QB_TABLE_ID,
       "QB_SYNC_DATE":      timestamp,
       "QB_SYNC_COUNT":     String(allRows.length)
     });
@@ -760,30 +722,52 @@ function getDirtyRows() {
   return dirty;
 }
 
-function _fetchReportPage(token, skip) {
-  const url = QB_API_BASE + "/reports/" + QB_REPORT_ID + "/run?tableId=" + QB_TABLE_ID;
-  const options = _qbHeaders(token);
-  options.method      = "post";
-  options.contentType = "application/json";
-  options.payload     = JSON.stringify({ skip: skip, top: QB_PAGE_SIZE });
+function _fetchReferenceTableSnapshot(token) {
+  const fields = _fetchTableFields(token, QB_TABLE_ID);
+  if (!fields.length) throw new Error("No fields returned for QuickBase table " + QB_TABLE_ID);
 
-  const response = UrlFetchApp.fetch(url, options);
-  const code     = response.getResponseCode();
+  const fids = fields.map(function(field) { return Number(field.id); }).filter(function(fid) { return fid > 0; });
+  const records = _fetchTableAllFids(token, QB_TABLE_ID, fids);
+  const headers = fields.map(function(field) { return field.label; });
+  const rows = records.map(function(record) {
+    return fields.map(function(field) {
+      const cell = record[String(field.id)];
+      var raw = cell ? _extractValue(cell.value) : "";
+      if (field.label && field.label.toString().trim().toLowerCase() === "cx vendor") {
+        raw = _normalizeVendor(raw);
+      }
+      return raw;
+    });
+  });
 
-  if (code !== 200) {
-    throw new Error("QB API returned HTTP " + code + ": " + response.getContentText().substring(0, 300));
-  }
-
-  return JSON.parse(response.getContentText());
+  logMsg("QB Table Snapshot: " + rows.length + " records pulled from table " + QB_TABLE_ID);
+  return { headers: headers, rows: rows };
 }
 
-function _buildFieldMap(fields) {
-  const map = { _order: [] };
-  fields.forEach(function(f) {
-    map[f.id]     = f.label;
-    map._order.push(f.id);
-  });
-  return map;
+function _getSheetFdhSet(sheet, headerName) {
+  const keys = new Set();
+  if (!sheet || sheet.getLastRow() < 2) return keys;
+
+  const data = sheet.getDataRange().getValues();
+  const headers = (data[0] || []).map(function(h) { return String(h || "").trim(); });
+  const idx = headers.indexOf(headerName);
+  if (idx === -1) return keys;
+
+  for (let i = 1; i < data.length; i++) {
+    const key = String(data[i][idx] || "").trim().toUpperCase();
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
+function _fetchTableFields(token, tableId) {
+  const url = QB_API_BASE + "/fields?tableId=" + tableId;
+  const response = UrlFetchApp.fetch(url, _qbHeaders(token));
+  const code = response.getResponseCode();
+  if (code !== 200) {
+    throw new Error("QB field discovery returned HTTP " + code + ": " + response.getContentText().substring(0, 300));
+  }
+  return JSON.parse(response.getContentText()) || [];
 }
 
 // Canonical vendor name map — add aliases here as you discover new variants.

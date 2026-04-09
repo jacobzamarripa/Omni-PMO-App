@@ -187,7 +187,7 @@ function renderCriticalHub() {
                 return `<span class="tag ${getDiagnosticTagClass(flag)}" style="font-size:9px; padding:3px 7px;">${esc(cleanDiagnosticFlagText(flag))}</span>`;
             }).join('');
             let isNotInQb = String(item.flags || '').includes("NOT IN QB REFERENCE") || String(item.flags || '').includes("MISSING QB STATUS");
-            let combinedPill = isNotInQb ? "NOT IN QB REFERENCE" : `${item.stage || '-'} | ${item.status || '-'}`;
+            let combinedPill = getQueueCombinedPill(item);
             let pillCls = getQBStatusClass(item.stage, item.status, isNotInQb);
             let targetLabel = item.cxEnd || item.targetDate ? formatDate(item.cxEnd || item.targetDate) : 'TBD';
             return `
