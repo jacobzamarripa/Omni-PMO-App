@@ -98,8 +98,8 @@ function clearStagedDeckItems() {
 // Requires state layer isolation before extraction.
 function moveItemToReviewed(item, meta) {
     if (!item || !item.fdh) return;
-    clearDeckSessionForFdh(item.fdh);
-    removeDeckItemFromSource(item.fdh);
+    if (typeof clearDeckSessionForFdh === 'function') clearDeckSessionForFdh(item.fdh);
+    if (typeof removeDeckItemFromSource === 'function') removeDeckItemFromSource(item.fdh);
     allActionItems = allActionItems.filter(i => String(i.fdh || '') !== String(item.fdh || ''));
     stagedDeckItems = (stagedDeckItems || []).filter(fdh => String(fdh || '') !== String(item.fdh || ''));
     persistStagedReviewSession();

@@ -825,7 +825,7 @@
                               if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
                               alert('Refresh Error: ' + err.message);
                           })
-                          .getDashboardData();
+                          .getDashboardDataV2();
                   } else {
                       hideFrostedLoader();
                       if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
@@ -942,7 +942,7 @@
                   if(btn) { btn.innerText = "↻ Refresh"; btn.disabled = false; }
                   alert("Refresh Error: " + err.message);
               })
-              .getDashboardData();
+              .getDashboardDataV2();
       }
 
       function _adminSection(title, items, renderCard) {
@@ -960,6 +960,20 @@
                   ${cards}
               </div>
           </div>`;
+      }
+
+      function markChecked(fdhId) {
+          let btn = getEl('btn-admin-check'); if(btn) { btn.innerText = "SAVING..."; btn.disabled = true; }
+          google.script.run.withSuccessHandler((dateStr) => {
+              if(btn) btn.remove();
+              let paneTags = document.querySelectorAll('#p-action .tag-red');
+              paneTags.forEach(t => { if(t.innerText.includes("CHECK CROSSINGS")) t.remove(); });
+              let qCard = getEl(`card-${fdhId}`);
+              if(qCard) { let qTags = qCard.querySelectorAll('.tag-red'); qTags.forEach(t => { if(t.innerText.includes("CHECK CROSSINGS")) t.remove(); }); }
+              if(currentActiveItem) currentActiveItem.flags = currentActiveItem.flags.replace("🚩 ADMIN: CHECK CROSSINGS", "").trim();
+          }).withFailureHandler(err => {
+              alert("Failed to save: " + err.message); if(btn) { btn.innerText = "🛡️ VERIFY CROSSINGS"; btn.disabled = false; }
+          }).markAdminCheckComplete(fdhId);
       }
 
       function markQbUpdated(fdhId) {
@@ -1134,7 +1148,7 @@
                       err && err.stack ? err.stack : null
                   );
               })
-              .getDashboardData();
+              .getDashboardDataV2();
 
           // DATA CALL: window.onload Gemini usage badge load
           google.script.run

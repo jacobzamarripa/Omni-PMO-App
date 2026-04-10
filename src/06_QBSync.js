@@ -139,7 +139,7 @@ function discoverAllQBFields() {
 // --- 3. WEB APP SYNC (returns JSON result, no UI alerts) ---
 
 function syncFromQBWebApp() {
-  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current', 'vendor_daily_goals_v1', 'city_coords_v1']);
+  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current', 'vendor_daily_goals_v1', 'city_coords_v1', 'dashboard_data_cache_v2_blob']);
   try {
     const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
     if (!token) return { success: false, error: "QB_USER_TOKEN not configured in Script Properties." };
@@ -563,7 +563,7 @@ function commitToQueue() {
 
 // Web-app-safe version — returns JSON result instead of ui.alert
 function commitToQueueWebApp() {
-  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current']);
+  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current', 'dashboard_data_cache_v2_blob']);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 

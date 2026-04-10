@@ -12,6 +12,8 @@ const OMNI_FIBER_FOLDER_ID = "1wuz8GwOpwDSl_Xmc08uZbQKf_JICwdNt"; // Omni Fiber 
 const BOMS_FOLDER_ID = "1TfXAt8lQKl0emi7zE8V_aex6k2YH8Ogl";
 const CDS_PERMITS_FOLDER_ID = "1BxKhfNAXo32TPEvrTBsGi69lVo9njDU8";
 const VENDOR_TRACKER_ID   = "1O9PiwSxkoI6md8XEIUfohV3yY4ot5uqqO9VKU8HfEl0"; 
+const PAYLOAD_FOLDER_ID     = "11wQaLNWF4xgBL_nkU8kYKXsaU8zowME9"; // App_Datastore
+const PAYLOAD_FILENAME      = "dashboard_payload_v2.json";
 const DEFAULT_VENDOR_DAILY_GOALS = {
   "Bucyrus": 18000,
   "Dycom": 22000,

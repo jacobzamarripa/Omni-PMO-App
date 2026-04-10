@@ -1054,7 +1054,7 @@ function webAppTrigger3a(targetDateStr) {
     let targetDates = Array.isArray(targetDateStr) ? targetDateStr : [targetDateStr];
     logMsg("🌐 WebApp triggered Engine (Fn 3a) for Date(s): " + targetDates.join(", "));
     generateDailyReviewCore(targetDateStr, null, false);
-    return getDashboardData();
+    return getDashboardDataV2();
   } catch (e) {
     logFrontendError("webAppTrigger3a Error: " + e.message);
     throw e;
@@ -1063,7 +1063,7 @@ function webAppTrigger3a(targetDateStr) {
 
 // 🧠 WEB APP BRIDGE: Logs the Admin Check permanently and cleans the Daily Review sheet instantly
 function markAdminCheckComplete(fdhId) {
-  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current']);
+  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current', 'dashboard_data_cache_v2_blob']);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if(!adminSheet) return false;
@@ -1100,6 +1100,9 @@ function markAdminCheckComplete(fdhId) {
 
                   mirror.getRange(i+1, flagIdx+1).setValue(newFlags);
                   mirror.getRange(i+1, gapIdx+1).setValue(newGaps);
+                  
+                  // 🚀 PATCH V2 PAYLOAD
+                  patchDashboardPayloadV2(fdhId, { flags: newFlags, gaps: newGaps });
                   break;
               }
           }
@@ -1156,7 +1159,7 @@ function verifySpecialCrossings(fdhId) {
 
 // 🧠 NEW: Status Sync Log Bridge
 function markStatusSyncComplete(fdhId) {
-  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current']);
+  CacheService.getScriptCache().removeAll(['dashboard_data_cache_v11_meta', 'dashboard_data_cache_v11', 'SIGNAL_FAST_current', 'dashboard_data_cache_v2_blob']);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if(!adminSheet) return false;
@@ -1189,9 +1192,13 @@ function markStatusSyncComplete(fdhId) {
                   let newFlags = currentFlags.replace("🚩 STATUS MISMATCH", "⚠️ ADMIN: REFRESH REF DATA").replace("🚩 MISSING QB STATUS", "⚠️ ADMIN: REFRESH REF DATA");
                   mirror.getRange(i+1, flagIdx+1).setValue(newFlags);
 
+                  let newDraft = `QB marked as updated on ${dateStr}. Import new Reference Data to clear this flag.`;
                   if (draftIdx > -1) {
-                      mirror.getRange(i+1, draftIdx+1).setValue(`QB marked as updated on ${dateStr}. Import new Reference Data to clear this flag.`);
+                      mirror.getRange(i+1, draftIdx+1).setValue(newDraft);
                   }
+                  
+                  // 🚀 PATCH V2 PAYLOAD
+                  patchDashboardPayloadV2(fdhId, { flags: newFlags, draft: newDraft });
                   break;
               }
           }
@@ -1604,3 +1611,221 @@ function backfillMissingReports() {
   logMsg(`✅ BACKFILL COMPLETE: Generated ${missingDates.length} reports.`);
   SpreadsheetApp.getUi().alert(`Backfill Complete.\n\nGenerated ${missingDates.length} missing reports into the 01_Pending_Upload folder.`);
 }
+
+/**
+ * 🚀 V2 DECOUPLED PAYLOAD ENGINE
+ * These functions allow the frontend to fetch its data directly from a JSON blob in Google Drive,
+ * bypassing the slow SpreadsheetApp read cycle.
+ */
+
+/**
+ * Returns the V2 dashboard payload from Google Drive.
+ * @return {Object} The full dashboard payload JSON.
+ */
+function getDashboardDataV2() {
+  const CACHE_KEY = 'dashboard_data_cache_v2_blob';
+  const cache = CacheService.getScriptCache();
+  
+  // Try Cache First
+  const cached = getChunkedCache(cache, CACHE_KEY);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      logMsg("⚠️ V2 Cache Parse Error: " + e.message);
+    }
+  }
+
+  // Fallback to Drive
+  try {
+    const file = _getPayloadFileV2(false);
+    if (!file) {
+      logMsg("⚠️ V2 Payload File Not Found. Falling back to V1.");
+      return getDashboardData();
+    }
+
+    const payloadStr = file.getBlob().getDataAsString();
+    // Re-cache for future fast loads (30 mins)
+    try { putChunkedCache(cache, CACHE_KEY, payloadStr, 1800); } catch(e) {}
+    
+    return JSON.parse(payloadStr);
+  } catch (e) {
+    logMsg("❌ V2 Payload Fetch Error: " + e.message);
+    return getDashboardData(); // Ultimate fallback
+  }
+}
+
+/**
+ * Builds the V2 dashboard payload from in-memory engine data and saves it to Drive.
+ * Called at the end of generateDailyReviewCore.
+ */
+function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData) {
+  try {
+    logMsg("🔄 V2 PAYLOAD: Building JSON Blob from Engine Data...");
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const refDict = getReferenceDictionary();
+    const vendorGoals = getVendorDailyGoals();
+    const cityCoordinates = getCityCoordinates();
+    const fiberStats = getVendorHybridStats();
+    const logSheet = ss.getSheetByName(CHANGE_LOG_SHEET);
+    
+    const getIdx = name => headers.indexOf(name);
+    const fdhIdx = getIdx("FDH Engineering ID"), flagsIdx = getIdx("Health Flags"), draftIdx = getIdx("Action Required");
+    const vendorIdx = getIdx("Contractor"), statusIdx = getIdx("Status"), cityIdx = getIdx("City"), stageIdx = getIdx("Stage");
+    const ofsIdx = headers.findIndex(h => ["OFS DATE", "BUDGET OFS"].includes(String(h || '').trim().toUpperCase()));
+    const benchIdx = getIdx("Historical Milestones"), dateIdx = getIdx("Date");
+    const targetIdx = getIdx("Target Completion Date"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete");
+    const summaryIdx = getIdx("Field Production"), gapsIdx = getIdx("QB Context & Gaps");
+    const bslsIdx = getIdx("BSLs"), lightIdx = getIdx("Light to Cabinets");
+    const cdIntelIdx = getIdx("CD Intelligence"), geminiInsightIdx = getIdx("Gemini Insight"), geminiDateIdx = getIdx("Gemini Insight Date");
+    const specXIdx = getIdx("Special Crossings?"), specXDetIdx = headers.indexOf("Special Crossing Details") > -1 ? headers.indexOf("Special Crossing Details") : headers.indexOf("Sepcial Crossings Details");
+    const vcIdx = getIdx("Vendor Comment") > -1 ? getIdx("Vendor Comment") : getIdx("Construction Comments");
+    const drgIdx = headers.findIndex(h => ["DRG", "DIRECT VENDOR"].includes(String(h || '').trim().toUpperCase()));
+    const drgUrlIdx = headers.findIndex(h => ["DRG TRACKER URL", "TRACKER URL"].includes(String(h || '').trim().toUpperCase()));
+
+    const ugTotIdx = getIdx("Total UG Footage Completed"), ugBomIdx = getIdx("UG BOM Quantity"), ugDailyIdx = getIdx("Daily UG Footage");
+    const aeTotIdx = getIdx("Total Strand Footage Complete?"), aeBomIdx = getIdx("Strand BOM Quantity"), aeDailyIdx = getIdx("Daily Strand Footage");
+    const fibTotIdx = getIdx("Total Fiber Footage Complete"), fibBomIdx = getIdx("Fiber BOM Quantity"), fibDailyIdx = getIdx("Daily Fiber Footage");
+    const napTotIdx = getIdx("Total NAPs Completed"), napBomIdx = getIdx("NAP/Encl. BOM Qty."), napDailyIdx = getIdx("Daily NAPs/Encl. Completed");
+
+    const parseNum = (val) => {
+        if (val == null || val === "") return 0;
+        if (typeof val === 'number') return val;
+        let match = String(val).split('(')[0].replace(/,/g, '').trim().match(/-?\d+(\.\d+)?/);
+        return match ? Number(match[0]) : 0;
+    };
+    const isChecked = (val) => {
+        if (val === true) return true;
+        let normalized = String(val || '').trim().toLowerCase();
+        return ['true', '1', 'yes', 'y', 'checked', 'x', 'drg', 'direct vendor'].includes(normalized);
+    };
+    const parseDate = (val) => val ? ((val instanceof Date) ? Utilities.formatDate(val, "GMT-5", "MM-dd-yyyy") : String(val).split('T')[0]) : "";
+
+    let globalLogs = [];
+    if (logSheet && logSheet.getLastRow() > 1) {
+      const logData = logSheet.getDataRange().getValues();
+      for (let j = 1; j < logData.length; j++) {
+        let timeVal = logData[j][4];
+        let timeDisplay = (timeVal instanceof Date) ? Utilities.formatDate(timeVal, "GMT-6", "MM/dd/yyyy HH:mm") : String(timeVal || "");
+        globalLogs.push({ fdh: String(logData[j][0] || ""), type: String(logData[j][1] || ""), val: String(logData[j][2] || ""), user: String(logData[j][3] || "System"), time: timeDisplay });
+      }
+    }
+
+    let actionItems = [];
+    reviewData.forEach((row, i) => {
+      let hData = highlightsData[i];
+      let fdhKey = String(row[fdhIdx] || "").trim().toUpperCase();
+      let refData = refDict[fdhKey] || null;
+
+      actionItems.push({
+        fdh: fdhKey,
+        vendor: String(row[vendorIdx] || ""),
+        city: String(row[cityIdx] || ""),
+        stage: String(row[stageIdx] || ""),
+        status: String(row[statusIdx] || ""),
+        bsls: String(row[bslsIdx] || "-"),
+        isLight: isChecked(row[lightIdx]),
+        canonicalOfsDate: String(row[ofsIdx] || ""),
+        ofsDate: String(row[ofsIdx] || ""),
+        reportDate: parseDate(row[dateIdx]),
+        targetDate: parseDate(row[targetIdx]),
+        cxStart: parseDate(row[cxStartIdx]),
+        cxEnd: parseDate(row[cxEndIdx]),
+        isXing: String(row[gapsIdx]).includes("X-ING YES"),
+        gaps: String(row[gapsIdx] || ""),
+        flags: String(row[flagsIdx] || ""),
+        draft: String(row[draftIdx] || ""),
+        fieldProduction: String(row[summaryIdx] || ""),
+        bench: String(row[benchIdx] || ""),
+        vendorComment: String(row[vcIdx] || ""),
+        cdIntel: String(row[cdIntelIdx] || "").trim(),
+        geminiInsight: String(row[geminiInsightIdx] || "").trim(),
+        geminiDate: String(row[geminiDateIdx] || "").trim(),
+        rawSpecialX: String(row[specXIdx] || "").trim(),
+        specXDetails: String(row[specXDetIdx] || "").trim(),
+        isTrackerLinked: String(row[summaryIdx]).includes("[📡 Tracker Linked]"),
+        isDrgTracked: isChecked(row[drgIdx]) || (refData ? !!refData.isDrgTracked : false),
+        rid: refData ? String(refData.rid || "") : "",
+        qbRef: refData ? (refData.qbRef || {}) : {},
+        vel: {
+            ug: { tot: parseNum(row[ugTotIdx]), bom: parseNum(row[ugBomIdx]), daily: parseNum(row[ugDailyIdx]) },
+            ae: { tot: parseNum(row[aeTotIdx]), bom: parseNum(row[aeBomIdx]), daily: parseNum(row[aeDailyIdx]) },
+            fib: { tot: parseNum(row[fibTotIdx]), bom: parseNum(row[fibBomIdx]), daily: parseNum(row[fibDailyIdx]) },
+            nap: { tot: parseNum(row[napTotIdx]), bom: parseNum(row[napBomIdx]), daily: parseNum(row[napDailyIdx]) }
+        },
+        rowNum: i + 2
+      });
+    });
+
+    const payload = {
+      actionItems: actionItems,
+      globalLogs: globalLogs,
+      vendorGoals: vendorGoals,
+      vendorCities: buildVendorCityCoordinateRecords(actionItems, cityCoordinates),
+      totalRows: reviewData.length,
+      headers: headers,
+      refDataDate: String(PropertiesService.getScriptProperties().getProperty('refDataImportDate') || ""),
+      allFdhIds: Object.keys(refDict),
+      fiberStats: fiberStats,
+      generatedAt: new Date().toISOString()
+    };
+
+    const file = _getPayloadFileV2(true);
+    file.setContent(JSON.stringify(payload));
+    
+    // Clear Cache to force fresh load
+    CacheService.getScriptCache().remove('dashboard_data_cache_v2_blob');
+    logMsg("✅ V2 PAYLOAD: Successfully saved to Drive.");
+    return true;
+  } catch (e) {
+    logMsg("❌ V2 PAYLOAD ERROR: " + e.message);
+    return false;
+  }
+}
+
+/**
+ * Patches a single record in the V2 payload.
+ * Useful for fast UI updates (e.g., mark complete) without full engine run.
+ */
+function patchDashboardPayloadV2(fdhId, updates) {
+  try {
+    const file = _getPayloadFileV2(false);
+    if (!file) return false;
+
+    const payload = JSON.parse(file.getBlob().getDataAsString());
+    const idx = payload.actionItems.findIndex(item => item.fdh.toUpperCase() === fdhId.toUpperCase());
+    
+    if (idx > -1) {
+      Object.assign(payload.actionItems[idx], updates);
+      file.setContent(JSON.stringify(payload));
+      CacheService.getScriptCache().remove('dashboard_data_cache_v2_blob');
+      return true;
+    }
+    return false;
+  } catch (e) {
+    logMsg("❌ V2 PATCH ERROR: " + e.message);
+    return false;
+  }
+}
+
+/**
+ * Internal helper to find or create the payload file in App_Datastore.
+ */
+function _getPayloadFileV2(createIfMissing) {
+  try {
+    const folder = DriveApp.getFolderById(PAYLOAD_FOLDER_ID);
+    const files = folder.getFilesByName(PAYLOAD_FILENAME);
+    
+    if (files.hasNext()) return files.next();
+    
+    if (createIfMissing) {
+      return folder.createFile(PAYLOAD_FILENAME, "{}", MimeType.PLAIN_TEXT);
+    }
+    return null;
+  } catch (e) {
+    logMsg("❌ V2 FILE HELPER ERROR: " + e.message);
+    return null;
+  }
+}
+

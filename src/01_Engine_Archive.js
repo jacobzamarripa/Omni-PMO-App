@@ -1164,6 +1164,9 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     let endGroupCol = finalMirrorHeaders.indexOf("Splicing Crews") + 1;
     if (startGroupCol > 0 && endGroupCol >= startGroupCol) { try { mirrorSheet.getRange(1, startGroupCol, 1, endGroupCol - startGroupCol + 1).shiftColumnGroupDepth(1); mirrorSheet.collapseAllColumnGroups(); } catch(e) {} }
     
+    // 🚀 NEW: Build and Save V2 Decoupled Payload for the Web App
+    buildAndSaveDashboardPayloadV2(reviewData, finalMirrorHeaders, highlightsData);
+    
   } else if (!isSilent) {
     SpreadsheetApp.getUi().alert(`No data found in Master Archive for Date(s): ${targetDates.join(", ")}`);
   }
