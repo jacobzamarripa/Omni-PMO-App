@@ -105,7 +105,7 @@ const DECK_HEADERS = [
 ];
 
 // 🧠 ADDED: CX Start and CX Complete
-const REVIEW_EXTRA_HEADERS = ["City", "Stage", "Status", "BSLs", "Budget OFS", "CX Start", "CX Complete", "CD Intelligence", "Gemini Insight", "Gemini Insight Date"];
+const REVIEW_EXTRA_HEADERS = ["City", "Stage", "Status", "BSLs", "Budget OFS", "CX Start", "CX Complete", "CX Inferred", "CD Intelligence", "Gemini Insight", "Gemini Insight Date"];
 
 const ANALYTICS_QUADRANT = ["Historical Milestones", "Health Flags", "Action Required", "Field Production", "QB Context & Gaps"];
 

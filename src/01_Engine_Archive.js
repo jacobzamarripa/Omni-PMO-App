@@ -703,6 +703,141 @@ function runBennyDiagnostics(row, refDict, vendorDict) {
   };
 }
 
+// --- CX DATE INFERENCE HELPERS ---
+
+/**
+ * Scans the existing 3-Daily_Review sheet and returns the last known non-empty
+ * CX Start / CX Complete per FDH. Used as Tier-2 fallback when QB ref is gone.
+ */
+function buildCxLkvDictionary(mirrorSheet) {
+  let lkvDict = {};
+  if (!mirrorSheet || mirrorSheet.getLastRow() < 2) return lkvDict;
+  let mData = mirrorSheet.getDataRange().getValues();
+  let mHeaders = mData[0].map(String);
+  let fdhCol = mHeaders.indexOf("FDH Engineering ID");
+  let cxSCol = mHeaders.indexOf("CX Start");
+  let cxECol = mHeaders.indexOf("CX Complete");
+  if (fdhCol < 0) return lkvDict;
+  for (let r = 1; r < mData.length; r++) {
+    let fdh = String(mData[r][fdhCol] || "").toUpperCase().trim();
+    if (!fdh) continue;
+    if (!lkvDict[fdh]) lkvDict[fdh] = { cxStart: "", cxComplete: "" };
+    let cs = cxSCol > -1 ? String(mData[r][cxSCol] || "") : "";
+    let ce = cxECol > -1 ? String(mData[r][cxECol] || "") : "";
+    if (cs) lkvDict[fdh].cxStart = cs;
+    if (ce) lkvDict[fdh].cxComplete = ce;
+  }
+  return lkvDict;
+}
+
+/**
+ * Scans Master Archive rows for a given FDH to infer CX Start and CX Complete.
+ * CX Start: first date locates called in, or first date any phase footage > 0.
+ * CX Complete: latest date when all active phases reached their BOM.
+ */
+function inferCxDatesFromHistory(fdh, histData, histHeaders) {
+  let fdhIdx    = histHeaders.indexOf("FDH Engineering ID");
+  let dateIdx   = histHeaders.indexOf("Date");
+  let locIdx    = histHeaders.indexOf("Locates Called In");
+  let ugTotIdx  = histHeaders.indexOf("Total UG Footage Completed");
+  let aeTotIdx  = histHeaders.indexOf("Total Strand Footage Complete?");
+  let fibTotIdx = histHeaders.indexOf("Total Fiber Footage Complete");
+  let napTotIdx = histHeaders.indexOf("Total NAPs Completed");
+  let ugBomIdx  = histHeaders.indexOf("UG BOM Quantity");
+  let aeBomIdx  = histHeaders.indexOf("Strand BOM Quantity");
+  let fibBomIdx = histHeaders.indexOf("Fiber BOM Quantity");
+  let napBomIdx = histHeaders.indexOf("NAP/Encl. BOM Qty.");
+
+  let fdhRows = [];
+  for (let i = 1; i < histData.length; i++) {
+    if (String(histData[i][fdhIdx] || "").toUpperCase().trim() === fdh) fdhRows.push(histData[i]);
+  }
+  if (fdhRows.length === 0) return { cxStart: "", cxComplete: "", startSource: "", endSource: "" };
+
+  fdhRows.sort((a, b) => new Date(a[dateIdx]) - new Date(b[dateIdx]));
+
+  const fmtDate = (d) => {
+    if (!d) return "";
+    let obj = (d instanceof Date) ? d : new Date(d);
+    if (isNaN(obj.getTime())) return "";
+    return Utilities.formatDate(obj, "GMT-5", "MM/dd/yyyy");
+  };
+
+  let cxStart = "", startSource = "";
+  let cxComplete = "", endSource = "";
+  let ugMaxBom = 0, aeMaxBom = 0, fibMaxBom = 0, napMaxBom = 0;
+  let ugDone = false, aeDone = false, fibDone = false, napDone = false;
+
+  for (let r of fdhRows) {
+    let dateStr = fmtDate(r[dateIdx]);
+    if (!dateStr) continue;
+
+    // CX Start: locates first, then first any-phase activity
+    if (!cxStart) {
+      if (locIdx > -1 && (r[locIdx] === true || String(r[locIdx]).toLowerCase() === "true")) {
+        cxStart = dateStr; startSource = "locates";
+      }
+    }
+    if (!cxStart) {
+      let ug = Number(r[ugTotIdx]) || 0, ae = Number(r[aeTotIdx]) || 0;
+      let fib = Number(r[fibTotIdx]) || 0, nap = Number(r[napTotIdx]) || 0;
+      if (ug > 0 || ae > 0 || fib > 0 || nap > 0) { cxStart = dateStr; startSource = "activity"; }
+    }
+
+    // Track max BOMs seen so far (BOM can appear late in history)
+    ugMaxBom  = Math.max(ugMaxBom,  Number(r[ugBomIdx])  || 0);
+    aeMaxBom  = Math.max(aeMaxBom,  Number(r[aeBomIdx])  || 0);
+    fibMaxBom = Math.max(fibMaxBom, Number(r[fibBomIdx]) || 0);
+    napMaxBom = Math.max(napMaxBom, Number(r[napBomIdx]) || 0);
+
+    if (!ugDone  && ugMaxBom  > 0 && (Number(r[ugTotIdx])  || 0) >= ugMaxBom)  ugDone  = true;
+    if (!aeDone  && aeMaxBom  > 0 && (Number(r[aeTotIdx])  || 0) >= aeMaxBom)  aeDone  = true;
+    if (!fibDone && fibMaxBom > 0 && (Number(r[fibTotIdx]) || 0) >= fibMaxBom) fibDone = true;
+    if (!napDone && napMaxBom > 0 && (Number(r[napTotIdx]) || 0) >= napMaxBom) napDone = true;
+
+    // CX Complete: the latest date all active phases are simultaneously done
+    let active = (ugMaxBom > 0 ? 1 : 0) + (aeMaxBom > 0 ? 1 : 0) + (fibMaxBom > 0 ? 1 : 0) + (napMaxBom > 0 ? 1 : 0);
+    let done   = (ugDone ? 1 : 0) + (aeDone ? 1 : 0) + (fibDone ? 1 : 0) + (napDone ? 1 : 0);
+    if (active > 0 && done >= active) { cxComplete = dateStr; endSource = "phase_complete"; }
+  }
+
+  return { cxStart, cxComplete, startSource, endSource };
+}
+
+/**
+ * Full three-tier resolution chain for CX Start and CX Complete.
+ * Returns { cxStart, cxComplete, inferredLabel }
+ * inferredLabel is "" when Tier-1 (real QB data) is used, otherwise "start:<src>,end:<src>".
+ */
+function resolveCxDates(fdh, refData, lkvDict, histData, histHeaders) {
+  // Tier 1: QB Reference Data — no inference
+  if (refData && refData.cxStart) {
+    return { cxStart: refData.cxStart, cxComplete: refData.cxComplete || "", inferredLabel: "" };
+  }
+
+  let result = { cxStart: "", cxComplete: "", inferredLabel: "" };
+  let startSource = "", endSource = "";
+
+  // Tier 2: Last Known Value from prior Daily Review rows
+  let lkv = lkvDict[fdh] || {};
+  if (lkv.cxStart)    { result.cxStart    = lkv.cxStart;    startSource = "lkv"; }
+  if (lkv.cxComplete) { result.cxComplete = lkv.cxComplete; endSource   = "lkv"; }
+
+  // Tier 3: Inference from Master Archive (only fills still-missing fields)
+  if (!result.cxStart || !result.cxComplete) {
+    let inf = inferCxDatesFromHistory(fdh, histData, histHeaders);
+    if (!result.cxStart    && inf.cxStart)    { result.cxStart    = inf.cxStart;    startSource = inf.startSource; }
+    if (!result.cxComplete && inf.cxComplete) { result.cxComplete = inf.cxComplete; endSource   = inf.endSource; }
+  }
+
+  let parts = [];
+  if (startSource) parts.push("start:" + startSource);
+  if (endSource)   parts.push("end:"   + endSource);
+  result.inferredLabel = parts.join(",");
+
+  return result;
+}
+
 function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent = false) {
   CacheService.getScriptCache().remove('dashboard_data_cache');
   setupSheets();
@@ -719,6 +854,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
   const histData = histSheet.getDataRange().getValues();
 
   let benchmarkDict = buildBenchmarkDictionary(histData, HISTORY_HEADERS, refDict);
+  let lkvDict = buildCxLkvDictionary(mirrorSheet);
 
   let currentMirrorHeaders = mirrorSheet.getLastColumn() > 0 ? mirrorSheet.getRange(1, 1, 1, mirrorSheet.getLastColumn()).getValues()[0] : [];
   let defaultHeaders = [...HISTORY_HEADERS, ...REVIEW_EXTRA_HEADERS, ...ANALYTICS_QUADRANT, "Archive_Row"];
@@ -803,8 +939,10 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       rowObj["Status"] = refData ? refData.status : (diag.inferredStatus || "-"); 
       rowObj["BSLs"] = refData ? refData.bsls : "-";
       rowObj["Budget OFS"] = refData ? (refData.canonicalOfsDate || refData.forecastedOFS) : "-";
-      rowObj["CX Start"] = refData && refData.cxStart ? refData.cxStart : "";
-      rowObj["CX Complete"] = refData && refData.cxComplete ? refData.cxComplete : "";
+      let cxResolved = resolveCxDates(fdhId, refData, lkvDict, histData, HISTORY_HEADERS);
+      rowObj["CX Start"]    = cxResolved.cxStart;
+      rowObj["CX Complete"] = cxResolved.cxComplete;
+      rowObj["CX Inferred"] = cxResolved.inferredLabel;
       rowObj["CD Intelligence"] = cdIntelText; 
       rowObj["Gemini Insight"] = refData ? refData.geminiInsight : "";
       rowObj["Gemini Insight Date"] = refData ? refData.geminiDate : "";
@@ -904,6 +1042,10 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     ghostRowObj["Status"]             = ref.status || "-";
     ghostRowObj["BSLs"]               = ref.bsls || "-";
     ghostRowObj["Budget OFS"]         = ref.canonicalOfsDate || ref.forecastedOFS || "-";
+    let ghostCx = resolveCxDates(ghostFdhId, ref, lkvDict, histData, HISTORY_HEADERS);
+    ghostRowObj["CX Start"]    = ghostCx.cxStart;
+    ghostRowObj["CX Complete"] = ghostCx.cxComplete;
+    ghostRowObj["CX Inferred"] = ghostCx.inferredLabel;
     ghostRowObj["Contractor"]         = ref.vendor;
     ghostRowObj["Health Flags"]       = "MISSING DAILY REPORT";
     ghostRowObj["Action Required"]    = `Vendor (${ref.vendor}) did not submit a daily report.`;

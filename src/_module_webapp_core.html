@@ -783,61 +783,36 @@
           if (!confirm(msg)) return;
           const btn = getEl('btn-qb-sync');
           if (btn) { btn.innerText = '⟳ Syncing…'; btn.disabled = true; }
-          showFrostedLoader("SYNCING QUICKBASE", "Pulling latest live reference data...", "sync", [
+          // DATA CALL: triggerQBSync → syncAndRebuildDashboard (atomic: QB sync + engine rebuild)
+          // Single round-trip: syncs reference data and immediately rebuilds the V2 payload
+          // from the latest Master Archive date. No confirm prompt, no second call needed.
+          showFrostedLoader("SYNCING & REBUILDING", "Pulling reference data and rebuilding dashboard...", "sync", [
               "Authenticating QuickBase API token...",
               "Fetching multi-table payloads...",
-              "Normalizing relational database...",
-              "Rebuilding local reference dictionary..."
+              "Rebuilding reference dictionary...",
+              "Running diagnostic engine on latest data...",
+              "Saving updated payload..."
           ]);
-          // DATA CALL: triggerQBSync
-          // COUPLED TO: btn-qb-sync, frosted loader, globalRefDataDate, ref-data badge UI, confirm flow
-          // EXTRACT BLOCKER: separate sync orchestration state from button/loading UI and global mirror-date ownership
           google.script.run
-              .withSuccessHandler(function(r) {
-                  if (r.success) {
-                      globalRefDataDate = r.timestamp;
-                      updateRefDataIndicator();
-                      // DATA CALL: triggerQBSync post-sync refresh
-                      // COUPLED TO: initDashboard payload bootstrap, btn-qb-sync, frosted loader, startup overlay, run-review prompt
-                      // EXTRACT BLOCKER: initDashboard bootstrap contract must be isolated before this nested refresh can move
-                      google.script.run
-                          .withSuccessHandler(function(data) {
-                              hideFrostedLoader();
-                              if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
-                              resetSignalCaches();
-                              initDashboard(data);
-                              showToast('✅ Synced ' + r.count + ' records · ' + r.timestamp);
-
-                              const promptRunReview = function() {
-                                  const startupOverlay = getEl('startup-overlay');
-                                  if (startupOverlay && startupOverlay.classList.contains('visible')) {
-                                      setTimeout(promptRunReview, 300);
-                                      return;
-                                  }
-                                  if (confirm('✅ Reference data synced & admin logs reset.\n\nRun Review now to refresh admin task flags (Check Crossings, Status Mismatch, etc.)?')) {
-                                      triggerRunReview();
-                                  }
-                              };
-                              setTimeout(promptRunReview, 400);
-                          })
-                          .withFailureHandler(function(err) {
-                              hideFrostedLoader();
-                              if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
-                              alert('Refresh Error: ' + err.message);
-                          })
-                          .getDashboardDataV2();
-                  } else {
-                      hideFrostedLoader();
-                      if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
-                      showToast('❌ ' + r.error, 'error');
+              .withSuccessHandler(function(data) {
+                  hideFrostedLoader();
+                  if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
+                  if (data._syncMeta && data._syncMeta.error) {
+                      showToast('❌ ' + data._syncMeta.error, 'error');
+                      return;
                   }
+                  resetSignalCaches();
+                  initDashboard(data);
+                  const meta = data._syncMeta || {};
+                  showToast('✅ Synced ' + (meta.count || '?') + ' records · Dashboard rebuilt from ' + (meta.date || 'latest'));
+                  if (meta.timestamp) { globalRefDataDate = meta.timestamp; updateRefDataIndicator(); }
               })
               .withFailureHandler(function(e) {
                   hideFrostedLoader();
                   if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
                   showToast('❌ Sync error: ' + e.message, 'error');
               })
-              .syncFromQBWebApp();
+              .syncAndRebuildDashboard();
       }
 
       // ── ▶ Run Review — re-runs the diagnostic engine for a given date ────

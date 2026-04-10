@@ -332,7 +332,7 @@ function getDashboardData() {
   const fdhIdx = getIdx("FDH Engineering ID"), flagsIdx = getIdx("Health Flags"), draftIdx = getIdx("Action Required");
   const vendorIdx = getIdx("Contractor"), statusIdx = getIdx("Status"), cityIdx = getIdx("City"), stageIdx = getIdx("Stage");
   const ofsIdx = getIdxByAliases(["OFS DATE", "BUDGET OFS"]), benchIdx = getIdx("Historical Milestones"), dateIdx = getIdx("Date");
-  const targetIdx = getIdx("Target Completion Date"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete");
+  const targetIdx = getIdx("Target Completion Date"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete"), cxInferredIdx = getIdx("CX Inferred");
   const summaryIdx = getIdx("Field Production");
   const xingIdx = getIdx("QB Context & Gaps"), bslsIdx = getIdx("BSLs"), lightIdx = getIdx("Light to Cabinets");
   const cdIntelIdx = getIdx("CD Intelligence"), geminiInsightIdx = getIdx("Gemini Insight"), geminiDateIdx = getIdx("Gemini Insight Date");
@@ -483,6 +483,7 @@ function getDashboardData() {
              targetDate: parseDate(targetIdx > -1 ? data[i][targetIdx] : ""),
              cxStart: parseDate(cxStartIdx > -1 ? data[i][cxStartIdx] : ""),
              cxEnd: parseDate(cxEndIdx > -1 ? data[i][cxEndIdx] : ""),
+             cxInferred: cxInferredIdx > -1 ? String(data[i][cxInferredIdx] || "") : "",
              isXing: xingIdx > -1 && String(data[i][xingIdx]).includes("X-ING YES"),
              gaps: xingIdx > -1 ? String(data[i][xingIdx] || "") : "",
              flags: flags,
@@ -1675,7 +1676,7 @@ function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData) {
     const vendorIdx = getIdx("Contractor"), statusIdx = getIdx("Status"), cityIdx = getIdx("City"), stageIdx = getIdx("Stage");
     const ofsIdx = headers.findIndex(h => ["OFS DATE", "BUDGET OFS"].includes(String(h || '').trim().toUpperCase()));
     const benchIdx = getIdx("Historical Milestones"), dateIdx = getIdx("Date");
-    const targetIdx = getIdx("Target Completion Date"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete");
+    const targetIdx = getIdx("Target Completion Date"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete"), cxInferredIdx = getIdx("CX Inferred");
     const summaryIdx = getIdx("Field Production"), gapsIdx = getIdx("QB Context & Gaps");
     const bslsIdx = getIdx("BSLs"), lightIdx = getIdx("Light to Cabinets");
     const cdIntelIdx = getIdx("CD Intelligence"), geminiInsightIdx = getIdx("Gemini Insight"), geminiDateIdx = getIdx("Gemini Insight Date");
@@ -1732,6 +1733,7 @@ function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData) {
         targetDate: parseDate(row[targetIdx]),
         cxStart: parseDate(row[cxStartIdx]),
         cxEnd: parseDate(row[cxEndIdx]),
+        cxInferred: cxInferredIdx > -1 ? String(row[cxInferredIdx] || "") : "",
         isXing: String(row[gapsIdx]).includes("X-ING YES"),
         gaps: String(row[gapsIdx] || ""),
         flags: String(row[flagsIdx] || ""),

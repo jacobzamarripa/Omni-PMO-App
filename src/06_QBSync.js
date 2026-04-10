@@ -905,3 +905,53 @@ function discoverChangeLogFields() {
     Logger.log("Script Error: " + e.toString());
   }
 }
+
+// --- SYNC + REBUILD: atomic QB sync → engine run → fresh payload ---
+
+/**
+ * Returns the most recent date found in the Master Archive as a "yyyy-MM-dd" string.
+ * Used by syncAndRebuildDashboard to auto-select the target date for the engine run.
+ */
+function _getLatestArchiveDate() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const histSheet = ss.getSheetByName(HISTORY_SHEET);
+    if (!histSheet || histSheet.getLastRow() < 2) {
+      return Utilities.formatDate(new Date(), "GMT-5", "yyyy-MM-dd");
+    }
+    const dateIdx = HISTORY_HEADERS.indexOf("Date");
+    if (dateIdx < 0) return Utilities.formatDate(new Date(), "GMT-5", "yyyy-MM-dd");
+    const data = histSheet.getDataRange().getValues();
+    let latest = null;
+    for (let i = 1; i < data.length; i++) {
+      let d = data[i][dateIdx];
+      if (!d) continue;
+      let obj = (d instanceof Date) ? d : new Date(d);
+      if (!isNaN(obj.getTime()) && (!latest || obj > latest)) latest = obj;
+    }
+    return latest
+      ? Utilities.formatDate(latest, "GMT-5", "yyyy-MM-dd")
+      : Utilities.formatDate(new Date(), "GMT-5", "yyyy-MM-dd");
+  } catch (e) {
+    logMsg("_getLatestArchiveDate error: " + e.message);
+    return Utilities.formatDate(new Date(), "GMT-5", "yyyy-MM-dd");
+  }
+}
+
+/**
+ * Syncs QB reference data and immediately rebuilds the dashboard payload from the
+ * latest date in the Master Archive. Returns the full V2 payload (with _syncMeta
+ * attached) so the frontend can refresh in a single round-trip.
+ */
+function syncAndRebuildDashboard() {
+  const syncResult = syncFromQBWebApp();
+  if (!syncResult.success) {
+    return { actionItems: [], _syncMeta: { error: syncResult.error } };
+  }
+  const latestDate = _getLatestArchiveDate();
+  logMsg("syncAndRebuildDashboard: rebuilding from latest archive date → " + latestDate);
+  generateDailyReviewCore(latestDate, null, false);
+  const payload = getDashboardDataV2();
+  payload._syncMeta = { count: syncResult.count, timestamp: syncResult.timestamp, date: latestDate };
+  return payload;
+}

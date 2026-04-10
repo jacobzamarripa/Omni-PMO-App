@@ -330,6 +330,9 @@ function showHUD(e, fdh) {
         });
         html += `</div>`;
     }
+    if (item.cxInferred && item.cxInferred.length > 0) {
+        html += `<div style="font-size:9px; color:#fbbf24; border-top:1px solid #333338; padding-top:4px; margin-top:4px;">&#9888; Dates inferred (${item.cxInferred})</div>`;
+    }
     hud.dataset.mode = 'project';
     hud.innerHTML = html;
     hud.style.display = 'flex';
@@ -589,12 +592,14 @@ function renderGantt(items) {
         }
 
         let barLeft = 140 + leftPx;
+        let isInferred = !!(item.cxInferred && item.cxInferred.length > 0);
+        let inferredBorderStyle = isInferred ? " border: 2px dashed rgba(255,255,255,0.5);" : "";
         rowsArray.push(`
         <div class="gantt-row" id="gantt-row-${item.fdh}" data-start-ts="${rowStartTs}" data-end-ts="${rowEndTs}" style="width:${chartWidth + 140}px;">
            <div class="gantt-label ${highestSev}" onclick="handleGanttLabelClick('${item.fdh}')">
                <div class="gantt-label-fdh">${item.fdh}</div><div class="gantt-label-ven">${item.vendor || "UNKNOWN"}</div>
            </div>
-           <div class="gantt-bar-fill ${ganttClass}" style="left:${barLeft}px; width:${widthPx}px; pointer-events:auto;" onclick="handleGanttClick('${item.fdh}')" onmouseenter="showHUD(event, '${item.fdh}')" onmousemove="moveHUD(event)" onmouseleave="hideHUD()">
+           <div class="gantt-bar-fill ${ganttClass}" style="left:${barLeft}px; width:${widthPx}px; pointer-events:auto;${inferredBorderStyle}" onclick="handleGanttClick('${item.fdh}')" onmouseenter="showHUD(event, '${item.fdh}')" onmousemove="moveHUD(event)" onmouseleave="hideHUD()">
                <span class="gantt-bar-text">${item.fdh} • ${pillStage} | ${pillStatus}</span>
            </div>
            <div style="position:absolute; left:${barLeft}px; width:${widthPx}px; top:0; height:100%; pointer-events:none; z-index:8;">${beadHtml}</div>
