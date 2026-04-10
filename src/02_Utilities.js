@@ -795,9 +795,13 @@ function executeDailyAutomationPipeline() {
   // 3. Finalize automation steps
   const refDict = getReferenceDictionary();
   generateDailyReviewCore(targetDateStr, refDict, true);
-  exportDirectorReviewXLSX(true);
-  exportVendorCorrectionsXLSX(true);
+  
+  // 🧠 Populate Export tab and generate the Daily Production CSV compilation
+  populateQuickBaseTabCore(targetDateStr);
   exportQuickBaseCSVCore(true);
+  
+  // 🔍 Run Gap Scan to backfill any missing reports for the last 7 days
+  backfillMissingReports();
 }
 function moveIncomingFoldersToArchive() { 
   logMsg("🧹 STARTING MIDNIGHT SWEEP..."); 
