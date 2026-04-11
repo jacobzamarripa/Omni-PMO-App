@@ -543,11 +543,11 @@ function runBennyDiagnostics(row, refDict, vendorDict) {
       flagColors.push(TEXT_COLORS.WARN);
       hCols.warn.push("FDH Engineering ID");
   } else if (fdhId !== "" && !refData) {
-      flags.push(`LIKELY OFS / OUT OF CX SCOPE`);
+      flags.push(`LIKELY OFS / OOS`);
       flagColors.push(TEXT_COLORS.DONE);
       drafts.push(`Missing from current CX reference data, but present historically in Master Archive. Treat as likely advanced beyond CX, most likely OFS.`);
       inferredStage = "OFS (Inferred)";
-      inferredStatus = "OUT OF CX SCOPE";
+      inferredStatus = "OOS";
       hCols.warn.push("FDH Engineering ID");
   }
   
@@ -897,11 +897,11 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
           diag.draft = diag.draft.replace(/QB shows 0 BOM for NAP, but vendor reported activity\. Verify if a reroute occurred\./g, "Vendor reported Splicing activity, but BOM shows 0 NAPs. Verify if scope was expanded.");
       }
       if (diag.flags.includes("NOT IN QB REFERENCE") || diag.flags.includes("NOT IN QB")) {
-          diag.flags = diag.flags.replace(/NOT IN QB REFERENCE/g, "LIKELY OFS / OUT OF CX SCOPE").replace(/NOT IN QB/g, "LIKELY OFS / OUT OF CX SCOPE");
+          diag.flags = diag.flags.replace(/NOT IN QB REFERENCE/g, "LIKELY OFS / OOS").replace(/NOT IN QB/g, "LIKELY OFS / OOS");
           diag.draft = diag.draft.replace(/Not found in QuickBase Reference Data/g, "Missing from current CX reference data, but present historically in Master Archive. Treat as likely advanced beyond CX, most likely OFS.")
                                  .replace(/Not found in QuickBase/g, "Missing from current CX reference data, but present historically in Master Archive. Treat as likely advanced beyond CX, most likely OFS.");
           if (!diag.inferredStage) diag.inferredStage = "OFS (Inferred)";
-          if (!diag.inferredStatus) diag.inferredStatus = "OUT OF CX SCOPE";
+          if (!diag.inferredStatus) diag.inferredStatus = "OOS";
       }
       
       if (benchmarkDict[fdhId] && benchmarkDict[fdhId].includes("Possible Reroute")) {
