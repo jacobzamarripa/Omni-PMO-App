@@ -189,7 +189,7 @@
 
       function getQueueCombinedPill(item) {
           const flags = String((item && item.flags) || '');
-          const isOutOfCxScope = flags.includes("LIKELY OFS / OOS");
+          const isOutOfCxScope = flags.includes("LIKELY OFS / OOS") || flags.includes("LIKELY OFS / OUT OF CX SCOPE");
           const isMissingQbStatus = flags.includes("MISSING QB STATUS");
           const isNotInQb = flags.includes("NOT IN QB REFERENCE");
           if (isOutOfCxScope) return "OFS (Inferred) | OOS";
