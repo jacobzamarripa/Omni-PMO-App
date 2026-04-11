@@ -774,9 +774,14 @@ function inferCxDatesFromHistory(fdh, histData, histHeaders) {
   let ugMaxBom = 0, aeMaxBom = 0, fibMaxBom = 0, napMaxBom = 0;
   let ugDone = false, aeDone = false, fibDone = false, napDone = false;
 
+  let firstLightDateStr = "", firstLightDateObj = null;
+  let firstFibDoneDateStr = "", firstFibDoneDateObj = null;
+
   for (let r of fdhRows) {
-    let dateStr = fmtDate(r[dateIdx]);
-    if (!dateStr) continue;
+    let rawDate = r[dateIdx];
+    let dateObj = (rawDate instanceof Date) ? rawDate : new Date(rawDate);
+    let dateStr = fmtDate(rawDate);
+    if (!dateStr || isNaN(dateObj.getTime())) continue;
 
     // CX Start: locates first, then first any-phase activity
     if (!cxStart) {
@@ -790,21 +795,55 @@ function inferCxDatesFromHistory(fdh, histData, histHeaders) {
       if (ug > 0 || ae > 0 || fib > 0 || nap > 0) { cxStart = dateStr; startSource = "activity"; }
     }
 
+    // Track "Light to Cabinets" (First Known) for completion logic
+    if (!firstLightDateStr && (r[lightIdx] === true || String(r[lightIdx]).toLowerCase() === "true")) {
+      firstLightDateStr = dateStr;
+      firstLightDateObj = dateObj;
+    }
+
     // Track max BOMs seen so far (BOM can appear late in history)
     ugMaxBom  = Math.max(ugMaxBom,  Number(r[ugBomIdx])  || 0);
     aeMaxBom  = Math.max(aeMaxBom,  Number(r[aeBomIdx])  || 0);
     fibMaxBom = Math.max(fibMaxBom, Number(r[fibBomIdx]) || 0);
     napMaxBom = Math.max(napMaxBom, Number(r[napBomIdx]) || 0);
 
+    // Track Fiber 100% (First Known) for completion logic
+    if (!firstFibDoneDateStr && fibMaxBom > 0 && (Number(r[fibTotIdx]) || 0) >= fibMaxBom) {
+      firstFibDoneDateStr = dateStr;
+      firstFibDoneDateObj = dateObj;
+    }
+
     if (!ugDone  && ugMaxBom  > 0 && (Number(r[ugTotIdx])  || 0) >= ugMaxBom)  ugDone  = true;
     if (!aeDone  && aeMaxBom  > 0 && (Number(r[aeTotIdx])  || 0) >= aeMaxBom)  aeDone  = true;
     if (!fibDone && fibMaxBom > 0 && (Number(r[fibTotIdx]) || 0) >= fibMaxBom) fibDone = true;
     if (!napDone && napMaxBom > 0 && (Number(r[napTotIdx]) || 0) >= napMaxBom) napDone = true;
 
-    // CX Complete: the latest date all active phases are simultaneously done
+    // CX Complete (Tier 3 Fallback): the latest date all active phases are simultaneously done
     let active = (ugMaxBom > 0 ? 1 : 0) + (aeMaxBom > 0 ? 1 : 0) + (fibMaxBom > 0 ? 1 : 0) + (napMaxBom > 0 ? 1 : 0);
     let done   = (ugDone ? 1 : 0) + (aeDone ? 1 : 0) + (fibDone ? 1 : 0) + (napDone ? 1 : 0);
-    if (active > 0 && done >= active) { cxComplete = dateStr; endSource = "phase_complete"; }
+    if (active > 0 && done >= active) { 
+      if (!cxComplete) { cxComplete = dateStr; endSource = "phase_complete"; }
+    }
+  }
+
+  // --- OVERRIDE HIERARCHY FOR CX COMPLETE ---
+  
+  // 1. Light after Fiber?
+  if (firstLightDateObj && firstFibDoneDateObj && firstLightDateObj.getTime() > firstFibDoneDateObj.getTime()) {
+    cxComplete = firstLightDateStr;
+    endSource = "light_after_fib";
+  } 
+  // 2. Fiber + 3 Days (Capped at Month End)?
+  else if (firstFibDoneDateObj) {
+    let targetDate = new Date(firstFibDoneDateObj.getTime());
+    targetDate.setDate(targetDate.getDate() + 3);
+    
+    // Cap at Last Day of the Month
+    let lastDayOfMonth = new Date(firstFibDoneDateObj.getFullYear(), firstFibDoneDateObj.getMonth() + 1, 0);
+    if (targetDate > lastDayOfMonth) targetDate = lastDayOfMonth;
+    
+    cxComplete = Utilities.formatDate(targetDate, "GMT-5", "MM/dd/yy");
+    endSource = "fib_plus_3_capped";
   }
 
   return { cxStart, cxComplete, startSource, endSource };
