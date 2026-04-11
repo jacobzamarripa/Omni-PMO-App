@@ -782,7 +782,7 @@
           };
           if (!confirm(msg)) return;
           const btn = getEl('btn-qb-sync');
-          if (btn) { btn.innerText = '⟳ Syncing…'; btn.disabled = true; }
+          if (btn) { btn.innerText = 'Syncing…'; btn.disabled = true; }
           // DATA CALL: triggerQBSync → syncAndRebuildDashboard (atomic: QB sync + engine rebuild)
           // Single round-trip: syncs reference data and immediately rebuilds the V2 payload
           // from the latest Master Archive date. No confirm prompt, no second call needed.
@@ -796,21 +796,21 @@
           google.script.run
               .withSuccessHandler(function(data) {
                   hideFrostedLoader();
-                  if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
+                  if (btn) { btn.innerText = 'Sync QB'; btn.disabled = false; }
                   if (data._syncMeta && data._syncMeta.error) {
-                      showToast('❌ ' + data._syncMeta.error, 'error');
+                      showToast(data._syncMeta.error, 'error');
                       return;
                   }
                   resetSignalCaches();
                   initDashboard(data);
                   const meta = data._syncMeta || {};
-                  showToast('✅ Synced ' + (meta.count || '?') + ' records · Dashboard rebuilt from ' + (meta.date || 'latest'));
+                  showToast('Synced ' + (meta.count || '?') + ' records · Dashboard rebuilt from ' + (meta.date || 'latest'));
                   if (meta.timestamp) { globalRefDataDate = meta.timestamp; updateRefDataIndicator(); }
               })
               .withFailureHandler(function(e) {
                   hideFrostedLoader();
-                  if (btn) { btn.innerText = '⟳ Sync QB'; btn.disabled = false; }
-                  showToast('❌ Sync error: ' + e.message, 'error');
+                  if (btn) { btn.innerText = 'Sync QB'; btn.disabled = false; }
+                  showToast('Sync error: ' + e.message, 'error');
               })
               .syncAndRebuildDashboard();
       }
@@ -886,11 +886,11 @@
           // EXTRACT BLOCKER: decouple review-run UI flow and dashboard bootstrap from the backend bridge
           google.script.run.withSuccessHandler((data) => {
               hideFrostedLoader();
-              if(btn) { btn.innerText = "▶ Run Review"; btn.disabled = false; }
+              if(btn) { btn.innerText = "Run Review"; btn.disabled = false; }
               initDashboard(data);
           }).withFailureHandler((err) => {
               hideFrostedLoader();
-              if(btn) { btn.innerText = "▶ Run Review"; btn.disabled = false; } alert("Engine Error: " + err.message);
+              if(btn) { btn.innerText = "Run Review"; btn.disabled = false; } alert("Engine Error: " + err.message);
           }).webAppTrigger3a(targetDates);
       }
 
@@ -947,7 +947,7 @@
               if(qCard) { let qTags = qCard.querySelectorAll('.tag-red'); qTags.forEach(t => { if(t.innerText.includes("CHECK CROSSINGS")) t.remove(); }); }
               if(currentActiveItem) currentActiveItem.flags = currentActiveItem.flags.replace("🚩 ADMIN: CHECK CROSSINGS", "").trim();
           }).withFailureHandler(err => {
-              alert("Failed to save: " + err.message); if(btn) { btn.innerText = "🛡️ VERIFY CROSSINGS"; btn.disabled = false; }
+              alert("Failed to save: " + err.message); if(btn) { btn.innerText = "VERIFY CROSSINGS"; btn.disabled = false; }
           }).markAdminCheckComplete(fdhId);
       }
 
@@ -964,7 +964,7 @@
               if(qCard) { let qTags = qCard.querySelectorAll('.chip-warn, .tag-red'); qTags.forEach(t => { if(t.innerText.includes("STATUS MISMATCH") || t.innerText.includes("MISSING QB STATUS")) { t.className = "tag chip-admin"; t.innerText = "ADMIN: REFRESH REF DATA"; } }); }
               if(currentActiveItem) currentActiveItem.flags = currentActiveItem.flags.replace("🚩 STATUS MISMATCH", "⚠️ ADMIN: REFRESH REF DATA").replace("🚩 MISSING QB STATUS", "⚠️ ADMIN: REFRESH REF DATA").trim();
           }).withFailureHandler(err => {
-              alert("Failed to save: " + err.message); if(btn) { btn.innerText = "🛠️ MARK QB UPDATED"; btn.disabled = false; }
+              alert("Failed to save: " + err.message); if(btn) { btn.innerText = "MARK QB UPDATED"; btn.disabled = false; }
           }).markStatusSyncComplete(fdhId);
       }
 

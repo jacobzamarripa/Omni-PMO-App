@@ -154,7 +154,7 @@ function syncDockStagingButton() {
 
 function promptBatchDeckExport() {
     if (stagedDeckItems.length === 0) return alert('No items staged.');
-    const email = prompt(`📧 Email Batch Report (${stagedDeckItems.length} project${stagedDeckItems.length !== 1 ? 's' : ''})\n\nThis will also permanently SAVE these items to the 8-Deck_Answers sheet.\n\nEnter destination email:`, '');
+    const email = prompt(`Email Batch Report (${stagedDeckItems.length} project${stagedDeckItems.length !== 1 ? 's' : ''})\n\nThis will also permanently SAVE these items to the 8-Deck_Answers sheet.\n\nEnter destination email:`, '');
     if (!email || !email.trim()) return;
 
     showDockLoading(`Exporting ${stagedDeckItems.length} projects...`);
@@ -491,7 +491,7 @@ function renderDeckStage() {
           let mVal = mem[id];
           let mismatch = isMismatch(mVal, refVal, type);
           let v = mismatch ? mVal : refVal;
-          let stagedBadge = mismatch ? `<span class="badge-staged" title="Staged locally.">STAGED 🔄</span>` : '';
+          let stagedBadge = mismatch ? `<span class="badge-staged" title="Staged locally." style="display:inline-flex;align-items:center;gap:3px;">STAGED ${icon('sync', 12)}</span>` : '';
           if (v === undefined || v === '' || v === null || v === '-') return `<span class="slide-ppt-ans gap">Pending</span>`;
           if (type === 'bool') return `<span class="slide-ppt-ans">${(v === true || String(v).toLowerCase() === 'true') ? 'YES' : 'NO'}</span>${stagedBadge}`;
           return `<span class="slide-ppt-ans">${type === 'date' ? formatDate(v) : esc(v)}</span>${stagedBadge}`;
@@ -501,7 +501,7 @@ function renderDeckStage() {
 
         const actionWrap = (content, extraClass='') => `<span class="slide-input-wrap ${extraClass}">${content}</span>`;
         const gapDot = (show, color='#ef4444') => show ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-right:5px;flex-shrink:0;vertical-align:middle;"></span>` : '';
-        const stagedIcon = (show) => show ? `<span class="indicator-staged" title="Staged locally.">🔄</span>` : '';
+        const stagedIcon = (show) => show ? `<span class="indicator-staged" title="Staged locally.">${icon('sync', 12)}</span>` : '';
         const row = (label, control, isFull=false) => `<div class="slide-q-row ${isFull ? 'full-width-row' : ''}"><span class="slide-q-label">${label}</span>${control}</div>`;
 
         const mi = (id, label, refVal) => row(label, actionWrap(`<span class="slide-q-action">${stagedIcon(isMismatch(mem[id], refVal, 'text'))}${gapDot(!mem[id] && (!refVal || refVal === '' || refVal === '-'))}<input type="text" class="slide-input" id="${id}" value="${mem[id] !== undefined ? mem[id] : (refVal||'')}" placeholder="${refVal||'Missing'}" oninput="persistDeckInput(this)"></span>`));
@@ -641,7 +641,7 @@ function renderDeckStage() {
               <div style="display:flex; gap:8px; align-items:center; white-space:nowrap; flex-shrink:0;">
                 <div style="font-size:10px; font-weight:800; padding:3px 8px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--text-main);">BSLS: ${item.bsls || 'N/A'}</div>
                 <div class="${ofsPillClass}" style="font-size:10px; padding:3px 8px; border-radius:6px;">OFS: ${ofsMonthStr}</div>
-                ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={'3'.EX.'${item.rid}'}" target="_blank" class="btn" style="padding:5px 12px; font-size:9px; color:var(--text-muted); background:var(--bg); border-color:var(--border); text-decoration:none;">⚙ EDIT IN ENGINE</a>` : ''}
+                ${item.rid ? `<a href="https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={'3'.EX.'${item.rid}'}" target="_blank" class="btn" style="padding:5px 12px; font-size:9px; color:var(--text-muted); background:var(--bg); border-color:var(--border); text-decoration:none; display:inline-flex; align-items:center; gap:3px;">${icon('settings')} EDIT IN ENGINE</a>` : ''}
               </div>
             </div>
         `;
@@ -708,7 +708,7 @@ function renderDeckStage() {
               <textarea id="deck-note" class="chat-bubble" placeholder="Enter decision..." oninput="syncDeckNote()" style="flex-grow:1; min-height:120px; font-size:13px; line-height:1.5;">${item.comment || item.draft || ''}</textarea>
             </div>
             <div style="display:flex; flex-direction:column; margin-top:auto; padding-top:16px; border-top:1px solid var(--border);">
-              <button class="btn-ai" onclick="askGeminiForDraftDeck(this)" style="padding:12px 16px; font-size:12px; width:100%; box-shadow:0 4px 12px rgba(168,85,247,0.2);">✨ DRAFT W/ GEMINI</button>
+              <button class="btn-ai" onclick="askGeminiForDraftDeck(this)" style="padding:12px 16px; font-size:12px; width:100%; box-shadow:0 4px 12px rgba(168,85,247,0.2); display:flex; align-items:center; justify-content:center; gap:6px;">${icon('sparkle')} DRAFT W/ GEMINI</button>
             </div>
           `;
         }
@@ -773,7 +773,7 @@ function askGeminiForDraftDeck(btn) {
             item.geminiInsight = response.text;
             item.geminiDate = response.date;
             syncDeckNote();
-            btn.innerHTML = 'DRAFTED ✓';
+            btn.innerHTML = `DRAFTED ${icon('check')}`;
             btn.style.opacity = '1';
             btn.disabled = false;
         })

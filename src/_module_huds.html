@@ -136,7 +136,7 @@ function renderProjectsHUD() {
                     ? `togglePieStageFilter(null)`
                     : `toggleFilterValue('${entry.category}','${escJs(entry.value)}')`;
                 let chipStyle = entry.color ? ` style="border-color:${entry.color}; box-shadow: inset 3px 0 0 ${entry.color};"` : '';
-                return `<span class="projects-hud-chip"${chipStyle}><span class="projects-hud-chip-label">${esc(entry.categoryLabel)}</span><span>${esc(entry.label)}</span><span class="projects-hud-chip-remove" onclick="${removeAction}">✕</span></span>`;
+                return `<span class="projects-hud-chip"${chipStyle}><span class="projects-hud-chip-label">${esc(entry.categoryLabel)}</span><span>${esc(entry.label)}</span><span class="projects-hud-chip-remove" onclick="${removeAction}">${icon('close', 11)}</span></span>`;
             }).join('') + `</div>`
         : `<div class="projects-hud-empty">None</div>`;
 

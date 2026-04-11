@@ -23,14 +23,14 @@ function commitReview() {
         let item = currentActiveItem; item.comment = getEl('p-comment').value;
         currentActiveItem = null;
         moveItemToReviewed(item, { comment: item.comment, action: 'commit' });
-        advanceAfterAction(); showToast(`✔ ${item.fdh} Committed`);
+        advanceAfterAction(); showToast(`${item.fdh} Committed`);
     });
 }
 
 function promptEmailExport() {
     if(committedItems.length === 0) return alert("No items to export!");
     let defaultEmail = "";
-    let email = prompt("📧 Where should we email the Export CSV?\n\nEnter an email address:", defaultEmail);
+    let email = prompt("Where should we email the Export CSV?\n\nEnter an email address:", defaultEmail);
     if (!email || email.trim() === "") return;
     let btn = getEl('btn-export-all'); if(btn) { btn.innerText = "Sending Email..."; btn.disabled = true; }
     google.script.run.withSuccessHandler((msg) => {

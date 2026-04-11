@@ -262,7 +262,7 @@ function renderAdminPane(items) {
                         <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
                         <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">QB Status: <span style="font-weight:bold; color:var(--text-main);">${item.status}</span></div>
                     </div>
-                    <button class="btn" onclick="event.stopPropagation(); markQbUpdatedFromAdmin('${item.fdh}', this)" style="padding:5px 10px; font-size:10px; font-weight:900; background:#2563eb; color:#fff; border-color:#1d4ed8; white-space:nowrap; flex-shrink:0;">🛠 Updated</button>
+                    <button class="btn" onclick="event.stopPropagation(); markQbUpdatedFromAdmin('${item.fdh}', this)" style="padding:5px 10px; font-size:10px; font-weight:900; background:#2563eb; color:#fff; border-color:#1d4ed8; white-space:nowrap; flex-shrink:0; display:inline-flex; align-items:center; gap:4px;">${icon('build')} Updated</button>
                 </div>
             </div>`;
         });
@@ -287,11 +287,11 @@ function markQbUpdatedFromAdmin(fdhId, btn) {
             moveItemToReviewed(item, { comment: item.comment, action: 'admin-status' });
             if (wasCurrent) advanceAfterAction();
             else applyFilters();
-            showToast(`✓ ${fdhId} moved to Reviewed`);
+            showToast(`${fdhId} moved to Reviewed`);
         }
     }).withFailureHandler(function(err) {
         alert('Failed to save: ' + err.message);
-        if (btn) { btn.innerText = '🛠 Updated'; btn.disabled = false; }
+        if (btn) { btn.innerText = 'Updated'; btn.disabled = false; }
     }).markStatusSyncComplete(fdhId);
 }
 

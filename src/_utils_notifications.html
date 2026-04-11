@@ -41,7 +41,7 @@
           getEl('dock-sys-spinner').style.display = 'none';
           const sysZone = getEl('dock-system-zone');
           sysZone.classList.add('error');
-          getEl('dock-sys-msg').innerHTML = `✕ ${message}`;
+          getEl('dock-sys-msg').innerHTML = `${icon('close', 13)} ${message}`;
           setTimeout(restoreDockState, duration);
       }
 

@@ -200,7 +200,7 @@ function applyViewMode() {
         list.classList.toggle('grid-view', currentViewMode === 'grid');
         if (currentViewMode === 'list') list.classList.add('dense-view');
     }
-    const icons = { inbox: '⊟', list: '☰', grid: '⊞' };
+    const icons = { inbox: icon('agenda'), list: icon('list'), grid: icon('grid') };
     const tips = { inbox: 'Switch to List', list: 'Switch to Grid', grid: 'Switch to Inbox' };
     if (btn) {
         btn.innerHTML = icons[currentViewMode];
@@ -789,7 +789,7 @@ function openPane(item, cardEl) {
         if (eeContainer) {
             if (item.rid) {
                 let engineUrl = `https://omnifiber.quickbase.com/db/bts3c49e9?a=q&qid=1000071&dlta=mog~&query={'3'.EX.'${item.rid}'}`;
-                eeContainer.innerHTML = `<a href="${engineUrl}" target="_blank" style="text-decoration: none; font-size: 9px; font-weight: bold; color: var(--text-muted); background: var(--bg); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.02); display: inline-flex; align-items: center; transition: all 0.2s;">⚙ EDIT IN ENGINE</a>`;
+                eeContainer.innerHTML = `<a href="${engineUrl}" target="_blank" style="text-decoration: none; font-size: 9px; font-weight: bold; color: var(--text-muted); background: var(--bg); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.02); display: inline-flex; align-items: center; gap:3px; transition: all 0.2s;">${icon('settings')} EDIT IN ENGINE</a>`;
             } else {
                 eeContainer.innerHTML = '';
             }
@@ -849,8 +849,8 @@ function openPane(item, cardEl) {
                     ${xDet}
                 </div>`;
             }
-            let adminBtn = needsAdminCheck ? `<button class="btn hover-trigger" id="btn-admin-check" onclick="markChecked('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#0f172a; color:#ffffff; border-color:#0f172a; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🛡️ VERIFY CROSSINGS</button>` : "";
-            let qbBtn = needsQbSync ? `<button class="btn hover-trigger" id="btn-qb-update" onclick="markQbUpdated('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#2563eb; color:#ffffff; border-color:#1d4ed8; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🛠️ MARK QB UPDATED</button>` : "";
+            let adminBtn = needsAdminCheck ? `<button class="btn hover-trigger" id="btn-admin-check" onclick="markChecked('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#0f172a; color:#ffffff; border-color:#0f172a; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:inline-flex; align-items:center; gap:4px;">${icon('shield')} VERIFY CROSSINGS</button>` : "";
+            let qbBtn = needsQbSync ? `<button class="btn hover-trigger" id="btn-qb-update" onclick="markQbUpdated('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#2563eb; color:#ffffff; border-color:#1d4ed8; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:inline-flex; align-items:center; gap:4px;">${icon('build')} MARK QB UPDATED</button>` : "";
             let btnContainer = (adminBtn !== "" || qbBtn !== "") ? `<div style="display:flex; gap:8px; margin-top:8px; margin-left:auto; width:fit-content;">${adminBtn}${qbBtn}</div>` : "";
             actionBox.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px;">${tagsHtml}</div>${xingCardHtml}${draftMain}${btnContainer}`;
         }
@@ -1387,7 +1387,7 @@ function renderActiveFilterPills() {
             pill.innerHTML = `
                 <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px;">${categories[cat] || cat}</span>
                 <span style="font-weight: 900;">${esc(label)}</span>
-                <div class="remove-btn" onclick="toggleFilterValue('${cat}', '${escJs(val)}')">✕</div>
+                <div class="remove-btn" onclick="toggleFilterValue('${cat}', '${escJs(val)}')">${icon('close', 11)}</div>
             `;
             container.appendChild(pill);
         });
@@ -1400,7 +1400,7 @@ function renderActiveFilterPills() {
         pill.innerHTML = `
             <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px;">Stage</span>
             <span style="color:${color}; font-weight: 900;">${esc(activePieStageFilter)}</span>
-            <div class="remove-btn" onclick="togglePieStageFilter(null)">✕</div>
+            <div class="remove-btn" onclick="togglePieStageFilter(null)">${icon('close', 11)}</div>
         `;
         container.appendChild(pill);
     }
@@ -1410,7 +1410,7 @@ function renderActiveFilterPills() {
         pill.innerHTML = `
             <span style="color:var(--text-muted); opacity: 0.7; font-size: 7px;">Group by</span>
             <span style="font-weight: 900;">${esc(getGroupByLabel(currentGroupBy))}</span>
-            <div class="remove-btn" onclick="setGroupBy('none')">✕</div>
+            <div class="remove-btn" onclick="setGroupBy('none')">${icon('close', 11)}</div>
         `;
         container.appendChild(pill);
     }
