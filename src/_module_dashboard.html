@@ -62,13 +62,14 @@ function renderDashKpiStrip() {
 
     var stageCounts = (currentFilterStats && currentFilterStats.stageCounts) || {};
 
-    var ofsCount = 0, permitCount = 0, completeCount = 0;
+    var ofsCount = 0, permitCount = 0, completeCount = 0, progressCount = 0;
     Object.keys(stageCounts).forEach(function(stage) {
         var s = stage.toLowerCase();
         var cnt = stageCounts[stage] || 0;
-        if (s.indexOf('ofs') !== -1 || s.indexOf('open for sale') !== -1) ofsCount += cnt;
+        if (s.indexOf('ofs') !== -1) ofsCount += cnt;
         else if (s.indexOf('permit') !== -1) permitCount += cnt;
         else if (s.indexOf('complete') !== -1) completeCount += cnt;
+        else progressCount += cnt; // Group everything else as In Progress
     });
 
     var critCount = (allActionItems || []).filter(function(i) {
@@ -79,11 +80,13 @@ function renderDashKpiStrip() {
         { label: 'OFS',        val: ofsCount,     cls: 'is-ofs' },
         { label: 'Permitting', val: permitCount,   cls: 'is-permit' },
         { label: 'Complete',   val: completeCount, cls: 'is-complete' },
-        { label: 'Critical',   val: critCount,     cls: critCount > 0 ? 'is-critical' : '' }
+        { label: 'In Progress', val: progressCount, cls: 'is-progress' },
+        { label: 'Critical',   val: critCount,     cls: 'is-critical' }
     ];
 
-    container.innerHTML = cards.map(function(c) {
-        return '<div class="dash-kpi-card ' + c.cls + '">' +
+    container.innerHTML = cards.map(function(c, idx) {
+        var sep = (idx === 4) ? '<div class="dash-kpi-sep"></div>' : '';
+        return sep + '<div class="dash-kpi-card ' + c.cls + '">' +
             '<div class="dash-kpi-val">' + c.val + '</div>' +
             '<div class="dash-kpi-label">' + esc(c.label) + '</div>' +
         '</div>';
@@ -110,19 +113,22 @@ function renderDashHealthDonut() {
         '<div class="dash-donut-legend">' +
             '<div class="dash-legend-row">' +
                 '<div class="dash-legend-row-left">' +
-                    '<div class="dash-legend-dot" style="background:var(--pill-complete-bdr)"></div>Clean' +
+                    '<div class="dash-legend-dot" style="background:var(--pill-complete-bdr)"></div>' +
+                    '<span>Clean</span>' +
                 '</div>' +
                 '<span class="dash-legend-val">' + cleanCnt + '</span>' +
             '</div>' +
             '<div class="dash-legend-row">' +
                 '<div class="dash-legend-row-left">' +
-                    '<div class="dash-legend-dot" style="background:var(--color-review)"></div>Warning' +
+                    '<div class="dash-legend-dot" style="background:var(--color-review)"></div>' +
+                    '<span>Warning</span>' +
                 '</div>' +
                 '<span class="dash-legend-val">' + warnCnt + '</span>' +
             '</div>' +
             '<div class="dash-legend-row">' +
                 '<div class="dash-legend-row-left">' +
-                    '<div class="dash-legend-dot" style="background:var(--color-critical)"></div>Critical' +
+                    '<div class="dash-legend-dot" style="background:var(--color-critical)"></div>' +
+                    '<span>Critical</span>' +
                 '</div>' +
                 '<span class="dash-legend-val">' + critCnt + '</span>' +
             '</div>' +
@@ -162,57 +168,55 @@ function renderDashStatusBar() {
     var container = getEl('dash-stage-bars');
     if (!container) return;
 
-    // Aggregate item.status directly from allActionItems (no cached statusCounts exists)
-    var statusMap = {};
-    (allActionItems || []).forEach(function(item) {
-        var s = (item.status || 'Unknown').trim() || 'Unknown';
-        statusMap[s] = (statusMap[s] || 0) + 1;
-    });
+    // Use authoritative stageCounts from core analytics (reads item.stage)
+    var stageMap = (currentFilterStats && currentFilterStats.stageCounts) || {};
 
-    // Explicit progression + color map — order index = display order
-    var statusDefs = [
-        { match: ['ofs', 'open for sale'],          color: 'var(--pill-ofs-bdr)' },
+    // Explicit progression + color map
+    var stageDefs = [
+        { match: ['ofs'],                            color: 'var(--pill-ofs-bdr)' },
         { match: ['complete'],                       color: 'var(--pill-complete-bdr)' },
-        { match: ['in progress'],                    color: 'var(--pill-active-bdr)' },
+        { match: ['field cx', 'in progress'],        color: 'var(--pill-active-bdr)' },
         { match: ['pending start'],                  color: 'var(--pill-active-bdr)' },
+        { match: ['permit'],                         color: 'var(--pill-permit-bdr)' },
         { match: ['vendor assignment', 'vendor'],    color: 'var(--pill-drg-bdr)' },
+        { match: ['hold'],                           color: 'var(--pill-hold-bdr)' },
         { match: ['approved'],                       color: '#a855f7' },
-        { match: ['-', 'unknown', ''],               color: '#a855f7' }
+        { match: ['unknown', '-'],                   color: '#a855f7' }
     ];
 
-    function statusDefIndex(statusName) {
-        var s = (statusName || '').toLowerCase().trim();
-        for (var i = 0; i < statusDefs.length; i++) {
-            for (var j = 0; j < statusDefs[i].match.length; j++) {
-                if (s === statusDefs[i].match[j] || s.indexOf(statusDefs[i].match[j]) !== -1) return i;
+    function stageDefIndex(name) {
+        var s = (name || '').toLowerCase().trim();
+        for (var i = 0; i < stageDefs.length; i++) {
+            for (var j = 0; j < stageDefs[i].match.length; j++) {
+                if (s === stageDefs[i].match[j] || s.indexOf(stageDefs[i].match[j]) !== -1) return i;
             }
         }
-        return statusDefs.length; // unrecognised at end
+        return stageDefs.length;
     }
 
-    function statusColor(statusName) {
-        var idx = statusDefIndex(statusName);
-        return idx < statusDefs.length ? statusDefs[idx].color : 'var(--pill-hold-bdr)';
+    function stageColor(name) {
+        var idx = stageDefIndex(name);
+        return idx < stageDefs.length ? stageDefs[idx].color : 'var(--pill-hold-bdr)';
     }
 
-    var entries = Object.keys(statusMap).map(function(k) { return [k, statusMap[k]]; })
+    var entries = Object.keys(stageMap).map(function(k) { return [k, stageMap[k]]; })
         .filter(function(e) { return e[1] > 0; })
-        .sort(function(a, b) { return statusDefIndex(a[0]) - statusDefIndex(b[0]); });
+        .sort(function(a, b) { return stageDefIndex(a[0]) - stageDefIndex(b[0]); });
 
     if (!entries.length) {
-        container.innerHTML = '<div class="dash-bar-label" style="color:var(--text-muted)">No status data</div>';
+        container.innerHTML = '<div class="dash-bar-label" style="color:var(--text-muted)">No stage data</div>';
         return;
     }
 
     var maxVal = Math.max.apply(null, entries.map(function(e) { return e[1]; }));
 
     container.innerHTML = entries.map(function(e) {
-        var status = e[0], cnt = e[1];
+        var stage = e[0], cnt = e[1];
         var pct = ((cnt / maxVal) * 100).toFixed(1);
         return '<div class="dash-bar-row">' +
-            '<div class="dash-bar-label" title="' + esc(status) + '">' + esc(status) + '</div>' +
+            '<div class="dash-bar-label" title="' + esc(stage) + '">' + esc(stage) + '</div>' +
             '<div class="dash-bar-track">' +
-                '<div class="dash-bar-fill" style="width:' + pct + '%;background:' + statusColor(status) + ';opacity:0.7;"></div>' +
+                '<div class="dash-bar-fill" style="width:' + pct + '%;background:' + stageColor(stage) + ';opacity:0.7;"></div>' +
             '</div>' +
             '<div class="dash-bar-count">' + cnt + '</div>' +
         '</div>';
@@ -297,8 +301,9 @@ function navigateFromDashboardFlag(fdh) {
 function _renderDashSkeletons() {
     var strip = getEl('dash-kpi-strip');
     if (strip) {
-        strip.innerHTML = [1,2,3,4].map(function() {
-            return '<div class="dash-kpi-card">' +
+        strip.innerHTML = [1,2,3,4,5].map(function(n, idx) {
+            var sep = (idx === 4) ? '<div class="dash-kpi-sep"></div>' : '';
+            return sep + '<div class="dash-kpi-card">' +
                 '<div class="dash-skeleton" style="height:32px;width:55%;margin-bottom:6px;"></div>' +
                 '<div class="dash-skeleton" style="height:10px;width:75%;"></div>' +
             '</div>';
