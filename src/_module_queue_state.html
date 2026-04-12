@@ -221,6 +221,46 @@ function getActiveQueueItems() {
     return (allActionItems || []).filter(item => !reviewedFdhs.has(String(item.fdh || '')));
 }
 
+function getListCardHtml(item) {
+    let rawFlags = (item.flags || "").split('\n').map(f => f.trim()).filter(f => f !== "");
+    let highestSev = "info";
+    let tagParts = [];
+    let visibleTagLimit = isVendorTrackerLinked(item) ? 2 : 3;
+
+    if (isVendorTrackerLinked(item)) {
+        tagParts.push(renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' }));
+    }
+
+    rawFlags.slice(0, visibleTagLimit).forEach(f => {
+        let tagCls = getDiagnosticTagClass(f);
+        if (tagCls === 'chip-admin' || tagCls === 'chip-warn') { if(highestSev!=="crit") highestSev = "warn"; }
+        else if (tagCls === 'tag-red') highestSev = "crit";
+        else if (tagCls === 'chip-ghost' && highestSev !== "crit" && highestSev !== "warn") highestSev = "ghost";
+        tagParts.push(`<span class="tag ${tagCls}">${cleanDiagnosticFlagText(f)}</span>`);
+    });
+    if (rawFlags.length > visibleTagLimit) tagParts.push(`<span class="tag chip-muted">+${rawFlags.length - visibleTagLimit}</span>`);
+
+    let combinedPill = getQueueCombinedPill(item);
+    let pillCls = getQueuePillClass(item.stage, item.status);
+    let isSelected = (typeof currentActiveItem !== 'undefined' && currentActiveItem && currentActiveItem.fdh === item.fdh) ? 'selected' : '';
+    let cityVendor = [item.city, item.vendor].filter(Boolean).join(' · ');
+
+    return `
+       <div class="email-card ${highestSev} ${isSelected}" id="card-${item.fdh}" data-fdh="${item.fdh}" onclick="handleCardClick('${item.fdh}')">
+          <div class="em-header">
+             <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; flex: 1 1 auto;">
+                 <div class="em-fdh" style="flex-shrink: 0;">${item.fdh}</div>
+                 <div class="em-vendor" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cityVendor || 'Unknown City \u00b7 Unknown Vendor'}</div>
+             </div>
+             <div class="em-pill-stack">
+                 <span class="glass-pill ${pillCls}" style="flex-shrink: 0;">${combinedPill}</span>
+                 <span class="em-chevron" aria-hidden="true">&#8250;</span>
+             </div>
+          </div>
+          <div class="em-tags">${tagParts.join('')}</div>
+       </div>`;
+}
+
 function renderList(items) {
     let list = getEl('inbox-list');
     if (!list) return;
@@ -228,49 +268,6 @@ function renderList(items) {
     
     let groupedSections = currentGroupBy !== 'none' ? getGroupedQueueSections(items) : [];
     let html = '';
-
-    function getListCardHtml(item) {
-        let rawFlags = (item.flags || "").split('\n').map(f => f.trim()).filter(f => f !== "");
-        let highestSev = "info";
-        let tagParts = [];
-        let visibleTagLimit = isVendorTrackerLinked(item) ? 2 : 3;
-
-        if (isVendorTrackerLinked(item)) {
-            tagParts.push(renderTrackerPill(item, { inline: true, stopPropagation: 'event.stopPropagation()' }));
-        }
-
-        rawFlags.slice(0, visibleTagLimit).forEach(f => {
-            let tagCls = getDiagnosticTagClass(f);
-            if (tagCls === 'chip-admin' || tagCls === 'chip-warn') { if(highestSev!=="crit") highestSev = "warn"; }
-            else if (tagCls === 'tag-red') highestSev = "crit";
-            else if (tagCls === 'chip-ghost' && highestSev !== "crit" && highestSev !== "warn") highestSev = "ghost";
-            tagParts.push(`<span class="tag ${tagCls}">${cleanDiagnosticFlagText(f)}</span>`);
-        });
-        if (rawFlags.length > visibleTagLimit) tagParts.push(`<span class="tag chip-muted">+${rawFlags.length - visibleTagLimit}</span>`);
-
-        let isNotInQb = item.flags.includes("NOT IN QB REFERENCE") || item.flags.includes("MISSING QB STATUS");
-        let combinedPill = getQueueCombinedPill(item);
-
-        let pillCls = getQueuePillClass(item.stage, item.status);
-        let isSelected = (currentActiveItem && currentActiveItem.fdh === item.fdh) ? 'selected' : '';
-        let cityVendor = [item.city, item.vendor].filter(Boolean).join(' · ');
-
-        // Note: Using onclick string instead of arrow function for batch performance
-        return `
-           <div class="email-card ${highestSev} ${isSelected}" id="card-${item.fdh}" data-fdh="${item.fdh}" onclick="handleCardClick('${item.fdh}')">
-              <div class="em-header">
-                 <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; flex: 1 1 auto;">
-                     <div class="em-fdh" style="flex-shrink: 0;">${item.fdh}</div>
-                     <div class="em-vendor" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cityVendor || 'Unknown City \u00b7 Unknown Vendor'}</div>
-                 </div>
-                 <div class="em-pill-stack">
-                     <span class="glass-pill ${pillCls}" style="flex-shrink: 0;">${combinedPill}</span>
-                     <span class="em-chevron" aria-hidden="true">&#8250;</span>
-                 </div>
-              </div>
-              <div class="em-tags">${tagParts.join('')}</div>
-           </div>`;
-    }
 
     function getGridCardHtml(item) {
         let pivot = getEl('sidebar-pivot-select')?.value || 'schedule';

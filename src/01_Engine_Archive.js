@@ -1388,8 +1388,13 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       rowObj["City"] = refData ? refData.city : "-"; 
       rowObj["Stage"] = refData ? refData.stage : (diag.inferredStage || "-"); 
       rowObj["Status"] = refData ? refData.status : (diag.inferredStatus || "-"); 
-      rowObj["BSLs"] = refData ? refData.bsls : "-";
-      rowObj["Budget OFS"] = refData ? (refData.canonicalOfsDate || refData.forecastedOFS) : "-";
+      
+      // 🧠 MIRROR BACKUP PROTOCOL: Prioritize Live Reference Data, fallback to Archive values if missing
+      rowObj["BSLs"] = (refData && refData.bsls && refData.bsls !== "-") ? refData.bsls : (rowObj["BSLs"] || "-");
+      rowObj["Budget OFS"] = (refData && (refData.canonicalOfsDate || refData.forecastedOFS) && (refData.canonicalOfsDate || refData.forecastedOFS) !== "-") 
+        ? (refData.canonicalOfsDate || refData.forecastedOFS) 
+        : (rowObj["Budget OFS"] || "-");
+
       let cxResolved = resolveCxDates(fdhId, refData, lkvDict, histData, HISTORY_HEADERS);
       rowObj["CX Start"]    = cxResolved.cxStart;
       rowObj["CX Complete"] = cxResolved.cxComplete;

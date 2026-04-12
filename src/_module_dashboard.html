@@ -238,7 +238,7 @@ function renderDashVendorBsl() {
         .map(function(v) { return [v, bslByVendor[v]]; })
         .filter(function(e) { return e[1] > 0; })
         .sort(function(a, b) { return b[1] - a[1]; })
-        .slice(0, 10);
+        .slice(0, 20);
 
     if (!sorted.length) {
         container.innerHTML = '<div class="dash-vendor-name" style="color:var(--text-muted)">No BSL data</div>';
@@ -267,34 +267,49 @@ function renderDashFlagsFeed() {
         return;
     }
 
-    container.innerHTML = items.map(function(item) {
-        var fdh = esc(item.fdh || '');
-        var vendor = esc(item.vendor || '');
-        var stage = esc(item.stage || '');
-
-        // Extract the specific 🚨/🛑 flags that triggered critical severity
+    // Group items by their specific critical flags
+    var groups = {};
+    items.forEach(function(item) {
         var critFlags = (item.flags || '').split('\n')
             .map(function(f) { return f.trim(); })
             .filter(function(f) { return f.includes('🚨') || f.includes('🛑'); });
 
-        // Clean emoji prefix for display, keep text readable
-        var triggerTags = critFlags.map(function(f) {
-            var icon = f.includes('🚨') ? '🚨' : '🛑';
-            var text = f.replace(/^[🚨🛑]\s*/, '').trim();
-            return '<span class="dash-trigger-tag">' + icon + ' ' + esc(text) + '</span>';
-        }).join('');
+        critFlags.forEach(function(flag) {
+            var icon = flag.includes('🚨') ? '🚨' : '🛑';
+            var cleanText = flag.replace(/^[🚨🛑]\s*/, '').trim();
+            var groupKey = icon + ' ' + cleanText;
+            if (!groups[groupKey]) groups[groupKey] = [];
+            groups[groupKey].push(item);
+        });
+    });
 
-        return '<div class="dash-flag-item is-crit">' +
-            '<div class="dash-flag-main">' +
-                '<div class="dash-flag-fdh">' + fdh + '</div>' +
-                '<div class="dash-flag-meta">' + vendor + (stage ? ' · ' + stage : '') + '</div>' +
-                (triggerTags ? '<div class="dash-trigger-row">' + triggerTags + '</div>' : '') +
-            '</div>' +
-            '<button class="dash-flag-nav-btn" onclick="navigateFromDashboardFlag(\'' + fdh.replace(/'/g, "\\'") + '\')">' +
-                'View' +
-            '</button>' +
-        '</div>';
-    }).join('');
+    var sortedKeys = Object.keys(groups).sort();
+    var html = '';
+
+    sortedKeys.forEach(function(groupKey) {
+        var groupItems = groups[groupKey];
+        var groupIcon = groupKey.split(' ')[0];
+        var text = groupKey.replace(groupIcon + ' ', '');
+
+        html += '<div class="dash-flag-group">' +
+            '<div class="dash-flag-group-header">' +
+                '<span class="dash-flag-group-icon">' + groupIcon + '</span>' +
+                '<span class="dash-flag-group-text">' + esc(text) + '</span>' +
+                '<span class="dash-flag-group-count">' + groupItems.length + '</span>' +
+            '</div>';
+
+        groupItems.forEach(function(item) {
+            html += getListCardHtml(item);
+        });
+
+        html += '</div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function handleCardClick(fdh) {
+    navigateFromDashboardFlag(fdh);
 }
 
 function navigateFromDashboardFlag(fdh) {
@@ -337,10 +352,12 @@ function _renderDashSkeletons() {
     if (flagFeed && flagCard) {
         flagCard.style.display = '';
         flagFeed.innerHTML = [1,2,3].map(function() {
-            return '<div class="dash-flag-item">' +
-                '<div class="dash-flag-main">' +
-                    '<div class="dash-skeleton" style="height:14px;width:120px;margin-bottom:6px;"></div>' +
-                    '<div class="dash-skeleton" style="height:10px;width:180px;"></div>' +
+            return '<div class="email-card">' +
+                '<div class="em-header">' +
+                    '<div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">' +
+                        '<div class="dash-skeleton" style="height:14px;width:120px;"></div>' +
+                        '<div class="dash-skeleton" style="height:10px;width:180px;"></div>' +
+                    '</div>' +
                 '</div>' +
             '</div>';
         }).join('');
