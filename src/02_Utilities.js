@@ -349,6 +349,38 @@ function _buildReferenceConfidenceMeta(input) {
   return { score: score, tier: tier };
 }
 
+/**
+ * Injects an external finding (e.g. from CD Ingestion) into the Committed Reviews queue.
+ * @param {Object} data - { fdh, xing, xingDetails, verifiedDate }
+ */
+function stageExternalFinding(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let commitSheet = ss.getSheetByName(REVIEW_LOG_SHEET);
+  if (!commitSheet) {
+    commitSheet = ss.insertSheet(REVIEW_LOG_SHEET);
+    commitSheet.appendRow(["FDH Engineering ID", "Special Crossings?", "Special Crossing Details", "Verified Date", "Committed Date", "Committed By", "QB Sync Status", "QB Sync Date"]);
+    commitSheet.getRange("1:1").setBackground("#003366").setFontColor("#ffffff").setFontWeight("bold");
+    commitSheet.setFrozenRows(1);
+  }
+
+  const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yy HH:mm");
+  const userEmail = Session.getActiveUser().getEmail();
+
+  commitSheet.appendRow([
+    data.fdh, 
+    data.xing, 
+    data.xingDetails, 
+    data.verifiedDate, 
+    timestamp, 
+    userEmail, 
+    "Pending", 
+    ""
+  ]);
+
+  logMsg(`External finding staged for ${data.fdh} by ${userEmail}`);
+  return { success: true };
+}
+
 function getDashboardData() {
   const CACHE_KEY = 'dashboard_data_cache_v12';
   const cache = CacheService.getScriptCache();
@@ -949,6 +981,9 @@ function saveDeckAnswers(payload) {
       case "OFS Changed Check": return toBool(safeAnswers.q_ofs_change);
       case "OFS Changed Reason": return safeAnswers.q_ofs_reason || "";
       case "Is Xing Override":  return safeAnswers.q_is_xing !== undefined ? toBool(safeAnswers.q_is_xing) : "";
+      case "Phase ID": return safeAnswers.q_phase || "";
+      case "Stage ID": return safeAnswers.q_stage || "";
+      case "Status ID": return safeAnswers.q_status || "";
       case "Manager Note": return safePayload.note || "";
       case "QB Sync Status": return "Pending";
       default: return "";

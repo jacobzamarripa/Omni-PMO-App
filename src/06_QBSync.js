@@ -23,31 +23,26 @@ const QB_WRITE_MAPPING = {
   "bts3c49e9": { // FDH Projects (Write-Permitted)
     "517": "Sent for Permitting",
     "459": "Permit Approved",
-    "527": "DOT Paperwork Submitted",
-    "528": "Special Crossing Approved",
-    "529": "Approval Dist to Vendor",
+    "525": "Special Crossings Choice",
+    "526": "Special Crossing Details",
     "192": "Active Set",
     "193": "Active Has Power",
     "518": "Transport Available",
     "522": "What Does it Feed",
     "524": "Island Missing Components",
-    "188": "Manager Note"
-  },
-  "bvieaendx": { // Project Management (Write-Permitted)
-    "612": "Sent for Permitting",
-    "653": "Permit Approved",
-    "622": "DOT Paperwork Submitted",
-    "623": "Special Crossing Approved",
-    "624": "Approval Dist to Vendor",
-    "192": "Active Set",
-    "193": "Active Has Power",
-    "613": "Transport Available",
-    "617": "What Does it Feed",
-    "619": "Island Missing Components",
-    "188": "Manager Note"
+    "188": "Manager Note",
+    "513": "BOM Sent",
+    "523": "How is it Fed",
+    "742": "Phase ID",
+    "744": "Stage ID",
+    "746": "Status ID",
+    "588": "CD Distributed",
+    "589": "Splice Docs Distributed",
+    "439": "Strand Maps Distributed",
+    "436": "SOW Signed",
+    "587": "PO Number"
   }
-  // bts8av3cw (Active Cabinets), bts3c49gt (Permits), bvterz4k4 (FDH Inspections)
-  // are READ-ONLY — intentionally excluded from this map.
+  // bvieaendx (Project Management) is currently 401 Restricted - omitted.
 };
 
 // --- DECK REFERENCE QUERY CONFIG ---
@@ -576,7 +571,7 @@ function commitToQueue() {
   let commitSheet = ss.getSheetByName("6-Committed_Reviews");
   if (!commitSheet) commitSheet = ss.insertSheet("6-Committed_Reviews");
   if (commitSheet.getLastRow() === 0) {
-    commitSheet.appendRow(["FDH Engineering ID", "Special Crossings?", "Special Crossing Details", "Verified Date", "Committed Date", "Committed By"]);
+    commitSheet.appendRow(["FDH Engineering ID", "Special Crossings?", "Special Crossing Details", "Verified Date", "Committed Date", "Committed By", "QB Sync Status", "QB Sync Date"]);
     commitSheet.getRange("1:1").setBackground("#003366").setFontColor("#ffffff").setFontWeight("bold");
     commitSheet.setFrozenRows(1);
   }
@@ -586,7 +581,7 @@ function commitToQueue() {
 
   verifiedRows.forEach(function(row) {
     let ref = refLookup[row.fdhId.toUpperCase()] || { specialX: "", specialXDetails: "" };
-    commitSheet.appendRow([row.fdhId, ref.specialX, ref.specialXDetails, row.verifiedDate, timestamp, userEmail]);
+    commitSheet.appendRow([row.fdhId, ref.specialX, ref.specialXDetails, row.verifiedDate, timestamp, userEmail, "Pending", ""]);
     adminSheet.getRange(row.adminRowIdx, 5).setValue(timestamp);
   });
 
@@ -639,7 +634,7 @@ function commitToQueueWebApp() {
     let commitSheet = ss.getSheetByName("6-Committed_Reviews");
     if (!commitSheet) commitSheet = ss.insertSheet("6-Committed_Reviews");
     if (commitSheet.getLastRow() === 0) {
-      commitSheet.appendRow(["FDH Engineering ID", "Special Crossings?", "Special Crossing Details", "Verified Date", "Committed Date", "Committed By"]);
+      commitSheet.appendRow(["FDH Engineering ID", "Special Crossings?", "Special Crossing Details", "Verified Date", "Committed Date", "Committed By", "QB Sync Status", "QB Sync Date"]);
       commitSheet.getRange("1:1").setBackground("#003366").setFontColor("#ffffff").setFontWeight("bold");
       commitSheet.setFrozenRows(1);
     }
@@ -649,7 +644,7 @@ function commitToQueueWebApp() {
 
     verifiedRows.forEach(function(row) {
       let ref = refLookup[row.fdhId.toUpperCase()] || { specialX: "", specialXDetails: "" };
-      commitSheet.appendRow([row.fdhId, ref.specialX, ref.specialXDetails, row.verifiedDate, timestamp, userEmail]);
+      commitSheet.appendRow([row.fdhId, ref.specialX, ref.specialXDetails, row.verifiedDate, timestamp, userEmail, "Pending", ""]);
       adminSheet.getRange(row.adminRowIdx, 5).setValue(timestamp);
     });
 
@@ -694,36 +689,234 @@ function exportCommittedQueueToCSV() {
   ui.alert("✅ Exported to Google Drive (Compiled Reports):\n" + fileName);
 }
 
-function writebackQBDirect() {
-  Browser.msgBox("QB writeback is not yet activated.\n\nUse 'Export Crossings Queue to CSV' to export for manual entry.");
-  return;
+/**
+ * Executes a direct QuickBase writeback for the specified table and records.
+ * Uses the PATCH /records endpoint for bulk updates.
+ * @param {string} tableId - The QuickBase Table ID.
+ * @param {Array<Object>} records - Array of QB record objects.
+ * @returns {Object} - Result of the API call.
+ */
+function writebackQBDirect(tableId, records) {
+  const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
+  if (!token) throw new Error("QB_USER_TOKEN not found.");
 
-  // --- STUB: Full QB PATCH implementation (activate when field IDs are confirmed) ---
-  // const ui = SpreadsheetApp.getUi();
-  // const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
-  // if (!token) { ui.alert("QB_USER_TOKEN not configured."); return; }
-  // const QB_SPECIAL_X_FIELD_ID    = 0; // Replace with actual field ID from discoverQBFields()
-  // const QB_SPECIAL_X_DETAIL_FID  = 0; // Replace with actual field ID from discoverQBFields()
-  // const ss = SpreadsheetApp.getActiveSpreadsheet();
-  // let commitSheet = ss.getSheetByName("6-Committed_Reviews");
-  // if (!commitSheet || commitSheet.getLastRow() < 2) { ui.alert("Committed queue is empty."); return; }
-  // let data = commitSheet.getDataRange().getValues();
-  // let records = [];
-  // for (let i = 1; i < data.length; i++) {
-  //   records.push({
-  //     "3": { "value": data[i][0] },
-  //     [QB_SPECIAL_X_FIELD_ID]:   { "value": data[i][1] },
-  //     [QB_SPECIAL_X_DETAIL_FID]: { "value": data[i][2] }
-  //   });
-  // }
-  // const url = QB_API_BASE + "/records";
-  // const options = _qbHeaders(token);
-  // options.method      = "patch";
-  // options.contentType = "application/json";
-  // options.payload     = JSON.stringify({ to: QB_TABLE_ID, data: records });
-  // const response = UrlFetchApp.fetch(url, options);
-  // if (response.getResponseCode() !== 200) throw new Error("QB PATCH returned HTTP " + response.getResponseCode());
-  // ui.alert("✅ Written back to QuickBase successfully.");
+  const url = QB_API_BASE + "/records";
+  const options = _qbHeaders(token);
+  options.method      = "patch";
+  options.contentType = "application/json";
+  options.payload     = JSON.stringify({ to: tableId, data: records });
+
+  const response = UrlFetchApp.fetch(url, options);
+  if (response.getResponseCode() !== 200) {
+    throw new Error("QuickBase API returned " + response.getResponseCode() + ": " + response.getContentText());
+  }
+
+  return JSON.parse(response.getContentText());
+}
+/**
+ * Scans 8-Deck_Answers and 6-Committed_Reviews for items with 'Pending' sync status.
+ * @returns {Array<Object>} - List of pending items formatted for the UI.
+ */
+function getPendingWritebackItems() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const pending = [];
+
+  // 1. Scan 6-Committed_Reviews (Special Crossings)
+  const commitSheet = ss.getSheetByName(REVIEW_LOG_SHEET);
+  if (commitSheet && commitSheet.getLastRow() > 1) {
+    const data = commitSheet.getDataRange().getValues();
+    const headers = data[0].map(h => h.toString().trim());
+    const fdhIdx = headers.indexOf("FDH Engineering ID");
+    const statusIdx = headers.indexOf("QB Sync Status");
+    const detailsIdx = headers.indexOf("Special Crossing Details");
+    const crossingIdx = headers.indexOf("Special Crossings?");
+
+    // We need the Record ID (RID) from Reference Data to PATCH
+    const refDict = getReferenceDictionary();
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][statusIdx] === "Pending") {
+        const fdh = data[i][fdhIdx];
+        const ref = refDict[fdh.toString().toUpperCase()];
+        if (ref && ref.rid) {
+          pending.push({
+            fdh: fdh,
+            rid: ref.rid,
+            type: "Special Crossing",
+            tableId: QB_TABLE_ID, // FDH Projects
+            fields: {
+              "525": data[i][crossingIdx], // Special Crossings? (Choice)
+              "526": data[i][detailsIdx]   // Special Crossing Details
+            },
+            sheetName: REVIEW_LOG_SHEET,
+            rowIdx: i + 1
+          });
+        }
+      }
+    }
+  }
+
+  // 2. Scan 8-Deck_Answers (BOM and other Deck fields)
+  const deckSheet = ss.getSheetByName(DECK_SHEET);
+  if (deckSheet && deckSheet.getLastRow() > 1) {
+    const data = deckSheet.getDataRange().getValues();
+    const headers = data[0].map(h => h.toString().trim());
+    const fdhIdx = headers.indexOf("FDH Engineering ID");
+    const statusIdx = headers.indexOf("QB Sync Status");
+    const cdIdx = headers.indexOf("CD Distributed");
+    const spliceIdx = headers.indexOf("Splice Docs Dist");
+    const strandIdx = headers.indexOf("Strand Maps Dist");
+    const bomIdx = headers.indexOf("BOM Sent");
+    const poIdx = headers.indexOf("PO Number Sent");
+    const sowIdx = headers.indexOf("SOW Signed");
+    const phaseIdx = headers.indexOf("Phase ID");
+    const stageIdx = headers.indexOf("Stage ID");
+    const qStatusIdx = headers.indexOf("Status ID");
+
+    const refDict = getReferenceDictionary();
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][statusIdx] === "Pending") {
+        const fdh = data[i][fdhIdx];
+        const ref = refDict[fdh.toString().toUpperCase()];
+        if (ref && ref.rid) {
+          const fields = {};
+          if (cdIdx > -1 && data[i][cdIdx]) fields["588"] = data[i][cdIdx];
+          if (spliceIdx > -1 && data[i][spliceIdx]) fields["589"] = data[i][spliceIdx];
+          if (strandIdx > -1 && data[i][strandIdx]) fields["439"] = data[i][strandIdx];
+          if (bomIdx > -1 && data[i][bomIdx]) fields["513"] = data[i][bomIdx];
+          if (poIdx > -1 && data[i][poIdx]) fields["587"] = data[i][poIdx];
+          if (sowIdx > -1 && data[i][sowIdx]) fields["436"] = data[i][sowIdx];
+          
+          if (phaseIdx > -1 && data[i][phaseIdx]) fields["742"] = data[i][phaseIdx];
+          if (stageIdx > -1 && data[i][stageIdx]) fields["744"] = data[i][stageIdx];
+          if (qStatusIdx > -1 && data[i][qStatusIdx]) fields["746"] = data[i][qStatusIdx];
+
+          if (Object.keys(fields).length === 0) continue;
+
+          pending.push({
+            fdh: fdh,
+            rid: ref.rid,
+            type: "Deck / Deliverables / Pipeline",
+            tableId: QB_TABLE_ID, 
+            fields: fields,
+            sheetName: DECK_SHEET,
+            rowIdx: i + 1
+          });
+        }
+      }
+    }  }
+
+  return pending;
+}
+
+/**
+ * Public Web App endpoint to sync specific staged records to QuickBase.
+...
+ * Validates permissions per field before committing.
+ * @param {Array<Object>} payload - Array of { tableId, recordId, fields: { fid: value } }
+ * @returns {Object} - Summary of success and failures.
+ */
+/**
+ * Public Web App endpoint to sync specific staged records to QuickBase.
+ * Validates permissions per field before committing.
+ * IMPLEMENTS: Safeguarded Overwrite (Collision Detection).
+ * @param {Array<Object>} payload - Array of { tableId, recordId, fields: { fid: value }, overwriteMode }
+ * @returns {Object} - Summary of success, collisions, and failures.
+ */
+function syncSpecificRecordsToQB(payload) {
+  if (!payload || !Array.isArray(payload)) return { success: false, error: "Invalid payload." };
+
+  const results = [];
+  const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
+  const refDict = getReferenceDictionary();
+
+  payload.forEach(function(item) {
+    try {
+      const fdhKey = (item.fdh || "").toString().toUpperCase();
+      const refData = refDict[fdhKey] || {};
+      const qbRef = refData.qbRef || {}; // Current values from Reference_Data
+
+      // 1. Permission Guard
+      const permittedTable = QB_WRITE_MAPPING[item.tableId];
+      if (!permittedTable) {
+        results.push({ id: item.recordId, fdh: item.fdh, status: "failed", error: "Table not write-permitted." });
+        return;
+      }
+
+      const fieldsToUpdate = { "3": { "value": item.recordId } };
+      let allPermitted = true;
+      let collisions = [];
+
+      Object.keys(item.fields).forEach(function(fid) {
+        if (!permittedTable[fid]) {
+          allPermitted = false;
+          results.push({ id: item.recordId, fdh: item.fdh, status: "failed", error: "Field FID " + fid + " not write-permitted." });
+        } else {
+          // 2. Collision Detection
+          // Map FID to qbRef key (this mapping needs to be robust)
+          const qbFieldName = permittedTable[fid];
+          const currentVal = qbRef[fid] || qbRef[qbFieldName]; // Check both fid and name for safety
+
+          const isFieldOccupied = (currentVal !== undefined && currentVal !== null && currentVal !== "" && currentVal !== "-");
+          const isValueChanging = (String(currentVal).trim() !== String(item.fields[fid]).trim());
+
+          if (!item.overwriteMode && isFieldOccupied && isValueChanging) {
+            collisions.push({ fid: fid, field: qbFieldName, current: currentVal, proposed: item.fields[fid] });
+          } else {
+            fieldsToUpdate[fid] = { "value": item.fields[fid] };
+          }
+        }
+      });
+
+      if (!allPermitted) return;
+
+      if (collisions.length > 0) {
+        results.push({ id: item.recordId, fdh: item.fdh, status: "collision", collisions: collisions });
+        logMsg("QB Sync COLLISION for " + item.fdh + ": Overwrite required.");
+        return;
+      }
+
+      // 3. Execute PATCH
+      const qbResult = writebackQBDirect(item.tableId, [fieldsToUpdate]);
+      
+      // 4. Mark in Sheets
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName(item.sheetName);
+      if (sheet) {
+        const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => h.toString().trim());
+        const statusIdx = headers.indexOf("QB Sync Status");
+        const dateIdx = headers.indexOf("QB Sync Date");
+
+        if (statusIdx > -1) {
+          sheet.getRange(item.rowIdx, statusIdx + 1).setValue("Synced");
+        }
+        if (dateIdx > -1) {
+          sheet.getRange(item.rowIdx, dateIdx + 1).setValue(new Date());
+        }
+      }
+      
+      results.push({ id: item.recordId, fdh: item.fdh, status: "success", qbMetadata: qbResult });
+      logMsg("QB Direct Writeback: Success for " + item.fdh + " (RID " + item.recordId + ") in " + item.tableId);
+
+    } catch (e) {
+      // Mark failure in sheet
+      try {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const sheet = ss.getSheetByName(item.sheetName);
+        if (sheet) {
+          const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => h.toString().trim());
+          const statusIdx = headers.indexOf("QB Sync Status");
+          if (statusIdx > -1) sheet.getRange(item.rowIdx, statusIdx + 1).setValue("Failed");
+        }
+      } catch (sheetErr) {}
+
+      results.push({ id: item.recordId, fdh: item.fdh, status: "failed", error: e.message });
+      logMsg("QB Direct Writeback ERROR for " + item.fdh + ": " + e.message);
+    }
+  });
+
+  return { success: true, results: results };
 }
 
 

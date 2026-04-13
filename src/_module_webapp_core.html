@@ -953,32 +953,31 @@
       // ── ▶ Run Review — re-runs the diagnostic engine for a given date ────
       function triggerRunReview() {
           let d = new Date();
-          let tzOffset = d.getTimezoneOffset() * 60000;
-          let localToday = new Date(d.getTime() - tzOffset);
-          let maxDateStr = localToday.toISOString().split('T')[0];
+          let currentHour = d.getHours();
+          let dayOfWeek = d.getDay();
+          
+          let daysToSubtract = 1; // Default: yesterday
+          if (dayOfWeek === 5) daysToSubtract = 1; // Fri -> Thu
+          else if (dayOfWeek === 6) daysToSubtract = 2; // Sat -> Thu
+          else if (dayOfWeek === 0) daysToSubtract = 3; // Sun -> Thu
+          else if (dayOfWeek === 1 && currentHour < 11) daysToSubtract = 4; // Mon < 11 -> Thu
+          else if (dayOfWeek === 1) daysToSubtract = 3; // Mon >= 11 -> Fri
+          else daysToSubtract = 1; // Tue/Wed/Thu -> yesterday
+
+          let defaultDate = new Date();
+          defaultDate.setDate(defaultDate.getDate() - daysToSubtract);
+          
+          let yr = defaultDate.getFullYear();
+          let mo = String(defaultDate.getMonth() + 1).padStart(2, '0');
+          let da = String(defaultDate.getDate()).padStart(2, '0');
+          let dateString = `${yr}-${mo}-${da}`;
+
           let dateInput = getEl('run-review-date');
+          let maxDateStr = new Date().toISOString().split('T')[0];
 
           if (dateInput) {
               dateInput.max = maxDateStr;
-
-              let defaultDate = new Date(localToday);
-              let dayOfWeek = defaultDate.getUTCDay();
-              let currentHour = d.getHours();
-              if (dayOfWeek === 5) {                          // Friday → Thu
-                  defaultDate.setUTCDate(defaultDate.getUTCDate() - 1);
-              } else if (dayOfWeek === 6) {                   // Saturday → Thu
-                  defaultDate.setUTCDate(defaultDate.getUTCDate() - 2);
-              } else if (dayOfWeek === 0) {                   // Sunday → Thu
-                  defaultDate.setUTCDate(defaultDate.getUTCDate() - 3);
-              } else if (dayOfWeek === 1 && currentHour < 11) { // Mon before 11 → Thu
-                  defaultDate.setUTCDate(defaultDate.getUTCDate() - 4);
-              } else if (dayOfWeek === 1) {                   // Mon after 11 → Fri
-                  defaultDate.setUTCDate(defaultDate.getUTCDate() - 3);
-              } else {                                        // Tue/Wed/Thu → yesterday
-                  defaultDate.setUTCDate(defaultDate.getUTCDate() - 1);
-              }
-
-              dateInput.value = defaultDate.toISOString().split('T')[0];
+              dateInput.value = dateString;
               checkWeekendHint();
           }
 
@@ -990,7 +989,9 @@
           let hint = getEl('weekend-hint');
           if (dateInput && hint) {
               let d = new Date(dateInput.value + 'T12:00:00');
-              hint.style.display = (d.getDay() === 5) ? 'block' : 'none';
+              let day = d.getDay();
+              // Weekend bundling hint for Fri, Sat, or Sun
+              hint.style.display = (day === 5 || day === 6 || day === 0) ? 'block' : 'none';
           }
       }
 
@@ -1000,13 +1001,24 @@
 
           getEl('run-review-modal')?.classList.remove('visible');
           let btn = getEl('btn-run-review'); if(btn) { btn.innerText = "Running..."; btn.disabled = true; }
-          let targetDates = [dateVal];
+          
           let d = new Date(dateVal + 'T12:00:00');
-          if (d.getDay() === 5) {
-              let sat = new Date(d); sat.setDate(sat.getDate() + 1);
-              let sun = new Date(d); sun.setDate(sun.getDate() + 2);
+          let day = d.getDay();
+          let targetDates = [];
+          
+          if (day === 5 || day === 6 || day === 0) {
+              // Always bundle Friday, Saturday, and Sunday regardless of which weekend day is picked
+              let fri = new Date(d); 
+              fri.setDate(fri.getDate() - (day === 5 ? 0 : (day === 6 ? 1 : 2)));
+              
+              let sat = new Date(fri); sat.setDate(fri.getDate() + 1);
+              let sun = new Date(fri); sun.setDate(fri.getDate() + 2);
+              
+              targetDates.push(fri.toISOString().split('T')[0]);
               targetDates.push(sat.toISOString().split('T')[0]);
               targetDates.push(sun.toISOString().split('T')[0]);
+          } else {
+              targetDates.push(dateVal);
           }
 
           showFrostedLoader("RUNNING ENGINE", "Processing diagnostic rules and logic...", "engine", [

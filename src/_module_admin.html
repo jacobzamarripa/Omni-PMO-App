@@ -195,13 +195,17 @@ function syncReviewHubHeaderCount() {
 
 function renderSpecialCrossingsAdminSection(items) {
     if (!items || items.length === 0) return '';
-    return _adminSection('Special Crossings to Verify', items, function(item) {
+    let html = _adminSection('Special Crossings to Verify', items, function(item) {
         return `<div class="admin-list-card" onclick="selectItemForNav('${item.fdh}')">
             <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
             <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
             <div style="font-size:10px; color:#b45309; margin-top:3px; font-weight:bold;">🚧 HIGHWAY / RAILROAD / BRIDGE</div>
         </div>`;
     });
+    
+    // Inject AI Findings into the same section container
+    html += `<div id="cd-findings-integrated-list"></div>`;
+    return html;
 }
 
 // TODO: MODULE CANDIDATE - admin module still mutates reviewed tray, currentActiveItem, queue filters, and shared queue state.
@@ -268,8 +272,157 @@ function renderAdminPane(items) {
         });
     }
 
+    // --- Quickbase Writeback Queue ---
+    html += `
+      <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding:0 4px;">
+          <div style="font-size:11px; font-weight:900; color:var(--text-main); text-transform:uppercase; letter-spacing:0.05em;">Pending Quickbase Syncs</div>
+          <button class="btn" onclick="commitAllPending()" style="font-size:10px; padding:2px 8px; background:var(--accent); color:#fff; border:none;">Sync All</button>
+        </div>
+        <div id="qb-writeback-list">
+          <div class="empty-msg" style="padding:10px;">Loading queue...</div>
+        </div>
+      </div>
+    `;
+
     if (html === '') html = '<div class="empty-msg" style="padding:40px 20px;">No items in this category.</div>';
     pane.innerHTML = html;
+    
+    // Trigger the writeback list refresh
+    if (typeof refreshPendingWritebacks === 'function') refreshPendingWritebacks();
+    if (typeof refreshCDIngestionInfo === 'function') refreshCDIngestionInfo();
+}
+
+/**
+ * UI: Trigger the Gemini CD Scanning process.
+ */
+function triggerCDScan() {
+    const btn = getEl('btn-run-cd-scan');
+    if (btn) { btn.disabled = true; btn.innerText = 'Scanning...'; }
+
+    google.script.run
+        .withSuccessHandler(res => {
+            if (btn) { btn.disabled = false; btn.innerText = 'Run Scan'; }
+            refreshCDFindings();
+        })
+        .withFailureHandler(err => {
+            if (btn) { btn.disabled = false; btn.innerText = 'Run Scan'; }
+            alert('Scan Failed: ' + err.message);
+        })
+        .manualTriggerCDIngestion();
+}
+
+function refreshCDIngestionInfo() {
+    refreshCDFindings();
+}
+
+function refreshCDFindings() {
+    const list = getEl('cd-findings-integrated-list');
+    if (!list) return;
+    
+    google.script.run
+        .withSuccessHandler(findings => {
+            if (!findings || findings.length === 0) {
+                list.innerHTML = '';
+                return;
+            }
+            let html = '<div style="font-size:9px; font-weight:900; color:var(--text-muted); margin-bottom:8px; padding:0 4px; margin-top:15px; text-transform:uppercase;">AI Extracted Crossings (To Verify)</div>';
+            findings.forEach((f, idx) => {
+                html += `
+                    <div class="admin-list-card" style="border-left:3px solid #a855f7;" id="cd-finding-${idx}">
+                        <div style="font-weight:900; font-size:11px; color:var(--text-main);">${esc(f.fdh)}</div>
+                        <div style="font-size:9px; color:var(--text-muted); margin-top:2px; line-height:1.2;">${esc(f.summary)}</div>
+                        <button class="btn" onclick="openCDFindingReview(${idx})" style="margin-top:8px; width:100%; padding:4px; font-size:9px; background:rgba(168,85,247,0.1); color:#a855f7; border:1px solid rgba(168,85,247,0.3);">Review Extraction</button>
+                    </div>
+                `;
+            });
+            list.innerHTML = html;
+            window.__lastCDFindings = findings;
+        })
+        .getPendingCDFindings();
+}
+
+/**
+ * Global state for CD review due diligence
+ */
+let __cdFileClicked = false;
+
+/**
+ * Opens an editable review form for an AI finding.
+ */
+function openCDFindingReview(idx) {
+    const f = window.__lastCDFindings[idx];
+    if (!f) return;
+    
+    __cdFileClicked = false;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'startup-overlay visible';
+    overlay.id = 'cd-review-overlay';
+    overlay.innerHTML = `
+        <div class="startup-modal" style="text-align:left; width:400px; max-width:90vw;">
+            <h2 style="margin-top:0; font-size:16px; font-weight:900; color:var(--text-main);">Confirm AI Crossing Extraction</h2>
+            <div style="font-size:11px; font-weight:900; color:var(--accent); margin-bottom:12px;">PROJECT: ${f.fdh}</div>
+            
+            <div class="section-label" style="font-size:9px;">AI SUMMARY</div>
+            <div class="vendor-bubble" style="font-size:11px; margin-bottom:12px; background:var(--bg); border:1px solid var(--border);">${esc(f.summary)}</div>
+            
+            <div class="section-label" style="font-size:9px;">EDIT DETAILS (FOR QUICKBASE)</div>
+            <textarea id="cd-review-details" class="chat-bubble" style="width:100%; min-height:80px; font-size:11px; margin-bottom:16px;">${f.details}</textarea>
+            
+            <div style="background:rgba(59, 130, 246, 0.05); border:1px solid rgba(59, 130, 246, 0.2); padding:12px; border-radius:10px; margin-bottom:20px;">
+                <div style="font-size:10px; font-weight:800; color:var(--text-main); margin-bottom:6px;">DUE DILIGENCE REQUIRED</div>
+                <a href="${f.fileUrl}" target="_blank" onclick="unlockCDCommit()" style="display:flex; align-items:center; gap:6px; font-size:11px; color:#2563eb; font-weight:900; text-decoration:none;">
+                    ${icon('folder')} OPEN SOURCE DOCUMENT
+                </a>
+                <div style="font-size:9px; color:var(--text-muted); margin-top:4px;">You must open the file to verify findings before committing.</div>
+            </div>
+            
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button class="btn btn-skip" onclick="closeCDReview()">Cancel</button>
+                <button class="btn btn-primary" id="btn-cd-commit" disabled onclick="stageCDFindingConfirmed(${idx})" style="opacity:0.5;">Commit to Queue</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function unlockCDCommit() {
+    __cdFileClicked = true;
+    const btn = getEl('btn-cd-commit');
+    if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.background = '#a855f7';
+        btn.style.borderColor = '#9333ea';
+    }
+}
+
+function closeCDReview() {
+    const el = getEl('cd-review-overlay');
+    if (el) el.remove();
+}
+
+function stageCDFindingConfirmed(idx) {
+    const f = window.__lastCDFindings[idx];
+    const editedDetails = getEl('cd-review-details').value;
+    
+    showToast('Staging finding for ' + f.fdh, 'info');
+    const payload = {
+        fdh: f.fdh,
+        xing: 'YES',
+        xingDetails: editedDetails,
+        verifiedDate: new Date().toLocaleDateString()
+    };
+    
+    google.script.run
+        .withSuccessHandler(() => {
+            showToast('Finding staged to sync queue.', 'success');
+            closeCDReview();
+            refreshCDFindings();
+            refreshPendingWritebacks();
+        })
+        .stageExternalFinding(payload);
 }
 
 function markQbUpdatedFromAdmin(fdhId, btn) {

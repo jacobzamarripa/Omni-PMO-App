@@ -1,0 +1,144 @@
+<script>
+/**
+ * FILE: _module_qb_writeback.html
+ * PURPOSE: Logic for manual Quickbase API writeback, guards, and feedback.
+ */
+
+let pendingWritebacks = [];
+
+/**
+ * Fetches pending sync items from staging sheets.
+ */
+function refreshPendingWritebacks() {
+  // TODO: Add backend function to fetch pending rows from 8-Deck_Answers and 6-Committed_Reviews
+  // For now, we'll assume a generic backend call returns them.
+  google.script.run
+    .withSuccessHandler(items => {
+      pendingWritebacks = items;
+      renderWritebackPanel();
+    })
+    .getPendingWritebackItems();
+}
+
+/**
+ * Renders the writeback list in the Admin panel.
+ */
+function renderWritebackPanel() {
+  const container = getEl('qb-writeback-list');
+  if (!container) return;
+
+  if (pendingWritebacks.length === 0) {
+    container.innerHTML = '<div class="empty-msg">No pending Quickbase syncs.</div>';
+    return;
+  }
+
+  let html = '';
+  pendingWritebacks.forEach((item, idx) => {
+    const isCollision = item.status === 'collision';
+    const cardClass = isCollision ? 'admin-list-card collision-card' : 'admin-list-card';
+    const btnLabel = isCollision ? 'FORCE OVERWRITE' : 'Review';
+    const btnStyle = isCollision ? 'background:#ef4444; color:#fff;' : 'background:var(--accent); color:#fff;';
+
+    html += `
+      <div class="${cardClass}" id="sync-card-${idx}">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+          <div>
+            <div style="font-weight:900; font-size:12px; color:var(--text-main);">${esc(item.fdh)}</div>
+            <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">Type: ${esc(item.type)}</div>
+            ${isCollision ? `<div style="font-size:9px; font-weight:900; color:#ef4444; margin-top:4px;">⚠️ DATA COLLISION DETECTED</div>` : ''}
+          </div>
+          <button class="btn" onclick="reviewAndCommitSingle(${idx})" style="padding:4px 8px; font-size:10px; border:none; ${btnStyle}">${btnLabel}</button>
+        </div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+/**
+ * Guard overlay for single item commit.
+ */
+function reviewAndCommitSingle(idx) {
+  const item = pendingWritebacks[idx];
+  const isCollision = item.status === 'collision';
+  
+  let confirmMsg = `You are about to write to Quickbase for ${item.fdh}.\n\nFields:\n${Object.entries(item.fields).map(([fid, val]) => `- FID ${fid}: ${val}`).join('\n')}`;
+  
+  if (isCollision) {
+    confirmMsg = `⚠️ DATA OVERWRITE WARNING ⚠️\n\nQuickbase already has data for ${item.fdh}.\n\nCollisions:\n${item.collisions.map(c => `- ${c.field} (FID ${c.fid}): Current [${c.current}] -> New [${c.proposed}]`).join('\n')}\n\nAre you ABSOLUTELY sure you want to overwrite this data?`;
+  }
+
+  if (confirm(confirmMsg)) {
+    executeWriteback([item], isCollision);
+  }
+}
+
+/**
+ * Calls the backend to execute the PATCH.
+ */
+function executeWriteback(items, forceOverwrite = false) {
+  const payload = items.map(i => ({
+    fdh: i.fdh,
+    tableId: i.tableId,
+    recordId: i.rid,
+    fields: i.fields,
+    sheetName: i.sheetName,
+    rowIdx: i.rowIdx,
+    overwriteMode: forceOverwrite
+  }));
+
+  showToast(forceOverwrite ? 'Executing Forced Overwrite...' : 'Starting Quickbase Sync...', 'info');
+
+  google.script.run
+    .withSuccessHandler(result => {
+      displaySyncFeedback(result);
+      // We don't just refresh; we might need to preserve collision state if multiple items were synced
+      // For now, full refresh is safest.
+      refreshPendingWritebacks();
+    })
+    .withFailureHandler(err => {
+      alert('Quickbase Sync Failed: ' + err.message);
+    })
+    .syncSpecificRecordsToQB(payload);
+}
+
+/**
+ * Displays immediate feedback modal or toast with success/failure details.
+ */
+function displaySyncFeedback(result) {
+  if (!result.success) {
+    alert('Error: ' + result.error);
+    return;
+  }
+
+  const results = result.results || [];
+  const successCount = results.filter(r => r.status === 'success').length;
+  const failureCount = results.filter(r => r.status === 'failed').length;
+  const collisionCount = results.filter(r => r.status === 'collision').length;
+  
+  let feedbackMsg = `Sync Operation Finished.\n\nSuccess: ${successCount}\nFailed: ${failureCount}\nCollisions: ${collisionCount}`;
+  
+  if (collisionCount > 0) {
+    // Inject collision data back into the local pendingWritebacks array to update UI state
+    results.forEach(res => {
+      if (res.status === 'collision') {
+        const localItem = pendingWritebacks.find(p => p.fdh === res.fdh);
+        if (localItem) {
+          localItem.status = 'collision';
+          localItem.collisions = res.collisions;
+        }
+      }
+    });
+    feedbackMsg += `\n\n${collisionCount} items stopped due to existing data. Review the red items in the queue to Force Overwrite if intended.`;
+  }
+
+  if (failureCount > 0) {
+    feedbackMsg += '\n\nCritical Errors:\n' + results
+      .filter(r => r.status === 'failed')
+      .map(r => `- ${r.fdh || r.id}: ${r.error}`)
+      .join('\n');
+  }
+
+  alert(feedbackMsg);
+}
+</script>

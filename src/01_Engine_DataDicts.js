@@ -259,7 +259,17 @@ function getReferenceDictionary() {
              strandDist: qbStrandDistIdx > -1 ? String(r[qbStrandDistIdx] || "") : "",
              bomSent:    qbBomSentIdx    > -1 ? String(r[qbBomSentIdx]    || "") : "",
              poSent:     bomPoIdx        > -1 ? String(r[bomPoIdx]        || "") : "",
-             sowSign:    qbSowSignIdx    > -1 ? String(r[qbSowSignIdx]     || "") : ""
+             sowSign:    qbSowSignIdx    > -1 ? String(r[qbSowSignIdx]    || "") : "",
+             phase:      stageIdx > -1 ? String(r[stageIdx] || "") : "", 
+             stage:      stageIdx > -1 ? String(r[stageIdx] || "") : "", 
+             status:     statusIdx > -1 ? String(r[statusIdx] || "") : "",
+             // FID mapping for collision engine
+             "513": qbBomSentIdx    > -1 ? String(r[qbBomSentIdx]    || "") : "",
+             "525": specXIdx        > -1 ? String(r[specXIdx]        || "") : "",
+             "526": specXDetailsIdx > -1 ? String(r[specXDetailsIdx] || "") : "",
+             "742": "", 
+             "744": stageIdx > -1 ? String(r[stageIdx] || "") : "",
+             "746": statusIdx > -1 ? String(r[statusIdx] || "") : ""
            },
            vendor: vendorIdx > -1 ? String(r[vendorIdx] || "").trim() : ""
          };

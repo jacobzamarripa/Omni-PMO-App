@@ -95,14 +95,10 @@ const HISTORY_HEADERS = ["Date", "Contractor", "FDH Engineering ID", "Locates Ca
 const QB_HEADERS = ["Date", "Contractor", "FDH Engineering ID", "Locates Called In", "Cabinets Set", "Light to Cabinets", "Target Completion Date", "Daily UG Footage", "Daily Strand Footage", "Daily Fiber Footage", "Daily NAPs/Encl. Completed", "Drills", "Missles", "AE Crews", "Fiber Pulling Crews", "Splicing Crews", "Construction Comments"];
 const DECK_HEADERS = [
   "Timestamp", "FDH Engineering ID", "Vendor", "Target Date",
-  "Sent for Permitting", "Permit Approved", "DOT Paperwork Submitted",
-  "Special Crossing Approved", "Approval Dist to Vendor",
-  "CD Distributed", "Splice Docs Dist", "Strand Maps Dist",
-  "BOM Sent", "PO Number Sent", "SOW Signed",
-  "Active Set", "Active Has Power", "Leg ID", "Transport Available",
-  "How is it Fed", "What Does it Feed", "Island Missing Components",
-  "OFS Changed Check", "OFS Changed Reason", "Is Xing Override",
-  "Manager Note", "QB Sync Status"
+  "Sent for Permitting", "Permit Approved", "DOT Paperwork Submitted", "Special Crossing Approved", "Approval Dist to Vendor",
+  "CD Distributed", "Splice Docs Dist", "Strand Maps Dist", "BOM Sent", "PO Number Sent", "SOW Signed",
+  "Active Set", "Active Has Power", "Leg ID", "Transport Available", "How is it Fed", "What Does it Feed", "Island Missing Components",
+  "OFS Changed Check", "OFS Changed Reason", "Is Xing Override", "Phase ID", "Stage ID", "Status ID", "Manager Note", "QB Sync Status"
 ];
 
 // 🧠 ADDED: CX Start and CX Complete

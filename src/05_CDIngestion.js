@@ -238,6 +238,72 @@ function writeCDRowsToSheet_(rows) {
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
 }
 
+/**
+ * Returns the current status of the CD ingestion queue.
+ * @returns {Object} - Count of pending files.
+ */
+function getCDIngestionStatus() {
+  try {
+    const folders = getCDFolders_();
+    const files = folders.toAnalyze.getFilesByType(MimeType.PDF);
+    let count = 0;
+    while (files.hasNext()) {
+      const file = files.next();
+      const desc = file.getDescription() || "";
+      if (desc !== CD_PROCESSED_TAG && desc !== CD_CLAIMED_TAG) count++;
+    }
+    return { success: true, pendingCount: count };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Manually triggers the CD ingestion process from the Web App.
+ */
+function manualTriggerCDIngestion() {
+  logMsg("CDIngestion: Manual trigger received from Web App.");
+  processCDQueue();
+  return getCDIngestionStatus();
+}
+
+/**
+ * Scans the CD findings sheet for records that might need staging to Quickbase.
+ */
+function getPendingCDFindings() {
+  const ss = SpreadsheetApp.openById(VENDOR_TRACKER_ID);
+  const sheet = ss.getSheetByName(XING_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0].map(h => h.toString().trim());
+  const fdhIdx = headers.indexOf("Project ID / FDH");
+  const sumIdx = headers.indexOf("AI Summary / Major Flags");
+  const hwyIdx = headers.indexOf("Highway / RR / DOT Crossings");
+  const hwyParallelIdx = headers.indexOf("Parallel HWY/RR Work & Long Bores");
+
+  const findings = [];
+  const refDict = getReferenceDictionary();
+
+  for (let i = 1; i < data.length; i++) {
+    const fdh = data[i][fdhIdx] ? data[i][fdhIdx].toString().trim().toUpperCase() : "";
+    if (!fdh) continue;
+
+    const ref = refDict[fdh];
+    // Only show findings if the FDH is known and doesn't already have Special Crossing data in QB
+    if (ref && !ref.isSpecialX) {
+      findings.push({
+        fdh: fdh,
+        summary: data[i][sumIdx],
+        details: (data[i][hwyIdx] + "; " + data[i][hwyParallelIdx]).replace(/^; /,"").replace(/; $/,""),
+        source: "Gemini CD Scan",
+        fileUrl: "https://drive.google.com/drive/u/0/folders/" + CDS_PERMITS_FOLDER_ID // Analyzed folder is under this
+      });
+    }
+  }
+  return findings;
+}
+
 // --- Trigger management ---
 
 function installCDTrigger() {

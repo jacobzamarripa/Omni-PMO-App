@@ -566,6 +566,9 @@ function renderDeckStage() {
                             </div>
                             <div class="slide-ppt-quadrant">
                                 <div class="slide-ppt-quad-header">Readiness &amp; Architecture</div>
+                                ${pptRow('Phase', getVal('q_phase', item.qbRef?.phase, 'text'))}
+                                ${pptRow('Stage', getVal('q_stage', item.qbRef?.stage, 'text'))}
+                                ${pptRow('Status', getVal('q_status', item.qbRef?.status, 'text'))}
                                 ${pptRow('Has the active been set?', getVal('q_active_set', item.qbRef?.activeSet, 'bool'))}
                                 ${pptRow('What leg is this FDH on?', getVal('q_leg', item.qbRef?.leg, 'text'))}
                                 ${pptRow('How is this FDH being fed?', getVal('q_how_fed', item.qbRef?.howFed, 'text'))}
@@ -576,7 +579,34 @@ function renderDeckStage() {
                     </div>
                 </div>
 
-                <div class="deck-edit-mode deck-module-grid">
+                    <div class="deck-module">
+                        <div class="module-header ph-permitting">PIPELINE CONTROL</div>
+                        <div class="grid-density-date">
+                            ${row('Phase', actionWrap(`<select class="slide-input" id="q_phase" onchange="persistDeckInput(this)">
+                                <option value="">Select Phase</option>
+                                <option value="1">Phase 1</option>
+                                <option value="2">Phase 2</option>
+                                <option value="3">Phase 3</option>
+                                <option value="4">Phase 4</option>
+                                <option value="5">Phase 5</option>
+                            </select>`))}
+                            ${row('Stage', actionWrap(`<select class="slide-input" id="q_stage" onchange="persistDeckInput(this)">
+                                <option value="">Select Stage</option>
+                                <option value="1">Pre-Design</option>
+                                <option value="2">In Design</option>
+                                <option value="10">Permitting</option>
+                                <option value="3">In Construction</option>
+                                <option value="4">Complete / OFS</option>
+                            </select>`))}
+                            ${row('Status', actionWrap(`<select class="slide-input" id="q_status" onchange="persistDeckInput(this)">
+                                <option value="">Select Status</option>
+                                <option value="1">Active</option>
+                                <option value="2">On Hold</option>
+                                <option value="3">Cancelled</option>
+                                <option value="4">Delayed</option>
+                            </select>`))}
+                        </div>
+                    </div>
                     <div class="deck-module">
                         <div class="module-header ph-permitting">COMPLIANCE</div>
                         <div class="grid-density-date">
