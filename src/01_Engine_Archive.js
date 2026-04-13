@@ -640,6 +640,36 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
   let rowDate = rowDateRaw instanceof Date ? rowDateRaw : new Date(rowDateRaw);
   let targetDateRaw = row[HISTORY_HEADERS.indexOf("Target Completion Date")];
   let targetDate = (targetDateRaw instanceof Date) ? targetDateRaw : new Date(targetDateRaw);
+
+  // DATE VALIDATION (Gantt Freeze Protection & Bad Data Filtering)
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const checkBounds = (d, label) => {
+    if (!d || isNaN(d.getTime())) return;
+    let diff = (d.getTime() - today.getTime()) / 86400000;
+    if (diff > 90) {
+      flags.push(`INVALID FUTURE DATE (${label})`);
+      flagColors.push(TEXT_COLORS.WARN);
+      drafts.push(`${label} (${Utilities.formatDate(d, "GMT-5", "MM/dd/yy")}) is > 90 days in the future. Please verify data entry.`);
+    } else if (d.getFullYear() < 2020) {
+      flags.push(`INVALID PAST DATE (${label})`);
+      flagColors.push(TEXT_COLORS.WARN);
+      drafts.push(`${label} (${Utilities.formatDate(d, "GMT-5", "MM/dd/yy")}) is suspiciously old (pre-2020). Please verify data entry.`);
+    }
+  };
+  checkBounds(targetDate, "Target Date");
+  let cxSIdx = HISTORY_HEADERS.indexOf("CX Start");
+  let cxEIdx = HISTORY_HEADERS.indexOf("CX Complete");
+  if (cxSIdx > -1) {
+    let d = row[cxSIdx];
+    let dObj = (d instanceof Date) ? d : new Date(d);
+    checkBounds(dObj, "CX Start");
+  }
+  if (cxEIdx > -1) {
+    let d = row[cxEIdx];
+    let dObj = (d instanceof Date) ? d : new Date(d);
+    checkBounds(dObj, "CX Complete");
+  }
   const parseFdhList = (value) => String(value || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
   const isTruthyTransport = (value) => {
       let normalized = String(value || "").trim().toLowerCase();

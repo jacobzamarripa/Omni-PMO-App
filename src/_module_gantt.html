@@ -468,6 +468,13 @@ function renderGantt(items) {
     if (minDate > defaultPast) minDate = defaultPast;
     if (maxDate < defaultFuture) maxDate = defaultFuture;
 
+    // DEFENSE IN DEPTH: Absolute clamping to prevent browser freeze from extreme date entry errors
+    let absoluteMin = new Date(today.getTime() - (86400000 * 365 * 5)); // 5 years past
+    let absoluteMax = new Date(today.getTime() + (86400000 * 365 * 2)); // 2 years future
+    if (minDate < absoluteMin) minDate = absoluteMin;
+    if (maxDate > absoluteMax) maxDate = absoluteMax;
+    if (maxDate < minDate) maxDate = new Date(minDate.getTime() + 86400000 * 30);
+
     let totalTime = maxDate - minDate;
     let totalDays = Math.ceil(totalTime / 86400000);
     let chartWidth = Math.max(1800, totalDays * 25);
