@@ -637,9 +637,27 @@ function exportQuickBaseCSVCore(isSilent = false) {
     });
     csvContent += csvRow.join(",") + "\n";
   });
-  let rawDate = data[1][0];
-  let fileDate = (rawDate instanceof Date) ? Utilities.formatDate(rawDate, "GMT-5", "M.d.yy") : String(rawDate).split("T")[0].replace(/-/g, ".");
-  let fileName = `Daily_Production_Report_${fileDate}.csv`;
+  // 🧠 Range-aware Filename (MM.DD.YY-MM.DD.YY (Vendor/s))
+  const rows = data.slice(1);
+  const normalizedDates = rows.map(r => normalizeDateString(r[0])).filter(d => d !== "").sort();
+  const vendorSet = new Set(rows.map(r => String(r[1] || "").trim()).filter(v => v !== ""));
+  const vendors = Array.from(vendorSet).sort();
+
+  let datePart = "";
+  if (normalizedDates.length > 0) {
+    const minD = new Date(normalizedDates[0].replace(/-/g, '/') + " 00:00:00");
+    const maxD = new Date(normalizedDates[normalizedDates.length - 1].replace(/-/g, '/') + " 00:00:00");
+    const minFmt = Utilities.formatDate(minD, "GMT-5", "MM.dd.yy");
+    const maxFmt = Utilities.formatDate(maxD, "GMT-5", "MM.dd.yy");
+    datePart = `${minFmt}-${maxFmt}`;
+  } else {
+    let fallbackRaw = data[1][0];
+    datePart = (fallbackRaw instanceof Date) ? Utilities.formatDate(fallbackRaw, "GMT-5", "MM.dd.yy") : String(fallbackRaw).split("T")[0].replace(/-/g, ".");
+  }
+
+  const vendorSuffix = vendors.length > 0 ? ` (${vendors.join(", ")})` : "";
+  let fileName = `Daily_Production_Report_${datePart}${vendorSuffix}.csv`;
+  fileName = fileName.replace(/[\\/:*?"<>|]/g, "_");
   DriveApp.getFolderById(COMPILED_FOLDER_ID).createFile(fileName, csvContent, MimeType.CSV);
   if (!isSilent) SpreadsheetApp.getUi().alert(`✅ CSV Exported: ${fileName}`);
 }

@@ -1801,13 +1801,24 @@ function backfillMissingReports() {
       while (files.hasNext()) {
         let name = files.next().getName();
         // Match Daily_Production_Report_M.d.yy or Daily_Production_Report_MM.dd.yy with optional extension
-        let match = name.match(/Daily_Production_Report_(\d{1,2}\.\d{1,2}\.\d{2})/);
+        let match = name.match(/Daily_Production_Report_(\d{1,2}\.\d{1,2}\.\d{2})(?:-(\d{1,2}\.\d{1,2}\.\d{2}))?/);
         if (match) {
-          // Normalize to M.d.yy to match archiveDates format (no leading zeros)
-          let p = match[1].split('.');
-          let dObj = new Date(`20${p[2]}`, p[0]-1, p[1]);
-          let normalizedDate = Utilities.formatDate(dObj, "GMT-5", "M.d.yy");
-          existingReports.add(normalizedDate);
+          let pStart = match[1].split('.');
+          let startD = new Date(`20${pStart[2]}`, parseInt(pStart[0])-1, parseInt(pStart[1]));
+          
+          if (match[2]) {
+            let pEnd = match[2].split('.');
+            let endD = new Date(`20${pEnd[2]}`, parseInt(pEnd[0])-1, parseInt(pEnd[1]));
+            
+            let currentD = new Date(startD);
+            while (currentD <= endD) {
+              existingReports.add(Utilities.formatDate(currentD, "GMT-5", "M.d.yy"));
+              currentD.setDate(currentD.getDate() + 1);
+              if (currentD.getFullYear() > 2030) break; // Safety
+            }
+          } else {
+            existingReports.add(Utilities.formatDate(startD, "GMT-5", "M.d.yy"));
+          }
         }
       }
       
