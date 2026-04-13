@@ -815,19 +815,13 @@ function setupDailyTrigger() {
   const triggers = ScriptApp.getProjectTriggers();
   for (let i = 0; i < triggers.length; i++) ScriptApp.deleteTrigger(triggers[i]);
   
-  // 5 Data Sync Windows (12am, 8am, 12pm, 4pm, 8pm)
-  [0, 8, 12, 16, 20].forEach(hour => {
+  // 3 Data Sync Windows (7am, 12pm, 4pm)
+  [7, 12, 16].forEach(hour => {
     ScriptApp.newTrigger('runMiddayAutomation').timeBased().atHour(hour).everyDays(1).create();
   });
   
-  // Final EOD Compilation & Review: 4:30 PM (Special handling)
-  ScriptApp.newTrigger('runEveningAutomation').timeBased().atHour(16).nearMinute(30).everyDays(1).create();
-  
-  // Cleanup at Midnight
-  ScriptApp.newTrigger('moveIncomingFoldersToArchive').timeBased().atHour(0).everyDays(1).create();
-  
-  logMsg("✅ SIGNAL: Automatic sync triggers programmed for 12am, 8am, 12pm, 4pm, 8pm.");
-  SpreadsheetApp.getUi().alert("✅ Daily Automations Updated: Syncs at 12AM, 8AM, 12PM, 4PM, 8PM.");
+  logMsg("✅ SIGNAL: Automatic sync triggers programmed for 7am, 12pm, 4pm.");
+  SpreadsheetApp.getUi().alert("✅ Daily Automations Updated: Syncs at 7AM, 12PM, 4PM.");
 }
 
 function runMiddayAutomation() {
@@ -836,13 +830,15 @@ function runMiddayAutomation() {
   logMsg("✅ MIDDAY AUTOMATION COMPLETE.");
 }
 
-function runEveningAutomation() {
-  logMsg("🤖 STARTING EVENING EOD AUTOMATION...");
-  executeDailyAutomationPipeline();
-  logMsg("✅ EVENING AUTOMATION COMPLETE.");
-}
-
 function executeDailyAutomationPipeline() {
+  logMsg("🤖 QB SYNC: Pulling latest reference data...");
+  const syncResult = syncFromQBWebApp();
+  if (syncResult && syncResult.success) {
+    logMsg(`✅ QB SYNC SUCCESS: Pulled ${syncResult.count} records.`);
+  } else {
+    logMsg(`⚠️ QB SYNC SKIP/FAIL: ${syncResult ? syncResult.error : "Unknown Error"}`);
+  }
+
   setupSheets();
   
   // 1. Run the resumable ingestion
@@ -2138,3 +2134,18 @@ function _getPayloadFileV2(createIfMissing) {
     return null;
   }
 }
+
+/**
+ * 📡 Lightweight polling endpoint to detect if the Signal popup should be triggered.
+ * Compares client's last seen time with the server's latest signal event.
+ */
+function checkSignalUpdates(lastClientTimeMs) {
+  const latestEvent = Number(PropertiesService.getScriptProperties().getProperty("LATEST_SIGNAL_EVENT_MS") || 0);
+  const lastClient = Number(lastClientTimeMs || 0);
+  
+  return {
+    hasUpdates: latestEvent > lastClient,
+    latestEvent: latestEvent
+  };
+}
+

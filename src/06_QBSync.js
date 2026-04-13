@@ -367,6 +367,9 @@ function syncChangeLogs() {
   if (response.getResponseCode() !== 200) throw new Error("QB API Error: " + response.getContentText());
 
   const result = JSON.parse(response.getContentText());
+  const data = result.data || [];
+  let maxChangeTime = 0;
+
   const getCellText = function(rec, fid) {
     const cell = rec[String(fid)];
     if (!cell) return "";
@@ -375,10 +378,14 @@ function syncChangeLogs() {
     }
     return _extractValue(cell.value);
   };
-  const rows = (result.data || []).map(function(rec) {
+
+  const rows = data.map(function(rec) {
     const userVal = getCellText(rec, updatedByFid);
     const updatedAtVal = getCellText(rec, updatedAtFid);
     const dateObj = new Date(updatedAtVal);
+    const t = dateObj.getTime();
+    if (t > maxChangeTime) maxChangeTime = t;
+
     // QB date-only fields arrive as midnight CST (GMT-6). Suppress time when it's 00:00.
     const timeStr  = Utilities.formatDate(dateObj, "GMT-6", "HH:mm");
     const dateStr  = Utilities.formatDate(dateObj, "GMT-6", "MM/dd/yy");
@@ -391,6 +398,15 @@ function syncChangeLogs() {
       displayDate
     ];
   });
+
+  const props = PropertiesService.getScriptProperties();
+  const lastKnownChange = Number(props.getProperty("LAST_QB_CHANGE_TIME") || 0);
+  if (maxChangeTime > lastKnownChange) {
+    props.setProperty("LAST_QB_CHANGE_TIME", String(maxChangeTime));
+    props.setProperty("LATEST_SIGNAL_EVENT_MS", String(Date.now()));
+    logMsg(`🔔 SIGNAL: New QuickBase changes detected (Latest: ${new Date(maxChangeTime).toISOString()})`);
+  }
+
   const scrubbedRows = [];
   let blankFdhCount = 0;
   let droppedUnknownFdhCount = 0;

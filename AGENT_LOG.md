@@ -1,5 +1,16 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-13: Automated API Sync & Signal Polling Implementation
+- **Consolidated Automation Schedule**: Updated `setupDailyTrigger` to run strictly at **7:00 AM**, **12:00 PM**, and **4:00 PM**, aligning with peak workflow windows.
+- **API Pipeline Integration**: Injected the `syncFromQBWebApp()` QuickBase API sync directly into the `executeDailyAutomationPipeline`. This ensures the reference data is always refreshed *before* folder ingestion and dashboard generation.
+- **Change-Detection Logic**: 
+    - Updated `syncChangeLogs()` to identify the latest change timestamp and set a `LATEST_SIGNAL_EVENT_MS` property if new records are found.
+    - Updated `processIncomingForQuickBase()` to trigger the same signal event when new Drive reports are successfully ingested.
+- **Signal Polling (Option A)**:
+    - Added a lightweight `checkSignalUpdates` backend endpoint to compare client "last seen" times with the server's latest event.
+    - Implemented a frontend `setInterval` in `src/_module_signal.html` that polls for updates every 5 minutes and automatically triggers the Signal popup when new information is detected.
+- **Files touched:** `src/01_Engine_Archive.js`, `src/02_Utilities.js`, `src/06_QBSync.js`, `src/_module_signal.html`.
+
 > [!success] 2026-04-13: "Running Reports" Ingestion & Intentional Backfilling
 - **Robust Date Extraction**: Refactored `parseFileToRows` and `normalizeDateString` to handle row-level dates, including support for Excel serial numbers and fuzzy date-header identification ("Work Date", "Service Date", etc.).
 - **Value-Based Date Hunt**: Implemented a "Date Hunt" fallback that scans cell values if headers are missing, ensuring cumulative spreadsheets (running logs) correctly attribute work to historical dates.

@@ -203,6 +203,7 @@ function _signalDismiss() {
   if (_signalMode !== 'manual') return;
   var overlay = document.getElementById('signal-overlay');
   if (overlay) { overlay.classList.remove('visible', 'signal-manual'); }
+  try { localStorage.setItem('SIGNAL_LAST_OPEN', Date.now()); } catch(e) {}
 }
 
 function _signalBackdropClick(e) {
@@ -689,6 +690,40 @@ function _signalClearSearch() {
   if (input) { input.value = ''; input.focus(); }
   _signalOnSearch('');
 }
+
+/**
+ * 🛰️ Background Polling logic for "Option A"
+ */
+function _initSignalPolling() {
+  if (window.__signalPollingActive) return;
+  window.__signalPollingActive = true;
+  
+  // Poll every 5 minutes (300,000 ms)
+  setInterval(function() {
+    // Only poll if the overlay isn't already open
+    var overlay = document.getElementById('signal-overlay');
+    if (overlay && overlay.classList.contains('visible')) return;
+
+    var lastOpen = localStorage.getItem('SIGNAL_LAST_OPEN') || 0;
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.hasUpdates) {
+          // New information detected! Trigger the Signal popup.
+          if (typeof openSignal === 'function') {
+            console.log("🔔 Signal Polling: New information detected, triggering popup.");
+            openSignal(true); // force=true to show it manually
+          }
+        }
+      })
+      .withFailureHandler(function(err) {
+        console.warn("⚠️ Signal Polling Error:", err);
+      })
+      .checkSignalUpdates(lastOpen);
+  }, 300000);
+}
+
+// Start polling on load (wait 10s for boot stability)
+setTimeout(_initSignalPolling, 10000);
 
 window.openSignal = openSignal;
 window.closeSignal = closeSignal;

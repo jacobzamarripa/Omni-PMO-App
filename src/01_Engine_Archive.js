@@ -181,6 +181,10 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
     // 🧠 autoArchiveProcessedFiles() is no longer needed here as files move immediately
     logMsg(`✅ INGESTION COMPLETE: Added ${newRowsAppended.length} rows to Archive.`);
 
+    if (newRowsAppended.length > 0) {
+      props.setProperty("LATEST_SIGNAL_EVENT_MS", String(Date.now()));
+    }
+
     if (!isSilent && !isContinuation) {
       if (newRowsAppended.length === 0) {
         SpreadsheetApp.getUi().alert("No new rows found.\n\nNote: If you are trying to re-process a report manually, please ensure it is dropped into the root of the 'Production Incoming' folder.");
