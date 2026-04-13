@@ -290,7 +290,11 @@ function processFolderRecursive(folder, existingKeys, refDict, folderDate, isArc
   let resolvedFolderDate = extractDateFromName(folder.getName());
   if (resolvedFolderDate) folderDate = resolvedFolderDate;
 
-  const files = folder.getFiles();
+  // Only query for valid Microsoft Excel formats natively. 
+  // (Prevents looping over Google Sheets, PDFs, etc.)
+  const query = "mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or mimeType='application/vnd.ms-excel'";
+  const files = folder.searchFiles(query);
+  
   while (files.hasNext()) {
     // ⏰ Time Budget Check: Exit if over 4.5 minutes (270,000ms) to allow for safe cleanup
     if (startTime && (new Date().getTime() - startTime > 270000)) {
@@ -298,13 +302,13 @@ function processFolderRecursive(folder, existingKeys, refDict, folderDate, isArc
     }
 
     let file = files.next();
-    const mime = file.getMimeType();
-    const isExcel = (mime === MimeType.MICROSOFT_EXCEL || mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-
-    if (!file.getName().toLowerCase().endsWith(".xlsx") && !isExcel) {
-      logMsg(`⏭️ Skipping non-spreadsheet file: ${file.getName()} (MIME: ${mime})`);
+    
+    // Fallback name check for safety
+    if (!file.getName().toLowerCase().endsWith(".xlsx")) {
+      // Still log if something weird is identified as Excel but named incorrectly
       continue;
     }
+    
     if (file.getDescription() === "PROCESSED" && !forceReprocess) {
       // 🧠 SAFETY: If it's already processed but still in the incoming folder, move it now
       if (!isArchive) {

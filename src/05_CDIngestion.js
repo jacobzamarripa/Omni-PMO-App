@@ -243,11 +243,17 @@ function writeCDRowsToSheet_(rows) {
 function installCDTrigger() {
   // Remove existing to avoid duplicates
   removeCDTrigger();
-  ScriptApp.newTrigger('processCDQueue')
-    .timeBased()
-    .everyMinutes(5)
-    .create();
-  logMsg('CDIngestion: 5-minute trigger installed.');
+
+  // Run hourly between 7 AM and 5 PM
+  [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].forEach(hour => {
+    ScriptApp.newTrigger('processCDQueue')
+      .timeBased()
+      .atHour(hour)
+      .everyDays(1)
+      .create();
+  });
+
+  logMsg('CDIngestion: Hourly triggers (7 AM - 5 PM) installed.');
 }
 
 function removeCDTrigger() {

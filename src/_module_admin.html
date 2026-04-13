@@ -365,7 +365,7 @@ function renderOutbox() {
 
         let header = document.createElement('div');
         header.className = `ob-header ob-header-${type}`;
-        header.style.padding = '10px 14px 10px 11px';
+        header.style.padding = '6px 14px 6px 11px';
         if (isCollapsible) {
             header.style.cursor = 'pointer';
             header.onclick = function() { toggleStagedReviewSection(); };
@@ -373,25 +373,26 @@ function renderOutbox() {
         let titleEl = document.createElement('div');
         titleEl.className = 'review-hub-section-title';
         titleEl.style.cssText = 'flex-wrap: nowrap; overflow: hidden; min-width: 0;';
-        
+
         let labelEl = document.createElement('div');
         labelEl.className = 'review-hub-section-label';
         labelEl.textContent = type === 'staged' ? 'Deck Staging' : 'Manager Review';
-        
+
         let nameEl = document.createElement('div');
         nameEl.className = 'review-hub-section-name';
         nameEl.style.display = 'flex';
         nameEl.style.alignItems = 'center';
         nameEl.style.gap = '8px';
         nameEl.innerHTML = `${isCollapsible ? `<span style="display:inline-flex; align-items:center; justify-content:center; width:14px; color:var(--text-main); font-size:11px;">${isCollapsed ? '&#9656;' : '&#9662;'}</span>` : ''}<span>${title}</span>`;
-        
+
         let countEl = document.createElement('div');
         countEl.className = 'review-hub-section-count';
         countEl.textContent = count;
-        
+
         titleEl.appendChild(labelEl);
         titleEl.appendChild(nameEl);
-        titleEl.appendChild(countEl);
+        let rightWrap = document.createElement('div');
+        rightWrap.style.cssText = 'display:flex; align-items:center; gap:6px; flex-shrink:0;';
         let actionWrap = document.createElement('div');
         actionWrap.style.cssText = 'display:flex; gap:6px;';
         actions.forEach(function(def) {
@@ -405,8 +406,10 @@ function renderOutbox() {
             };
             actionWrap.appendChild(btn);
         });
+        rightWrap.appendChild(countEl);
+        rightWrap.appendChild(actionWrap);
         header.appendChild(titleEl);
-        header.appendChild(actionWrap);
+        header.appendChild(rightWrap);
         section.appendChild(header);
 
         let body = document.createElement('div');
