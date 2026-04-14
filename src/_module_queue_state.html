@@ -835,26 +835,22 @@ function openPane(item, cardEl) {
             let xingHtml = "";
             if (cdIntelText || !item.rawSpecialX || item.rawSpecialX === "—") {
                 xingHtml = `
-                    <div id="special-xing-container-${item.fdh}" class="special-xing-box" style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:14px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
-                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-                            <span class="cd-badge" style="font-size:8px; padding:2px 6px;">SPECIAL X-INGS</span>
-                            <div style="height:1px; flex:1; background:var(--border); opacity:0.5;"></div>
+                    <div id="special-xing-container-${item.fdh}" class="special-xing-box has-hazard" style="margin-bottom:14px;">
+                        <div class="xing-hazard-inner">
+                            ${!cdIntelText && !item.specXDetails ? `
+                              <div id="cd-dropzone-${item.fdh}" class="cd-dropzone" style="padding:20px; border:1px dashed var(--border); border-radius:8px; text-align:center; margin-bottom:4px; background:rgba(0,0,0,0.01);" onclick="triggerCdSelect('${item.fdh}')" ondragover="handleCdDragOver(event, this)" ondragleave="handleCdDragLeave(event, this)" ondrop="handleCdDrop(event, this, '${item.fdh}')">
+                                 <div style="font-size:10px; font-weight:800; color:var(--text-muted); display:flex; align-items:center; justify-content:center; gap:8px;">
+                                    ${icon('upload', 16)} DRAG CD PDF HERE OR CLICK TO ANALYZE
+                                 </div>
+                               </div>` : ''}
+                            
+                            ${renderSpecialXingsSection(item)}
                         </div>
-                        
-                        ${cdIntelText ? `<div style="font-size:11px; color:var(--text-main); margin-bottom:12px; line-height:1.6; padding:0 2px;">${cdIntelText}</div>` : 
-                          `<div id="cd-dropzone-${item.fdh}" class="cd-dropzone" style="padding:20px; border:1px dashed var(--border); border-radius:8px; text-align:center; margin-bottom:12px; background:rgba(0,0,0,0.01);" onclick="triggerCdSelect('${item.fdh}')" ondragover="handleCdDragOver(event, this)" ondragleave="handleCdDragLeave(event, this)" ondrop="handleCdDrop(event, this, '${item.fdh}')">
-                             <div style="font-size:10px; font-weight:800; color:var(--text-muted); display:flex; align-items:center; justify-content:center; gap:8px;">
-                                ${icon('upload', 16)} DRAG CD PDF HERE OR CLICK TO ANALYZE
-                             </div>
-                           </div>`}
-                        
-                        ${renderSpecialXingsSection(item)}
                     </div>`;
             }
 
-            let adminBtn = needsAdminCheck ? `<button class="btn hover-trigger" id="btn-admin-check" onclick="markChecked('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#0f172a; color:#ffffff; border-color:#0f172a; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:inline-flex; align-items:center; gap:4px;">${icon('shield')} VERIFY CROSSINGS</button>` : "";
             let qbBtn = needsQbSync ? `<button class="btn hover-trigger" id="btn-qb-update" onclick="markQbUpdated('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#2563eb; color:#ffffff; border-color:#1d4ed8; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:inline-flex; align-items:center; gap:4px;">${icon('build')} MARK QB UPDATED</button>` : "";
-            let btnContainer = (adminBtn !== "" || qbBtn !== "") ? `<div style="display:flex; gap:8px; margin-top:8px; margin-left:auto; width:fit-content;">${adminBtn}${qbBtn}</div>` : "";
+            let btnContainer = (qbBtn !== "") ? `<div style="display:flex; gap:8px; margin-top:8px; margin-left:auto; width:fit-content;">${qbBtn}</div>` : "";
             actionBox.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">${tagsHtml}</div>${xingHtml}${draftMain}${btnContainer}`;
         }
 
@@ -1537,47 +1533,45 @@ function handleCdUpload(file, el, fdhId) {
  * FID 526: Special Crossing Details
  */
 function renderSpecialXingsSection(item) {
-    const cdText = (item.cdIntel || "").trim();
     const qb = item.qbRef || {};
-    
-    // Auto-detect "Special Crossings Present?" if current QB value is empty
+
     let currentXing = qb.xingExist || item.rawSpecialX || "";
     if (!currentXing || currentXing === "—") {
-        const lowerCd = cdText.toLowerCase();
-        if (lowerCd !== "" && lowerCd !== "none" && !lowerCd.includes("no special crossings found")) {
+        const cdText = (item.cdIntel || "").trim().toLowerCase();
+        if (cdText !== "" && cdText !== "none" && !cdText.includes("no special crossings found")) {
             currentXing = "YES";
         } else {
             currentXing = "NO";
         }
     }
 
-    const currentDetails = item.specXDetails || cdText;
-
+    const currentDetails = item.specXDetails || item.cdIntel || "";
     const options = ["", "YES", "NO"];
     const xCls = currentXing === 'YES' ? 'val-yes' : (currentXing === 'NO' ? 'val-no' : '');
 
     return `
-        <div class="xing-form" style="border-top:none; margin-top:0; padding-top:0;" onclick="event.stopPropagation()">
-            <div style="display:grid; grid-template-columns: 1fr 2.2fr; gap:10px; align-items:start;">
+        <div class="xing-form" onclick="event.stopPropagation()">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <div class="xing-indicator-pill">SPECIAL X-INGS</div>
                 <div class="xing-field">
-                    <label class="xing-label">X-ING Present?</label>
-                    <select class="xing-select ${xCls}" id="xing-exist-${item.fdh}" onchange="handleXingSelectChange(this)" style="height:38px;">
+                    <label class="xing-label" style="font-size:8px; margin:0;">X-ING?</label>
+                    <select class="xing-select ${xCls}" id="xing-exist-${item.fdh}" onchange="handleXingSelectChange(this)" style="height:24px; padding:2px 6px; font-size:10px;">
                         ${options.map(opt => `<option value="${opt}" ${currentXing === opt ? 'selected' : ''}>${opt || '—'}</option>`).join('')}
                     </select>
                 </div>
-                <div class="xing-field">
-                    <label class="xing-label">Review Details</label>
-                    <textarea class="xing-select" id="xing-details-${item.fdh}" 
-                              style="min-height:38px; font-weight:normal; line-height:1.4; font-family:inherit; resize:vertical; padding:8px 10px; font-size:10.5px;" 
-                              placeholder="Notes for Quickbase...">${currentDetails}</textarea>
-                </div>
             </div>
-            <button class="xing-commit-btn" id="btn-xing-commit-${item.fdh}" onclick="commitSpecialXings('${item.fdh}')" style="margin-top:4px;">
-                ${icon('shield', 13)} COMMIT TO QUICKBASE QUEUE
+
+            <div class="xing-bubble">
+                <textarea class="xing-details-textarea" id="xing-details-${item.fdh}"
+                          oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
+                          placeholder="Tap to add note...">${currentDetails}</textarea>
+            </div>
+
+            <button class="xing-commit-btn" id="btn-xing-commit-${item.fdh}" onclick="commitSpecialXings('${item.fdh}')">
+                ${icon('shield', 12)} Commit X-ings
             </button>
         </div>`;
 }
-
 function handleXingSelectChange(el) {
     el.classList.remove('val-yes', 'val-no');
     if (el.value === 'YES') el.classList.add('val-yes');

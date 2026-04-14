@@ -32,12 +32,83 @@
       body.dark-mode .cd-intel-card.has-xing .cd-subtitle { color: #fde047; }
 
       /* 🚧 Special Xings Form Styles — Integrated into System Diagnostics */
+      .special-xing-box.has-hazard {
+          background: var(--bg);
+          border: none !important;
+          padding: 2px !important;
+          background: repeating-linear-gradient(-45deg, #facc15 0, #facc15 6px, #0f172a 6px, #0f172a 12px) !important;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      }
+      .xing-hazard-inner {
+          background: var(--bg);
+          border-radius: 10px;
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+      }
+      .xing-bubble {
+          font-size: 11px;
+          line-height: 1.4;
+          padding: 10px 14px !important;
+          border: 1.5px solid #fde047;
+          border-radius: 12px 12px 12px 2px;
+          background: rgba(255, 251, 235, 0.7);
+          box-shadow: 2px 2px 0px rgba(0,0,0,0.03);
+          color: var(--text-main);
+          width: 100%;
+          box-sizing: border-box;
+          margin-top: 4px;
+      }
+      body.dark-mode .xing-bubble {
+          background: rgba(66, 32, 6, 0.3);
+          border-color: #713f12;
+      }
+      .xing-details-textarea {
+          width: 100%;
+          min-height: 44px;
+          border: none !important;
+          background: transparent !important;
+          color: var(--text-main);
+          font-family: inherit;
+          font-size: 11px;
+          line-height: 1.45;
+          padding: 0;
+          resize: none;
+          outline: none !important;
+          display: block;
+          box-sizing: border-box;
+          overflow: hidden;
+      }
+      .xing-indicator-pill {
+          display: inline-flex;
+          align-items: center;
+          background: #171717;
+          color: #facc15;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 8px;
+          font-weight: 900;
+          border: 1px solid #facc15;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+      }
+      .xing-diagnostic-text {
+          font-size: 11px;
+          line-height: 1.5;
+          color: var(--text-main);
+          margin-bottom: 8px;
+          padding: 0 4px;
+          font-style: italic;
+          opacity: 0.9;
+      }
       .xing-form { 
           display: flex; 
           flex-direction: column; 
-          gap: 10px;
+          gap: 0px;
       }
-      .xing-field { display: flex; flex-direction: column; gap: 4px; }
+      .xing-field { display: flex; align-items: center; gap: 8px; }
       .xing-label { 
           font-size: 9px; 
           font-weight: 800; 
@@ -47,9 +118,9 @@
           opacity: 0.8;
       }
       .xing-select { 
-          font-size: 11px; 
-          font-weight: 600; 
-          padding: 6px 10px; 
+          font-size: 10px; 
+          font-weight: 700; 
+          padding: 4px 8px; 
           border-radius: 6px; 
           border: 1px solid var(--border); 
           background: var(--bg); 
@@ -65,21 +136,23 @@
       .xing-select.val-no { background: rgba(239,68,68,0.04); color: #dc2626; border-color: rgba(239,68,68,0.2); }
       
       .xing-commit-btn {
-          margin-top: 4px;
-          padding: 8px;
-          font-size: 10px;
+          margin-top: 6px;
+          padding: 6px 12px;
+          font-size: 9px;
           font-weight: 900;
-          letter-spacing: 0.8px;
+          letter-spacing: 0.5px;
           text-transform: uppercase;
           background: #0f172a;
           color: #fff;
           border: 1px solid #0f172a;
           border-radius: 6px;
           cursor: pointer;
-          display: flex;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
+          width: fit-content;
+          align-self: flex-end;
+          gap: 6px;
           transition: all 0.2s;
           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
