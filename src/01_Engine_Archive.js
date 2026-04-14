@@ -1529,13 +1529,12 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
           if (cdData.summary !== "") {
               cdIntelText = cdData.summary;
           }
-          if (cdData.highway && cdData.highway.toLowerCase() !== "none" && cdData.highway.trim() !== "") {
+          if (cdData.hasFindings) {
               if (diag.flags !== "✅ No Anomalies" && diag.flags !== "") diag.flags += "\n🚧 CD: MAJOR CROSSING RISK";
               else diag.flags = "🚧 CD: MAJOR CROSSING RISK";
               diag.flagColors.push("#b45309");
           }
       }
-
       let refData = null;
 
       if (diag.healedId) { fdhId = diag.healedId; refData = refDict[fdhId]; }

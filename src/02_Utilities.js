@@ -367,20 +367,19 @@ function stageExternalFinding(data) {
   const userEmail = Session.getActiveUser().getEmail();
 
   commitSheet.appendRow([
-    data.fdh, 
-    data.xing, 
-    data.xingDetails, 
-    data.verifiedDate, 
-    timestamp, 
-    userEmail, 
-    "Pending", 
+    data.fdh,
+    data.xing || "",
+    data.xingDetails || "",
+    data.verifiedDate || "",
+    timestamp,
+    userEmail,
+    "Pending",
     ""
   ]);
 
   logMsg(`External finding staged for ${data.fdh} by ${userEmail}`);
   return { success: true };
 }
-
 function getDashboardData() {
   const CACHE_KEY = 'dashboard_data_cache_v12';
   const cache = CacheService.getScriptCache();

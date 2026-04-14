@@ -42,7 +42,6 @@ const QB_WRITE_MAPPING = {
     "436": "SOW Signed",
     "587": "PO Number"
   }
-  // bvieaendx (Project Management) is currently 401 Restricted - omitted.
 };
 
 // --- DECK REFERENCE QUERY CONFIG ---
@@ -70,10 +69,11 @@ const QB_DECK_QUERY_CONFIG = {
 
 // Column names appended to 5-Reference_Data for Deck gap indicators
 const QB_DECK_COLUMNS = [
-  "QB_Permit_Sent", "QB_Permit_Appr", "QB_Cross_Sub", "QB_Cross_Appr", "QB_Cross_Dist",
+  "QB_Permit_Sent", "QB_Permit_Appr", "QB_Xing_Exist", "QB_Cross_Sub", "QB_Cross_Appr", "QB_Cross_Dist",
   "QB_Active_Set",  "QB_Active_Pwr",  "QB_Leg",       "QB_Transport",
   "QB_How_Fed",     "QB_What_Feeds",  "QB_Island",    "QB_Ofs_Change", "QB_Ofs_Reason",
-  "QB_CD_Dist",     "QB_Splice_Dist", "QB_Strand_Dist", "QB_BOM_Sent", "QB_SOW_Sign"
+  "QB_CD_Dist",     "QB_Splice_Dist", "QB_Strand_Dist", "QB_BOM_Sent", "QB_SOW_Sign",
+  "QB_PM_RID"
 ];
 
 
@@ -209,13 +209,14 @@ function syncFromQBWebApp() {
 
       for (var tableId in QB_DECK_QUERY_CONFIG) {
         var cfg        = QB_DECK_QUERY_CONFIG[tableId];
-        var fetchFids  = [cfg.fdhFid].concat(Object.values(cfg.fields));
+        var fetchFids  = [cfg.fdhFid, 3].concat(Object.values(cfg.fields)); // Added FID 3 for Record ID
         var records    = _fetchTableAllFids(token, tableId, fetchFids);
         var fdhFidStr  = String(cfg.fdhFid);
 
         // Build colName → FID string map from the named fields config
         var colKeyToCol = {
           q_permit_sent: "QB_Permit_Sent", q_permit_appr: "QB_Permit_Appr",
+          q_xing_exist:  "QB_Xing_Exist",
           q_cross_sub:   "QB_Cross_Sub",   q_cross_appr:  "QB_Cross_Appr",
           q_cross_dist:  "QB_Cross_Dist",  q_active_set:  "QB_Active_Set",
           q_active_pwr:  "QB_Active_Pwr",  q_leg:         "QB_Leg",
@@ -224,12 +225,16 @@ function syncFromQBWebApp() {
           q_ofs_change:  "QB_Ofs_Change",  q_ofs_reason:  "QB_Ofs_Reason",
           q_cd_dist:     "QB_CD_Dist",     q_splice_dist: "QB_Splice_Dist",
           q_strand_dist: "QB_Strand_Dist", q_bom_sent:    "QB_BOM_Sent",
-          q_sow_sign:    "QB_SOW_Sign"
+          q_sow_sign:    "QB_SOW_Sign",
+          q_pm_rid:      "QB_PM_RID"       // Local alias for FID 3 on PM table
         };
         var colMap = {};
         Object.keys(cfg.fields).forEach(function(key) {
           if (colKeyToCol[key]) colMap[colKeyToCol[key]] = String(cfg.fields[key]);
         });
+        
+        // Ensure FID 3 is mapped correctly specifically for the PM table RID
+        if (tableId === "bvieaendx") colMap["QB_PM_RID"] = "3";
 
         records.forEach(function(rec) {
           var fdhCell = rec[fdhFidStr];
@@ -745,7 +750,7 @@ function getPendingWritebackItems() {
             type: "Special Crossing",
             tableId: QB_TABLE_ID, // FDH Projects
             fields: {
-              "525": data[i][crossingIdx], // Special Crossings? (Choice)
+              "525": data[i][crossingIdx], // Special Crossings Choice
               "526": data[i][detailsIdx]   // Special Crossing Details
             },
             sheetName: REVIEW_LOG_SHEET,

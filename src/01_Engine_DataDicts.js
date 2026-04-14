@@ -167,6 +167,8 @@ function getReferenceDictionary() {
     let qbCrossSubIdx   = getIdx("QB_Cross_Sub");
     let qbCrossApprIdx  = getIdx("QB_Cross_Appr");
     let qbCrossDistIdx  = getIdx("QB_Cross_Dist");
+    let qbXingExistIdx  = getIdx("QB_Xing_Exist");
+    let qbPmRidIdx      = getIdx("QB_PM_RID");
     let qbActiveSetIdx  = getIdx("QB_Active_Set");
     let qbActivePwrIdx  = getIdx("QB_Active_Pwr");
     let qbLegIdx        = getIdx("QB_Leg");
@@ -242,9 +244,11 @@ function getReferenceDictionary() {
            qbRef: {
              permitSent: qbPermitSentIdx > -1 ? String(r[qbPermitSentIdx] || "") : "",
              permitAppr: qbPermitApprIdx > -1 ? String(r[qbPermitApprIdx] || "") : "",
+             xingExist:  qbXingExistIdx  > -1 ? String(r[qbXingExistIdx]  || "") : "",
              crossSub:   qbCrossSubIdx   > -1 ? String(r[qbCrossSubIdx]   || "") : "",
              crossAppr:  qbCrossApprIdx  > -1 ? String(r[qbCrossApprIdx]  || "") : "",
              crossDist:  qbCrossDistIdx  > -1 ? String(r[qbCrossDistIdx]  || "") : "",
+             pmRid:      qbPmRidIdx      > -1 ? String(r[qbPmRidIdx]      || "") : "",
              activeSet:  qbActiveSetIdx  > -1 ? String(r[qbActiveSetIdx]  || "") : "",
              activePwr:  qbActivePwrIdx  > -1 ? String(r[qbActivePwrIdx]  || "") : "",
              leg:        qbLegIdx        > -1 ? String(r[qbLegIdx]        || "") : "",
@@ -294,16 +298,31 @@ function getSpecialXingsDictionary() {
 
   let fdhIdx = headers.indexOf("Project ID / FDH");
   let sumIdx = headers.indexOf("AI Summary / Major Flags");
-  let hwIdx = headers.indexOf("Highway / RR / Bridge Crossings");
+  let hwIdx  = headers.indexOf("Highway / RR / DOT Crossings");
+  let parIdx = headers.indexOf("Parallel HWY/RR Work & Long Bores");
+  let rivIdx = headers.indexOf("River / Water Crossings");
+  let pmtIdx = headers.indexOf("Presumed Permits Needed");
 
   if (fdhIdx === -1) return dict;
 
   for (let i = 1; i < data.length; i++) {
     let fdh = data[i][fdhIdx] ? data[i][fdhIdx].toString().trim().toUpperCase() : "";
     if (fdh) {
+      let summary = sumIdx > -1 ? data[i][sumIdx].toString().trim() : "";
+      let highway = hwIdx > -1 ? data[i][hwIdx].toString().trim() : "";
+      let parallel = parIdx > -1 ? data[i][parIdx].toString().trim() : "";
+      let river = rivIdx > -1 ? data[i][rivIdx].toString().trim() : "";
+      let permits = pmtIdx > -1 ? data[i][pmtIdx].toString().trim() : "";
+
       dict[fdh] = {
-        summary: sumIdx > -1 ? data[i][sumIdx].toString().trim() : "",
-        highway: hwIdx > -1 ? data[i][hwIdx].toString().trim() : ""
+        summary: summary,
+        highway: highway,
+        parallel: parallel,
+        river: river,
+        permits: permits,
+        hasFindings: (highway.toLowerCase() !== "none" && highway !== "") || 
+                     (parallel.toLowerCase() !== "none" && parallel !== "") || 
+                     (river.toLowerCase() !== "none" && river !== "")
       };
     }
   }

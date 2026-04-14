@@ -31,6 +31,47 @@
       .cd-intel-card.has-xing .cd-subtitle { color: #92400e; }
       body.dark-mode .cd-intel-card.has-xing .cd-subtitle { color: #fde047; }
 
+      /* 🚧 Special Xings Form Styles */
+      .xing-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05); }
+      body.dark-mode .xing-form { border-top-color: rgba(255,255,255,0.05); }
+      .xing-field { display: flex; flex-direction: column; gap: 3px; }
+      .xing-label { font-size: 8px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+      .xing-select { 
+          font-size: 10px; 
+          font-weight: 700; 
+          padding: 4px 6px; 
+          border-radius: 4px; 
+          border: 1px solid var(--border); 
+          background: var(--card-bg); 
+          color: var(--text-main);
+          cursor: pointer;
+          transition: all 0.2s;
+      }
+      .xing-select:hover { border-color: var(--accent); }
+      .xing-select.val-yes { background: rgba(34,197,94,0.1); color: #16a34a; border-color: rgba(34,197,94,0.3); }
+      .xing-select.val-no { background: rgba(239,68,68,0.05); color: #dc2626; border-color: rgba(239,68,68,0.2); }
+      .xing-commit-btn {
+          grid-column: span 2;
+          margin-top: 4px;
+          padding: 6px;
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 0.5px;
+          background: #0f172a;
+          color: #fff;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          transition: all 0.2s;
+      }
+      .xing-commit-btn:hover { background: #1e293b; transform: translateY(-1px); }
+      .xing-commit-btn:active { transform: translateY(0); }
+      .xing-commit-btn.is-success { background: #16a34a; }
+
       /* 📁 CD Drag & Drop Zone — now applied to the Special X-ings container */
       .cd-dropzone {
           cursor: pointer;
