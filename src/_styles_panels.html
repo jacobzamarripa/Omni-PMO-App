@@ -229,6 +229,47 @@
           color: var(--accent);
       }
 
+      .cd-overlay-trigger {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 24px;
+          height: 24px;
+          border-radius: 6px;
+          background: rgba(15, 23, 42, 0.05);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          z-index: 5;
+          color: var(--text-muted);
+      }
+      .cd-overlay-trigger:hover {
+          background: var(--accent);
+          color: #fff;
+          transform: scale(1.1);
+      }
+      .cd-drop-hint {
+          display: none;
+          position: absolute;
+          inset: 0;
+          background: color-mix(in srgb, var(--accent) 15%, transparent);
+          border: 2px dashed var(--accent);
+          border-radius: inherit;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: 900;
+          color: var(--accent);
+          z-index: 8;
+          pointer-events: none;
+          backdrop-filter: blur(2px);
+      }
+      .cd-dropzone.drag-over .cd-drop-hint {
+          display: flex;
+      }
+
       #p-comment[data-generated="true"] { color: #94a3b8; font-style: italic; }
       body.dark-mode #p-comment[data-generated="true"] { color: rgba(233,213,255,0.45); }
 

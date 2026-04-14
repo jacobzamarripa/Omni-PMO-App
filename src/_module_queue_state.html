@@ -835,15 +835,8 @@ function openPane(item, cardEl) {
             let xingHtml = "";
             if (cdIntelText || !item.rawSpecialX || item.rawSpecialX === "—") {
                 xingHtml = `
-                    <div id="special-xing-container-${item.fdh}" class="special-xing-box has-hazard" style="margin-bottom:14px;">
+                    <div id="special-xing-container-${item.fdh}" class="special-xing-box has-hazard" style="margin: 0 0 16px 0;">
                         <div class="xing-hazard-inner">
-                            ${!cdIntelText && !item.specXDetails ? `
-                              <div id="cd-dropzone-${item.fdh}" class="cd-dropzone" style="padding:20px; border:1px dashed var(--border); border-radius:8px; text-align:center; margin-bottom:4px; background:rgba(0,0,0,0.01);" onclick="triggerCdSelect('${item.fdh}')" ondragover="handleCdDragOver(event, this)" ondragleave="handleCdDragLeave(event, this)" ondrop="handleCdDrop(event, this, '${item.fdh}')">
-                                 <div style="font-size:10px; font-weight:800; color:var(--text-muted); display:flex; align-items:center; justify-content:center; gap:8px;">
-                                    ${icon('upload', 16)} DRAG CD PDF HERE OR CLICK TO ANALYZE
-                                 </div>
-                               </div>` : ''}
-                            
                             ${renderSpecialXingsSection(item)}
                         </div>
                     </div>`;
@@ -851,7 +844,13 @@ function openPane(item, cardEl) {
 
             let qbBtn = needsQbSync ? `<button class="btn hover-trigger" id="btn-qb-update" onclick="markQbUpdated('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#2563eb; color:#ffffff; border-color:#1d4ed8; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:inline-flex; align-items:center; gap:4px;">${icon('build')} MARK QB UPDATED</button>` : "";
             let btnContainer = (qbBtn !== "") ? `<div style="display:flex; gap:8px; margin-top:8px; margin-left:auto; width:fit-content;">${qbBtn}</div>` : "";
-            actionBox.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">${tagsHtml}</div>${xingHtml}${draftMain}${btnContainer}`;
+            actionBox.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">${tagsHtml}</div>${draftMain}${btnContainer}`;
+            
+            const xingAnchor = getEl('p-xing-anchor');
+            if (xingAnchor) {
+                xingAnchor.innerHTML = xingHtml;
+                xingAnchor.style.display = xingHtml ? 'block' : 'none';
+            }
         }
 
         let barsHtml = '';
@@ -1561,7 +1560,17 @@ function renderSpecialXingsSection(item) {
                 </div>
             </div>
 
-            <div class="xing-bubble">
+            <div class="xing-bubble cd-dropzone" id="cd-dropzone-${item.fdh}"
+                 ondragover="handleCdDragOver(event, this)" 
+                 ondragleave="handleCdDragLeave(event, this)" 
+                 ondrop="handleCdDrop(event, this, '${item.fdh}')">
+                
+                <div class="cd-overlay-trigger" onclick="triggerCdSelect('${item.fdh}')" title="Analyze CD PDF">
+                    ${icon('upload', 14)}
+                </div>
+
+                <div class="cd-drop-hint">DROP CD PDF TO ANALYZE</div>
+
                 <textarea class="xing-details-textarea" id="xing-details-${item.fdh}"
                           oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
                           placeholder="Tap to add note...">${currentDetails}</textarea>

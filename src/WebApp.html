@@ -689,17 +689,19 @@
                           <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; padding:0 4px;">
                               <div style="display:flex; align-items:center; gap:8px;">
                                   <div class="section-label" style="color:var(--color-insight); margin:0;">PM NOTE</div>
-                                  <button class="btn-ai" onclick="askGeminiForDraft(this)">DRAFT W/GEMINI</button>
                               </div>
                               <div id="p-gemini-date" style="font-size:9px; font-style:italic; color:#a855f7;"></div>
                           </div>
                           <textarea id="p-comment" class="chat-bubble" oninput="this.dataset.generated='false'"></textarea>
                           <div class="review-actions">
+                              <button class="btn-ai" onclick="askGeminiForDraft(this)" style="margin-right:auto;">DRAFT W/GEMINI</button>
                               <button class="btn btn-skip" onclick="skipReview()">Skip (Clear)</button>
                               <button class="btn btn-primary" id="btn-commit" onclick="commitReview()" style="display:inline-flex;align-items:center;gap:5px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Commit</button>
                           </div>
                       </div>
                   </div>
+
+                  <div id="p-xing-anchor" style="margin-top: 20px;"></div>
 
                   <div class="review-divider"></div>
 
