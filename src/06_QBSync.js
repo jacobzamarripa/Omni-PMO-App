@@ -14,6 +14,13 @@ const QB_API_BASE     = "https://api.quickbase.com/v1";
 const QB_PAGE_SIZE    = 1000;
 const QB_MAX_PAGES    = 20;
 const CHANGE_LOG_TABLE_ID = "bvqruhtyc";
+// Report whose column selection drives the Reference_Data field fetch.
+// To add/remove columns: edit the report in QB, no code change needed.
+const QB_REFERENCE_REPORT_ID = "1000071";
+// Row filter for the FDH Projects snapshot. Limits sync to CX-phase projects only
+// (Stage: Permitting → OFS), cutting the record set from ~4700 to ~2000.
+// FID 743 = Phase field. Adjust the value if QB uses a different casing.
+const QB_REFERENCE_WHERE = "{743.EX.'CX'}";
 
 // --- PHASE 2 SCAFFOLD (not active — write-back not enabled) ---
 // FIDs are unique PER TABLE only. Always pair with parent Table ID to avoid collision.
@@ -76,6 +83,53 @@ const QB_DECK_COLUMNS = [
   "QB_PM_RID"
 ];
 
+/**
+ * Whitelist of QB field labels to fetch from the FDH Projects table (bts3c49e9).
+ * With full token access QB exposes 80-100+ fields; the engine only needs ~30.
+ * Filtering here keeps Reference_Data lean and Phase 1 sync fast at any record volume.
+ *
+ * Fields whose label contains "FDH" are always included (engine uses fuzzy match).
+ * QB_* deck enrichment columns are NOT listed here — they come from the PM table join.
+ *
+ * TO UPDATE: run _inspectFieldCount() to see all available labels, then add any new
+ * engine-needed fields to this list using their exact QB label.
+ */
+// Confirmed against the full 464-field list from bts3c49e9 on 2026-04-14.
+// "CX Vendor" does not exist in QB — the field is "Construction Vendor" (FID 757).
+// DRG / Direct Vendor fields do not exist in QB — sourced from vendor tracker sheets.
+// UG/AE/Fiber/NAPs BOM Qty. not confirmed in QB — engine will get blank if absent.
+// "Record ID#" (FID 3) is always force-included in the fids list below, not via whitelist.
+const QB_REFERENCE_FIELD_WHITELIST = [
+  // Identity — FID 13 (exact label only; fuzzy handled separately below)
+  "FDH Engineering ID",
+  // Project metadata — FID 38, 743, 745, 747
+  "City", "Phase", "Stage", "Status",
+  // Counts & dates — FID 15, 87, 24, 254, 227
+  "BSLs", "HHPs",
+  "OFS DATE",
+  "CX Start", "CX Complete",
+  // Deliverables flags — FID 513, 473, 472, 471, 589, 439, 588, 437, 435
+  "BOM in Deliverables",
+  "Splice Sheet in Deliverables",
+  "Stand Map in Deliverables",
+  "CD in Deliverables",
+  "Splice Docs Distributed",
+  "Strand Maps",
+  "CD Distributed",
+  "BOM & PO sent",
+  "SOW sent",
+  // Special crossings — FID 525, 526
+  "Special Crossings?", "Special Crossing Details",
+  // Vendor — FID 757 (QB label). Remapped to "CX Vendor" in sheet via QB_LABEL_REMAP below.
+  "Construction Vendor"
+];
+
+
+// Maps QB field labels → the column header name the engine expects in Reference_Data.
+// Add entries here when QB's label differs from what getReferenceDictionary() looks for.
+const QB_LABEL_REMAP = {
+  "Construction Vendor": "CX Vendor"  // FID 757 — engine looks for "CX Vendor"
+};
 
 // --- 2. FIELD DISCOVERY (run once to build the Data Dictionary) ---
 
@@ -341,34 +395,44 @@ function syncChangeLogs() {
   const fids = [fdhFid, typeFid, valueFid, updatedByFid, updatedAtFid];
 
   const sinceDate = new Date();
-  sinceDate.setDate(sinceDate.getDate() - 14);
+  sinceDate.setDate(sinceDate.getDate() - 7);
   const timestamp = sinceDate.getTime();
 
   const url = "https://api.quickbase.com/v1/records/query";
-  const payload = {
-    from: CHANGE_LOG_TABLE_ID,
-    select: fids,
-    where: "{" + updatedAtFid + ".GT." + timestamp + "}",
-    sortBy: [{ fieldId: updatedAtFid, order: "DESC" }]
-  };
-
-  const options = {
-    method: "post",
-    headers: {
-      "QB-Realm-Hostname": "omnifiber.quickbase.com",
-      "Authorization": "QB-USER-TOKEN " + token,
-      "Content-Type": "application/json"
-    },
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  };
-
-  const response = UrlFetchApp.fetch(url, options);
-  if (response.getResponseCode() !== 200) throw new Error("QB API Error: " + response.getContentText());
-
-  const result = JSON.parse(response.getContentText());
-  const data = result.data || [];
+  const data = [];
+  let clSkip = 0;
+  let clTotal = Infinity;
   let maxChangeTime = 0;
+
+  while (clSkip < clTotal && clSkip < QB_MAX_PAGES * QB_PAGE_SIZE) {
+    const payload = {
+      from: CHANGE_LOG_TABLE_ID,
+      select: fids,
+      where: "{" + updatedAtFid + ".GT." + timestamp + "}",
+      sortBy: [{ fieldId: updatedAtFid, order: "DESC" }],
+      options: { skip: clSkip, top: QB_PAGE_SIZE }
+    };
+    const options = {
+      method: "post",
+      headers: {
+        "QB-Realm-Hostname": "omnifiber.quickbase.com",
+        "Authorization": "QB-USER-TOKEN " + token,
+        "Content-Type": "application/json"
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+    const response = UrlFetchApp.fetch(url, options);
+    if (response.getResponseCode() !== 200) throw new Error("QB API Error: " + response.getContentText());
+    const result = JSON.parse(response.getContentText());
+    const page = result.data || [];
+    page.forEach(function(r) { data.push(r); });
+    const meta = result.metadata || {};
+    clTotal = (meta.totalRecords != null) ? meta.totalRecords : 0;
+    clSkip += (meta.numRecords != null) ? meta.numRecords : 0;
+    if (!meta.numRecords || meta.numRecords === 0) break;
+  }
+  logMsg("QB Change Log: fetched " + data.length + " records (14-day window).");
 
   const getCellText = function(rec, fid) {
     const cell = rec[String(fid)];
@@ -436,6 +500,11 @@ function syncChangeLogs() {
     sheet.getRange(2, 1, scrubbedRows.length, headers.length).setValues(scrubbedRows);
   }
   sheet.getRange("1:1").setBackground("#0f172a").setFontColor("white").setFontWeight("bold");
+  // Note on first header cell: link to full QB change log for history beyond 7 days
+  sheet.getRange("A1").setNote(
+    "Showing last 7 days of changes. For full history visit QB:\n" +
+    "https://omnifiber.quickbase.com/nav/app/bts3c49dd/table/" + CHANGE_LOG_TABLE_ID
+  );
   sheet.setFrozenRows(1);
   trimAndFilterSheet(sheet, scrubbedRows.length + 1, headers.length);
   CacheService.getScriptCache().removeAll([
@@ -954,17 +1023,63 @@ function getDirtyRows() {
 }
 
 function _fetchReferenceTableSnapshot(token) {
-  const fields = _fetchTableFields(token, QB_TABLE_ID);
-  if (!fields.length) throw new Error("No fields returned for QuickBase table " + QB_TABLE_ID);
+  const allFields = _fetchTableFields(token, QB_TABLE_ID);
+  if (!allFields.length) throw new Error("No fields returned for QuickBase table " + QB_TABLE_ID);
+
+  // --- Field selection: report-driven with whitelist fallback ---
+  // Primary: pull the FID list from QB report QB_REFERENCE_REPORT_ID.
+  //   The report's column selection is the source of truth — add/remove columns
+  //   in the QB report UI, no code change needed.
+  // Fallback: if the report API call fails, filter by QB_REFERENCE_FIELD_WHITELIST.
+  var reportFids = null;
+  try {
+    var rResp = UrlFetchApp.fetch(QB_API_BASE + '/reports/' + QB_REFERENCE_REPORT_ID + '?tableId=' + QB_TABLE_ID, _qbHeaders(token));
+    if (rResp.getResponseCode() === 200) {
+      var rData = JSON.parse(rResp.getContentText());
+      var cols  = rData.query && rData.query.fields ? rData.query.fields : null;
+      if (cols && cols.length > 0) {
+        reportFids = cols.map(Number);
+        logMsg('QB field selection: report ' + QB_REFERENCE_REPORT_ID + ' → ' + reportFids.length + ' fields');
+      }
+    }
+  } catch (rErr) {
+    logMsg('QB report field fetch WARN (falling back to whitelist): ' + rErr.message);
+  }
+
+  var fields;
+  if (reportFids) {
+    var fidSet = {};
+    reportFids.forEach(function(id) { fidSet[id] = true; });
+    fields = allFields.filter(function(f) { return fidSet[Number(f.id)]; });
+  } else {
+    // Whitelist fallback — exact label match only (no broad FDH fuzzy to avoid junk fields)
+    fields = allFields.filter(function(f) {
+      return QB_REFERENCE_FIELD_WHITELIST.indexOf((f.label || '').trim()) > -1;
+    });
+  }
+
+  // Always include FID 3 (Record ID#) — engine uses it for QB write-back
+  if (!fields.some(function(f) { return Number(f.id) === 3; })) {
+    var ridField = allFields.find(function(f) { return Number(f.id) === 3; });
+    if (ridField) fields.unshift(ridField);
+  }
+  logMsg('QB field filter: ' + fields.length + ' of ' + allFields.length + ' fields included for ' + QB_TABLE_ID);
 
   const fids = fields.map(function(field) { return Number(field.id); }).filter(function(fid) { return fid > 0; });
-  const records = _fetchTableAllFids(token, QB_TABLE_ID, fids);
-  const headers = fields.map(function(field) { return field.label; });
+  const records = _fetchTableAllFids(token, QB_TABLE_ID, fids, QB_REFERENCE_WHERE);
+
+  // Apply label remaps so sheet headers match what the engine expects
+  const headers = fields.map(function(field) {
+    var label = (field.label || '').trim();
+    return QB_LABEL_REMAP[label] || label;
+  });
+
   const rows = records.map(function(record) {
     return fields.map(function(field) {
       const cell = record[String(field.id)];
       var raw = cell ? _extractValue(cell.value) : "";
-      if (field.label && field.label.toString().trim().toLowerCase() === "cx vendor") {
+      // Normalize vendor name regardless of QB label (handles "Construction Vendor" remap)
+      if (QB_LABEL_REMAP[field.label] === 'CX Vendor' || (field.label || '').trim().toLowerCase() === 'cx vendor') {
         raw = _normalizeVendor(raw);
       }
       return raw;
@@ -1024,11 +1139,12 @@ function _normalizeVendor(name) {
  * Queries a QB table for specific FIDs using the /records/query endpoint.
  * Returns an array of raw record objects keyed by FID string.
  */
-function _fetchTableAllFids(token, tableId, fids) {
+function _fetchTableAllFids(token, tableId, fids, where) {
   var url        = QB_API_BASE + "/records/query";
   var allRecords = [];
   var skip       = 0;
   var total      = Infinity;
+  var whereClause = where || "{3.GT.0}";
 
   while (skip < total && skip < QB_MAX_PAGES * QB_PAGE_SIZE) {
     var opts = _qbHeaders(token);
@@ -1037,7 +1153,7 @@ function _fetchTableAllFids(token, tableId, fids) {
     opts.payload     = JSON.stringify({
       from:    tableId,
       select:  fids,
-      where:   "{3.GT.0}",
+      where:   whereClause,
       options: { skip: skip, top: QB_PAGE_SIZE }
     });
 
@@ -1194,4 +1310,235 @@ function syncAndRebuildDashboard() {
   logMsg("syncAndRebuildDashboard timings: " + JSON.stringify(timings));
   payload._syncMeta = { count: syncResult.count, timestamp: syncResult.timestamp, date: latestDate, timings: timings };
   return payload;
+}
+
+
+// --- ASYNC SYNC (two-phase trigger chain, each phase gets a fresh 6-min GAS window) ---
+// Phase 1 (_runQBSyncPhase1): QB API fetch + sheet writes (~3-5 min)
+// Phase 2 (_runQBSyncPhase2): engine rebuild + payload save (~2-4 min)
+
+/**
+ * Called by the frontend. Clears stale state, cleans up any orphaned triggers,
+ * then fires Phase 1. Returns immediately so the browser never waits.
+ */
+function kickoffQBSync() {
+  const props = PropertiesService.getScriptProperties();
+
+  // Guard against double-triggering — but reset if stale (> 14 min covers both phases)
+  if (props.getProperty('QB_SYNC_STATUS') === 'running') {
+    const started = Number(props.getProperty('QB_SYNC_STARTED') || 0);
+    const elapsed = started ? Date.now() - started : 0;
+    if (elapsed < 14 * 60 * 1000) return { pending: true, alreadyRunning: true };
+    logMsg('kickoffQBSync: stale running status — resetting and re-triggering.');
+  }
+
+  // Clean up any orphaned triggers from prior failed runs
+  ScriptApp.getProjectTriggers()
+    .filter(function(t) {
+      const fn = t.getHandlerFunction();
+      return fn === '_runQBSyncPhase1' || fn === '_runQBSyncPhase2';
+    })
+    .forEach(function(t) { ScriptApp.deleteTrigger(t); });
+
+  props.setProperties({
+    'QB_SYNC_STATUS':  'running',
+    'QB_SYNC_PHASE':   '1',
+    'QB_SYNC_STARTED': String(Date.now())
+  });
+
+  ScriptApp.newTrigger('_runQBSyncPhase1').timeBased().after(1000).create();
+  return { pending: true };
+}
+
+/**
+ * Phase 1 trigger: QB API fetch + sheet writes.
+ * On success, saves the sync result and immediately chains Phase 2.
+ */
+function _runQBSyncPhase1(e) {
+  ScriptApp.getProjectTriggers()
+    .filter(function(t) { return t.getHandlerFunction() === '_runQBSyncPhase1'; })
+    .forEach(function(t) { ScriptApp.deleteTrigger(t); });
+
+  const props = PropertiesService.getScriptProperties();
+  try {
+    logMsg('QB Async Sync — Phase 1 start (QB fetch + sheet writes)');
+    const syncResult = syncFromQBWebApp();
+    if (!syncResult.success) {
+      props.setProperties({ 'QB_SYNC_STATUS': 'error', 'QB_SYNC_ERROR': syncResult.error || 'Phase 1 failed' });
+      return;
+    }
+    // Stash Phase 1 result so Phase 2 can include it in the final meta
+    props.setProperties({
+      'QB_SYNC_PHASE':       '2',
+      'QB_SYNC_PHASE1_RESULT': JSON.stringify({
+        count:     syncResult.count,
+        timestamp: syncResult.timestamp,
+        timings:   syncResult.timings
+      })
+    });
+    logMsg('QB Async Sync — Phase 1 complete (' + syncResult.count + ' records). Chaining Phase 2.');
+    ScriptApp.newTrigger('_runQBSyncPhase2').timeBased().after(1000).create();
+  } catch (err) {
+    logMsg('QB Async Sync Phase 1 ERROR: ' + err.message);
+    props.setProperties({ 'QB_SYNC_STATUS': 'error', 'QB_SYNC_ERROR': err.message });
+  }
+}
+
+/**
+ * Phase 2 trigger: engine rebuild + payload save.
+ * Writes the terminal 'done' status when complete.
+ */
+function _runQBSyncPhase2(e) {
+  ScriptApp.getProjectTriggers()
+    .filter(function(t) { return t.getHandlerFunction() === '_runQBSyncPhase2'; })
+    .forEach(function(t) { ScriptApp.deleteTrigger(t); });
+
+  const props = PropertiesService.getScriptProperties();
+  try {
+    logMsg('QB Async Sync — Phase 2 start (engine rebuild)');
+    const phase1 = JSON.parse(props.getProperty('QB_SYNC_PHASE1_RESULT') || '{}');
+    const latestDate = _getLatestArchiveDate();
+    generateDailyReviewCore(latestDate, null, false);
+    props.setProperties({
+      'QB_SYNC_STATUS': 'done',
+      'QB_SYNC_RESULT': JSON.stringify({
+        count:     phase1.count,
+        timestamp: phase1.timestamp,
+        date:      latestDate,
+        timings:   phase1.timings
+      })
+    });
+    logMsg('QB Async Sync — Phase 2 complete. date=' + latestDate + ', records=' + phase1.count);
+  } catch (err) {
+    logMsg('QB Async Sync Phase 2 ERROR: ' + err.message);
+    props.setProperties({ 'QB_SYNC_STATUS': 'error', 'QB_SYNC_ERROR': err.message });
+  }
+}
+
+/**
+ * Lightweight poll target. Frontend calls this every 5 seconds to check sync progress.
+ * Returns { status: 'idle'|'running'|'done'|'error', meta?, error?, elapsedMs? }.
+ * Resets status to 'idle' after reading a terminal state (done/error).
+ */
+function getQBSyncStatus() {
+  const props  = PropertiesService.getScriptProperties();
+  const status = props.getProperty('QB_SYNC_STATUS') || 'idle';
+  const result = { status: status };
+
+  if (status === 'done') {
+    try { result.meta = JSON.parse(props.getProperty('QB_SYNC_RESULT') || '{}'); } catch (e) {}
+    props.setProperty('QB_SYNC_STATUS', 'idle');
+  } else if (status === 'error') {
+    result.error = props.getProperty('QB_SYNC_ERROR') || 'Unknown error';
+    props.setProperty('QB_SYNC_STATUS', 'idle');
+  } else if (status === 'running') {
+    const started = Number(props.getProperty('QB_SYNC_STARTED') || 0);
+    result.elapsedMs = started ? Date.now() - started : 0;
+    result.phase = props.getProperty('QB_SYNC_PHASE') || '1';
+    // Auto-reset stale status — allow 14 min to cover both Phase 1 + Phase 2
+    if (result.elapsedMs > 14 * 60 * 1000) {
+      props.setProperty('QB_SYNC_STATUS', 'idle');
+      result.status = 'error';
+      result.error  = 'Sync timed out after 14 min. Check Apps Script execution logs.';
+    }
+  }
+
+  return result;
+}
+
+
+// --- DEV/TEST HELPERS (safe to run from GAS editor; delete after validation) ---
+
+function _inspectFieldCount() {
+  const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
+  const allFields = _fetchTableFields(token, QB_TABLE_ID);
+  Logger.log("Total fields visible on " + QB_TABLE_ID + ": " + allFields.length);
+
+  // Write full list to 9-QB_Fields sheet so all 464 are visible
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(QB_FIELDS_SHEET) || ss.insertSheet(QB_FIELDS_SHEET);
+  sheet.clear();
+  sheet.appendRow(["FID", "Label", "Field Type", "In Whitelist?"]);
+  sheet.getRange("1:1").setFontWeight("bold").setBackground("#0f172a").setFontColor("white");
+
+  const whitelistSet = {};
+  QB_REFERENCE_FIELD_WHITELIST.forEach(function(l) { whitelistSet[l] = true; });
+
+  const rows = allFields.map(function(f) {
+    const label = f.label || "";
+    const inList = label.toUpperCase().includes("FDH") ? "FDH (fuzzy)" :
+                   (whitelistSet[label] ? "✅ YES" : "");
+    return [f.id, label, f.fieldType, inList];
+  });
+  sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, 4);
+  SpreadsheetApp.flush();
+  Logger.log("Written " + allFields.length + " fields to " + QB_FIELDS_SHEET + " tab.");
+}
+
+// Shows which fields the QB report includes, which engine-needed columns are in it,
+// and which engine-needed columns are MISSING from the report (add those in QB).
+function _inspectReportVsEngine() {
+  const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
+  const allFields = _fetchTableFields(token, QB_TABLE_ID);
+  const fidToLabel = {};
+  allFields.forEach(function(f) { fidToLabel[Number(f.id)] = f.label; });
+
+  var reportFids = [];
+  var rResp = UrlFetchApp.fetch(QB_API_BASE + '/reports/' + QB_REFERENCE_REPORT_ID + '?tableId=' + QB_TABLE_ID, _qbHeaders(token));
+  Logger.log('Report API HTTP ' + rResp.getResponseCode());
+  Logger.log('Report API raw response:\n' + rResp.getContentText().substring(0, 2000));
+  if (rResp.getResponseCode() === 200) {
+    var rData = JSON.parse(rResp.getContentText());
+    reportFids = ((rData.query && rData.query.fields) ? rData.query.fields : []).map(Number);
+  }
+  var reportLabels = reportFids.map(function(id) { return fidToLabel[id] || ('FID:' + id); });
+
+  // Engine-needed labels (from QB_REFERENCE_FIELD_WHITELIST + FDH fuzzy)
+  var engineNeeded = ['FDH Engineering ID (fuzzy)'].concat(QB_REFERENCE_FIELD_WHITELIST);
+
+  var inReport   = reportLabels.filter(function(l) { return QB_REFERENCE_FIELD_WHITELIST.indexOf(l) > -1 || l.toUpperCase().includes('FDH'); });
+  var missingFromReport = engineNeeded.filter(function(l) {
+    if (l === 'FDH Engineering ID (fuzzy)') return !reportLabels.some(function(r) { return r.toUpperCase().includes('FDH'); });
+    return reportLabels.indexOf(l) === -1;
+  });
+  var extraInReport = reportLabels.filter(function(l) {
+    return QB_REFERENCE_FIELD_WHITELIST.indexOf(l) === -1 && !l.toUpperCase().includes('FDH');
+  });
+
+  Logger.log('=== Report ' + QB_REFERENCE_REPORT_ID + ' field count: ' + reportFids.length + ' ===');
+  Logger.log('Report labels:\n  ' + reportLabels.join('\n  '));
+  Logger.log('\n✅ Engine needs & report has (' + inReport.length + '):\n  ' + inReport.join('\n  '));
+  Logger.log('\n❌ Engine needs but MISSING from report (' + missingFromReport.length + '):\n  ' + (missingFromReport.join('\n  ') || 'none'));
+  Logger.log('\n➕ In report but not in engine whitelist (' + extraInReport.length + '):\n  ' + (extraInReport.join('\n  ') || 'none'));
+}
+
+
+function _testKickoff() {
+  Logger.log(JSON.stringify(kickoffQBSync()));
+}
+
+function _testStatus() {
+  Logger.log(JSON.stringify(getQBSyncStatus()));
+}
+
+function _inspectSyncProps() {
+  const p = PropertiesService.getScriptProperties();
+  Logger.log(JSON.stringify({
+    status:  p.getProperty('QB_SYNC_STATUS'),
+    phase:   p.getProperty('QB_SYNC_PHASE'),
+    started: p.getProperty('QB_SYNC_STARTED'),
+    result:  p.getProperty('QB_SYNC_RESULT'),
+    error:   p.getProperty('QB_SYNC_ERROR')
+  }));
+}
+
+function _resetSyncProps() {
+  const p = PropertiesService.getScriptProperties();
+  p.deleteProperty('QB_SYNC_STATUS');
+  p.deleteProperty('QB_SYNC_STARTED');
+  p.deleteProperty('QB_SYNC_RESULT');
+  p.deleteProperty('QB_SYNC_ERROR');
+  Logger.log('Sync props cleared.');
 }
