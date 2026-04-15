@@ -1461,6 +1461,11 @@ function resolveCxDates(fdh, refData, lkvDict, histData, histHeaders) {
 }
 
 function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent = false) {
+  const engineStartMs = Date.now();
+  const rebuildTimings = {};
+  const markTiming = function(label, startMs) {
+    rebuildTimings[label] = Date.now() - startMs;
+  };
   CacheService.getScriptCache().remove('dashboard_data_cache');
   setupSheets();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1480,17 +1485,33 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
 
   const normalizedTargets = targetDates.map(normalizeDate).filter(Boolean);
   
+  let timerStartMs = Date.now();
   let refDict = optionalRefDict || getReferenceDictionary();
+  markTiming("referenceDictionaryMs", timerStartMs);
+  timerStartMs = Date.now();
   let vendorDict = getVendorLiveDictionary(refDict);
+  markTiming("vendorLiveDictionaryMs", timerStartMs);
+  timerStartMs = Date.now();
   let xingsDict = getSpecialXingsDictionary(); // 🧠 FETCH CD DATA
+  markTiming("specialXingsDictionaryMs", timerStartMs);
 
+  timerStartMs = Date.now();
   const histData = histSheet.getDataRange().getValues();
+  markTiming("archiveReadMs", timerStartMs);
 
+  timerStartMs = Date.now();
   let benchmarkDict = buildBenchmarkDictionary(histData, HISTORY_HEADERS, refDict);
+  markTiming("benchmarkDictionaryMs", timerStartMs);
+  timerStartMs = Date.now();
   let lkvDict = buildCxLkvDictionary(mirrorSheet);
+  markTiming("cxLkvDictionaryMs", timerStartMs);
+  timerStartMs = Date.now();
   let inferenceHistoryContext = buildInferenceHistoryContext(histData, HISTORY_HEADERS);
+  markTiming("inferenceHistoryContextMs", timerStartMs);
 
+  timerStartMs = Date.now();
   let currentMirrorHeaders = mirrorSheet.getLastColumn() > 0 ? mirrorSheet.getRange(1, 1, 1, mirrorSheet.getLastColumn()).getValues()[0] : [];
+  markTiming("mirrorHeaderReadMs", timerStartMs);
   let defaultHeaders = [...HISTORY_HEADERS, ...REVIEW_EXTRA_HEADERS, ...ANALYTICS_QUADRANT, "Archive_Row"];
   let finalMirrorHeaders = defaultHeaders;
   
@@ -1504,6 +1525,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
 
   logMsg("BENNY ENGINE: Processing " + histData.length + " archive rows for " + normalizedTargets.length + " target dates.");
 
+  timerStartMs = Date.now();
   histData.forEach((row, idx) => {
     if (idx === 0) return; 
     
@@ -1645,6 +1667,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       });
     }
   });
+  markTiming("reviewAssemblyMs", timerStartMs);
 
   let reviewData = [], highlightsData = [];
   reviewMap.forEach(val => {
@@ -1656,6 +1679,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
 
   // GHOST ROW INJECTION — Active projects with no submission today
   const GHOST_ACTIVE_STAGES = ["FIELD CX", "PERMITTING", "CONSTRUCTION", "ACTIVE"];
+  timerStartMs = Date.now();
   Object.keys(refDict).forEach(ghostFdhId => {
     if (submittedFdhs.has(ghostFdhId)) return;
     const ref = refDict[ghostFdhId];
@@ -1700,6 +1724,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       benchmark:      benchmarkDict[ghostFdhId] || ""
     });
   });
+  markTiming("ghostRowInjectionMs", timerStartMs);
 
   const totalReviewRows = reviewData.length;
   const ghostOnlyReview = reviewMap.size === 0 && totalReviewRows > 0;
@@ -1707,252 +1732,53 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     logMsg("BENNY ENGINE: Submitted review slice was empty; continuing with " + totalReviewRows + " ghost rows only.");
   }
 
+  timerStartMs = Date.now();
   if (mirrorSheet.getLastRow() > 1) mirrorSheet.getRange(2,1,mirrorSheet.getLastRow()-1, mirrorSheet.getMaxColumns()).clearContent().clearDataValidations().setBackground(null).setFontColor(null).setFontWeight(null).setFontStyle("normal");
+  markTiming("mirrorClearMs", timerStartMs);
   
   if (totalReviewRows === 0) {
+    timerStartMs = Date.now();
     ensureCapacity(mirrorSheet, 2, finalMirrorHeaders.length);
     mirrorSheet.getRange(1, 1, 1, finalMirrorHeaders.length).setValues([finalMirrorHeaders]);
-    applyFormatting(mirrorSheet);
-    try { mirrorSheet.getRange(1, 1, 1, mirrorSheet.getMaxColumns()).shiftColumnGroupDepth(-10); } catch(e){}
-    buildAndSaveDashboardPayloadV2([], finalMirrorHeaders, []);
+    const archiveRowIdx = finalMirrorHeaders.indexOf("Archive_Row");
+    if (archiveRowIdx > -1) {
+      try { mirrorSheet.hideColumns(archiveRowIdx + 1); } catch (e) {}
+    }
+    markTiming("mirrorWriteAndFormatMs", timerStartMs);
+    timerStartMs = Date.now();
+    buildAndSaveDashboardPayloadV2([], finalMirrorHeaders, [], refDict);
+    markTiming("payloadBuildMs", timerStartMs);
+    rebuildTimings.totalMs = Date.now() - engineStartMs;
+    logMsg("BENNY ENGINE rebuild timings: " + JSON.stringify(rebuildTimings));
     logMsg("BENNY ENGINE: Empty review fast path completed for " + normalizedTargets.length + " target dates.");
   } else if (totalReviewRows > 0) {
+    timerStartMs = Date.now();
     ensureCapacity(mirrorSheet, reviewData.length + 1, finalMirrorHeaders.length); 
     mirrorSheet.getRange(1, 1, 1, finalMirrorHeaders.length).setValues([finalMirrorHeaders]);
     mirrorSheet.getRange(2, 1, reviewData.length, finalMirrorHeaders.length).setValues(reviewData);
-    applyFormatting(mirrorSheet); 
-    
-    if (styleSheet) {
-      let styleHeaders = styleSheet.getRange(1, 1, 1, styleSheet.getLastColumn()).getValues()[0];
-      finalMirrorHeaders.forEach((h, i) => {
-         let lookupH = h === "Field Production" ? "Construction Summary" : h;
-         let styleIdx = styleHeaders.indexOf(lookupH);
-         if (styleIdx > -1) mirrorSheet.setColumnWidth(i + 1, styleSheet.getColumnWidth(styleIdx + 1));
-      });
+    markTiming("mirrorWriteMs", timerStartMs);
+    rebuildTimings.applyFormattingMs = 0;
+    rebuildTimings.styleWidthPassMs = 0;
+    rebuildTimings.richTextAndHighlightPassMs = 0;
+    timerStartMs = Date.now();
+    const archiveRowIdx = finalMirrorHeaders.indexOf("Archive_Row");
+    if (archiveRowIdx > -1) {
+      try { mirrorSheet.hideColumns(archiveRowIdx + 1); } catch (e) {}
     }
-    
-    let flagsIdx = finalMirrorHeaders.indexOf("Health Flags") + 1;
-    let draftIdx = finalMirrorHeaders.indexOf("Action Required") + 1;
-    let summaryIdx = finalMirrorHeaders.indexOf("Field Production") + 1;
-    let gapsIdx = finalMirrorHeaders.indexOf("QB Context & Gaps") + 1;
-    let vCommentIdx = finalMirrorHeaders.indexOf("Vendor Comment") + 1;
-    let fdhIdx = finalMirrorHeaders.indexOf("FDH Engineering ID") + 1;
-    let benchIdx = finalMirrorHeaders.indexOf("Historical Milestones") + 1; 
-
-    // ⚡ PERFORMANCE FIX: 2D Array Batching for Formatting
-    let numRows = highlightsData.length;
-    let numCols = finalMirrorHeaders.length;
-    
-    let bgGrid = Array(numRows).fill().map(() => Array(numCols).fill(null));
-    let colorGrid = Array(numRows).fill().map(() => Array(numCols).fill(null));
-    let weightGrid = Array(numRows).fill().map(() => Array(numCols).fill("normal"));
-    let styleGrid = Array(numRows).fill().map(() => Array(numCols).fill("normal"));
-    
-    highlightsData.forEach((hData, rIdx) => {
-      let rowNum = rIdx + 2;
-
-      // 1. BASE ROW FORMATTING
-      if (hData.rowState !== "ACTIVE") {
-        let rTheme = ROW_THEMES[hData.rowState];
-        for (let c = 0; c < numCols; c++) {
-            bgGrid[rIdx][c] = rTheme.bg;
-            colorGrid[rIdx][c] = rTheme.text;
-        }
-        if (hData.rowState === "COMPLETE" && flagsIdx > 0) {
-            styleGrid[rIdx][flagsIdx - 1] = "italic";
-        }
-      } else {
-        let pillTheme = BENNY_COLORS[hData.adaePaletteIdx];
-        if (hData.adaePaletteIdx !== "CLEAN") {
-            if (flagsIdx > 0) { bgGrid[rIdx][flagsIdx - 1] = pillTheme.bg; colorGrid[rIdx][flagsIdx - 1] = pillTheme.text; weightGrid[rIdx][flagsIdx - 1] = "bold"; }
-            if (draftIdx > 0) { bgGrid[rIdx][draftIdx - 1] = pillTheme.bg; colorGrid[rIdx][draftIdx - 1] = pillTheme.text; weightGrid[rIdx][draftIdx - 1] = "bold"; }
-        } else {
-            if (flagsIdx > 0) { colorGrid[rIdx][flagsIdx - 1] = BENNY_COLORS.CLEAN.text; weightGrid[rIdx][flagsIdx - 1] = "bold"; }
-            if (draftIdx > 0) { colorGrid[rIdx][draftIdx - 1] = ROW_THEMES.ACTIVE.text; }
-        }
-        
-        // Apply Red/Yellow override colors to specific warning columns
-        const applyColor = (colsArray, paletteColor) => {
-            colsArray.forEach(colName => {
-                let cIdx = finalMirrorHeaders.indexOf(colName);
-                if (cIdx > -1) {
-                    bgGrid[rIdx][cIdx] = paletteColor.bg;
-                    colorGrid[rIdx][cIdx] = paletteColor.text;
-                    weightGrid[rIdx][cIdx] = "bold";
-                }
-            });
-        };
-        applyColor(hData.colors.warn, BENNY_COLORS.RED); 
-        applyColor(hData.colors.mismatch, BENNY_COLORS.YELLOW); 
-        applyColor(hData.colors.ug, BENNY_COLORS.UG); 
-        applyColor(hData.colors.ae, BENNY_COLORS.AE); 
-        applyColor(hData.colors.fib, BENNY_COLORS.FIB); 
-        applyColor(hData.colors.nap, BENNY_COLORS.NAP);
-      }
-
-      if (fdhIdx > 0) weightGrid[rIdx][fdhIdx - 1] = "bold";
-      
-      // 2. SPECIFIC CELL FORMATTING FIX (Cognitive Load Fix)
-      if (summaryIdx > 0) {
-          if (hData.summary.includes("No new production")) {
-              colorGrid[rIdx][summaryIdx - 1] = "#a78bfa";
-          } else {
-              if (hData.rowState === "ACTIVE") bgGrid[rIdx][summaryIdx - 1] = "#faf5ff";
-              colorGrid[rIdx][summaryIdx - 1] = "#000000";
-              weightGrid[rIdx][summaryIdx - 1] = "bold";
-          }
-      }
-      
-      if (vCommentIdx > 0 && hData.cleanComment !== "") {
-          if (hData.rowState === "ACTIVE") bgGrid[rIdx][vCommentIdx - 1] = "#fef3c7";
-          colorGrid[rIdx][vCommentIdx - 1] = "#854d0e";
-          weightGrid[rIdx][vCommentIdx - 1] = "bold";
-      }
-      
-      if (benchIdx > 0 && hData.benchmark !== "") {
-          if (hData.rowState === "ACTIVE") bgGrid[rIdx][benchIdx - 1] = "#f8fafc";
-          colorGrid[rIdx][benchIdx - 1] = "#334155";
-      }
-
-      if (gapsIdx > 0 && hData.gaps !== "-") {
-          colorGrid[rIdx][gapsIdx - 1] = "#475569";
-          weightGrid[rIdx][gapsIdx - 1] = "bold";
-      }
-
-      // 3. RICH TEXT APPLICATION (Kept per-cell as it involves string offsets)
-      if (flagsIdx > 0 && hData.flags !== "✅ No Anomalies" && hData.flags !== "") {
-           let richText = SpreadsheetApp.newRichTextValue().setText(hData.flags);
-           let parts = hData.flags.split("\n"), start = 0;
-           parts.forEach((p, i) => {
-             if (hData.flagColors[i]) { let style = SpreadsheetApp.newTextStyle().setForegroundColor(hData.flagColors[i]).setBold(true).build(); richText.setTextStyle(start, start + p.length, style); }
-             start += p.length + 1; 
-           });
-           mirrorSheet.getRange(rowNum, flagsIdx).setRichTextValue(richText.build());
-      }
-      
-      if (draftIdx > 0 && hData.draft !== "") { 
-          let richText = SpreadsheetApp.newRichTextValue().setText(hData.draft); 
-          colorizeText(richText, hData.draft, "UG", TEXT_COLORS.UG); 
-          colorizeText(richText, hData.draft, "Strand", TEXT_COLORS.AE); 
-          colorizeText(richText, hData.draft, "Fiber", TEXT_COLORS.FIB); 
-          colorizeText(richText, hData.draft, "NAP", TEXT_COLORS.NAP); 
-          colorizeText(richText, hData.draft, "\\[CD Intelligence\\]:", "#6b21a8"); 
-          mirrorSheet.getRange(rowNum, draftIdx).setRichTextValue(richText.build()); 
-      }
-      
-      if(summaryIdx > 0 && !hData.summary.includes("No new production")) {
-          let richText = SpreadsheetApp.newRichTextValue().setText(hData.summary);
-          const styleAfter = (rt, fullText, prefix, defaultColor) => {
-              let idx = 0;
-              fullText.split('\n').forEach(line => {
-                  let isComplete = line.includes("★");
-                  let activeColor = isComplete ? TEXT_COLORS.DONE : defaultColor;
-                  if (line.startsWith(prefix)) {
-                      let style = SpreadsheetApp.newTextStyle().setForegroundColor(activeColor).setBold(true).build();
-                      rt.setTextStyle(idx + prefix.length, idx + line.length, style);
-                  } else if (line.startsWith("[Tracker] " + prefix)) {
-                      let tPrefix = "[Tracker] " + prefix;
-                      let style = SpreadsheetApp.newTextStyle().setForegroundColor(activeColor).setBold(true).build();
-                      rt.setTextStyle(idx + tPrefix.length, idx + line.length, style);
-                      let trkStyle = SpreadsheetApp.newTextStyle().setForegroundColor("#0284c7").setBold(true).build();
-                      rt.setTextStyle(idx, idx + "[Tracker]".length, trkStyle);
-                  }
-                  idx += line.length + 1;
-              });
-          };
-          styleAfter(richText, hData.summary, "UG: ", TEXT_COLORS.UG);
-          styleAfter(richText, hData.summary, "AE: ", TEXT_COLORS.AE);
-          styleAfter(richText, hData.summary, "FIB: ", TEXT_COLORS.FIB);
-          styleAfter(richText, hData.summary, "NAP: ", TEXT_COLORS.NAP);
-          colorizeText(richText, hData.summary, "★", TEXT_COLORS.STAR);
-
-          let linkIdx = hData.summary.indexOf("[📡 Tracker Linked]");
-          if (linkIdx > -1) {
-              let linkStyle = SpreadsheetApp.newTextStyle().setForegroundColor("#64748b").setBold(false).build();
-              richText.setTextStyle(linkIdx, linkIdx + "[📡 Tracker Linked]".length, linkStyle);
-          }
-          mirrorSheet.getRange(rowNum, summaryIdx).setRichTextValue(richText.build());
-      }
-      
-      if(vCommentIdx > 0 && hData.cleanComment !== "") {
-          let richText = SpreadsheetApp.newRichTextValue().setText(hData.cleanComment); 
-          colorizeText(richText, hData.cleanComment, "UG", TEXT_COLORS.UG); 
-          colorizeText(richText, hData.cleanComment, "Strand", TEXT_COLORS.AE); 
-          colorizeText(richText, hData.cleanComment, "Fiber", TEXT_COLORS.FIB); 
-          let trkNoteIdx = hData.cleanComment.indexOf("[Tracker Note]:");
-          if (trkNoteIdx > -1) {
-              let trkStyle = SpreadsheetApp.newTextStyle().setForegroundColor("#0284c7").setBold(true).build();
-              richText.setTextStyle(trkNoteIdx, trkNoteIdx + "[Tracker Note]:".length, trkStyle);
-          }
-          mirrorSheet.getRange(rowNum, vCommentIdx).setRichTextValue(richText.build());
-      }
-      
-      if(benchIdx > 0 && hData.benchmark !== "") {
-          let benchStr = hData.benchmark.replace(/\(100\%\)/g, "(100%) ★");
-          let richText = SpreadsheetApp.newRichTextValue().setText(benchStr);
-          
-          const styleBenchLine = (rt, fullText, prefix, defaultColor) => {
-              let idx = 0;
-              fullText.split('\n').forEach(line => {
-                  if (line.startsWith(prefix)) {
-                      let isComplete = line.includes("(100%)");
-                      let isPending = line.includes("Pending");
-                      let isReroute = line.includes("[Possible Reroute]") || line.includes("[Scope Deviation]");
-                      let activeColor = isComplete ? TEXT_COLORS.DONE : 
-                                        isReroute ? TEXT_COLORS.MISMATCH : 
-                                        isPending ? "#94a3b8" : defaultColor;
-                      let style = SpreadsheetApp.newTextStyle().setForegroundColor(activeColor).setBold(!isPending).build();
-                      rt.setTextStyle(idx + prefix.length, idx + line.length, style);
-                      let prefixStyle = SpreadsheetApp.newTextStyle().setForegroundColor("#000000").setBold(true).build();
-                      rt.setTextStyle(idx, idx + prefix.length, prefixStyle);
-                  }
-                  idx += line.length + 1;
-              });
-          };
-          styleBenchLine(richText, benchStr, "UG: ", TEXT_COLORS.UG);
-          styleBenchLine(richText, benchStr, "AE: ", TEXT_COLORS.AE);
-          styleBenchLine(richText, benchStr, "FIB: ", TEXT_COLORS.FIB);
-          styleBenchLine(richText, benchStr, "NAP: ", TEXT_COLORS.NAP);
-          colorizeText(richText, benchStr, "★", TEXT_COLORS.STAR);
-
-          let labelStyle = SpreadsheetApp.newTextStyle().setForegroundColor("#000000").setBold(true).build();
-          let locIdx = benchStr.indexOf("Loc:");
-          if (locIdx > -1) richText.setTextStyle(locIdx, locIdx + 4, labelStyle);
-          let cabIdx = benchStr.indexOf("Cab:");
-          if (cabIdx > -1) richText.setTextStyle(cabIdx, cabIdx + 4, labelStyle);
-          let litIdx = benchStr.indexOf("Lit:");
-          if (litIdx > -1) richText.setTextStyle(litIdx, litIdx + 4, labelStyle);
-          
-          mirrorSheet.getRange(rowNum, benchIdx).setRichTextValue(richText.build());
-      }
-      
-      if(gapsIdx > 0 && hData.gaps !== "-") {
-          let gRich = SpreadsheetApp.newRichTextValue().setText(hData.gaps);
-          let dangerStyle = SpreadsheetApp.newTextStyle().setForegroundColor("#991b1b").setBold(true).build();
-          let warnStyle = SpreadsheetApp.newTextStyle().setForegroundColor("#b45309").setBold(true).build();
-          let alertIdx = hData.gaps.indexOf("🚨");
-          if(alertIdx > -1) gRich.setTextStyle(alertIdx, hData.gaps.length, dangerStyle);
-          let warnIdx = hData.gaps.indexOf("⚠️");
-          if(warnIdx > -1) gRich.setTextStyle(warnIdx, hData.gaps.length, warnStyle);
-          mirrorSheet.getRange(rowNum, gapsIdx).setRichTextValue(gRich.build());
-      }
-    });
-    
-    // ⚡ BATCH WRITE FORMATTING GRIDS (Massive Speedup)
-    let updateRange = mirrorSheet.getRange(2, 1, numRows, numCols);
-    updateRange.setBackgrounds(bgGrid);
-    updateRange.setFontColors(colorGrid);
-    updateRange.setFontWeights(weightGrid);
-    updateRange.setFontStyles(styleGrid);
-    
-    mirrorSheet.hideColumns(finalMirrorHeaders.indexOf("Archive_Row") + 1);
-    try { mirrorSheet.getRange(1, 1, 1, mirrorSheet.getMaxColumns()).shiftColumnGroupDepth(-10); } catch(e){} 
-    let startGroupCol = finalMirrorHeaders.indexOf("Locates Called In") + 1;
-    let endGroupCol = finalMirrorHeaders.indexOf("Splicing Crews") + 1;
-    if (startGroupCol > 0 && endGroupCol >= startGroupCol) { try { mirrorSheet.getRange(1, startGroupCol, 1, endGroupCol - startGroupCol + 1).shiftColumnGroupDepth(1); mirrorSheet.collapseAllColumnGroups(); } catch(e) {} }
+    markTiming("finalSheetPolishMs", timerStartMs);
+    logMsg("BENNY ENGINE: Mirror sheet write complete for " + totalReviewRows + " rows. timings=" + JSON.stringify({
+      mirrorWriteMs: rebuildTimings.mirrorWriteMs || 0,
+      applyFormattingMs: rebuildTimings.applyFormattingMs || 0,
+      richTextAndHighlightPassMs: rebuildTimings.richTextAndHighlightPassMs || 0,
+      finalSheetPolishMs: rebuildTimings.finalSheetPolishMs || 0
+    }));
     
     // 🚀 NEW: Build and Save V2 Decoupled Payload for the Web App
-    buildAndSaveDashboardPayloadV2(reviewData, finalMirrorHeaders, highlightsData);
+    timerStartMs = Date.now();
+    buildAndSaveDashboardPayloadV2(reviewData, finalMirrorHeaders, highlightsData, refDict);
+    markTiming("payloadBuildMs", timerStartMs);
+    rebuildTimings.totalMs = Date.now() - engineStartMs;
+    logMsg("BENNY ENGINE rebuild timings: " + JSON.stringify(rebuildTimings));
     
   } else if (!isSilent) {
     SpreadsheetApp.getUi().alert(`No data found in Master Archive for Date(s): ${targetDates.join(", ")}`);

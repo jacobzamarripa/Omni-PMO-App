@@ -5,6 +5,19 @@
 
 // --- 1. DATA DICTIONARIES ---
 
+const ENGINE_REF_DICT_CACHE_KEY = 'engine_ref_dict_v1';
+const ENGINE_VENDOR_DICT_CACHE_KEY = 'engine_vendor_dict_v1';
+const ENGINE_DICT_CACHE_VERSION_PROP = 'ENGINE_DICT_CACHE_VERSION';
+
+function _getEngineDictCacheKey(baseKey) {
+  const version = PropertiesService.getScriptProperties().getProperty(ENGINE_DICT_CACHE_VERSION_PROP) || '0';
+  return `${baseKey}_${version}`;
+}
+
+function bumpEngineDictionaryCacheVersion() {
+  PropertiesService.getScriptProperties().setProperty(ENGINE_DICT_CACHE_VERSION_PROP, String(Date.now()));
+}
+
 function importReferenceData() {
   const folder = DriveApp.getFolderById(REFERENCE_FOLDER_ID);
   const files = folder.searchFiles('mimeType = "text/csv"');
@@ -36,6 +49,7 @@ function importReferenceData() {
   if (adminSheet && adminSheet.getLastRow() > 1) {
     adminSheet.getRange(2, 2, adminSheet.getLastRow() - 1, 1).clearContent();
   }
+  bumpEngineDictionaryCacheVersion();
 
   SpreadsheetApp.getUi().alert(`✅ Successfully imported Reference Data: \n${newestFile.getName()}\n\nCrossing check history has been reset — projects with blank Special Crossings? will be flagged for review.`);
 }
@@ -112,6 +126,20 @@ function populateDailyReviewFromReference() {
 }
 
 function getReferenceDictionary() {
+  const timingStartMs = Date.now();
+  const cache = CacheService.getScriptCache();
+  const cacheKey = _getEngineDictCacheKey(ENGINE_REF_DICT_CACHE_KEY);
+  const cached = getChunkedCache(cache, cacheKey);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      logMsg("BENNY ENGINE timing [getReferenceDictionary]: totalMs=" + (Date.now() - timingStartMs) + ", fdhCount=" + Object.keys(parsed).length + ", source=cache");
+      return parsed;
+    } catch (e) {
+      logMsg("WARN", "getReferenceDictionary.cache", e.message);
+    }
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const refSheet = ss.getSheetByName(REF_SHEET);
   let refDict = {};
@@ -280,6 +308,12 @@ function getReferenceDictionary() {
       });
     }
   }
+  try {
+    putChunkedCache(cache, cacheKey, JSON.stringify(refDict), 300);
+  } catch (e) {
+    logMsg("WARN", "getReferenceDictionary.cachePut", e.message);
+  }
+  logMsg("BENNY ENGINE timing [getReferenceDictionary]: totalMs=" + (Date.now() - timingStartMs) + ", fdhCount=" + Object.keys(refDict).length + ", source=live");
   return refDict;
 }
 
@@ -288,6 +322,7 @@ function getReferenceDictionary() {
  * and maps it to Project IDs for frontend injection.
  */
 function getSpecialXingsDictionary() {
+  const timingStartMs = Date.now();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(XING_SHEET);
   let dict = {};
@@ -326,6 +361,7 @@ function getSpecialXingsDictionary() {
       };
     }
   }
+  logMsg("BENNY ENGINE timing [getSpecialXingsDictionary]: totalMs=" + (Date.now() - timingStartMs) + ", fdhCount=" + Object.keys(dict).length);
   return dict;
 }
 
@@ -347,6 +383,21 @@ function parseTrackerPct(val) {
  */
 
 function getVendorLiveDictionary(refDict) {
+  const timingStartMs = Date.now();
+  const cache = CacheService.getScriptCache();
+  const cacheKey = _getEngineDictCacheKey(ENGINE_VENDOR_DICT_CACHE_KEY);
+  const cached = getChunkedCache(cache, cacheKey);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      logMsg("📉 Vendor Tracker Coverage: Successfully matched " + Object.keys(parsed).length + " projects. Same-market fuzzy corrections: 0. [cache]");
+      logMsg("BENNY ENGINE timing [getVendorLiveDictionary]: totalMs=" + (Date.now() - timingStartMs) + ", matchedProjects=" + Object.keys(parsed).length + ", source=cache");
+      return parsed;
+    } catch (e) {
+      logMsg("WARN", "getVendorLiveDictionary.cache", e.message);
+    }
+  }
+
   let vendorDict = {};
   let officialFDHs = refDict ? Object.keys(refDict) : [];
   let fuzzyCorrectionCount = 0;
@@ -451,5 +502,11 @@ function getVendorLiveDictionary(refDict) {
     }
     logMsg(`📉 Vendor Tracker Coverage: Successfully matched ${Object.keys(vendorDict).length} projects. Same-market fuzzy corrections: ${fuzzyCorrectionCount}.`);
   } catch (e) { logMsg(`⚠️ Vendor Tracker Error: ${e.toString()}`); }
+  try {
+    putChunkedCache(cache, cacheKey, JSON.stringify(vendorDict), 180);
+  } catch (e) {
+    logMsg("WARN", "getVendorLiveDictionary.cachePut", e.message);
+  }
+  logMsg("BENNY ENGINE timing [getVendorLiveDictionary]: totalMs=" + (Date.now() - timingStartMs) + ", matchedProjects=" + Object.keys(vendorDict).length + ", source=live");
   return vendorDict;
 }

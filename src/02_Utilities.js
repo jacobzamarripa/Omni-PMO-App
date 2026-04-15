@@ -1315,6 +1315,7 @@ function webAppReportLegacyBlockedAutoMatches() {
 // 🧠 WEB APP BRIDGE: Logs the Admin Check permanently and cleans the Daily Review sheet instantly
 function markAdminCheckComplete(fdhId) {
   CacheService.getScriptCache().removeAll(['dashboard_data_cache_v12_meta', 'dashboard_data_cache_v12', 'SIGNAL_FAST_current', 'dashboard_data_cache_v2_blob']);
+  bumpEngineDictionaryCacheVersion();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if(!adminSheet) return false;
@@ -1364,6 +1365,7 @@ function markAdminCheckComplete(fdhId) {
 
 function verifySpecialCrossings(fdhId) {
   CacheService.getScriptCache().removeAll(['dashboard_data_cache_v12_meta', 'dashboard_data_cache_v12', 'SIGNAL_FAST_current']);
+  bumpEngineDictionaryCacheVersion();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if (!adminSheet) return false;
@@ -1411,6 +1413,7 @@ function verifySpecialCrossings(fdhId) {
 // 🧠 NEW: Status Sync Log Bridge
 function markStatusSyncComplete(fdhId) {
   CacheService.getScriptCache().removeAll(['dashboard_data_cache_v12_meta', 'dashboard_data_cache_v12', 'SIGNAL_FAST_current', 'dashboard_data_cache_v2_blob']);
+  bumpEngineDictionaryCacheVersion();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let adminSheet = ss.getSheetByName("Admin_Logs");
   if(!adminSheet) return false;
@@ -1954,15 +1957,16 @@ function getDashboardDataV2() {
  * Builds the V2 dashboard payload from in-memory engine data and saves it to Drive.
  * Called at the end of generateDailyReviewCore.
  */
-function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData) {
+function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData, optionalRefDict) {
   try {
     const buildStartMs = Date.now();
     const payloadTimings = {};
     logMsg("🔄 V2 PAYLOAD: Building JSON Blob from Engine Data...");
     
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let refDict = optionalRefDict || null;
     const refDictStartMs = Date.now();
-    const refDict = getReferenceDictionary();
+    if (!refDict) refDict = getReferenceDictionary();
     payloadTimings.referenceDictMs = Date.now() - refDictStartMs;
     const vendorGoalsStartMs = Date.now();
     const vendorGoals = getVendorDailyGoals();

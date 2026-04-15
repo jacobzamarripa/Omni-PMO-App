@@ -231,6 +231,7 @@ function syncFromQBWebApp() {
     if (adminSheet && adminSheet.getLastRow() > 1) {
       adminSheet.getRange(2, 2, adminSheet.getLastRow() - 1, 2).clearContent(); // cols B+C: xingDate + statusDate
     }
+    bumpEngineDictionaryCacheVersion();
 
     logMsg("QB WebApp Sync: " + allRows.length + " records written to " + REF_SHEET);
 
@@ -584,6 +585,7 @@ function importFDHProjects() {
       "QB_SYNC_DATE":      timestamp,
       "QB_SYNC_COUNT":     String(allRows.length)
     });
+    bumpEngineDictionaryCacheVersion();
 
     const popResult = populateDailyReviewFromReference();
     logMsg("QB Sync complete: " + allRows.length + " records written to " + REF_SHEET + " — Daily Review: " + popResult.updated + " updated, " + popResult.added + " added");
