@@ -1319,6 +1319,68 @@ function syncAndRebuildDashboard() {
 // Phase 1 (_runQBSyncPhase1): QB API fetch + sheet writes (~3-5 min)
 // Phase 2 (_runQBSyncPhase2): engine rebuild + payload save (~2-4 min)
 
+function _deleteQBSyncTriggers_() {
+  return ScriptApp.getProjectTriggers()
+    .filter(function(t) {
+      const fn = t.getHandlerFunction();
+      return fn === '_runQBSyncPhase1' || fn === '_runQBSyncPhase2';
+    })
+    .reduce(function(count, t) {
+      ScriptApp.deleteTrigger(t);
+      return count + 1;
+    }, 0);
+}
+
+function _clearQBSyncTransientState_(props) {
+  [
+    'QB_SYNC_PHASE',
+    'QB_SYNC_STARTED',
+    'QB_SYNC_RUN_ID',
+    'QB_SYNC_PHASE1_TRIGGER_CREATED_AT',
+    'QB_SYNC_PHASE2_QUEUED_AT',
+    'QB_SYNC_PHASE2_TRIGGER_CREATED_AT',
+    'QB_SYNC_PHASE1_RESULT'
+  ].forEach(function(key) {
+    props.deleteProperty(key);
+  });
+}
+
+function _setQBSyncTerminalState_(props, status, payload) {
+  const completedAt = Date.now();
+  const updates = {
+    'QB_SYNC_STATUS': status,
+    'QB_SYNC_LAST_STATUS': status,
+    'QB_SYNC_LAST_COMPLETED': String(completedAt)
+  };
+
+  if (status === 'done') {
+    const resultJson = JSON.stringify(payload || {});
+    updates['QB_SYNC_RESULT'] = resultJson;
+    updates['QB_SYNC_LAST_RESULT'] = resultJson;
+    updates['QB_SYNC_ERROR'] = '';
+    updates['QB_SYNC_LAST_ERROR'] = '';
+  } else {
+    const errorMessage = payload || 'Unknown error';
+    updates['QB_SYNC_ERROR'] = errorMessage;
+    updates['QB_SYNC_LAST_ERROR'] = errorMessage;
+  }
+
+  props.setProperties(updates);
+  _clearQBSyncTransientState_(props);
+
+  const runId = props.getProperty('QB_SYNC_LAST_RUN_ID') || 'unknown';
+  if (status === 'done') {
+    const result = payload || {};
+    logMsg(
+      'QB Async Sync terminal state — status=done, runId=' + runId +
+      ', date=' + (result.date || 'unknown') +
+      ', records=' + (result.count == null ? 'unknown' : result.count)
+    );
+  } else {
+    logMsg('QB Async Sync terminal state — status=error, runId=' + runId + ', error=' + (payload || 'Unknown error'));
+  }
+}
+
 /**
  * Called by the frontend. Clears stale state, cleans up any orphaned triggers,
  * then fires Phase 1. Returns immediately so the browser never waits.
@@ -1333,18 +1395,11 @@ function kickoffQBSync() {
     const elapsed = started ? Date.now() - started : 0;
     if (elapsed < 14 * 60 * 1000) return { pending: true, alreadyRunning: true };
     logMsg('kickoffQBSync: stale running status — resetting and re-triggering.');
+    _clearQBSyncTransientState_(props);
   }
 
   // Clean up any orphaned triggers from prior failed runs
-  const deletedTriggerCount = ScriptApp.getProjectTriggers()
-    .filter(function(t) {
-      const fn = t.getHandlerFunction();
-      return fn === '_runQBSyncPhase1' || fn === '_runQBSyncPhase2';
-    })
-    .reduce(function(count, t) {
-      ScriptApp.deleteTrigger(t);
-      return count + 1;
-    }, 0);
+  const deletedTriggerCount = _deleteQBSyncTriggers_();
 
   const runId = String(kickoffStartedAt);
 
@@ -1352,13 +1407,17 @@ function kickoffQBSync() {
     'QB_SYNC_STATUS':  'running',
     'QB_SYNC_PHASE':   '1',
     'QB_SYNC_STARTED': String(kickoffStartedAt),
-    'QB_SYNC_RUN_ID': runId
+    'QB_SYNC_RUN_ID': runId,
+    'QB_SYNC_LAST_STARTED': String(kickoffStartedAt),
+    'QB_SYNC_LAST_RUN_ID': runId,
+    'QB_SYNC_ERROR': ''
   });
 
   const phase1TriggerCreatedAt = Date.now();
   props.setProperty('QB_SYNC_PHASE1_TRIGGER_CREATED_AT', String(phase1TriggerCreatedAt));
   ScriptApp.newTrigger('_runQBSyncPhase1').timeBased().after(1000).create();
   logMsg('QB Async Sync kickoff scheduled', 'runId=' + runId + ', deletedTriggers=' + deletedTriggerCount + ', phase1TriggerDelayMs=' + (phase1TriggerCreatedAt - kickoffStartedAt));
+  if (typeof logAutomationHealthSummary === 'function') logAutomationHealthSummary('Automation health after QB kickoff');
   return { pending: true };
 }
 
@@ -1380,7 +1439,7 @@ function _runQBSyncPhase1(e) {
     logMsg('QB Async Sync — Phase 1 start (QB fetch + sheet writes)', 'runId=' + runId + ', triggerLatencyMs=' + (phase1TriggerLatencyMs === null ? 'unknown' : phase1TriggerLatencyMs));
     const syncResult = syncFromQBWebApp();
     if (!syncResult.success) {
-      props.setProperties({ 'QB_SYNC_STATUS': 'error', 'QB_SYNC_ERROR': syncResult.error || 'Phase 1 failed' });
+      _setQBSyncTerminalState_(props, 'error', syncResult.error || 'Phase 1 failed');
       return;
     }
     const phase2QueuedAt = Date.now();
@@ -1402,7 +1461,7 @@ function _runQBSyncPhase1(e) {
     logMsg('QB Async Sync — Phase 1 complete (' + syncResult.count + ' records). Chaining Phase 2.', 'runId=' + runId + ', phase2TriggerDelayMs=' + (phase2TriggerCreatedAt - phase2QueuedAt));
   } catch (err) {
     logMsg('QB Async Sync Phase 1 ERROR: ' + err.message);
-    props.setProperties({ 'QB_SYNC_STATUS': 'error', 'QB_SYNC_ERROR': err.message });
+    _setQBSyncTerminalState_(props, 'error', err.message);
   }
 }
 
@@ -1438,19 +1497,16 @@ function _runQBSyncPhase2(e) {
       totalPhase2Ms: Date.now() - phase2StartMs
     };
     if (payloadTimings && Object.keys(payloadTimings).length) phase2Timings.payloadBuild = payloadTimings;
-    props.setProperties({
-      'QB_SYNC_STATUS': 'done',
-      'QB_SYNC_RESULT': JSON.stringify({
-        count:     phase1.count,
-        timestamp: phase1.timestamp,
-        date:      latestDate,
-        timings:   Object.assign({}, phase1.timings || {}, phase2Timings)
-      })
+    _setQBSyncTerminalState_(props, 'done', {
+      count:     phase1.count,
+      timestamp: phase1.timestamp,
+      date:      latestDate,
+      timings:   Object.assign({}, phase1.timings || {}, phase2Timings)
     });
     logMsg('QB Async Sync — Phase 2 complete. date=' + latestDate + ', records=' + phase1.count + ', timings=' + JSON.stringify(phase2Timings));
   } catch (err) {
     logMsg('QB Async Sync Phase 2 ERROR: ' + err.message);
-    props.setProperties({ 'QB_SYNC_STATUS': 'error', 'QB_SYNC_ERROR': err.message });
+    _setQBSyncTerminalState_(props, 'error', err.message);
   }
 }
 
@@ -1476,9 +1532,10 @@ function getQBSyncStatus() {
     result.phase = props.getProperty('QB_SYNC_PHASE') || '1';
     // Auto-reset stale status — allow 14 min to cover both Phase 1 + Phase 2
     if (result.elapsedMs > 14 * 60 * 1000) {
-      props.setProperty('QB_SYNC_STATUS', 'idle');
+      _deleteQBSyncTriggers_();
+      _setQBSyncTerminalState_(props, 'error', 'Sync timed out after 14 min. Check Apps Script execution logs.');
       result.status = 'error';
-      result.error  = 'Sync timed out after 14 min. Check Apps Script execution logs.';
+      result.error  = props.getProperty('QB_SYNC_ERROR');
     }
   }
 

@@ -1,5 +1,14 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-15: Automation health + trigger reliability hardening validated
+- **Daily automation trigger family hardened:** `setupDailyTrigger()` now reinstalls only the `runMiddayAutomation` family instead of deleting all project triggers. Verified healthy at **3/3** active triggers.
+- **CD trigger family made observable:** `installCDTrigger()` / `removeCDTrigger()` now record install/remove timestamps and active counts. Verified healthy at **11/11** active triggers with `pendingCount=0`.
+- **QB async sync state hardened:** Added shared cleanup for orphaned phase triggers and transient properties, plus terminal-state persistence (`lastStatus`, `lastRunId`, `lastResult`, `lastError`) and compact operator logs in `System_Logs`.
+- **Archive resume path deduped:** resumable ingestion now deletes stale `processIncomingResume` triggers before scheduling a new one, and records resume schedule/start timestamps for health inspection.
+- **Operator visibility added:** `getAutomationHealth()`, snapshot helpers, and concise `System_Logs` summaries now expose daily automation, QB sync, archive ingestion, and CD ingestion health without relying on Apps Script execution logs.
+- **Trigger-context bug fixed:** `backfillMissingReports()` now supports silent mode so scheduled `runMiddayAutomation()` no longer crashes on `SpreadsheetApp.getUi()` alerts. Latest validated run completed with `daily=done`, `dailyTriggers=3/3`, `resume=0`, `archive=idle`, `cdTriggers=11/11`.
+- **Verification:** `node scripts/validate-sync-hotpaths.js` passed after the hardening and silent gap-scan fix.
+
 > [!info] 2026-04-15: Turn-20 mental state checkpoint — Phase 2 stabilized, focus shifts to trigger latency
 - **Confirmed wins:** Phase 2 rebuild cost has been materially reduced through mirror-write fast paths, payload `refDict` reuse, and short-lived dictionary caching. Latest validated rebuild landed around **48.8s**, down from prior ~71s and far below the earlier ~201s baseline.
 - **Current bottleneck:** End-to-end async sync time is now dominated by the scheduler gap between Phase 1 completion and Phase 2 start (`queueLatencyMs` reached ~169s in the latest production log), not rebuild compute.

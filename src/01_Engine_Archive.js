@@ -140,8 +140,17 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
       return;
     }
     props.setProperty("INGESTION_IN_PROGRESS", "true");
+    props.setProperties({
+      "INGESTION_STATUS": "running",
+      "INGESTION_LAST_STARTED_AT": String(Date.now())
+    });
     setupSheets();
     logMsg("🚀 STARTING: Folder Ingestion (Auto-Scan)");
+  } else {
+    props.setProperties({
+      "INGESTION_STATUS": "running",
+      "INGESTION_LAST_RESUME_STARTED_AT": String(Date.now())
+    });
   }
 
   const keys = getExistingKeys(); 
@@ -169,14 +178,29 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
   
   if (status.completed === false) {
     // ⏰ TIMEOUT: Schedule resume
-    logMsg(`⌛ TIMEOUT REACHED: Processed partial batch (${newRowsAppended.length} rows). Scheduling resume...`);
+    const deletedResumeTriggers = ScriptApp.getProjectTriggers()
+      .filter(function(trigger) { return trigger.getHandlerFunction() === 'processIncomingResume'; })
+      .reduce(function(count, trigger) {
+        ScriptApp.deleteTrigger(trigger);
+        return count + 1;
+      }, 0);
+    const resumeScheduledAt = Date.now();
+    logMsg(`⌛ TIMEOUT REACHED: Processed partial batch (${newRowsAppended.length} rows). Scheduling resume... existingResumeTriggersDeleted=${deletedResumeTriggers}`);
     ScriptApp.newTrigger('processIncomingResume')
       .timeBased()
       .after(60000) // 1 minute delay
       .create();
+    props.setProperties({
+      "INGESTION_STATUS": "resume_scheduled",
+      "INGESTION_LAST_RESUME_SCHEDULED_AT": String(resumeScheduledAt)
+    });
   } else {
     // ✅ COMPLETE
-    props.setProperty("INGESTION_IN_PROGRESS", "false");
+    props.setProperties({
+      "INGESTION_IN_PROGRESS": "false",
+      "INGESTION_STATUS": "idle",
+      "INGESTION_LAST_COMPLETED_AT": String(Date.now())
+    });
     populateQuickBaseTabDirectly(allParsedRowsForQB);
     // 🧠 autoArchiveProcessedFiles() is no longer needed here as files move immediately
     logMsg(`✅ INGESTION COMPLETE: Added ${newRowsAppended.length} rows to Archive.`);
@@ -201,11 +225,15 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
 function processIncomingResume() {
   // Clean up the trigger first
   const triggers = ScriptApp.getProjectTriggers();
+  let deletedTriggerCount = 0;
   for (let i = 0; i < triggers.length; i++) {
     if (triggers[i].getHandlerFunction() === 'processIncomingResume') {
       ScriptApp.deleteTrigger(triggers[i]);
+      deletedTriggerCount++;
     }
   }
+  PropertiesService.getScriptProperties().setProperty("INGESTION_LAST_RESUME_STARTED_AT", String(Date.now()));
+  logMsg(`🔁 RESUMING INGESTION: deletedResumeTriggers=${deletedTriggerCount}`);
   processIncomingForQuickBase(true, true);
 }
 

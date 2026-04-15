@@ -256,6 +256,7 @@ function writeCDRowsToSheet_(rows) {
 function getCDIngestionStatus() {
   try {
     const folders = getCDFolders_();
+    const props = PropertiesService.getScriptProperties();
     const files = folders.toAnalyze.getFilesByType(MimeType.PDF);
     let count = 0;
     while (files.hasNext()) {
@@ -263,7 +264,15 @@ function getCDIngestionStatus() {
       const desc = file.getDescription() || "";
       if (desc !== CD_PROCESSED_TAG && desc !== CD_CLAIMED_TAG) count++;
     }
-    return { success: true, pendingCount: count };
+    return {
+      success: true,
+      pendingCount: count,
+      triggerCount: ScriptApp.getProjectTriggers().filter(function(t) {
+        return t.getHandlerFunction() === 'processCDQueue';
+      }).length,
+      lastInstalledAt: props.getProperty('CD_TRIGGER_LAST_INSTALLED_AT') || '',
+      lastRemovedAt: props.getProperty('CD_TRIGGER_LAST_REMOVED_AT') || ''
+    };
   } catch (e) {
     return { success: false, error: e.message };
   }
@@ -357,8 +366,9 @@ function getPendingCDFindings() {
 // --- Trigger management ---
 
 function installCDTrigger() {
+  const props = PropertiesService.getScriptProperties();
   // Remove existing to avoid duplicates
-  removeCDTrigger();
+  const deletedTriggerCount = removeCDTrigger();
 
   // Run hourly between 7 AM and 5 PM
   [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].forEach(hour => {
@@ -369,12 +379,24 @@ function installCDTrigger() {
       .create();
   });
 
-  logMsg('CDIngestion: Hourly triggers (7 AM - 5 PM) installed.');
+  const createdTriggerCount = ScriptApp.getProjectTriggers().filter(function(t) {
+    return t.getHandlerFunction() === 'processCDQueue';
+  }).length;
+  props.setProperties({
+    'CD_TRIGGER_LAST_INSTALLED_AT': String(Date.now()),
+    'CD_TRIGGER_EXPECTED_COUNT': '11'
+  });
+  logMsg('CDIngestion: Hourly triggers (7 AM - 5 PM) installed. deleted=' + deletedTriggerCount + ', active=' + createdTriggerCount);
 }
 
 function removeCDTrigger() {
-  ScriptApp.getProjectTriggers()
+  const deletedTriggerCount = ScriptApp.getProjectTriggers()
     .filter(t => t.getHandlerFunction() === 'processCDQueue')
-    .forEach(t => ScriptApp.deleteTrigger(t));
-  logMsg('CDIngestion: Trigger removed.');
+    .reduce(function(count, trigger) {
+      ScriptApp.deleteTrigger(trigger);
+      return count + 1;
+    }, 0);
+  PropertiesService.getScriptProperties().setProperty('CD_TRIGGER_LAST_REMOVED_AT', String(Date.now()));
+  logMsg('CDIngestion: Trigger removed. deleted=' + deletedTriggerCount);
+  return deletedTriggerCount;
 }

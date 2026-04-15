@@ -842,23 +842,104 @@ function processDateSelection(dateStr, actionName) {
   }
 }
 function importArchiveFolder() { const keys = getExistingKeys(); const refDict = getReferenceDictionary(); processFolderRecursive(DriveApp.getFolderById(ARCHIVE_FOLDER_ID), keys, refDict, "", true, null); SpreadsheetApp.getUi().alert("✅ Master Archive Updated."); }
+function _listProjectTriggersByHandler_(handlerName) {
+  return ScriptApp.getProjectTriggers().filter(function(trigger) {
+    return trigger.getHandlerFunction() === handlerName;
+  });
+}
+
+function _deleteProjectTriggersByHandler_(handlerName) {
+  return _listProjectTriggersByHandler_(handlerName).reduce(function(count, trigger) {
+    ScriptApp.deleteTrigger(trigger);
+    return count + 1;
+  }, 0);
+}
+
+function _readJsonScriptProperty_(props, key) {
+  try {
+    return JSON.parse(props.getProperty(key) || 'null');
+  } catch (err) {
+    return null;
+  }
+}
+
+function _buildAutomationHealthSummary_(health) {
+  const daily = health && health.dailyAutomation ? health.dailyAutomation : {};
+  const qb = health && health.qbSync ? health.qbSync : {};
+  const archive = health && health.archiveIngestion ? health.archiveIngestion : {};
+  const cd = health && health.cdIngestion ? health.cdIngestion : {};
+  const cdQueue = cd.queue || {};
+
+  return [
+    'daily=' + (daily.lastStatus || 'unknown'),
+    'dailyTriggers=' + String(daily.triggerCount == null ? '?' : daily.triggerCount) + '/' + String(daily.expectedTriggerCount == null ? '?' : daily.expectedTriggerCount),
+    'qbActive=' + (qb.activeStatus || 'idle'),
+    'qbLast=' + (qb.lastStatus || 'none'),
+    'resume=' + String(archive.resumeTriggerCount == null ? '?' : archive.resumeTriggerCount),
+    'archive=' + (archive.status || 'unknown'),
+    'cdTriggers=' + String(cd.triggerCount == null ? '?' : cd.triggerCount) + '/' + String(cd.expectedTriggerCount == null ? '?' : cd.expectedTriggerCount),
+    'cdPending=' + String(cdQueue.pendingCount == null ? '?' : cdQueue.pendingCount)
+  ].join(', ');
+}
+
+function logAutomationHealthSummary(contextLabel) {
+  const health = getAutomationHealth();
+  const label = contextLabel || 'Automation health snapshot';
+  const summary = _buildAutomationHealthSummary_(health);
+  logMsg(label + ' — ' + summary);
+  return summary;
+}
+
 function setupDailyTrigger() {
-  const triggers = ScriptApp.getProjectTriggers();
-  for (let i = 0; i < triggers.length; i++) ScriptApp.deleteTrigger(triggers[i]);
-  
+  const props = PropertiesService.getScriptProperties();
+  const deletedTriggerCount = _deleteProjectTriggersByHandler_('runMiddayAutomation');
+  const scheduleHours = [7, 12, 16];
+
   // 3 Data Sync Windows (7am, 12pm, 4pm)
-  [7, 12, 16].forEach(hour => {
+  scheduleHours.forEach(hour => {
     ScriptApp.newTrigger('runMiddayAutomation').timeBased().atHour(hour).everyDays(1).create();
   });
-  
-  logMsg("✅ SIGNAL: Automatic sync triggers programmed for 7am, 12pm, 4pm.");
+
+  const createdTriggerCount = _listProjectTriggersByHandler_('runMiddayAutomation').length;
+  props.setProperties({
+    'DAILY_AUTOMATION_TRIGGER_INSTALLED_AT': String(Date.now()),
+    'DAILY_AUTOMATION_TRIGGER_HOURS': scheduleHours.join(','),
+    'DAILY_AUTOMATION_TRIGGER_COUNT': String(createdTriggerCount)
+  });
+
+  logMsg("✅ SIGNAL: Automatic sync triggers programmed for 7am, 12pm, 4pm. deleted=" + deletedTriggerCount + ", active=" + createdTriggerCount);
   SpreadsheetApp.getUi().alert("✅ Daily Automations Updated: Syncs at 7AM, 12PM, 4PM.");
 }
 
 function runMiddayAutomation() {
+  const props = PropertiesService.getScriptProperties();
+  const startedAt = Date.now();
+  props.setProperties({
+    'DAILY_AUTOMATION_LAST_STARTED_AT': String(startedAt),
+    'DAILY_AUTOMATION_LAST_STATUS': 'running',
+    'DAILY_AUTOMATION_LAST_ERROR': ''
+  });
+
   logMsg("🤖 STARTING MIDDAY AUTOMATION...");
-  executeDailyAutomationPipeline();
-  logMsg("✅ MIDDAY AUTOMATION COMPLETE.");
+  try {
+    const summary = executeDailyAutomationPipeline();
+    props.setProperties({
+      'DAILY_AUTOMATION_LAST_STATUS': 'done',
+      'DAILY_AUTOMATION_LAST_COMPLETED_AT': String(Date.now()),
+      'DAILY_AUTOMATION_LAST_SUMMARY': JSON.stringify(summary || {})
+    });
+    logMsg("✅ MIDDAY AUTOMATION COMPLETE. summary=" + JSON.stringify(summary || {}));
+    logAutomationHealthSummary('Automation health after midday run');
+  } catch (err) {
+    props.setProperties({
+      'DAILY_AUTOMATION_LAST_STATUS': 'error',
+      'DAILY_AUTOMATION_LAST_COMPLETED_AT': String(Date.now()),
+      'DAILY_AUTOMATION_LAST_ERROR': err.message || 'Unknown error'
+    });
+    logMsg("❌ MIDDAY AUTOMATION ERROR: " + (err.message || err));
+    logAutomationHealthSummary('Automation health after midday error');
+    throw err;
+  }
 }
 
 function executeDailyAutomationPipeline() {
@@ -895,7 +976,80 @@ function executeDailyAutomationPipeline() {
   generateDailyReviewCore(targetDateStr, refDict, true);
   
   // 🔍 Run Gap Scan to backfill any missing reports for the last 7 days
-  backfillMissingReports();
+  backfillMissingReports(true);
+
+  const resumeTriggerCount = _listProjectTriggersByHandler_('processIncomingResume').length;
+  return {
+    targetDate: targetDateStr,
+    qbSyncSuccess: !!(syncResult && syncResult.success),
+    qbSyncCount: syncResult && syncResult.success ? syncResult.count : 0,
+    resumeTriggerCount: resumeTriggerCount
+  };
+}
+
+function getAutomationHealth() {
+  const props = PropertiesService.getScriptProperties();
+  const cdStatus = typeof getCDIngestionStatus === 'function' ? getCDIngestionStatus() : null;
+  const qbLastResult = _readJsonScriptProperty_(props, 'QB_SYNC_LAST_RESULT');
+  const dailyLastSummary = _readJsonScriptProperty_(props, 'DAILY_AUTOMATION_LAST_SUMMARY');
+
+  return {
+    success: true,
+    generatedAt: new Date().toISOString(),
+    dailyAutomation: {
+      triggerCount: _listProjectTriggersByHandler_('runMiddayAutomation').length,
+      expectedTriggerCount: 3,
+      installedAt: props.getProperty('DAILY_AUTOMATION_TRIGGER_INSTALLED_AT') || '',
+      scheduleHours: props.getProperty('DAILY_AUTOMATION_TRIGGER_HOURS') || '7,12,16',
+      lastStartedAt: props.getProperty('DAILY_AUTOMATION_LAST_STARTED_AT') || '',
+      lastCompletedAt: props.getProperty('DAILY_AUTOMATION_LAST_COMPLETED_AT') || '',
+      lastStatus: props.getProperty('DAILY_AUTOMATION_LAST_STATUS') || 'unknown',
+      lastError: props.getProperty('DAILY_AUTOMATION_LAST_ERROR') || '',
+      lastSummary: dailyLastSummary
+    },
+    qbSync: {
+      activeStatus: props.getProperty('QB_SYNC_STATUS') || 'idle',
+      activePhase: props.getProperty('QB_SYNC_PHASE') || '',
+      activeStartedAt: props.getProperty('QB_SYNC_STARTED') || '',
+      lastStatus: props.getProperty('QB_SYNC_LAST_STATUS') || '',
+      lastStartedAt: props.getProperty('QB_SYNC_LAST_STARTED') || '',
+      lastCompletedAt: props.getProperty('QB_SYNC_LAST_COMPLETED') || '',
+      lastRunId: props.getProperty('QB_SYNC_LAST_RUN_ID') || '',
+      lastError: props.getProperty('QB_SYNC_LAST_ERROR') || '',
+      lastResult: qbLastResult
+    },
+    archiveIngestion: {
+      inProgress: props.getProperty('INGESTION_IN_PROGRESS') === 'true',
+      status: props.getProperty('INGESTION_STATUS') || '',
+      lastStartedAt: props.getProperty('INGESTION_LAST_STARTED_AT') || '',
+      lastCompletedAt: props.getProperty('INGESTION_LAST_COMPLETED_AT') || '',
+      lastResumeScheduledAt: props.getProperty('INGESTION_LAST_RESUME_SCHEDULED_AT') || '',
+      lastResumeStartedAt: props.getProperty('INGESTION_LAST_RESUME_STARTED_AT') || '',
+      resumeTriggerCount: _listProjectTriggersByHandler_('processIncomingResume').length
+    },
+    cdIngestion: {
+      triggerCount: _listProjectTriggersByHandler_('processCDQueue').length,
+      expectedTriggerCount: 11,
+      lastInstalledAt: props.getProperty('CD_TRIGGER_LAST_INSTALLED_AT') || '',
+      lastRemovedAt: props.getProperty('CD_TRIGGER_LAST_REMOVED_AT') || '',
+      queue: cdStatus
+    }
+  };
+}
+
+function getAutomationHealthJson() {
+  return JSON.stringify(getAutomationHealth(), null, 2);
+}
+
+function saveAutomationHealthSnapshot() {
+  const snapshot = getAutomationHealthJson();
+  PropertiesService.getScriptProperties().setProperty('AUTOMATION_HEALTH_SNAPSHOT', snapshot);
+  logAutomationHealthSummary('Automation health snapshot saved');
+  return snapshot;
+}
+
+function readAutomationHealthSnapshot() {
+  return PropertiesService.getScriptProperties().getProperty('AUTOMATION_HEALTH_SNAPSHOT') || '';
 }
 function moveIncomingFoldersToArchive() { 
   logMsg("🧹 STARTING MIDNIGHT SWEEP..."); 
@@ -1788,7 +1942,7 @@ function resetIngestionLock() {
  * 🔍 GAP SCAN: Compares Archive dates against existing reports in Drive.
  * Generates any missing Daily Production Reports for the last 7 days.
  */
-function backfillMissingReports() {
+function backfillMissingReports(isSilent) {
   logMsg("🔍 STARTING: Missing Reports Gap Scan (7-Day Lookback)");
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const histSheet = ss.getSheetByName(HISTORY_SHEET);
@@ -1814,7 +1968,7 @@ function backfillMissingReports() {
 
   if (archiveDates.size === 0) {
     logMsg("✅ GAP SCAN: No archive data found in the last 7 days.");
-    SpreadsheetApp.getUi().alert("Gap Scan Complete.\n\nNo production data found in the Master Archive for the last 7 days.");
+    if (!isSilent) SpreadsheetApp.getUi().alert("Gap Scan Complete.\n\nNo production data found in the Master Archive for the last 7 days.");
     return;
   }
 
@@ -1873,7 +2027,7 @@ function backfillMissingReports() {
 
   if (missingDates.length === 0) {
     logMsg("✅ GAP SCAN COMPLETE: No missing reports found in the 7-day window.");
-    SpreadsheetApp.getUi().alert("Gap Scan Complete.\n\nAll dates in the last 7 days already have a corresponding compiled report.");
+    if (!isSilent) SpreadsheetApp.getUi().alert("Gap Scan Complete.\n\nAll dates in the last 7 days already have a corresponding compiled report.");
     return;
   }
 
@@ -1895,7 +2049,7 @@ function backfillMissingReports() {
   });
 
   logMsg(`✅ BACKFILL COMPLETE: Generated ${missingDates.length} reports.`);
-  SpreadsheetApp.getUi().alert(`Backfill Complete.\n\nGenerated ${missingDates.length} missing reports into the 01_Pending_Upload folder.`);
+  if (!isSilent) SpreadsheetApp.getUi().alert(`Backfill Complete.\n\nGenerated ${missingDates.length} missing reports into the 01_Pending_Upload folder.`);
 }
 
 /**

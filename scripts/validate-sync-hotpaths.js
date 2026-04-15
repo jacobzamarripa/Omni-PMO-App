@@ -38,6 +38,8 @@ const configSource = read('src/00_Config.js');
 const qbSource = read('src/06_QBSync.js');
 const archiveSource = read('src/01_Engine_Archive.js');
 const dictSource = read('src/01_Engine_DataDicts.js');
+const utilSource = read('src/02_Utilities.js');
+const cdSource = read('src/05_CDIngestion.js');
 
 const context = { console };
 vm.createContext(context);
@@ -65,11 +67,31 @@ assert(/QB_SYNC_PHASE1_TRIGGER_CREATED_AT/.test(qbSource), 'Async sync records w
 assert(/'QB_SYNC_PHASE2_TRIGGER_CREATED_AT': String\(phase2TriggerCreatedAt\)/.test(qbSource), 'Async sync records when Phase 2 trigger was scheduled');
 assert(/'QB_SYNC_RUN_ID': runId/.test(qbSource), 'Async sync tags each run with a run ID');
 assert(/deletedTriggers=/.test(qbSource), 'Async kickoff logs orphaned trigger cleanup count');
+assert(/function _deleteQBSyncTriggers_\(\)/.test(qbSource), 'Async sync exposes a shared trigger cleanup helper');
+assert(/function _clearQBSyncTransientState_\(props\)/.test(qbSource), 'Async sync exposes a transient state cleanup helper');
+assert(/function _setQBSyncTerminalState_\(props, status, payload\)/.test(qbSource), 'Async sync centralizes terminal state writes');
 assert(/const phase1TriggerLatencyMs = phase1TriggerCreatedAt \? phase1StartMs - phase1TriggerCreatedAt : null;/.test(qbSource), 'Async sync computes Phase 1 trigger latency explicitly');
 assert(/const phase2QueueLatencyMs = queuedAtMs \? phase2StartMs - queuedAtMs : null;/.test(qbSource), 'Async sync computes Phase 2 queue latency explicitly');
 assert(/const phase2TriggerLatencyMs = phase2TriggerCreatedAt \? phase2StartMs - phase2TriggerCreatedAt : null;/.test(qbSource), 'Async sync computes Phase 2 trigger latency explicitly');
 assert(/phase1TriggerLatencyMs: phase1\.triggerLatencyMs == null \? null : phase1\.triggerLatencyMs,/.test(qbSource), 'Async sync persists Phase 1 trigger latency into Phase 2 timing summary');
-assert(/V2 PAYLOAD timings: /.test(read('src/02_Utilities.js')), 'Payload builder logs step timings');
+assert(/_setQBSyncTerminalState_\(props, 'error', 'Sync timed out after 14 min\. Check Apps Script execution logs\.'\);/.test(qbSource), 'Async sync converts stale running state into a terminal timeout error');
+assert(/QB Async Sync terminal state — status=done, runId=/.test(qbSource), 'QB async sync logs a compact done-state summary');
+assert(/QB Async Sync terminal state — status=error, runId=/.test(qbSource), 'QB async sync logs a compact error-state summary');
+assert(/logAutomationHealthSummary\('Automation health after QB kickoff'\);/.test(qbSource), 'QB kickoff logs the current automation health summary');
+assert(/V2 PAYLOAD timings: /.test(utilSource), 'Payload builder logs step timings');
+assert(/function _deleteProjectTriggersByHandler_\(handlerName\)/.test(utilSource), 'Automation utilities expose family-scoped trigger deletion');
+assert(/const deletedTriggerCount = _deleteProjectTriggersByHandler_\('runMiddayAutomation'\);/.test(utilSource), 'Daily automation trigger install only deletes its own trigger family');
+assert(/function getAutomationHealth\(\)/.test(utilSource), 'Automation utilities expose a consolidated health snapshot');
+assert(/function _buildAutomationHealthSummary_\(health\)/.test(utilSource), 'Automation utilities expose a compact health summary builder');
+assert(/function logAutomationHealthSummary\(contextLabel\)/.test(utilSource), 'Automation utilities expose a compact health logger');
+assert(/resumeTriggerCount: _listProjectTriggersByHandler_\('processIncomingResume'\)\.length/.test(utilSource), 'Automation health reports archive resume trigger count');
+assert(/logAutomationHealthSummary\('Automation health after midday run'\);/.test(utilSource), 'Daily automation logs a health summary after successful runs');
+assert(/logAutomationHealthSummary\('Automation health after midday error'\);/.test(utilSource), 'Daily automation logs a health summary after failed runs');
+assert(/logAutomationHealthSummary\('Automation health snapshot saved'\);/.test(utilSource), 'Saving a health snapshot also logs a compact summary');
+assert(/backfillMissingReports\(true\);/.test(utilSource), 'Scheduled automation runs the gap scan in silent mode');
+assert(/function backfillMissingReports\(isSilent\)/.test(utilSource), 'Gap scan accepts a silent-mode flag');
+assert(/if \(!isSilent\)[\s\S]*All dates in the last 7 days already have a corresponding compiled report\./.test(utilSource), 'Gap scan suppresses the no-gap alert during silent runs');
+assert(/if \(!isSilent\)[\s\S]*Generated \$\{missingDates.length\} missing reports into the 01_Pending_Upload folder\./.test(utilSource), 'Gap scan suppresses the backfill-complete alert during silent runs');
 
 assert(/const totalReviewRows = reviewData\.length;/.test(archiveSource), 'Review engine tracks total review row count');
 assert(/if \(totalReviewRows === 0\) \{[\s\S]*buildAndSaveDashboardPayloadV2\(\[\], finalMirrorHeaders, \[\], refDict\);[\s\S]*Empty review fast path completed/m.test(archiveSource), 'Review engine has an empty-review fast path');
@@ -78,6 +100,9 @@ assert(/BENNY ENGINE rebuild timings: /.test(archiveSource), 'Review engine logs
 assert(/markTiming\("reviewAssemblyMs", timerStartMs\);/.test(archiveSource), 'Review engine instruments review assembly timing');
 assert(/rebuildTimings\.applyFormattingMs = 0;/.test(archiveSource), 'Review engine zeroes rebuild-time applyFormatting cost');
 assert(/buildAndSaveDashboardPayloadV2\(reviewData, finalMirrorHeaders, highlightsData, refDict\);/.test(archiveSource), 'Review engine passes prebuilt refDict into payload builder');
+assert(/existingResumeTriggersDeleted=/.test(archiveSource), 'Archive ingestion logs duplicate resume-trigger cleanup before rescheduling');
+assert(/"INGESTION_STATUS": "resume_scheduled"/.test(archiveSource), 'Archive ingestion records when a resume trigger has been scheduled');
+assert(/🔁 RESUMING INGESTION: deletedResumeTriggers=/.test(archiveSource), 'Archive ingestion logs resume-trigger cleanup at resume start');
 assert(/BENNY ENGINE timing \[getReferenceDictionary\]: /.test(dictSource), 'Reference dictionary helper logs timing summary');
 assert(/function bumpEngineDictionaryCacheVersion\(\)/.test(dictSource), 'Dictionary module exposes cache version invalidation helper');
 assert(/const cacheKey = _getEngineDictCacheKey\(ENGINE_REF_DICT_CACHE_KEY\);/.test(dictSource), 'Reference dictionary uses a versioned cache key');
@@ -87,6 +112,9 @@ assert(/putChunkedCache\(cache, cacheKey, JSON\.stringify\(vendorDict\), 180\);/
 assert(/source=cache/.test(dictSource), 'Dictionary timing logs distinguish cache hits');
 assert(/function buildAndSaveDashboardPayloadV2\(reviewData, headers, highlightsData, optionalRefDict\)/.test(read('src/02_Utilities.js')), 'Payload builder accepts optional prebuilt refDict');
 assert(/bumpEngineDictionaryCacheVersion\(\);/.test(qbSource), 'QB sync invalidates dictionary cache version on reference refresh');
-assert(/bumpEngineDictionaryCacheVersion\(\);/.test(read('src/02_Utilities.js')), 'Admin log mutations invalidate dictionary cache version');
+assert(/bumpEngineDictionaryCacheVersion\(\);/.test(utilSource), 'Admin log mutations invalidate dictionary cache version');
+assert(/triggerCount: ScriptApp\.getProjectTriggers\(\)\.filter\(function\(t\) \{\s*return t\.getHandlerFunction\(\) === 'processCDQueue';\s*\}\)\.length/.test(cdSource), 'CD ingestion status reports active trigger count');
+assert(/CDIngestion: Hourly triggers \(7 AM - 5 PM\) installed\. deleted=/.test(cdSource), 'CD trigger install logs deleted and active counts');
+assert(/return deletedTriggerCount;/.test(cdSource), 'CD trigger removal reports how many triggers were deleted');
 
 console.log('\nSync hot-path validation passed.');
