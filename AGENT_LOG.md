@@ -1,5 +1,12 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-15: Direct manual QB sync promoted; frontend action menu cleaned up
+- **Manual QB sync is now direct:** `triggerQBSync()` in the web app no longer starts the async trigger chain or polls sync status. It now calls `syncAndRebuildDashboard()` directly and refreshes from the returned payload in one round-trip.
+- **Async trigger path preserved:** `kickoffQBSync()`, `getQBSyncStatus()`, `_runQBSyncPhase1()`, and `_runQBSyncPhase2()` remain intact for scheduled automation, recovery, and fallback operator flows.
+- **Frontend action surface trimmed:** Desktop and mobile action menus now keep only user-facing actions (`Sync QB + Rebuild`, `Process Incoming`, `Run Review`, `Refresh UI`, plus mobile `Review Hub`) and remove backend-maintenance-only entries from the primary menu surface.
+- **SVG action icons added:** Retained menu actions now render with explicit inline SVG icons for clearer affordance and desktop/mobile consistency.
+- **Verification:** `node scripts/validate-sync-hotpaths.js` passed with new assertions covering the direct manual sync contract and preservation of the async backend path.
+
 > [!success] 2026-04-15: Automation health + trigger reliability hardening validated
 - **Daily automation trigger family hardened:** `setupDailyTrigger()` now reinstalls only the `runMiddayAutomation` family instead of deleting all project triggers. Verified healthy at **3/3** active triggers.
 - **CD trigger family made observable:** `installCDTrigger()` / `removeCDTrigger()` now record install/remove timestamps and active counts. Verified healthy at **11/11** active triggers with `pendingCount=0`.

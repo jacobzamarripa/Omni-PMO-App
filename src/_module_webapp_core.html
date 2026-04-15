@@ -799,9 +799,6 @@
           if (!confirm(msg)) return;
           const btn = getEl('btn-qb-sync');
           if (btn) { btn.innerText = 'Syncing…'; btn.disabled = true; }
-          // DATA CALL: kickoffQBSync → GAS trigger → _runQBSyncBackground (async, handles 4000+ records)
-          // Kick-off returns immediately; frontend polls getQBSyncStatus() every 5s until done.
-          // This bypasses the GAS 6-min execution limit that blocked large syncs in one round-trip.
           showFrostedLoader("SYNCING & REBUILDING", "Pulling reference data and rebuilding dashboard...", "sync", [
               "Authenticating QuickBase API token...",
               "Fetching multi-table payloads...",
@@ -809,71 +806,27 @@
               "Running diagnostic engine on latest data...",
               "Saving updated payload..."
           ]);
-
-          var _syncPollInterval = null;
-          var _syncStartMs = Date.now();
-
-          function _finishSync(errMsg) {
-              if (_syncPollInterval) { clearInterval(_syncPollInterval); _syncPollInterval = null; }
-              hideFrostedLoader();
-              if (btn) { btn.innerText = 'Sync QB'; btn.disabled = false; }
-              if (errMsg) { showToast(errMsg, 'error'); }
-          }
-
-          function _onSyncDone(meta) {
-              _finishSync(null);
-              if (typeof resetSignalCaches === 'function') resetSignalCaches();
-              google.script.run
-                  .withSuccessHandler(function(data) {
-                      applyDashboardPayload(data, 'qb-sync-complete');
-                      const totalSec = meta.timings && meta.timings.totalMs ? (meta.timings.totalMs / 1000).toFixed(1) + 's' : '';
-                      showToast('Synced ' + (meta.count || '?') + ' records · Dashboard rebuilt from ' + (meta.date || 'latest') + (totalSec ? ' · ' + totalSec : ''));
-                      if (meta.timestamp) { globalRefDataDate = meta.timestamp; updateRefDataIndicator(); }
-                  })
-                  .withFailureHandler(function(e) { showToast('Dashboard load error: ' + e.message, 'error'); })
-                  .getDashboardDataV2();
-          }
-
-          function _startSyncPolling() {
-              _syncPollInterval = setInterval(function() {
-                  google.script.run
-                      .withSuccessHandler(function(s) {
-                          if (s.status === 'done') {
-                              _onSyncDone(s.meta || {});
-                          } else if (s.status === 'error') {
-                              _finishSync('Sync error: ' + (s.error || 'Unknown error'));
-                          } else {
-                              // Still running — update loader subtitle with phase + elapsed time
-                              var elapsed = Math.round((Date.now() - _syncStartMs) / 1000);
-                              var phase = s.phase || '1';
-                              var phaseLabel = phase === '2' ? 'Phase 2/2: Rebuilding engine' : 'Phase 1/2: Fetching QB data';
-                              var loaderSub = getEl('frosted-loader-subtitle');
-                              if (loaderSub) loaderSub.textContent = phaseLabel + ' — ' + elapsed + 's elapsed…';
-                          }
-                      })
-                      .withFailureHandler(function() { /* silent retry on transient error */ })
-                      .getQBSyncStatus();
-              }, 5000);
-          }
-
           google.script.run
-              .withSuccessHandler(function(kick) {
-                  if (kick && kick.alreadyRunning) {
-                      // Another sync is already in flight — just attach a poller to it
-                      showToast('Sync already in progress — waiting for completion…');
-                      _startSyncPolling();
+              .withSuccessHandler(function(data) {
+                  hideFrostedLoader();
+                  if (btn) { btn.innerText = 'Sync QB'; btn.disabled = false; }
+                  const meta = (data && data._syncMeta) || {};
+                  if (meta.error) {
+                      showToast('Sync error: ' + meta.error, 'error');
                       return;
                   }
-                  if (kick && kick.pending) {
-                      _startSyncPolling();
-                  } else {
-                      _finishSync('Could not start sync — unexpected response from server.');
-                  }
+                  if (typeof resetSignalCaches === 'function') resetSignalCaches();
+                  applyDashboardPayload(data, 'qb-sync-direct');
+                  const totalSec = meta.timings && meta.timings.totalMs ? (meta.timings.totalMs / 1000).toFixed(1) + 's' : '';
+                  showToast('Synced ' + (meta.count || '?') + ' records · Dashboard rebuilt from ' + (meta.date || 'latest') + (totalSec ? ' · ' + totalSec : ''));
+                  if (meta.timestamp) { globalRefDataDate = meta.timestamp; updateRefDataIndicator(); }
               })
               .withFailureHandler(function(e) {
-                  _finishSync('Sync error: ' + e.message);
+                  hideFrostedLoader();
+                  if (btn) { btn.innerText = 'Sync QB'; btn.disabled = false; }
+                  showToast('Sync error: ' + e.message, 'error');
               })
-              .kickoffQBSync();
+              .syncAndRebuildDashboard();
       }
 
       function triggerProcessIncoming() {

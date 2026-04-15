@@ -62,6 +62,8 @@ assert(/sheet\.getRange\(1, 1, 1, sheet\.getLastColumn\(\)\)\.getValues\(\)\[0\]
 assert(/sheet\.getRange\(2, idx \+ 1, Math\.max\(sheet\.getLastRow\(\) - 1, 1\), 1\)\.getValues\(\)/.test(qbSource), 'FDH set helper reads only the FDH column');
 assert(/logMsg\("WARN", "syncFromQBWebApp\.deckEnrichment", deckErr\.message\);/.test(qbSource), 'Deck enrichment warnings use structured logMsg formatting');
 assert(/logMsg\("WARN", "_fetchTableAllFids", "QB query HTTP " \+ resp\.getResponseCode\(\) \+ " for table " \+ tableId\);/.test(qbSource), 'QB query warnings use structured logMsg formatting');
+assert(/function syncAndRebuildDashboard\(\)/.test(qbSource), 'Direct manual QB sync entrypoint exists');
+assert(/payload\._syncMeta = \{ count: syncResult\.count, timestamp: syncResult\.timestamp, date: latestDate, timings: timings \};/.test(qbSource), 'Direct manual QB sync returns payload metadata for the frontend');
 assert(/'QB_SYNC_PHASE2_QUEUED_AT': String\(phase2QueuedAt\)/.test(qbSource), 'Async sync records when Phase 2 was queued');
 assert(/QB_SYNC_PHASE1_TRIGGER_CREATED_AT/.test(qbSource), 'Async sync records when Phase 1 trigger was scheduled');
 assert(/'QB_SYNC_PHASE2_TRIGGER_CREATED_AT': String\(phase2TriggerCreatedAt\)/.test(qbSource), 'Async sync records when Phase 2 trigger was scheduled');
@@ -78,6 +80,9 @@ assert(/_setQBSyncTerminalState_\(props, 'error', 'Sync timed out after 14 min\.
 assert(/QB Async Sync terminal state — status=done, runId=/.test(qbSource), 'QB async sync logs a compact done-state summary');
 assert(/QB Async Sync terminal state — status=error, runId=/.test(qbSource), 'QB async sync logs a compact error-state summary');
 assert(/logAutomationHealthSummary\('Automation health after QB kickoff'\);/.test(qbSource), 'QB kickoff logs the current automation health summary');
+assert(/\.syncAndRebuildDashboard\(\);/.test(read('src/_module_webapp_core.html')), 'Frontend manual sync calls the direct sync-and-rebuild endpoint');
+assert(!/\.kickoffQBSync\(\);/.test(read('src/_module_webapp_core.html')), 'Frontend manual sync no longer kicks off the async trigger chain');
+assert(!/\.getQBSyncStatus\(\);/.test(read('src/_module_webapp_core.html')), 'Frontend manual sync no longer polls async QB sync status');
 assert(/V2 PAYLOAD timings: /.test(utilSource), 'Payload builder logs step timings');
 assert(/function _deleteProjectTriggersByHandler_\(handlerName\)/.test(utilSource), 'Automation utilities expose family-scoped trigger deletion');
 assert(/const deletedTriggerCount = _deleteProjectTriggersByHandler_\('runMiddayAutomation'\);/.test(utilSource), 'Daily automation trigger install only deletes its own trigger family');
