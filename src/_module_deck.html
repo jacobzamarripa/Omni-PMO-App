@@ -739,7 +739,7 @@ function renderDeckStage() {
                 <div class="section-label" style="color:var(--color-insight); margin:0 !important;">PM NOTE</div>
                 ${item.geminiDate ? `<span style="font-size:9px; font-style:italic; color:#a855f7;">Drafted: ${item.geminiDate}</span>` : ''}
               </div>
-              <textarea id="deck-note" class="chat-bubble" placeholder="Enter decision..." oninput="syncDeckNote()" style="flex-grow:1; min-height:120px; font-size:13px; line-height:1.5;">${item.comment || item.draft || ''}</textarea>
+              <textarea id="deck-note" class="chat-bubble" placeholder="Enter decision..." oninput="syncDeckNote(); autoExpandTextarea(this);" style="flex-grow:1; min-height:120px; font-size:13px; line-height:1.5;">${item.comment || item.draft || ''}</textarea>
             </div>
             <div style="display:flex; flex-direction:column; margin-top:auto; padding-top:16px; border-top:1px solid var(--border);">
               <button class="btn-ai" onclick="askGeminiForDraftDeck(this)" style="padding:12px 16px; font-size:12px; width:100%; box-shadow:0 4px 12px rgba(168,85,247,0.2); display:flex; align-items:center; justify-content:center; gap:6px;">${icon('sparkle')} DRAFT W/ GEMINI</button>
@@ -749,6 +749,7 @@ function renderDeckStage() {
 
         syncActivePresentationCardTheme();
         updateDeckStageSelection();
+        autoExpandTextarea(getEl('deck-note'));
       }
 
 function saveCurrentCardState() {
@@ -802,7 +803,10 @@ function askGeminiForDraftDeck(btn) {
     google.script.run
         .withSuccessHandler(response => {
             let textArea = getEl('deck-note');
-            if (textArea) textArea.value = response.text;
+            if (textArea) {
+                textArea.value = response.text;
+                autoExpandTextarea(textArea);
+            }
             item.comment = response.text;
             item.geminiInsight = response.text;
             item.geminiDate = response.date;

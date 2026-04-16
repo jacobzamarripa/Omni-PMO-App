@@ -680,7 +680,7 @@
                               <div class="section-label" style="color:var(--color-insight); margin:0;">PM NOTE</div>
                               <div id="p-gemini-date" style="font-size:9px; font-style:italic; color:#a855f7;"></div>
                           </div>
-                          <textarea id="p-comment" class="chat-bubble" oninput="this.dataset.generated='false'"></textarea>
+                          <textarea id="p-comment" class="chat-bubble" oninput="this.dataset.generated='false'; autoExpandTextarea(this);"></textarea>
                           <div class="review-actions" style="margin-top: 12px;">
                               <button class="btn-ai" onclick="askGeminiForDraft(this)" style="margin-right:auto;">DRAFT W/GEMINI</button>
                               <button class="btn btn-skip" onclick="skipReview()">Skip (Clear)</button>

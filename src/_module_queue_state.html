@@ -899,6 +899,7 @@ function openPane(item, cardEl) {
         if (pComment) {
             pComment.value = item.comment || smartNote;
             pComment.dataset.generated = item.comment ? 'false' : 'true';
+            autoExpandTextarea(pComment);
         }
 
         let pGeminiDate = getEl('p-gemini-date');

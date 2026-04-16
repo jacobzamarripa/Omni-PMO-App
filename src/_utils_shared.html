@@ -23,6 +23,12 @@
           return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       }
 
+      function autoExpandTextarea(el) {
+          if (!el) return;
+          el.style.height = 'auto';
+          el.style.height = el.scrollHeight + 'px';
+      }
+
       // UTC-locked date parser — prevents browser local-time shifting across timezones.
       function safeDate(str) {
           if (!str || str === '' || str === '-' || str === 'Unknown') return null;

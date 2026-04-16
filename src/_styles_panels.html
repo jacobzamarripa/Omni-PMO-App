@@ -273,11 +273,11 @@
       #p-comment[data-generated="true"] { color: #94a3b8; font-style: italic; }
       body.dark-mode #p-comment[data-generated="true"] { color: rgba(233,213,255,0.45); }
 
-      .comment-area { display: flex !important; flex-direction: column !important; flex-grow: 1; gap: 0 !important; transition: transform 0.2s; min-width: 0; }
+      .comment-area { display: flex !important; flex-direction: column !important; flex-grow: 1; transition: transform 0.2s; min-width: 0; }
       .comment-area-footer { margin-top: 12px; padding: 12px 14px 0; display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
       .review-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 9px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; min-width: 220px; flex: 1 1 260px; }
       .review-meta-sep { color: var(--border); }
-      .review-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; width: auto; margin-top: auto !important; padding-top: 0 !important; border-top: none !important; }
+      .review-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; width: auto; padding-top: 0 !important; border-top: none !important; }
       .review-actions .btn { flex: none !important; }
       .inbox-header {
           padding: 10px 10px;
@@ -300,7 +300,7 @@
       #view-toggle-btn { min-width: 30px !important; padding: 0 8px !important; font-size: 13px !important; }
       #sort-queue, #sidebar-pivot-select { padding: 4px 10px !important; font-size: 10px !important; }
       .btn-filters-active { color: var(--color-critical) !important; border-color: rgba(239,68,68,0.4) !important; background: rgba(239,68,68,0.08) !important; }
-      .chat-bubble { flex-grow: 1; padding: 14px; border-radius: 16px 16px 2px 16px !important; font-family: monospace; font-size: 12px; min-height: 100px; resize: none; transition: all 0.2s;}
+      .chat-bubble { flex-grow: 1; padding: 14px; border-radius: 16px 16px 2px 16px !important; font-family: monospace; font-size: 12px; min-height: 60px; resize: none; transition: height 0.2s; overflow: hidden; }
       body:not(.dark-mode) .chat-bubble { background: #faf5ff; color: #4c1d95; border: 1px solid #d8b4fe; box-shadow: 3px 3px 0px rgba(0,0,0,0.05);}
       body:not(.dark-mode) .chat-bubble:focus { outline: none; border-color: #a855f7; background: #ffffff; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);}
       body.dark-mode .chat-bubble { background: rgba(46, 16, 101, 0.3); color: #e9d5ff; border: 1px solid #6b21a8; }

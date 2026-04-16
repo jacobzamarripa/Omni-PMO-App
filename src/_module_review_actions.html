@@ -63,7 +63,11 @@ function askGeminiForDraft(btn) {
         .withSuccessHandler(response => {
             let textArea = document.getElementById('p-comment');
             let dateEl = document.getElementById('p-gemini-date');
-            if (textArea) { textArea.value = response.text; textArea.dataset.generated = 'false'; }
+            if (textArea) {
+                textArea.value = response.text;
+                textArea.dataset.generated = 'false';
+                autoExpandTextarea(textArea);
+            }
             if (dateEl) { dateEl.innerText = `Drafted: ${formatDate(response.date)}`; }
             currentActiveItem.geminiInsight = response.text;
             currentActiveItem.geminiDate = response.date;
