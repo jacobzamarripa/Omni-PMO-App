@@ -281,7 +281,7 @@
       .reading-pane { flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; min-width: 0; min-height: 0 !important; margin-left: 0; }
       .upper-workspace { flex: 1; min-height: 0; display: flex; overflow: hidden; position: relative; }
       .detail-layout { flex: 1; min-height: 0; min-width: 0; display: flex; align-items: stretch; gap: 18px; overflow: hidden; position: relative; }
-      .detail-main { flex: 1; min-width: 0 !important; display: flex; flex-direction: column; overflow: hidden; position: relative !important; }
+      .detail-main { flex: 1; min-width: 0 !important; display: flex; flex-direction: column; overflow: visible; position: relative !important; }
       .pane-content {
           flex: 1;
           overflow-y: auto;
@@ -436,7 +436,7 @@
             border-radius: 20px !important;
             border: 1.5px solid var(--border);
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
-            overflow: hidden;
+            overflow: visible;
             transition: outline 0.2s, background 0.3s, border-color 0.3s, box-shadow 0.3s;
             align-self: center !important;
       }
@@ -453,6 +453,7 @@
             flex: 40 1 260px !important;
             min-width: 260px !important;
             border-right: 1px solid var(--border);
+            padding-bottom: 0 !important;
         }
       #velocity-production-card {
             flex: 60 1 300px !important;
@@ -481,13 +482,18 @@
       .qb-time-bead { position: absolute; top: -1px; width: 14px; height: 14px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); border-radius: 50%; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.2); box-sizing: border-box; border: 3px solid;}
       .proj-bead { position: absolute; top: -3px; width: 18px; height: 18px; background: var(--card-bg); border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: 2px solid; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; z-index: 8; pointer-events: auto; cursor: pointer; font-size: 8px; font-weight: 900; }
 
-      .qb-target-wrap { margin-top: auto; border-radius: 12px 12px 0 0; transition: transform 0.2s;}
+      .qb-target-wrap { margin-top: auto; border-radius: 12px 12px 0 0; transition: transform 0.2s, box-shadow 0.2s ease, filter 0.2s ease; position: relative; }
+      .qb-target-wrap.has-crossing-editor { cursor: pointer; }
+      .qb-target-wrap.has-crossing-editor:hover { transform: translateY(-1px); filter: saturate(1.03); }
+      .qb-target-wrap.is-popout-open { box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12); }
       .qb-target-wrap.xing { border-radius: 12px 12px 0 0 !important; padding: 3px 3px 0 3px; background: repeating-linear-gradient(45deg, #171717, #171717 8px, #facc15 8px, #facc15 16px); }
       .qb-target-wrap.xing .qb-target-inner { border-radius: 9px 9px 0 0 !important; }
-      .qb-target-inner { background: var(--bg); border: 1.5px solid var(--border); border-bottom: none; border-radius: 18px 18px 0 0 !important; padding: 14px 6px 10px 6px; text-align: center; position: relative; box-shadow: 0px -3px 8px rgba(0,0,0,0.04); height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center;}
+      .qb-target-inner { background: var(--bg); border: 1.5px solid var(--border); border-bottom: none; border-radius: 18px 18px 0 0 !important; padding: 14px 12px 14px 12px; text-align: center; position: relative; box-shadow: 0px -3px 8px rgba(0,0,0,0.04); height: 100%; min-height: 76px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center;}
       .qb-target-label { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px;}
-      .qb-target-date { font-size: 16px; font-weight: 900; line-height: 1.2; margin-top: 2px; display: flex; align-items: center;}
-      #p-xing { position:absolute; bottom:4px; right:4px; display:flex; align-items:center; gap:4px; background:#171717; color:#facc15; padding:1px 6px; border-radius:4px; font-size:8px; font-weight:900; border:1px solid #facc15; }
+      .qb-target-date { font-size: 16px; font-weight: 900; line-height: 1.2; margin-top: 2px; display: flex; align-items: center; justify-content: center; width: 100%; text-align: center; }
+      #p-xing { position:absolute; top:8px; right:8px; display:flex; align-items:center; justify-content:center; min-width: 88px; gap:4px; background:#171717; color:#facc15; padding:3px 8px; border-radius:999px; font-size:7px; font-weight:900; letter-spacing:0.05em; border:1px solid #facc15; cursor:pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.18); text-transform: uppercase; white-space: nowrap; }
+      .qb-target-wrap.has-crossing-editor.is-popout-open #p-xing { background:#facc15; color:#171717; }
+      #project-schedule-card.schedule-popout-open { z-index: calc(var(--z-popover) + 3); overflow: visible !important; }
 
       .velocity-grid { display: flex; flex-wrap: wrap; gap: 12px 24px; width: 100%; align-content: center; flex-grow: 1;}
       .qb-vel-item { flex: 1 1 240px !important; min-width: 240px !important; transition: transform 0.2s;}

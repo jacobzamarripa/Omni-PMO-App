@@ -727,12 +727,12 @@ function openPane(item, cardEl, force) {
         if (item.isXing && targetWrap && targetInner) {
             targetWrap.classList.add('xing');
             targetInner.style.borderRadius = "9px 9px 0 0";
-            setStyle('p-xing', 'display', 'flex');
         } else if (targetWrap && targetInner) {
             targetWrap.classList.remove('xing');
             targetInner.style.borderRadius = "12px 12px 0 0";
-            setStyle('p-xing', 'display', 'none');
         }
+        if (targetWrap) targetWrap.classList.remove('has-crossing-editor', 'is-popout-open');
+        getEl('project-schedule-card')?.classList.remove('schedule-popout-open');
 
         let rawFlags = (item.flags || "").split('\n').map(f => f.trim()).filter(f => f !== "");
         let tagsHtml = '';
@@ -837,26 +837,13 @@ function openPane(item, cardEl, force) {
 
             let draftMain = mainDraft ? `<div style="font-weight:normal; color:var(--text-main); line-height:1.4; margin-bottom:10px;">${mainDraft.replace(/\n/g, '<br>')}</div>` : "<div style='font-style:italic; font-weight:normal; color:var(--text-muted); margin-bottom:10px;'>No specific action flagged.</div>";
             
-            // Special Xings Integration
-            let xingHtml = "";
-            if (cdIntelText || !item.rawSpecialX || item.rawSpecialX === "—") {
-                xingHtml = `
-                    <div id="special-xing-container-${item.fdh}" class="special-xing-box has-hazard" style="margin: 0 0 16px 0;">
-                        <div class="xing-hazard-inner">
-                            ${renderSpecialXingsSection(item)}
-                        </div>
-                    </div>`;
-            }
-
             let qbBtn = needsQbSync ? `<button class="btn hover-trigger" id="btn-qb-update" onclick="markQbUpdated('${item.fdh}')" style="padding:4px 8px; font-size:9px; width:fit-content; background:#2563eb; color:#ffffff; border-color:#1d4ed8; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:inline-flex; align-items:center; gap:4px;">${icon('build')} MARK QB UPDATED</button>` : "";
             let btnContainer = (qbBtn !== "") ? `<div style="display:flex; gap:8px; margin-top:8px; margin-left:auto; width:fit-content;">${qbBtn}</div>` : "";
             actionBox.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">${tagsHtml}</div>${draftMain}${btnContainer}`;
-            
-            const xingAnchor = getEl('p-xing-anchor');
-            if (xingAnchor) {
-                xingAnchor.innerHTML = xingHtml;
-                xingAnchor.style.display = xingHtml ? 'block' : 'none';
-            }
+
+            renderSpecialXingsPopover(item, cdIntelText);
+            syncSpecialXingsTrigger(item, cdIntelText);
+            restoreSpecialXingsPopoverState(item);
         }
 
         let barsHtml = '';
@@ -1441,6 +1428,118 @@ function triggerCdSelect(fdhId) {
     input.click();
 }
 
+function shouldRenderSpecialXingsPopover(item, cdIntelText) {
+    if (!item) return false;
+    const intel = String(cdIntelText || item.cdIntel || "").trim();
+    const normalizedIntel = intel.toLowerCase();
+    if (item.isXing) return true;
+    if (!item.rawSpecialX || item.rawSpecialX === "—") return true;
+    return intel !== "" && intel !== "none" && !normalizedIntel.includes("no special crossings found");
+}
+
+function renderSpecialXingsPopover(item, cdIntelText) {
+    const anchor = getEl('p-xing-popout-anchor');
+    const targetWrap = getEl('p-target-wrap');
+    if (!anchor || !targetWrap) return;
+
+    const shouldRender = shouldRenderSpecialXingsPopover(item, cdIntelText);
+    targetWrap.classList.toggle('has-crossing-editor', shouldRender);
+    if (!shouldRender) {
+        anchor.innerHTML = '';
+        anchor.style.display = 'none';
+        return;
+    }
+
+    anchor.innerHTML = renderSpecialXingsSection(item);
+    anchor.style.display = '';
+    anchor.classList.toggle('is-open', window.__specialXingsPopoverOpenFor === item.fdh);
+
+    const detailsEl = getEl(`xing-details-${item.fdh}`);
+    if (detailsEl) {
+        detailsEl.style.height = '';
+        detailsEl.style.height = detailsEl.scrollHeight + 'px';
+    }
+}
+
+function syncSpecialXingsTrigger(item, cdIntelText) {
+    const trigger = getEl('p-xing');
+    const targetWrap = getEl('p-target-wrap');
+    if (!trigger || !targetWrap) return;
+    const shouldShow = shouldRenderSpecialXingsPopover(item, cdIntelText);
+    if (!shouldShow) {
+        trigger.textContent = 'X-ING';
+        trigger.style.display = 'none';
+        targetWrap.classList.remove('has-crossing-editor');
+        return;
+    }
+    const needsConfirmation = !item.isXing || !item.rawSpecialX || item.rawSpecialX === "—";
+    trigger.textContent = needsConfirmation ? 'CONFIRM X-INGS' : 'REVIEW X-INGS';
+    trigger.style.display = 'flex';
+}
+
+function openSpecialXingsPopover(fdhId) {
+    const anchor = getEl('p-xing-popout-anchor');
+    const targetWrap = getEl('p-target-wrap');
+    const scheduleModule = getEl('project-schedule-card');
+    if (!anchor || !targetWrap || !fdhId) return;
+    window.__specialXingsPopoverOpenFor = fdhId;
+    anchor.classList.add('is-open');
+    targetWrap.classList.add('is-popout-open');
+    if (scheduleModule) scheduleModule.classList.add('schedule-popout-open');
+}
+
+function closeSpecialXingsPopover() {
+    const anchor = getEl('p-xing-popout-anchor');
+    const targetWrap = getEl('p-target-wrap');
+    const scheduleModule = getEl('project-schedule-card');
+    window.__specialXingsPopoverOpenFor = null;
+    if (anchor) anchor.classList.remove('is-open');
+    if (targetWrap) targetWrap.classList.remove('is-popout-open');
+    if (scheduleModule) scheduleModule.classList.remove('schedule-popout-open');
+}
+
+function restoreSpecialXingsPopoverState(item) {
+    if (!item) return;
+    const targetWrap = getEl('p-target-wrap');
+    if (window.__specialXingsPopoverOpenFor && window.__specialXingsPopoverOpenFor !== item.fdh && window.__reopenSpecialXingsForFdh !== item.fdh) {
+        window.__specialXingsPopoverOpenFor = null;
+    }
+    const shouldOpen = window.__specialXingsPopoverOpenFor === item.fdh || window.__reopenSpecialXingsForFdh === item.fdh;
+    if (window.__reopenSpecialXingsForFdh === item.fdh) {
+        window.__specialXingsPopoverOpenFor = item.fdh;
+        window.__reopenSpecialXingsForFdh = null;
+    }
+    if (shouldOpen) openSpecialXingsPopover(item.fdh);
+    else if (targetWrap) targetWrap.classList.remove('is-popout-open');
+}
+
+function handleTargetDateClick(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const item = currentActiveItem;
+    if (!item) return;
+    if (shouldRenderSpecialXingsPopover(item)) {
+        if (window.__specialXingsPopoverOpenFor === item.fdh) closeSpecialXingsPopover();
+        else openSpecialXingsPopover(item.fdh);
+        return;
+    }
+    openGanttForCurrentProject();
+}
+
+if (!window.__specialXingsPopoverGlobalCloseBound) {
+    document.addEventListener('click', function(event) {
+        if (!window.__specialXingsPopoverOpenFor) return;
+        const anchor = getEl('p-xing-popout-anchor');
+        const targetWrap = getEl('p-target-wrap');
+        const clickInsidePopover = anchor && anchor.contains(event.target);
+        const clickInsideTarget = targetWrap && targetWrap.contains(event.target);
+        if (!clickInsidePopover && !clickInsideTarget) closeSpecialXingsPopover();
+    });
+    window.__specialXingsPopoverGlobalCloseBound = true;
+}
+
 function handleCdDrop(e, el, fdhId) {
     e.preventDefault();
     e.stopPropagation();
@@ -1513,6 +1612,7 @@ function handleCdUpload(file, el, fdhId) {
                                         initDashboard(data);
                                         // Re-open pane to show the new data
                                         const updatedItem = (allActionItems || []).find(i => i.fdh === fdhId);
+                                        window.__reopenSpecialXingsForFdh = fdhId;
                                         if (updatedItem) openPane(updatedItem, null);
                                     })
                                     .webAppTrigger3a(targetDate);
@@ -1567,8 +1667,18 @@ function renderSpecialXingsSection(item) {
     const xCls = currentXing === 'YES' ? 'val-yes' : (currentXing === 'NO' ? 'val-no' : '');
 
     return `
-        <div class="xing-form" onclick="event.stopPropagation()">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <div class="schedule-xing-popout-shell" data-fdh="${esc(item.fdh)}" onclick="event.stopPropagation()">
+            <div class="schedule-xing-popout-header">
+                <div>
+                    <div class="schedule-xing-eyebrow">Project Schedule</div>
+                    <div class="schedule-xing-title">Special X-ings</div>
+                </div>
+                <button class="schedule-xing-close" type="button" onclick="closeSpecialXingsPopover()" aria-label="Close Special X-ings">
+                    X
+                </button>
+            </div>
+
+            <div class="schedule-xing-popout-meta">
                 <div class="xing-indicator-pill">SPECIAL X-INGS</div>
                 <div class="xing-field">
                     <label class="xing-label" style="font-size:8px; margin:0;">X-ING?</label>
@@ -1578,25 +1688,32 @@ function renderSpecialXingsSection(item) {
                 </div>
             </div>
 
-            <div class="xing-bubble cd-dropzone" id="cd-dropzone-${item.fdh}"
-                 ondragover="handleCdDragOver(event, this)" 
-                 ondragleave="handleCdDragLeave(event, this)" 
-                 ondrop="handleCdDrop(event, this, '${item.fdh}')">
-                
-                <div class="cd-overlay-trigger" onclick="triggerCdSelect('${item.fdh}')" title="Analyze CD PDF">
-                    ${icon('upload', 14)}
+            <div class="schedule-xing-popout-body">
+                <div class="xing-bubble cd-dropzone" id="cd-dropzone-${item.fdh}"
+                     ondragover="handleCdDragOver(event, this)"
+                     ondragleave="handleCdDragLeave(event, this)"
+                     ondrop="handleCdDrop(event, this, '${item.fdh}')">
+
+                    <div class="cd-overlay-trigger" onclick="triggerCdSelect('${item.fdh}')" title="Analyze CD PDF">
+                        ${icon('upload', 14)}
+                    </div>
+
+                    <div class="cd-drop-hint">DROP CD PDF TO ANALYZE</div>
+
+                    <textarea class="xing-details-textarea" id="xing-details-${item.fdh}"
+                              oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
+                              placeholder="Tap to add note...">${currentDetails}</textarea>
                 </div>
 
-                <div class="cd-drop-hint">DROP CD PDF TO ANALYZE</div>
-
-                <textarea class="xing-details-textarea" id="xing-details-${item.fdh}"
-                          oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
-                          placeholder="Tap to add note...">${currentDetails}</textarea>
+                <div class="schedule-xing-popout-actions">
+                    <button class="schedule-xing-secondary" type="button" onclick="closeSpecialXingsPopover(); openGanttForCurrentProjectFromCrossings();">
+                        ${icon('calendar', 12)} Open Schedule
+                    </button>
+                    <button class="xing-commit-btn" id="btn-xing-commit-${item.fdh}" onclick="commitSpecialXings('${item.fdh}')">
+                        ${icon('shield', 12)} Commit X-ings
+                    </button>
+                </div>
             </div>
-
-            <button class="xing-commit-btn" id="btn-xing-commit-${item.fdh}" onclick="commitSpecialXings('${item.fdh}')">
-                ${icon('shield', 12)} Commit X-ings
-            </button>
         </div>`;
 }
 function handleXingSelectChange(el) {

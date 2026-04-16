@@ -627,13 +627,14 @@
                        <span id="p-cx-start" onmouseenter="hl('CX Start')" onmouseleave="hl('')" style="cursor:pointer;">CX START: <span style="color:var(--text-main);">TBD</span></span>
                        <span id="p-cx-end" onmouseenter="hl('CX Complete')" onmouseleave="hl('')" style="cursor:pointer;">CX COMPLETE: <span style="color:var(--text-main);">TBD</span></span>
                    </div>
-                   <div id="p-target-wrap" class="qb-target-wrap hover-trigger" onmouseenter="hl('Target Completion Date')" onmouseleave="hl('')" onclick="openGanttForCurrentProject()" style="cursor:pointer;">
+                   <div id="p-target-wrap" class="qb-target-wrap hover-trigger" onmouseenter="hl('Target Completion Date')" onmouseleave="hl('')" onclick="handleTargetDateClick(event)" style="cursor:pointer;">
                        <div class="qb-target-inner" id="p-target-inner">
                            <div class="qb-target-label">Target Date</div>
                            <div class="qb-target-date" id="p-target">TBD</div>
                            <div id="p-xing" style="display:none;">X-ING</div>
                        </div>
                    </div>
+                   <div id="p-xing-popout-anchor" class="schedule-xing-popout-anchor" style="display:none;"></div>
                </div>
 
                <div class="qb-module" id="velocity-production-card">
@@ -688,9 +689,6 @@
                           </div>
                       </div>
                   </div>
-
-                  <div id="p-xing-anchor" style="margin-top: 20px;"></div>
-
                   <div class="review-divider"></div>
 
                   <div class="comment-area-footer" style="padding:0; margin:0; display:flex; justify-content:space-between; align-items:center;">

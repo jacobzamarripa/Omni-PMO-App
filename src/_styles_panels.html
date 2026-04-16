@@ -31,22 +31,115 @@
       .cd-intel-card.has-xing .cd-subtitle { color: #92400e; }
       body.dark-mode .cd-intel-card.has-xing .cd-subtitle { color: #fde047; }
 
-      /* 🚧 Special Xings Form Styles — Integrated into System Diagnostics */
-      .special-xing-box.has-hazard {
-          background: var(--bg);
-          border: none !important;
-          padding: 2px !important;
-          background: repeating-linear-gradient(-45deg, #facc15 0, #facc15 6px, #0f172a 6px, #0f172a 12px) !important;
-          border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      /* 🚧 Special Xings Form Styles — Schedule-owned pop-out */
+      .schedule-xing-popout-anchor {
+          position: absolute;
+          left: 20px;
+          right: 20px;
+          top: calc(100% + 10px);
+          z-index: calc(var(--z-popover) + 2);
+          display: none;
+          pointer-events: none;
+          overflow: visible;
       }
-      .xing-hazard-inner {
-          background: var(--bg);
-          border-radius: 10px;
-          padding: 12px;
+      .schedule-xing-popout-anchor.is-open {
+          display: block !important;
+          pointer-events: auto;
+      }
+      .schedule-xing-popout-shell {
+          position: relative;
+          margin-left: auto;
+          width: min(360px, calc(100vw - 80px));
+          background:
+            linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+            repeating-linear-gradient(135deg, #171717 0, #171717 10px, #facc15 10px, #facc15 20px) border-box;
+          border: 3px solid transparent;
+          border-radius: 18px;
+          box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
+          overflow: hidden;
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          animation: schedule-xing-pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes schedule-xing-pop-in {
+          from {
+              opacity: 0;
+              transform: translateY(-8px) scale(0.98);
+          }
+          to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+          }
+      }
+      .schedule-xing-popout-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 18px 16px 10px;
+      }
+      .schedule-xing-eyebrow {
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 0.7px;
+          text-transform: uppercase;
+          color: #92400e;
+      }
+      .schedule-xing-title {
+          font-size: 16px;
+          font-weight: 900;
+          color: var(--text-main);
+          letter-spacing: -0.02em;
+      }
+      .schedule-xing-close {
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--bg) 84%, transparent);
+          color: var(--text-main);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 900;
+          line-height: 1;
+          cursor: pointer;
+      }
+      .schedule-xing-popout-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 0 16px 10px;
+      }
+      .schedule-xing-popout-body {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
+          padding: 0 16px 16px;
+      }
+      .schedule-xing-popout-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+      }
+      .schedule-xing-secondary {
+          padding: 6px 10px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--bg) 88%, transparent);
+          color: var(--text-main);
+          font-size: 9px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
       }
       .xing-bubble {
           font-size: 11px;
@@ -163,6 +256,29 @@
           background: #16a34a; 
           border-color: #15803d;
           box-shadow: 0 0 12px rgba(22,163,74,0.3);
+      }
+
+      @media (max-width: 640px) {
+          .schedule-xing-popout-anchor {
+              left: 0;
+              right: 0;
+              top: 0;
+              padding-top: 10px;
+          }
+          .schedule-xing-popout-shell {
+              width: 100%;
+              margin-left: 0;
+              border-radius: 18px 18px 14px 14px;
+              box-shadow: 0 18px 36px rgba(15, 23, 42, 0.2);
+          }
+          .schedule-xing-popout-actions {
+              align-items: stretch;
+          }
+          .schedule-xing-secondary,
+          .xing-commit-btn {
+              width: 100%;
+              justify-content: center;
+          }
       }
 
       /* 📁 CD Drag & Drop Zone — now applied to the Special X-ings container */

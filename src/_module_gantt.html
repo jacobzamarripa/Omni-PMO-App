@@ -34,6 +34,7 @@ let ganttScrollState = { top: 0, left: 0 };
 // READS: viewport/focus restore helpers
 // WRITES: captureGanttScrollState, ensureGanttRendered
 let ganttHasVisited = false;
+let ganttFocusCenterMode = null;
 // STATE: hudLocked
 // READS: gantt HUD visibility helpers
 // WRITES: HUD lock toggles and theater exit
@@ -106,9 +107,31 @@ function applyGanttFocusState(behavior) {
             let leftTarget = scroll.scrollLeft;
             if (chartWidth) {
                 let todayLine = ganttArea.querySelector('.gantt-today-line');
-                if (todayLine) {
-                    let todayPct = parseFloat(todayLine.style.left) || 0;
-                    leftTarget = Math.max(0, (chartWidth * (todayPct / 100)) + 140 - (scroll.clientWidth / 2));
+                let centerPct = null;
+                if (ganttFocusCenterMode === 'crossings-open') {
+                    let rowStartTs = Number(row.getAttribute('data-start-ts')) || 0;
+                    let rowEndTs = Number(row.getAttribute('data-end-ts')) || 0;
+                    let nowTs = Date.now();
+                    if (rowStartTs && rowEndTs && rowStartTs <= nowTs && nowTs <= rowEndTs && todayLine) {
+                        centerPct = parseFloat(todayLine.style.left) || 0;
+                    } else if (rowStartTs && rowEndTs && window._ganttStartDate) {
+                        let totalDays = Number(getComputedStyle(grid).getPropertyValue('--gantt-total-days')) || 0;
+                        let ganttStartTs = window._ganttStartDate.getTime();
+                        let closerTs = Math.abs(nowTs - rowStartTs) <= Math.abs(nowTs - rowEndTs) ? rowStartTs : rowEndTs;
+                        if (totalDays > 0) {
+                            centerPct = (((closerTs - ganttStartTs) / 86400000) / totalDays) * 100;
+                            centerPct = Math.max(0, Math.min(100, centerPct));
+                        }
+                    }
+                    if (centerPct != null) {
+                        leftTarget = Math.max(0, (chartWidth * (centerPct / 100)) + 140 - (scroll.clientWidth / 2));
+                    } else {
+                        let bar = row.querySelector('.gantt-bar-fill');
+                        if (bar) leftTarget = Math.max(0, bar.offsetLeft + (bar.offsetWidth / 2) - (scroll.clientWidth / 2));
+                    }
+                } else if (todayLine) {
+                    centerPct = parseFloat(todayLine.style.left) || 0;
+                    leftTarget = Math.max(0, (chartWidth * (centerPct / 100)) + 140 - (scroll.clientWidth / 2));
                 } else {
                     let bar = row.querySelector('.gantt-bar-fill');
                     if (bar) leftTarget = Math.max(0, bar.offsetLeft + (bar.offsetWidth / 2) - (scroll.clientWidth / 2));
@@ -117,6 +140,7 @@ function applyGanttFocusState(behavior) {
             scroll.scrollTo({ top: Math.max(0, topTarget), left: Math.max(0, leftTarget), behavior: behavior || 'smooth' });
         }
     }
+    ganttFocusCenterMode = null;
     syncGanttIslandState();
     persistGanttViewSession();
 }
@@ -161,8 +185,10 @@ function ensureGanttRendered(options) {
     }
 }
 
-function openGanttView(fdh) {
+function openGanttView(fdh, options) {
+    let opts = options || {};
     ganttFocusedFdh = fdh || null;
+    ganttFocusCenterMode = opts.centerMode || null;
     if (!fdh) {
         ganttScrollState = { top: 0, left: 0 };
         ganttHasVisited = false;

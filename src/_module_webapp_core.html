@@ -739,6 +739,12 @@
           openGanttView(currentActiveItem.fdh);
       }
 
+      function openGanttForCurrentProjectFromCrossings() {
+          if (!currentActiveItem || !currentActiveItem.fdh) return;
+          if (typeof primeDockMotionOrigin === 'function') primeDockMotionOrigin(getEl('project-schedule-card'), 'gantt');
+          openGanttView(currentActiveItem.fdh, { centerMode: 'crossings-open' });
+      }
+
       applyViewMode(); // restore persisted queue view (card/list/grid)
       if (navigator.maxTouchPoints > 1 && (window.innerWidth >= 769 || window.__surfaceIpad)) document.body.classList.add('touch-tablet');
       // ✨ KINETIC LOADER CONTROLLERS
