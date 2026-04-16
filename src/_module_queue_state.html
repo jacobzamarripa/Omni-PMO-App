@@ -1534,6 +1534,7 @@ function handleCdUpload(file, el, fdhId) {
  */
 function renderSpecialXingsSection(item) {
     const qb = item.qbRef || {};
+    const qbDetails = qb["526"] || "";
 
     let currentXing = qb.xingExist || item.rawSpecialX || "";
     if (!currentXing || currentXing === "—") {
@@ -1545,7 +1546,17 @@ function renderSpecialXingsSection(item) {
         }
     }
 
-    const currentDetails = item.specXDetails || item.cdIntel || "";
+    let currentDetails = item.specXDetails || item.cdIntel || "";
+    if (qbDetails && qbDetails.trim() !== "") {
+        // Prepend QB data if it exists, ensuring we don't duplicate it if it's already there
+        if (!currentDetails.includes("[QUICKBASE]")) {
+            currentDetails = `[QUICKBASE]: ${qbDetails.trim()}\n\n${currentDetails}`.trim();
+        } else {
+            // If already has [QUICKBASE], just ensure the QB data is fresh
+            currentDetails = `[QUICKBASE]: ${qbDetails.trim()}\n\n` + currentDetails.split(/\[QUICKBASE\]:.*?\n\n/i).pop();
+        }
+    }
+
     const options = ["", "YES", "NO"];
     const xCls = currentXing === 'YES' ? 'val-yes' : (currentXing === 'NO' ? 'val-no' : '');
 
