@@ -1,5 +1,14 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-16: Quickbase FDH Dependencies (Table bvmsmt5cf) integrated
+- **Version Control:** Created `feat/quickbase-dependencies` branch for isolated development.
+- **Data Ingestion:** Added `syncFDHDependencies()` to `06_QBSync.js` to fetch and aggregate predecessor/successor pairs from Quickbase Table `bvmsmt5cf`. 
+- **Storage:** Implemented automatic column injection (`QB_Blocked_By`, `QB_Blocks`) into `5-Reference_Data` during sync.
+- **Engine Logic:** Updated `getReferenceDictionary` to parse dependency strings into arrays. Added `BLOCKED BY PREDECESSOR` flagging logic to the engine build in `01_Engine_Archive.js`.
+- **UI Enhancements:** Refactored `renderMiniSld` in `_module_mini_sld.html` to support multiple dependency nodes with horizontal scrolling.
+- **Admin Tooling:** Added `discoverDependencyFields()` and a corresponding "Quickbase Hub" menu item to aid in FID discovery and live validation.
+- **Verification:** Changes staged and ready for live field mapping. Logic assumes `Check and Balance` field follows `PRED->SUCC` pattern or explicit successor field is present.
+
 > [!success] 2026-04-15: Direct manual QB sync promoted; frontend action menu cleaned up
 - **Manual QB sync is now direct:** `triggerQBSync()` in the web app no longer starts the async trigger chain or polls sync status. It now calls `syncAndRebuildDashboard()` directly and refreshes from the returned payload in one round-trip.
 - **Async trigger path preserved:** `kickoffQBSync()`, `getQBSyncStatus()`, `_runQBSyncPhase1()`, and `_runQBSyncPhase2()` remain intact for scheduled automation, recovery, and fallback operator flows.

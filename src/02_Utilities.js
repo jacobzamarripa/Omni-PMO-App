@@ -158,6 +158,7 @@ function onOpen() {
     main.addSubMenu(ui.createMenu('Quickbase Hub')
       .addItem('Refresh Reference Data', 'importReferenceData')
       .addItem('Sync Projects from Quickbase', 'importFDHProjects')
+      .addItem('Discover Dependency Fields', 'discoverDependencyFields')
       .addItem('Discover Quickbase Fields', 'discoverAllQBFields')
       .addSeparator()
       .addItem('Commit Status Queue', 'commitToQueue')

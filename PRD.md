@@ -99,6 +99,15 @@
 
 ---
 
+## Workstream 24 — Quickbase FDH Dependencies
+- [x] Phase 1 — Data Ingestion & Sync (Table bvmsmt5cf)
+- [x] Phase 2 — Engine Enrichment (Blocked By / Blocks mapping)
+- [x] Phase 3 — Smart Flagging Logic (BLOCKED BY PREDECESSOR)
+- [x] Phase 4 — Network Path UI (Multi-dependency horizontal scroll)
+- [ ] Phase 5 — Field Discovery & Live Validation
+
+---
+
 ## Workstream 22 — UI Plane Architecture & Stacking Integrity ✓
 - [x] Phase 1 — Global Z-Index Tokenization
 - [x] Phase 2 — Cross-file Z-Index Standardization

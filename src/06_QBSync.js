@@ -21,6 +21,7 @@ const QB_REFERENCE_REPORT_ID = "1000071";
 // (Stage: Permitting → OFS), cutting the record set from ~4700 to ~2000.
 // FID 743 = Phase field. Adjust the value if QB uses a different casing.
 const QB_REFERENCE_WHERE = "{743.EX.'CX'}";
+const QB_DEPENDENCY_TABLE_ID = "bvmsmt5cf";
 
 // --- PHASE 2 SCAFFOLD (not active — write-back not enabled) ---
 // FIDs are unique PER TABLE only. Always pair with parent Table ID to avoid collision.
@@ -80,7 +81,7 @@ const QB_DECK_COLUMNS = [
   "QB_Active_Set",  "QB_Active_Pwr",  "QB_Leg",       "QB_Transport",
   "QB_How_Fed",     "QB_What_Feeds",  "QB_Island",    "QB_Ofs_Change", "QB_Ofs_Reason",
   "QB_CD_Dist",     "QB_Splice_Dist", "QB_Strand_Dist", "QB_BOM_Sent", "QB_SOW_Sign",
-  "QB_PM_RID"
+  "QB_PM_RID",      "QB_Blocked_By",  "QB_Blocks"
 ];
 
 /**
@@ -143,7 +144,8 @@ function discoverAllQBFields() {
     "FDH Projects":       "bts3c49e9",
     "Project Management": "bvieaendx",
     "Permits":            "bts3c49gt",
-    "FDH Inspections":    "bvterz4k4"
+    "FDH Inspections":    "bvterz4k4",
+    "Dependencies":       "bvmsmt5cf"
   };
 
   const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
@@ -311,6 +313,16 @@ function syncFromQBWebApp() {
       if (refRange) refRange.setValues(refValues);
       timings.deckEnrichmentMs = Date.now() - deckStartMs;
       logMsg("QB Deck Enrichment: " + Object.keys(fdhRowMap).length + " rows scanned across " + Object.keys(QB_DECK_QUERY_CONFIG).length + " tables.");
+
+      // --- New: FDH Dependency Link Enrichment (Table bvmsmt5cf) ---
+      try {
+        const depStartMs = Date.now();
+        syncFDHDependencies(token, fdhRowMap, refHeaders2, refValues);
+        if (refRange) refRange.setValues(refValues); // Write back updated dependency columns
+        timings.dependencyEnrichmentMs = Date.now() - depStartMs;
+      } catch (depErr) {
+        logMsg("WARN", "syncFromQBWebApp.dependencyEnrichment", depErr.message);
+      }
     } catch (deckErr) {
       logMsg("WARN", "syncFromQBWebApp.deckEnrichment", deckErr.message);
     }
@@ -331,6 +343,87 @@ function syncFromQBWebApp() {
     logMsg("WARN", "syncFromQBWebApp", e.message);
     return { success: false, error: e.message };
   }
+}
+
+/**
+ * Pulls FDH dependency links from Table bvmsmt5cf and writes them to
+ * QB_Blocked_By and QB_Blocks columns in Reference Data.
+ */
+function syncFDHDependencies(token, fdhRowMap, refHeaders, refValues) {
+  const fields = _fetchTableFields(token, QB_DEPENDENCY_TABLE_ID);
+  
+  const normalizeLabel = (label) => String(label || '').trim().replace(/\s+/g, ' ').toUpperCase();
+  const findField = (aliases) => {
+    const normalizedAliases = aliases.map(normalizeLabel);
+    return fields.find(function(field) {
+      const label = normalizeLabel(field && field.label);
+      return normalizedAliases.some(function(alias) { return label === alias; });
+    });
+  };
+
+  // User feedback: "Dependent FDH Project Link ID" and "Check and Balance"
+  // "Check and Balance" contains TDO04-F96->TDO04-F208
+  const succField = findField(['DEPENDENT FDH PROJECT LINK ID', 'SUCCESSOR', 'CHILD FDH', 'TO FDH']);
+  const cbField   = findField(['CHECK AND BALANCE', 'LINK', 'DEPENDENCY']);
+
+  if (!succField || !cbField) {
+    logMsg("WARN", "syncFDHDependencies", "Could not find expected fields in table " + QB_DEPENDENCY_TABLE_ID + ". Run discoverDependencyFields() to inspect labels.");
+    return;
+  }
+
+  const succFid = Number(succField.id);
+  const cbFid   = Number(cbField.id);
+  const fids    = [succFid, cbFid];
+
+  // Fetch all records from the dependency table
+  const records = _fetchTableAllFids(token, QB_DEPENDENCY_TABLE_ID, fids);
+  
+  // Maps to store aggregated relationships: FDH -> Set of related FDHs
+  const blockedByMap = {}; // Current FDH is blocked by [...]
+  const blocksMap    = {}; // Current FDH blocks [...]
+
+  records.forEach(function(rec) {
+    const cbVal   = rec[String(cbFid)] ? _extractValue(rec[String(cbFid)].value) : "";
+    const succVal = rec[String(succFid)] ? _extractValue(rec[String(succFid)].value) : "";
+    
+    // Parse "TDO04-F96->TDO04-F208" to find the predecessor
+    let pred = "";
+    if (cbVal && cbVal.includes("->")) {
+      pred = cbVal.split("->")[0].trim().toUpperCase();
+    }
+    const succ = succVal ? succVal.trim().toUpperCase() : (cbVal && cbVal.includes("->") ? cbVal.split("->")[1].trim().toUpperCase() : "");
+
+    if (pred && succ) {
+      if (!blockedByMap[succ]) blockedByMap[succ] = new Set();
+      blockedByMap[succ].add(pred);
+
+      if (!blocksMap[pred]) blocksMap[pred] = new Set();
+      blocksMap[pred].add(succ);
+    }
+  });
+
+  const blockedByColIdx = refHeaders.indexOf("QB_Blocked_By");
+  const blocksColIdx    = refHeaders.indexOf("QB_Blocks");
+
+  if (blockedByColIdx === -1 || blocksColIdx === -1) {
+    logMsg("WARN", "syncFDHDependencies", "Target columns QB_Blocked_By or QB_Blocks missing from " + REF_SHEET);
+    return;
+  }
+
+  // Update refValues with aggregated dependency lists
+  for (const fdh in fdhRowMap) {
+    const rowIdx = fdhRowMap[fdh];
+    const upperFdh = fdh.toUpperCase();
+
+    if (blockedByMap[upperFdh]) {
+      refValues[rowIdx][blockedByColIdx] = Array.from(blockedByMap[upperFdh]).join(", ");
+    }
+    if (blocksMap[upperFdh]) {
+      refValues[rowIdx][blocksColIdx] = Array.from(blocksMap[upperFdh]).join(", ");
+    }
+  }
+
+  logMsg("QB Dependency Enrichment: " + records.length + " links processed.");
 }
 
 function syncChangeLogs() {
@@ -1203,6 +1296,37 @@ function _qbHeaders(token) {
     },
     muteHttpExceptions: true
   };
+}
+
+/**
+ * Targeted discovery for the Dependency table FIDs (bvmsmt5cf).
+ * Run this once to see the field mapping in the Apps Script Logger.
+ */
+function discoverDependencyFields() {
+  const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
+  if (!token) throw new Error("QB_USER_TOKEN not found in Script Properties.");
+
+  const url = QB_API_BASE + "/fields?tableId=" + QB_DEPENDENCY_TABLE_ID;
+  const response = UrlFetchApp.fetch(url, _qbHeaders(token));
+  const fields = JSON.parse(response.getContentText());
+
+  if (response.getResponseCode() === 200) {
+    Logger.log("--- FIELD DISCOVERY FOR TABLE: " + QB_DEPENDENCY_TABLE_ID + " ---");
+    fields.forEach(f => {
+      Logger.log("FID: " + f.id + " | Label: " + f.label + " | Type: " + f.fieldType);
+    });
+    Logger.log("--- END DISCOVERY ---");
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let dictSheet = ss.getSheetByName(QB_FIELDS_SHEET) || ss.insertSheet(QB_FIELDS_SHEET);
+    const rows = fields.map(f => ["Dependencies", QB_DEPENDENCY_TABLE_ID, f.id, f.label, f.fieldType]);
+    if (rows.length > 0) {
+      dictSheet.getRange(dictSheet.getLastRow() + 1, 1, rows.length, 5).setValues(rows);
+      SpreadsheetApp.getUi().alert("FIDs captured! Check the Logger (Cmd+Enter) or the '9-QB_Fields' tab.");
+    }
+  } else {
+    logMsg("ERROR", "discoverDependencyFields", "HTTP " + response.getResponseCode());
+  }
 }
 
 /**

@@ -1784,6 +1784,26 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
                   diag.draft = `Vendor reported activity, but QB shows ${refData.stage} | ${refData.status}. Please update QB to Field CX | In Progress.`;
               }
           }
+
+          // 🧠 DEPENDENCY CHECK: Flag if any hard predecessor (from QB) is not yet complete/active.
+          if (refData.qbRef && refData.qbRef.blockedBy && refData.qbRef.blockedBy.length > 0) {
+              let blockers = refData.qbRef.blockedBy.filter(function(bId) {
+                  let bRef = refDict[bId.toUpperCase().trim()];
+                  if (!bRef) return false; 
+                  let bStage = (bRef.stage || "").toUpperCase();
+                  let bStatus = (bRef.status || "").toUpperCase();
+                  let isBComplete = bStage.includes("OFS") || bStatus.includes("COMPLETE") || bStatus.includes("ACTIVE");
+                  return !isBComplete;
+              });
+
+              if (blockers.length > 0) {
+                  if (diag.flags !== "✅ No Anomalies" && diag.flags !== "") diag.flags += "\n🚩 BLOCKED BY PREDECESSOR";
+                  else diag.flags = "🚩 BLOCKED BY PREDECESSOR";
+                  diag.flagColors.push("#991b1b"); 
+                  let bList = blockers.join(", ");
+                  diag.draft = (diag.draft ? diag.draft + " " : "") + `Blocked by predecessor(s): ${bList}.`;
+              }
+          }
       }
       
       rowObj["Health Flags"] = diag.flags; 
