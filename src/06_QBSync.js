@@ -363,6 +363,7 @@ function syncFDHDependencies(token, fdhRowMap, refHeaders, refValues) {
 
   // User feedback: "Dependent FDH Project Link ID" and "Check and Balance"
   // "Check and Balance" contains TDO04-F96->TDO04-F208
+  const predField = findField(['PRIMARY PROJECT FDH ENGINEERING ID', 'PREDECESSOR', 'PARENT FDH', 'FROM FDH']);
   const succField = findField(['DEPENDENT FDH PROJECT LINK ID', 'SUCCESSOR', 'CHILD FDH', 'TO FDH']);
   const cbField   = findField(['CHECK AND BALANCE', 'LINK', 'DEPENDENCY']);
 
@@ -371,9 +372,11 @@ function syncFDHDependencies(token, fdhRowMap, refHeaders, refValues) {
     return;
   }
 
+  const predFid = predField ? Number(predField.id) : null;
   const succFid = Number(succField.id);
   const cbFid   = Number(cbField.id);
   const fids    = [succFid, cbFid];
+  if (predFid) fids.push(predFid);
 
   // Fetch all records from the dependency table
   const records = _fetchTableAllFids(token, QB_DEPENDENCY_TABLE_ID, fids);
@@ -382,18 +385,28 @@ function syncFDHDependencies(token, fdhRowMap, refHeaders, refValues) {
   const blockedByMap = {}; // Current FDH is blocked by [...]
   const blocksMap    = {}; // Current FDH blocks [...]
 
-  records.forEach(function(rec) {
-    const cbVal   = rec[String(cbFid)] ? _extractValue(rec[String(cbFid)].value) : "";
-    const succVal = rec[String(succFid)] ? _extractValue(rec[String(succFid)].value) : "";
-    
-    // Parse "TDO04-F96->TDO04-F208" to find the predecessor
-    let pred = "";
-    if (cbVal && cbVal.includes("->")) {
-      pred = cbVal.split("->")[0].trim().toUpperCase();
-    }
-    const succ = succVal ? succVal.trim().toUpperCase() : (cbVal && cbVal.includes("->") ? cbVal.split("->")[1].trim().toUpperCase() : "");
+  const stripTags = (val) => String(val || "").replace(/<[^>]*>/g, "").trim();
 
-    if (pred && succ) {
+  records.forEach(function(rec) {
+    const rawCb   = rec[String(cbFid)] ? _extractValue(rec[String(cbFid)].value) : "";
+    const rawSucc = rec[String(succFid)] ? _extractValue(rec[String(succFid)].value) : "";
+    const rawPred = predFid && rec[String(predFid)] ? _extractValue(rec[String(predFid)].value) : "";
+    
+    const cbVal   = stripTags(rawCb);
+    const succVal = stripTags(rawSucc);
+    const predVal = stripTags(rawPred);
+    
+    // Logic: Prioritize explicit Pred/Succ fields, fallback to parsing "Check and Balance"
+    let pred = predVal.toUpperCase();
+    let succ = succVal.toUpperCase();
+
+    if ((!pred || !succ) && cbVal.includes("->")) {
+      const parts = cbVal.split("->");
+      if (!pred) pred = parts[0].trim().toUpperCase();
+      if (!succ) succ = parts[1].trim().toUpperCase();
+    }
+
+    if (pred && succ && pred !== succ) {
       if (!blockedByMap[succ]) blockedByMap[succ] = new Set();
       blockedByMap[succ].add(pred);
 
