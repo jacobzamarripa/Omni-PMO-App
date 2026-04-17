@@ -875,18 +875,27 @@ function importArchiveFolder() {
     }
   }
 
-  // 🧠 FIRST RUN: Gather all subfolders in the Archive
-  let archiveFolder = DriveApp.getFolderById(ARCHIVE_FOLDER_ID);
-  let subfolders = archiveFolder.getFolders();
-  let folderIds = [];
-  while (subfolders.hasNext()) {
-    folderIds.push(subfolders.next().getId());
-  }
-  // Also include the root folder for any loose files
-  folderIds.push(ARCHIVE_FOLDER_ID);
+  // 🧠 FIRST RUN: Gather ALL subfolders recursively in the Archive
+  let folderIds = [ARCHIVE_FOLDER_ID];
+  const gatherFoldersRecursive = (parentFolderId) => {
+    try {
+      let parent = DriveApp.getFolderById(parentFolderId);
+      let subfolders = parent.getFolders();
+      while (subfolders.hasNext()) {
+        let sub = subfolders.next();
+        folderIds.push(sub.getId());
+        gatherFoldersRecursive(sub.getId());
+      }
+    } catch (e) {
+      logMsg("WARN", "gatherFoldersRecursive", `Failed to scan folder ${parentFolderId}: ${e.message}`);
+    }
+  };
+
+  ui.showModelessDialog(HtmlService.createHtmlOutput("<p>Gathering all subfolders in archive... please wait.</p>").setHeight(100).setWidth(300), "📂 Scanning Archive");
+  gatherFoldersRecursive(ARCHIVE_FOLDER_ID);
   
   props.setProperty("ARCHIVE_IMPORT_STATE", JSON.stringify(folderIds));
-  ui.alert("🚀 ARCHIVE REBUILD STARTED", "The script will now process your archive in 4.5-minute batches.\n\nIt will automatically resume every 60 seconds until finished. You can close this window and walk away.", ui.ButtonSet.OK);
+  ui.alert("🚀 ARCHIVE REBUILD STARTED", `The script identified ${folderIds.length} folders to process.\n\nIt will now work in 4.5-minute batches and automatically resume every 60 seconds. You can close this window and walk away.`, ui.ButtonSet.OK);
 
   _runArchiveImportBatch_(folderIds);
 }
