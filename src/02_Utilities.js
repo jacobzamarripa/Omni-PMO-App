@@ -176,6 +176,7 @@ function onOpen() {
 
     main.addSubMenu(ui.createMenu('System Maintenance')
       .addItem('Heal Master Archive Alignment', 'healMasterArchiveAlignment')
+      .addItem('Audit Master Archive (vs Backup)', 'promptAuditArchive')
       .addItem('Backup Master Archive (CSV)', 'backupMasterArchiveToCSV')
       .addSeparator()
       .addItem('Configure Daily Automations', 'setupDailyTrigger')
