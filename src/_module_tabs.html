@@ -24,13 +24,15 @@
 
 function updateAdminBadge() {
     if (!allActionItems) return;
-    let count = getActiveQueueItems().filter(i =>
-        i.flags.includes('ADMIN: CHECK CROSSINGS') ||
-        i.flags.includes('PLEASE INPUT BOM') ||
-        i.flags.includes('CHECK BOM (UG/AE)') ||
-        i.flags.includes('STATUS MISMATCH') ||
-        i.flags.includes('MISSING QB STATUS')
-    ).length;
+    let count = getActiveQueueItems().filter(i => {
+        if (isCompleteOrOfs(i)) return false;
+        const f = i.flags || "";
+        return f.includes('🚩 ADMIN: CHECK CROSSINGS') ||
+               f.includes('⚠️ PLEASE INPUT BOM') || f.includes('MISSING UG BOM') || f.includes('MISSING STRAND BOM') ||
+               f.includes('⚠️ CHECK BOM (UG/AE)') || f.includes('HIGH UG VARIANCE') || f.includes('HIGH STRAND VARIANCE') ||
+               f.includes('🚩 STATUS MISMATCH') ||
+               f.includes('🚩 MISSING QB STATUS');
+    }).length;
     let displayCount = String(count);
     let badge = getEl('admin-badge');
     if (badge) { 

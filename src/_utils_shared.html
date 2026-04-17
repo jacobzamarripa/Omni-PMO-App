@@ -99,6 +99,19 @@
           return String(raw).trim();
       }
 
+      /**
+       * Returns true if the item is in a terminal stage or status.
+       */
+      function isCompleteOrOfs(item) {
+          if (!item) return false;
+          const f = (item.flags || "").toUpperCase();
+          const s = (item.status || "").toUpperCase();
+          const st = (item.stage || "").toUpperCase();
+          return f.includes("COMPLETE") || s.includes("COMPLETE") || 
+                 f.includes("OFS") || f.includes("OPEN FOR SALE") || s.includes("OFS") || s.includes("OPEN FOR SALE") ||
+                 st.includes("OFS") || st.includes("COMPLETE");
+      }
+
       function getEffectiveOfsRaw(item) {
           return getCanonicalOfsRaw(item);
       }

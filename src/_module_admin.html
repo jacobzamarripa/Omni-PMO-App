@@ -23,6 +23,20 @@
 // EXTRACT WITH: filteredItems, allActionItems, currentActiveItem
 let activeAdminFilter = null;
 
+/**
+ * Navigates to a project and automatically opens the Special Xings popover.
+ */
+function navToXings(fdh) {
+    if (typeof selectItemForNav === 'function') {
+        selectItemForNav(fdh);
+        setTimeout(() => {
+            if (typeof openSpecialXingsPopover === 'function') {
+                openSpecialXingsPopover(fdh);
+            }
+        }, 300);
+    }
+}
+
 function toggleAdminFilter(type) {
     activeAdminFilter = (activeAdminFilter === type) ? null : type;
     let kpiC = getEl('kpi-admin-crossings'), kpiS = getEl('kpi-admin-status'), kpiB = getEl('kpi-admin-boms');
@@ -176,10 +190,10 @@ function syncReviewHubHeaderCount() {
 
     if (activeTab === 'admin') {
         let items = getActiveQueueItems() || [];
-        let crossings = items.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS")).length;
-        let bomInput = items.filter(i => i.flags.includes("PLEASE INPUT BOM")).length;
-        let bomCheck = items.filter(i => i.flags.includes("CHECK BOM (UG/AE)")).length;
-        let status = items.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS")).length;
+        let crossings = items.filter(i => i.flags.includes("🚩 ADMIN: CHECK CROSSINGS") && !isCompleteOrOfs(i)).length;
+        let bomInput = items.filter(i => (i.flags.includes("⚠️ PLEASE INPUT BOM") || i.flags.includes("MISSING UG BOM") || i.flags.includes("MISSING STRAND BOM")) && !isCompleteOrOfs(i)).length;
+        let bomCheck = items.filter(i => (i.flags.includes("⚠️ CHECK BOM (UG/AE)") || i.flags.includes("HIGH UG VARIANCE") || i.flags.includes("HIGH STRAND VARIANCE")) && !isCompleteOrOfs(i)).length;
+        let status = items.filter(i => (i.flags.includes("🚩 STATUS MISMATCH") || i.flags.includes("🚩 MISSING QB STATUS")) && !isCompleteOrOfs(i)).length;
         total = crossings + bomInput + bomCheck + status;
     } else if (activeTab === 'reviewed') {
         let stagedCount = typeof stagedDeckItems !== 'undefined' ? stagedDeckItems.length : 0;
@@ -196,10 +210,18 @@ function syncReviewHubHeaderCount() {
 function renderSpecialCrossingsAdminSection(items) {
     if (!items || items.length === 0) return '';
     let html = _adminSection('Special Crossings to Verify', items, function(item) {
-        return `<div class="admin-list-card" onclick="selectItemForNav('${item.fdh}')">
-            <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
-            <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
-            <div style="font-size:10px; color:#b45309; margin-top:3px; font-weight:bold;">🚧 HIGHWAY / RAILROAD / BRIDGE</div>
+        // Use logic similar to Project Schedule to decide label
+        const needsConfirmation = !item.isXing || !item.rawSpecialX || item.rawSpecialX === "—";
+        const btnLabel = needsConfirmation ? 'CONFIRM X-INGS' : 'REVIEW X-INGS';
+        
+        return `<div class="admin-list-card">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+                <div style="cursor:pointer;" onclick="selectItemForNav('${item.fdh}')">
+                    <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
+                </div>
+                <button class="btn" onclick="event.stopPropagation(); navToXings('${item.fdh}')" style="padding:5px 10px; font-size:10px; font-weight:900; background:var(--accent); color:#fff; border-color:var(--accent-dark); white-space:nowrap; flex-shrink:0;">${btnLabel}</button>
+            </div>
         </div>`;
     });
     
@@ -218,10 +240,10 @@ function renderAdminPane(items) {
         return;
     }
 
-    let crossings = items.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS"));
-    let bomInput = items.filter(i => i.flags.includes("PLEASE INPUT BOM"));
-    let bomCheck = items.filter(i => i.flags.includes("CHECK BOM (UG/AE)"));
-    let status = items.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS"));
+    let crossings = items.filter(i => i.flags.includes("🚩 ADMIN: CHECK CROSSINGS") && !isCompleteOrOfs(i));
+    let bomInput = items.filter(i => (i.flags.includes("⚠️ PLEASE INPUT BOM") || i.flags.includes("MISSING UG BOM") || i.flags.includes("MISSING STRAND BOM")) && !isCompleteOrOfs(i));
+    let bomCheck = items.filter(i => (i.flags.includes("⚠️ CHECK BOM (UG/AE)") || i.flags.includes("HIGH UG VARIANCE") || i.flags.includes("HIGH STRAND VARIANCE")) && !isCompleteOrOfs(i));
+    let status = items.filter(i => (i.flags.includes("🚩 STATUS MISMATCH") || i.flags.includes("🚩 MISSING QB STATUS")) && !isCompleteOrOfs(i));
     let bomsTotal = bomInput.length + bomCheck.length;
 
     let totalAdmin = crossings.length + bomsTotal + status.length;
@@ -241,18 +263,28 @@ function renderAdminPane(items) {
     }
 
     if (!activeAdminFilter || activeAdminFilter === 'boms') {
+        const renderSpecificFlags = (item, keywords) => {
+            const flags = (item.flags || "").split('\n').filter(f => keywords.some(k => f.toUpperCase().includes(k)));
+            if (flags.length === 0) return '';
+            return `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">` + 
+                flags.map(f => `<span style="background:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2); padding:1px 5px; border-radius:3px; font-size:9px; font-weight:900;">${f.replace(/[🚩⚠️✅🚨]/g, '').trim()}</span>`).join('') + 
+                `</div>`;
+        };
+
         html += _adminSection('BOMs to Input', bomInput, function(item) {
             return `<div class="admin-list-card" onclick="selectItemForNav('${item.fdh}')">
                 <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
                 <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor} · ${item.stage}</div>
-                <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">Enter BOM data in QuickBase, then re-sync reference data.</div>
+                ${renderSpecificFlags(item, ['MISSING', 'INPUT BOM'])}
+                <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">BOM quantity is missing despite reported activity. Verify BOM in QuickBase.</div>
             </div>`;
         });
-        html += _adminSection('BOMs to Check — UG/AE', bomCheck, function(item) {
+        html += _adminSection('BOM Variance — High', bomCheck, function(item) {
             return `<div class="admin-list-card" onclick="selectItemForNav('${item.fdh}')">
                 <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
                 <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor} · ${item.stage}</div>
-                <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">UG and AE BOM quantities are 0 in QB. Verify main phase BOM setup.</div>
+                ${renderSpecificFlags(item, ['VARIANCE', 'CHECK BOM'])}
+                <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">Production significantly exceeding BOM. Verify BOM accuracy in QuickBase.</div>
             </div>`;
         });
     }
@@ -266,7 +298,7 @@ function renderAdminPane(items) {
                         <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
                         <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">QB Status: <span style="font-weight:bold; color:var(--text-main);">${item.status}</span></div>
                     </div>
-                    <button class="btn" onclick="event.stopPropagation(); markQbUpdatedFromAdmin('${item.fdh}', this)" style="padding:5px 10px; font-size:10px; font-weight:900; background:#2563eb; color:#fff; border-color:#1d4ed8; white-space:nowrap; flex-shrink:0; display:inline-flex; align-items:center; gap:4px;">${icon('build')} Updated</button>
+                    <button class="btn" onclick="event.stopPropagation(); markQbUpdatedFromAdmin('${item.fdh}', this)" style="padding:5px 10px; font-size:10px; font-weight:900; background:#2563eb; color:#fff; border-color:#1d4ed8; white-space:nowrap; flex-shrink:0; display:inline-flex; align-items:center; gap:4px;">Updated</button>
                 </div>
             </div>`;
         });
