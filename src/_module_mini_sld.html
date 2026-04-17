@@ -94,9 +94,11 @@ function renderMiniSld(item) {
             } else {
                 if (direction === 'up') {
                     if (hasTransport) layers.unshift(['⚡ TRANSPORT READY']);
-                    else layers.unshift(['UPSTREAM UNKNOWN']);
+                    // 🧠 UX: Only show "UNKNOWN" if the current project itself has no immediate predecessors
+                    else if (layers.length === 0) layers.unshift(['UPSTREAM UNKNOWN']);
                 } else {
-                    layers.push(['DOWNSTREAM UNKNOWN']);
+                    // 🧠 UX: Only show "UNKNOWN" if the current project itself has no immediate successors
+                    if (layers.length === 0) layers.push(['DOWNSTREAM UNKNOWN']);
                 }
                 break;
             }
