@@ -346,6 +346,18 @@ function syncFromQBWebApp() {
 }
 
 /**
+ * Standardizes FDH IDs for dependency mapping by removing leading zeros from F-numbers
+ * and stripping non-alphanumeric characters for a robust match.
+ * Example: "TDO04-F0208" -> "TDO04-F208", "TDO04-F96 " -> "TDO04-F96"
+ */
+function _normalizeDependencyFdh(id) {
+  if (!id) return "";
+  let clean = String(id).toUpperCase().replace(/\s+/g, "").trim();
+  // Strip leading zeros from the F-number portion: F001 -> F1, F096 -> F96
+  return clean.replace(/F0*(\d+)/, "F$1");
+}
+
+/**
  * Pulls FDH dependency links from Table bvmsmt5cf and writes them to
  * QB_Blocked_By and QB_Blocks columns in Reference Data.
  */
@@ -381,9 +393,9 @@ function syncFDHDependencies(token, fdhRowMap, refHeaders, refValues) {
   // Fetch all records from the dependency table
   const records = _fetchTableAllFids(token, QB_DEPENDENCY_TABLE_ID, fids);
   
-  // Maps to store aggregated relationships: FDH -> Set of related FDHs
-  const blockedByMap = {}; // Current FDH is blocked by [...]
-  const blocksMap    = {}; // Current FDH blocks [...]
+  // Maps to store aggregated relationships: Normalized FDH -> Set of original FDH IDs from project list
+  const blockedByMap = {}; // Normalized Successor -> [Set of original Predecessor IDs]
+  const blocksMap    = {}; // Normalized Predecessor -> [Set of original Successor IDs]
 
   const stripTags = (val) => String(val || "").replace(/<[^>]*>/g, "").trim();
 
@@ -391,28 +403,31 @@ function syncFDHDependencies(token, fdhRowMap, refHeaders, refValues) {
     const rawCb   = rec[String(cbFid)] ? _extractValue(rec[String(cbFid)].value) : "";
     const cbVal   = stripTags(rawCb);
     
-    let pred = "";
-    let succ = "";
+    let rawPred = "";
+    let rawSucc = "";
 
     // 🧠 The "Check and Balance" field is the most reliable source for the exact FDH strings (e.g., TDO04-F96->TDO04-F208)
     if (cbVal && cbVal.includes("->")) {
       const parts = cbVal.split("->");
-      pred = parts[0].trim().toUpperCase();
-      succ = parts[1].trim().toUpperCase();
+      rawPred = parts[0].trim().toUpperCase();
+      rawSucc = parts[1].trim().toUpperCase();
     } else {
       // Fallback to individual fields if Check and Balance is empty or unformatted
-      const rawSucc = rec[String(succFid)] ? _extractValue(rec[String(succFid)].value) : "";
-      const rawPred = predFid && rec[String(predFid)] ? _extractValue(rec[String(predFid)].value) : "";
-      pred = stripTags(rawPred).toUpperCase();
-      succ = stripTags(rawSucc).toUpperCase();
+      const fSucc = rec[String(succFid)] ? _extractValue(rec[String(succFid)].value) : "";
+      const fPred = predFid && rec[String(predFid)] ? _extractValue(rec[String(predFid)].value) : "";
+      rawPred = stripTags(fPred).toUpperCase();
+      rawSucc = stripTags(fSucc).toUpperCase();
     }
 
-    if (pred && succ && pred !== succ) {
-      if (!blockedByMap[succ]) blockedByMap[succ] = new Set();
-      blockedByMap[succ].add(pred);
+    if (rawPred && rawSucc && rawPred !== rawSucc) {
+      const normPred = _normalizeDependencyFdh(rawPred);
+      const normSucc = _normalizeDependencyFdh(rawSucc);
 
-      if (!blocksMap[pred]) blocksMap[pred] = new Set();
-      blocksMap[pred].add(succ);
+      if (!blockedByMap[normSucc]) blockedByMap[normSucc] = new Set();
+      blockedByMap[normSucc].add(rawPred); // Store the string as-is for the sheet, we will replace with official ID in the second loop
+
+      if (!blocksMap[normPred]) blocksMap[normPred] = new Set();
+      blocksMap[normPred].add(rawSucc);
     }
   });
 
@@ -424,16 +439,26 @@ function syncFDHDependencies(token, fdhRowMap, refHeaders, refValues) {
     return;
   }
 
+  // Pre-calculate normalized map of all official Project IDs to their row indices
+  const normalizedProjectMap = {};
+  for (const fdh in fdhRowMap) {
+    normalizedProjectMap[_normalizeDependencyFdh(fdh)] = fdh; // Normalized ID -> Official ID
+  }
+
   // Update refValues with aggregated dependency lists
   for (const fdh in fdhRowMap) {
     const rowIdx = fdhRowMap[fdh];
-    const upperFdh = fdh.toUpperCase();
+    const normFdh = _normalizeDependencyFdh(fdh);
 
-    if (blockedByMap[upperFdh]) {
-      refValues[rowIdx][blockedByColIdx] = Array.from(blockedByMap[upperFdh]).join(", ");
+    if (blockedByMap[normFdh]) {
+      // Convert normalized predecessors back to official Project IDs where possible
+      const officialPreds = Array.from(blockedByMap[normFdh]).map(p => normalizedProjectMap[_normalizeDependencyFdh(p)] || p);
+      refValues[rowIdx][blockedByColIdx] = officialPreds.join(", ");
     }
-    if (blocksMap[upperFdh]) {
-      refValues[rowIdx][blocksColIdx] = Array.from(blocksMap[upperFdh]).join(", ");
+    if (blocksMap[normFdh]) {
+      // Convert normalized successors back to official Project IDs where possible
+      const officialSuccs = Array.from(blocksMap[normFdh]).map(s => normalizedProjectMap[_normalizeDependencyFdh(s)] || s);
+      refValues[rowIdx][blocksColIdx] = officialSuccs.join(", ");
     }
   }
 
