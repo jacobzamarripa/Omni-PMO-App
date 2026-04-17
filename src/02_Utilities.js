@@ -851,30 +851,42 @@ function importArchiveFolder() {
   const ui = SpreadsheetApp.getUi();
   const props = PropertiesService.getScriptProperties();
   let stateStr = props.getProperty("ARCHIVE_IMPORT_STATE");
-  let folderIds = [];
   
-  if (!stateStr) {
-    // 🧠 FIRST RUN: Gather all subfolders in the Archive
-    let archiveFolder = DriveApp.getFolderById(ARCHIVE_FOLDER_ID);
-    let subfolders = archiveFolder.getFolders();
-    while (subfolders.hasNext()) {
-      folderIds.push(subfolders.next().getId());
+  if (stateStr) {
+    const folderIds = JSON.parse(stateStr);
+    if (folderIds.length > 0) {
+      let response = ui.alert(
+        "⏸️ IMPORT IN PROGRESS",
+        `An interrupted import was found with ${folderIds.length} folders remaining.\n\nClick YES to Resume where it left off.\nClick NO to Cancel the current run so you can start a fresh one.`,
+        ui.ButtonSet.YES_NO_CANCEL
+      );
+      
+      if (response === ui.Button.YES) {
+        _runArchiveImportBatch_(folderIds);
+        return;
+      } else if (response === ui.Button.NO) {
+        props.deleteProperty("ARCHIVE_IMPORT_STATE");
+        _deleteProjectTriggersByHandler_("importArchiveFolderResume");
+        ui.alert("🛑 PROGRESS CLEARED", "Saved progress has been wiped. You can now click 'Import Historical Archive' again to start from the beginning.", ui.ButtonSet.OK);
+        return;
+      } else {
+        return; // Cancel
+      }
     }
-    // Also include the root folder for any loose files
-    folderIds.push(ARCHIVE_FOLDER_ID);
-    
-    props.setProperty("ARCHIVE_IMPORT_STATE", JSON.stringify(folderIds));
-    ui.alert("🚀 ARCHIVE REBUILD STARTED", "The script will now process your archive in 4.5-minute batches.\n\nIt will automatically resume every 60 seconds until finished. You can close this window and walk away.", ui.ButtonSet.OK);
-  } else {
-    folderIds = JSON.parse(stateStr);
   }
 
-  if (folderIds.length === 0) {
-    props.deleteProperty("ARCHIVE_IMPORT_STATE");
-    _deleteProjectTriggersByHandler_("importArchiveFolderResume");
-    ui.alert("✅ Master Archive Rebuild is 100% Complete!");
-    return;
+  // 🧠 FIRST RUN: Gather all subfolders in the Archive
+  let archiveFolder = DriveApp.getFolderById(ARCHIVE_FOLDER_ID);
+  let subfolders = archiveFolder.getFolders();
+  let folderIds = [];
+  while (subfolders.hasNext()) {
+    folderIds.push(subfolders.next().getId());
   }
+  // Also include the root folder for any loose files
+  folderIds.push(ARCHIVE_FOLDER_ID);
+  
+  props.setProperty("ARCHIVE_IMPORT_STATE", JSON.stringify(folderIds));
+  ui.alert("🚀 ARCHIVE REBUILD STARTED", "The script will now process your archive in 4.5-minute batches.\n\nIt will automatically resume every 60 seconds until finished. You can close this window and walk away.", ui.ButtonSet.OK);
 
   _runArchiveImportBatch_(folderIds);
 }
