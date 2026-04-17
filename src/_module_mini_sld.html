@@ -71,25 +71,29 @@ function renderMiniSld(item) {
         upstreamNodesHtml = `<div style="display:flex; align-items:center; gap:7px; min-width:0; max-width:220px; padding:8px 12px; border-radius:10px; border:1px solid #2563eb; background:rgba(239,246,255,0.95); color:#1d4ed8; flex:0 1 auto;">
             <span style="width:8px; height:8px; border-radius:999px; background:#2563eb; flex:0 0 auto;"></span>
             <span style="font-size:10px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">⚡ Transport Ready</span>
-        </div>`;
+        </div><div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>`;
     } else {
         let upArray = Array.from(allUpstream);
-        if (upArray.length === 0) upArray = [upstreamFdh || 'Upstream Unknown'];
-        upstreamNodesHtml = upArray.map(fdh => {
-            let node = (allActionItems || []).find(i => i.fdh === fdh);
-            return miniSldNodeHtml(fdh, node, node ? fdh : null, false);
-        }).join('<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto; margin:0 -4px;">&</div>');
+        if (upArray.length > 0) {
+            upstreamNodesHtml = upArray.map(fdh => {
+                let node = (allActionItems || []).find(i => i.fdh === fdh);
+                return miniSldNodeHtml(fdh, node, node ? fdh : null, false);
+            }).join('<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto; margin:0 -4px;">&</div>') + 
+            '<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>';
+        }
     }
 
     let currentNodeHtml = miniSldNodeHtml(item.fdh, item, '', true);
 
     let downstreamNodesHtml = '';
     let downArray = Array.from(allDownstream);
-    if (downArray.length === 0) downArray = [downstreamFdh || 'Downstream Unknown'];
-    downstreamNodesHtml = downArray.map(fdh => {
-        let node = (allActionItems || []).find(i => i.fdh === fdh);
-        return miniSldNodeHtml(fdh, node, node ? fdh : null, false);
-    }).join('<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto; margin:0 -4px;">&</div>');
+    if (downArray.length > 0) {
+        downstreamNodesHtml = '<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>' + 
+        downArray.map(fdh => {
+            let node = (allActionItems || []).find(i => i.fdh === fdh);
+            return miniSldNodeHtml(fdh, node, node ? fdh : null, false);
+        }).join('<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto; margin:0 -4px;">&</div>');
+    }
 
     let labelNode = `<div style="display:flex; align-items:center; padding-right:12px; margin-right:4px; border-right:1px solid var(--border); flex-shrink:0;">
         <span style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Network Path</span>
@@ -100,9 +104,7 @@ function renderMiniSld(item) {
         <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; -ms-overflow-style:none;">
             <style>#p-network-path > div::-webkit-scrollbar { display: none; }</style>
             ${upstreamNodesHtml}
-            <div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>
             ${currentNodeHtml}
-            <div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>
             ${downstreamNodesHtml}
         </div>
     </div>`;

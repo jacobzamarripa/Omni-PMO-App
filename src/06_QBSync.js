@@ -389,21 +389,22 @@ function syncFDHDependencies(token, fdhRowMap, refHeaders, refValues) {
 
   records.forEach(function(rec) {
     const rawCb   = rec[String(cbFid)] ? _extractValue(rec[String(cbFid)].value) : "";
-    const rawSucc = rec[String(succFid)] ? _extractValue(rec[String(succFid)].value) : "";
-    const rawPred = predFid && rec[String(predFid)] ? _extractValue(rec[String(predFid)].value) : "";
-    
     const cbVal   = stripTags(rawCb);
-    const succVal = stripTags(rawSucc);
-    const predVal = stripTags(rawPred);
     
-    // Logic: Prioritize explicit Pred/Succ fields, fallback to parsing "Check and Balance"
-    let pred = predVal.toUpperCase();
-    let succ = succVal.toUpperCase();
+    let pred = "";
+    let succ = "";
 
-    if ((!pred || !succ) && cbVal.includes("->")) {
+    // 🧠 The "Check and Balance" field is the most reliable source for the exact FDH strings (e.g., TDO04-F96->TDO04-F208)
+    if (cbVal && cbVal.includes("->")) {
       const parts = cbVal.split("->");
-      if (!pred) pred = parts[0].trim().toUpperCase();
-      if (!succ) succ = parts[1].trim().toUpperCase();
+      pred = parts[0].trim().toUpperCase();
+      succ = parts[1].trim().toUpperCase();
+    } else {
+      // Fallback to individual fields if Check and Balance is empty or unformatted
+      const rawSucc = rec[String(succFid)] ? _extractValue(rec[String(succFid)].value) : "";
+      const rawPred = predFid && rec[String(predFid)] ? _extractValue(rec[String(predFid)].value) : "";
+      pred = stripTags(rawPred).toUpperCase();
+      succ = stripTags(rawSucc).toUpperCase();
     }
 
     if (pred && succ && pred !== succ) {
