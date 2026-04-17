@@ -47,53 +47,82 @@ function miniSldNodeHtml(label, node, navFdh, isCurrent) {
 function renderMiniSld(item) {
     if (!item) return '';
 
-    // Upstream: combine legacy 'howFed' with new 'blockedBy' dependencies
-    let upstreamFdh = parseMiniSldFdh(item.qbRef && item.qbRef.howFed);
-    let blockedBy = item.qbRef && item.qbRef.blockedBy || [];
-    
-    // Downstream: combine legacy 'whatFeeds' with new 'blocks' dependencies
-    let downstreamFdh = parseMiniSldFdh(item.qbRef && item.qbRef.whatFeeds);
-    let blocks = item.qbRef && item.qbRef.blocks || [];
+    // 🧠 BFS Helper: Traverse Upstream/Downstream to build the full topology map
+    function buildMapLayers(startFdh, direction) {
+        let layers = [];
+        let queue = new Set([startFdh]);
+        let visited = new Set([startFdh]);
+        let limit = 10; // Safety limit for deep chains
+        
+        while (queue.size > 0 && limit-- > 0) {
+            let nextQueue = new Set();
+            let hasTransport = false;
+            let hasUnknown = false;
 
-    // Deduplicate and filter out current FDH
-    let allUpstream = new Set(blockedBy);
-    if (upstreamFdh) allUpstream.add(upstreamFdh);
-    allUpstream.delete(item.fdh);
-    
-    let allDownstream = new Set(blocks);
-    if (downstreamFdh) allDownstream.add(downstreamFdh);
-    allDownstream.delete(item.fdh);
-
-    const transportReady = isMiniSldTransportReady(item.qbRef && item.qbRef.transport);
-
-    let upstreamNodesHtml = '';
-    if (transportReady) {
-        upstreamNodesHtml = `<div style="display:flex; align-items:center; gap:7px; min-width:0; max-width:220px; padding:8px 12px; border-radius:10px; border:1px solid #2563eb; background:rgba(239,246,255,0.95); color:#1d4ed8; flex:0 1 auto;">
-            <span style="width:8px; height:8px; border-radius:999px; background:#2563eb; flex:0 0 auto;"></span>
-            <span style="font-size:10px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">⚡ Transport Ready</span>
-        </div><div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>`;
-    } else {
-        let upArray = Array.from(allUpstream);
-        if (upArray.length > 0) {
-            upstreamNodesHtml = upArray.map(fdh => {
+            for (let fdh of queue) {
                 let node = (allActionItems || []).find(i => i.fdh === fdh);
-                return miniSldNodeHtml(fdh, node, node ? fdh : null, false);
-            }).join('<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto; margin:0 -4px;">&</div>') + 
-            '<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>';
+                if (node) {
+                    if (direction === 'up') {
+                        let isTrans = isMiniSldTransportReady(node.qbRef && node.qbRef.transport);
+                        if (isTrans && fdh !== startFdh) { hasTransport = true; continue; }
+                        let blockedBy = node.qbRef && node.qbRef.blockedBy || [];
+                        let howFed = parseMiniSldFdh(node.qbRef && node.qbRef.howFed);
+                        let upItems = Array.from(new Set([...blockedBy, howFed].filter(Boolean)));
+                        if (upItems.length === 0 && fdh !== startFdh) hasUnknown = true;
+                        else upItems.forEach(up => { if (!visited.has(up)) { visited.add(up); nextQueue.add(up); } });
+                    } else {
+                        let blocks = node.qbRef && node.qbRef.blocks || [];
+                        let whatFeeds = parseMiniSldFdh(node.qbRef && node.qbRef.whatFeeds);
+                        let downItems = Array.from(new Set([...blocks, whatFeeds].filter(Boolean)));
+                        if (downItems.length === 0 && fdh !== startFdh) hasUnknown = true;
+                        else downItems.forEach(down => { if (!visited.has(down)) { visited.add(down); nextQueue.add(down); } });
+                    }
+                } else if (fdh !== startFdh) {
+                    hasUnknown = true;
+                }
+            }
+
+            if (nextQueue.size > 0) {
+                if (direction === 'up') layers.unshift(Array.from(nextQueue));
+                else layers.push(Array.from(nextQueue));
+                queue = nextQueue;
+            } else {
+                if (direction === 'up') {
+                    if (hasTransport) layers.unshift(['⚡ TRANSPORT READY']);
+                    else layers.unshift(['UPSTREAM UNKNOWN']);
+                } else {
+                    layers.push(['DOWNSTREAM UNKNOWN']);
+                }
+                break;
+            }
         }
+        return layers;
     }
 
-    let currentNodeHtml = miniSldNodeHtml(item.fdh, item, '', true);
+    const upLayers = buildMapLayers(item.fdh, 'up');
+    const downLayers = buildMapLayers(item.fdh, 'down');
 
-    let downstreamNodesHtml = '';
-    let downArray = Array.from(allDownstream);
-    if (downArray.length > 0) {
-        downstreamNodesHtml = '<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>' + 
-        downArray.map(fdh => {
+    const renderLayer = (layerFdhs) => {
+        return layerFdhs.map(fdh => {
+            if (fdh.includes('UNKNOWN') || fdh.includes('READY')) {
+                let isReady = fdh.includes('READY');
+                return `<div style="display:flex; align-items:center; gap:7px; min-width:0; max-width:220px; padding:8px 12px; border-radius:10px; border:1px solid ${isReady ? '#2563eb' : 'var(--border)'}; background:${isReady ? 'rgba(239,246,255,0.95)' : 'rgba(148,163,184,0.08)'}; color:${isReady ? '#1d4ed8' : 'var(--text-muted)'}; flex:0 1 auto;">
+                    <span style="width:8px; height:8px; border-radius:999px; background:${isReady ? '#2563eb' : '#94a3b8'}; flex:0 0 auto;"></span>
+                    <span style="font-size:10px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${fdh}</span>
+                </div>`;
+            }
             let node = (allActionItems || []).find(i => i.fdh === fdh);
             return miniSldNodeHtml(fdh, node, node ? fdh : null, false);
         }).join('<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto; margin:0 -4px;">&</div>');
-    }
+    };
+
+    const arrow = '<div style="font-size:14px; color:var(--text-muted); flex:0 0 auto;">→</div>';
+    
+    let html = upLayers.map(l => renderLayer(l)).join(arrow);
+    if (upLayers.length > 0) html += arrow;
+    html += miniSldNodeHtml(item.fdh, item, '', true);
+    if (downLayers.length > 0) html += arrow;
+    html += downLayers.map(l => renderLayer(l)).join(arrow);
 
     let labelNode = `<div style="display:flex; align-items:center; padding-right:12px; margin-right:4px; border-right:1px solid var(--border); flex-shrink:0;">
         <span style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Network Path</span>
@@ -103,9 +132,7 @@ function renderMiniSld(item) {
         ${labelNode}
         <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; -ms-overflow-style:none;">
             <style>#p-network-path > div::-webkit-scrollbar { display: none; }</style>
-            ${upstreamNodesHtml}
-            ${currentNodeHtml}
-            ${downstreamNodesHtml}
+            ${html}
         </div>
     </div>`;
 }
