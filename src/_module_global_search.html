@@ -22,8 +22,10 @@
     _globalSearchPrimaryShortcut = _gsDetectPrimaryShortcut();
     const isMac = _globalSearchPrimaryShortcut === 'Cmd+K';
     const primaryKey = isMac ? '⌘K' : 'Ctrl+K';
-    const badge = getEl('gs-badge-primary');
-    if (badge) badge.textContent = primaryKey;
+    const triggerBadge = getEl('gs-trigger-badge-primary');
+    const spotlightBadge = getEl('gs-spotlight-badge-primary');
+    if (triggerBadge) triggerBadge.textContent = primaryKey;
+    if (spotlightBadge) spotlightBadge.textContent = primaryKey;
     const mHint = getEl('m-global-search-input');
     if (mHint) mHint.setAttribute('placeholder', 'Search everywhere…');
   }
@@ -325,7 +327,7 @@
           + '</section>';
       }).join('');
     }
-    host.innerHTML = '<div class="global-search-dropdown-inner">' + inner + '</div>';
+    host.innerHTML = inner;
   }
 
   function _gsSetDesktopOpen(open) {
@@ -563,11 +565,12 @@
     const result = globalSearchResults.find(function(entry) { return entry.id === resultId; })
       || globalSearchIndex.find(function(entry) { return entry.id === resultId; });
     if (!result) return;
+    const navQuery = String(globalSearchQuery || result.highlightText || '').trim();
     closeGlobalSearch();
-    if (result.target.kind === 'project') _gsNavigateProject(result.target, globalSearchQuery || result.highlightText);
-    else if (result.target.kind === 'activity') _gsNavigateActivity(result.target, globalSearchQuery || result.highlightText);
-    else if (result.target.kind === 'signal') _gsNavigateSignal(result.target, globalSearchQuery || result.highlightText);
-    else if (result.target.kind === 'help') _gsNavigateHelp(result.target, globalSearchQuery || result.highlightText);
+    if (result.target.kind === 'project') _gsNavigateProject(result.target, navQuery);
+    else if (result.target.kind === 'activity') _gsNavigateActivity(result.target, navQuery);
+    else if (result.target.kind === 'signal') _gsNavigateSignal(result.target, navQuery);
+    else if (result.target.kind === 'help') _gsNavigateHelp(result.target, navQuery);
     else if (result.target.kind === 'tool') _gsNavigateTool(result);
   }
 

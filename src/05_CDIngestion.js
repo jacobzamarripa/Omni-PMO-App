@@ -72,6 +72,11 @@ function getCDFolders_() {
 // --- Main entry point (called by time-based trigger) ---
 
 function processCDQueue() {
+  // PAUSED: CD ingestion requires a paid Gemini API key.
+  // Re-enable by removing this guard and calling installCDTrigger().
+  logMsg('CDIngestion: Pipeline is paused. Skipping. (Awaiting paid Gemini API key.)');
+  return;
+
   const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   if (!apiKey) {
     logMsg('CDIngestion ERROR: GEMINI_API_KEY not set in Script Properties. Aborting.');

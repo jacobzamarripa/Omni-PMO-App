@@ -337,7 +337,7 @@ function _performRenderGrid() {
     }).join('');
 
     if (filteredItems.length > renderLimit) {
-        grid.innerHTML += `<div class="empty-msg" style="grid-column: 1 / -1; padding: 40px; opacity: 0.6;">Showing first ${renderLimit} of ${filteredItems.length} items. Use search to narrow results.</div>`;
+        grid.innerHTML += `<div class="empty-msg" style="grid-column: 1 / -1; padding: 40px; opacity: 0.6;">Showing first ${renderLimit} of ${filteredItems.length} items. Use filters to narrow results.</div>`;
     }
 }
 

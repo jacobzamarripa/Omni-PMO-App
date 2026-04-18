@@ -154,7 +154,7 @@ function _signalRenderCached(tf) {
   var fastData = _signalCache.fast[tf];
   if (fastData) {
     _renderSignalQB(fastData.qbChanges || [], tf, fastData.topMovers || []);
-    _renderSignalLogs(fastData.systemLogs || []);
+    _renderSignalLogs(fastData.systemLogs || [], tf);
   }
   if (Object.prototype.hasOwnProperty.call(_signalCache.drive, tf)) {
     _renderSignalDrive(_signalCache.drive[tf] || [], tf);
@@ -242,6 +242,7 @@ function _signalPrefetch(tf) {
           _signalCache.drive[tf] = activity || [];
           _signalLoadedTf[tf] = true;
           _signalPrefetching[tf] = false;
+          if (typeof rebuildGlobalSearchIndex === 'function') rebuildGlobalSearchIndex();
           // After current finishes, background-load week when idle
           if (tf === 'current' && !_signalLoadedTf['week']) {
             setTimeout(function() { _signalPrefetch('week'); }, 1500);
@@ -251,6 +252,7 @@ function _signalPrefetch(tf) {
           _signalCache.drive[tf] = [];
           _signalLoadedTf[tf] = true;
           _signalPrefetching[tf] = false;
+          if (typeof rebuildGlobalSearchIndex === 'function') rebuildGlobalSearchIndex();
         })
         .getSignalDrive(tf);
     })
@@ -279,19 +281,22 @@ function loadSignalData(tf) {
     .withSuccessHandler(function(data) {
       _signalCache.fast[tf] = data || { qbChanges: [], systemLogs: [] };
       _renderSignalQB(data.qbChanges || [], tf, data.topMovers || []);
-      _renderSignalLogs(data.systemLogs || []);
+      _renderSignalLogs(data.systemLogs || [], tf);
+      if (typeof rebuildGlobalSearchIndex === 'function') rebuildGlobalSearchIndex();
       // Call 2: Drive traversal (cached after first run)
       google.script.run
         .withSuccessHandler(function(activity) {
           _signalCache.drive[tf] = activity || [];
           _renderSignalDrive(_signalCache.drive[tf], tf);
           _signalLoadedTf[tf] = true;
+          if (typeof rebuildGlobalSearchIndex === 'function') rebuildGlobalSearchIndex();
         })
         .withFailureHandler(function() {
           var el = document.getElementById('signal-panel-drive');
           if (el) el.innerHTML = '<div class="signal-empty">Drive scan failed.</div>';
           _signalCache.drive[tf] = [];
           _signalLoadedTf[tf] = true;
+          if (typeof rebuildGlobalSearchIndex === 'function') rebuildGlobalSearchIndex();
         })
         .getSignalDrive(tf);
     })
@@ -355,7 +360,7 @@ function _renderSignalQB(changes, tf, topMovers) {
     
     var displayPillText = isDateField ? (_signalTypeLabel(t).toUpperCase() + ' | ' + _esc(c.newVal)) : _esc(c.newVal || c.type);
 
-    html += '<div class="signal-qb-card">'
+    html += '<div class="signal-qb-card" data-signal-key="' + _esc(['qb', tf, c.fdh, c.type, c.newVal, c.updatedBy, c.timestamp].join('|')) + '">'
       + '<div class="signal-qb-header">'
       + '<div class="signal-qb-fdh">' + fdhHtml + '</div>'
       + '<div class="signal-qb-meta">' + metaHtml + '</div>'
@@ -399,7 +404,7 @@ function _stripEmoji(s) {
     .trim();
 }
 
-function _renderSignalLogs(logs) {
+function _renderSignalLogs(logs, tf) {
   var el = document.getElementById('signal-panel-log');
   if (!el) return;
   var q = _signalSearchQuery.toLowerCase().trim();
@@ -416,7 +421,7 @@ function _renderSignalLogs(logs) {
     return;
   }
   var html = '';
-  filtered.forEach(function(l) {
+  filtered.forEach(function(l, idx) {
     var raw = l.message || '';
     var msg = _stripEmoji(raw);
     var upper = raw.toUpperCase();
@@ -428,7 +433,7 @@ function _renderSignalLogs(logs) {
       ? 'ok'
       : '';
     var msgHtml = q ? _signalHighlight(msg, q) : _esc(msg);
-    html += '<div class="signal-log-row' + (cls ? ' signal-log-' + cls : '') + '">'
+    html += '<div class="signal-log-row' + (cls ? ' signal-log-' + cls : '') + '" data-signal-key="' + _esc(['log', tf, idx, l.timestamp, l.message].join('|')) + '">'
       + '<span class="signal-log-ts">' + _esc(l.timestamp) + '</span>'
       + '<span class="signal-log-msg">' + msgHtml + '</span>'
       + '</div>';
@@ -589,7 +594,7 @@ function _renderSignalDrive(activity, tf) {
       }
       sg.files.forEach(function(f) {
         var fileLink = f.url ? ' href="' + _esc(f.url) + '" target="_blank"' : '';
-        html += '<div class="signal-drive-file' + (sg.subPath ? ' signal-drive-file-nested' : '') + '">'
+        html += '<div class="signal-drive-file' + (sg.subPath ? ' signal-drive-file-nested' : '') + '" data-signal-key="' + _esc(['drive', tf, rootKey + (sg.subPath ? ' / ' + sg.subPath : ''), f.name, f.modified].join('|')) + '">'
           + '<a class="signal-drive-file-name signal-drive-link"' + fileLink + '>' + _esc(f.name) + '</a>'
           + '<span class="signal-meta">' + _esc(f.modified) + '</span>'
           + '</div>';

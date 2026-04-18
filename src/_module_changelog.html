@@ -173,6 +173,12 @@ function renderChangeLog() {
         let normalizedType = String(log.type || '').toLowerCase().trim();
         let isDateField = normalizedType === 'ofs date' || normalizedType === 'cx start date' || normalizedType === 'cx end date';
         let fdhText = String(log.fdh || '').trim() || 'FDH Unavailable';
+        let key = getActivityRowKey({
+          fdh: log.fdh,
+          timestampObj: _getChangelogTimestamp(log),
+          type: log.type,
+          user: log.user
+        });
         let metaTime = _getChangelogTimestamp(log) ? formatDate(new Date(_getChangelogTimestamp(log)), true) : esc(String(log.time || ''));
         let metaHtml = esc(String(log.user || 'System')) + '<br>' + metaTime;
 
@@ -185,7 +191,7 @@ function renderChangeLog() {
           ? (normalizedType === 'ofs date' ? 'OFS DATE' : normalizedType === 'cx start date' ? 'CX START' : 'CX END') + ' | ' + esc(cleanVal)
           : esc(cleanVal || log.type);
 
-        html += '<div class="signal-qb-card">'
+        html += '<div class="signal-qb-card" data-activity-key="' + esc(key) + '">'
           + '<div class="signal-qb-header">'
           + '<div class="signal-qb-fdh">' + esc(fdhText) + '</div>'
           + '<div class="signal-qb-meta">' + metaHtml + '</div>'

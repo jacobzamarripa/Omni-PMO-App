@@ -552,23 +552,13 @@
       function openMobileSFSheet(tab) {
           const sheet = getEl('mobile-sf-sheet');
           const overlay = getEl('mobile-sf-overlay');
-          const title = getEl('m-sf-title');
           const fab = getEl('unified-filter-fab');
           if (!sheet || !overlay) return;
 
-          if (title) title.textContent = tab === 'filter' ? 'Filter' : 'Search';
-          if (typeof syncMobileSFFilterChips === 'function') syncMobileSFFilterChips();
           sheet.classList.add('open');
           overlay.classList.add('open');
           document.body.classList.add('mobile-sf-open');
           if (fab) fab.classList.add('is-active');
-
-          if (tab === 'search') {
-              setTimeout(function() {
-                  const inp = getEl('m-sf-search-input');
-                  if (inp) inp.focus();
-              }, 240);
-          }
       }
 
       function closeMobileSFSheet() {
@@ -620,10 +610,6 @@
           const srcGroup = getEl('group-by-select');
           const dstGroup = getEl('m-sf-group-select');
           if (srcGroup && dstGroup) dstGroup.value = srcGroup.value;
-
-          const srcSearch = getEl('search-input');
-          const dstSearch = getEl('m-sf-search-input');
-          if (srcSearch && dstSearch) dstSearch.value = srcSearch.value;
 
           const srcSort = getEl('sort-queue');
           const dstSort = getEl('m-sf-sort-select');
@@ -1276,6 +1262,7 @@
           updateAdminBadge();
           renderAdminPane(getActiveQueueItems());
           renderOutbox();
+          if (typeof rebuildGlobalSearchIndex === 'function') rebuildGlobalSearchIndex();
           openAdminPanelByDefault();
 
           if (typeof applyTheme === 'function') {

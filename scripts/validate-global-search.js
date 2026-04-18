@@ -32,9 +32,12 @@ const signal = read('src/_module_signal.html');
 
 assertPattern(webApp, /id="global-search-input"/, 'desktop header search input');
 assertPattern(webApp, /id="global-search-dropdown"/, 'desktop search dropdown');
+assertPattern(webApp, /id="gs-trigger-badge-primary"/, 'desktop trigger shortcut badge');
+assertPattern(webApp, /id="gs-spotlight-badge-primary"/, 'desktop spotlight shortcut badge');
 assertPattern(glass, /id="btn-global-search"/, 'mobile search trigger');
 assertPattern(glass, /id="m-global-search-input"/, 'mobile search input');
 assertPattern(glass, /id="m-global-search-results"/, 'mobile search results container');
+assertNoPattern(webApp, /id="gs-badge-primary"/, 'legacy duplicated desktop shortcut badge id');
 
 assertPattern(webApp, /include\('_state_search'\)/, 'desktop search state include');
 assertPattern(webApp, /include\('_module_global_search'\)/, 'desktop search module include');

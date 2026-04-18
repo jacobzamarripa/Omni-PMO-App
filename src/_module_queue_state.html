@@ -4,16 +4,6 @@
 // DEPENDS ON: _state_queue.html, _state_router.html, _state_session.html, _state_analytics.html, _state_ui_shell.html, _utils_shared.html, _utils_notifications.html, _module_changelog.html, _module_admin.html, _module_deck.html, _module_gantt.html, _module_grid.html, _module_huds.html, _module_critical_hub.html
 // DEPENDED ON BY: _module_webapp_core.html, _module_grid.html, _module_quick_peek.html, WebApp.html
 // ============================================================
-// STATE: _filterDebounce — search debounce timer handle
-let _filterDebounce;
-// STATE: _filterInput — cached search input DOM reference
-let _filterInput = getEl('search-input');
-if (_filterInput) {
-    _filterInput.addEventListener('input', () => {
-        clearTimeout(_filterDebounce);
-        _filterDebounce = setTimeout(applyFilters, 300);
-    });
-}
 function persistQueueGroupingSession() {
     try {
         sessionStorage.setItem(GROUP_BY_SESSION_KEY, currentGroupBy || 'none');
@@ -94,22 +84,6 @@ function flattenGroupedSections(sections) {
     return (sections || []).reduce(function(acc, section) {
         return acc.concat(section.items || []);
     }, []);
-}
-
-// ── DEBOUNCED SEARCH ──
-let searchTimeout;
-function handleSearchInput(e) {
-    const sourceEl = e && e.target ? e.target : null;
-    const nextValue = sourceEl ? sourceEl.value : '';
-    const desktopSearch = getEl('search-input');
-    const mobileSearch = getEl('m-sf-search-input');
-    if (desktopSearch && sourceEl !== desktopSearch && desktopSearch.value !== nextValue) desktopSearch.value = nextValue;
-    if (mobileSearch && sourceEl !== mobileSearch && mobileSearch.value !== nextValue) mobileSearch.value = nextValue;
-
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        applyFilters();
-    }, 200);
 }
 
 function handleFilterCheck(category, value, isChecked) {
@@ -981,14 +955,7 @@ function advanceAfterAction() {
 function applyFilters() {
     safeExecute('applyFilters', () => {
         const sortVal = getActiveSortValue();
-        const desktopSearchValue = getEl('search-input')?.value || '';
-        const mobileSearchValue = getEl('m-sf-search-input')?.value || '';
-        const searchTerm = (desktopSearchValue || mobileSearchValue).toLowerCase();
         const activeQueueItems = getActiveQueueItems();
-        let searchEl = getEl('search-input');
-        if (searchEl) searchEl.classList.toggle('is-active', searchEl.value.trim() !== '');
-        let mobileSearchEl = getEl('m-sf-search-input');
-        if (mobileSearchEl) mobileSearchEl.classList.toggle('is-active', mobileSearchEl.value.trim() !== '');
 
         let today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -1000,8 +967,7 @@ function applyFilters() {
             let mCit = skipCategory === 'city' || activeFilters.city.length === 0 || activeFilters.city.includes(item.city);
             let mOfs = skipCategory === 'ofs' || activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
             let mStatus = skipCategory === 'status' || activeFilters.status.length === 0 || activeFilters.status.includes(item.status || '');
-            let mSearch = itemMatchesSearch(item, searchTerm);
-            return mSev && mVen && mCit && mOfs && mStatus && mSearch;
+            return mSev && mVen && mCit && mOfs && mStatus;
         };
 
         let validSev = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'sev')).map(i => getSeverity(i.flags)))];
@@ -1047,8 +1013,6 @@ function applyFilters() {
             renderMultiSelect(cfg[1], cfg[2], cfg[3], cfg[4]);
         });
 
-        if (typeof syncMobileSFFilterChips === 'function') syncMobileSFFilterChips();
-
         // Base filter: vendor/city/OFS/severity/search — NO admin filter
         // Used for badge counts so Crossings & QB Status always show correct totals
         let baseFiltered = activeQueueItems.filter(i => {
@@ -1058,12 +1022,11 @@ function applyFilters() {
             let mCit = activeFilters.city.length === 0 || activeFilters.city.includes(i.city);
             let mOfs = activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
             let mStatus = activeFilters.status.length === 0 || activeFilters.status.includes(i.status || '');
-            let mSearch = itemMatchesSearch(i, searchTerm);
 
-            // SOFT HIDE: stale OFS items are hidden by default to reduce clutter, but remain searchable
-            if (searchTerm === '' && i.isStaleOfs) return false;
+            // SOFT HIDE: stale OFS items are hidden by default to reduce clutter.
+            if (i.isStaleOfs) return false;
 
-            return mSev && mVen && mCit && mOfs && mStatus && mSearch;
+            return mSev && mVen && mCit && mOfs && mStatus;
         });
         setTxt('kpi-crossings-val', baseFiltered.filter(i => i.flags.includes("ADMIN: CHECK CROSSINGS")).length);
         setTxt('kpi-status-val', baseFiltered.filter(i => i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS")).length);
@@ -1179,7 +1142,7 @@ function applyFilters() {
             displayFiltered = flattenGroupedSections(getGroupedQueueSections(displayFiltered));
         }
 
-        let anyActive = activeFilters.sev.length > 0 || activeFilters.vendor.length > 0 || activeFilters.city.length > 0 || activeFilters.ofs.length > 0 || activeFilters.status.length > 0 || searchTerm !== '' || activeAdminFilter !== null || activePieStageFilter !== null;
+        let anyActive = activeFilters.sev.length > 0 || activeFilters.vendor.length > 0 || activeFilters.city.length > 0 || activeFilters.ofs.length > 0 || activeFilters.status.length > 0 || activeAdminFilter !== null || activePieStageFilter !== null;
         let clearBtn = getEl('btn-clear-filters');
         let clearZone = getEl('dock-clear-zone');
         if (clearBtn) clearBtn.classList.toggle('collapsed', !anyActive);
@@ -1212,10 +1175,6 @@ function applyFilters() {
 }
 
 function clearAllFilters() {
-    let s = getEl('search-input');
-    let ms = getEl('m-sf-search-input');
-    if (s) s.value = '';
-    if (ms) ms.value = '';
     activeFilters = { sev: [], vendor: [], city: [], ofs: [], status: [] };
     activeAdminFilter = null;
     activePieStageFilter = null;
@@ -1336,13 +1295,6 @@ function getOfsFilterBuckets(item, today) {
     if (diffDays >= 0 && diffDays <= 90) buckets.push('90_DAYS');
     if (diffDays >= 0 && diffDays <= 60) buckets.push('60_DAYS');
     return buckets;
-}
-
-function itemMatchesSearch(item, searchTerm) {
-    return searchTerm === '' ||
-        item.fdh.toLowerCase().includes(searchTerm) ||
-        (item.city && item.city.toLowerCase().includes(searchTerm)) ||
-        (item.vendor && item.vendor.toLowerCase().includes(searchTerm));
 }
 
 function getProjectsPieSliceLabel(item) {
