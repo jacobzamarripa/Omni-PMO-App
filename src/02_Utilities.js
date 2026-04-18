@@ -571,7 +571,9 @@ function getDashboardData() {
              cxInferred: cxInferredIdx > -1 ? String(data[i][cxInferredIdx] || "") : ""
          });
 
-         const isFinished = stageStr.includes("OFS") || stageStr.includes("COMPLETE") || statStr.includes("OOS") || flags.includes("LIKELY OFS");
+         const qbFinished = refData && (refData.status.toUpperCase().includes("COMPLETE") || refData.stage.toUpperCase().includes("OFS"));
+         const isFinished = qbFinished || stageStr.includes("OFS") || stageStr.includes("COMPLETE") || statStr.includes("OOS") || flags.includes("LIKELY OFS");
+
          if (isFinished) {
              const irrelevantRisks = ["CHECK CROSSINGS", "CHECK BOM", "LIGHTING RISK", "STATUS MISMATCH", "PLEASE INPUT BOM", "HIGH UG VARIANCE", "HIGH STRAND VARIANCE", "HIGH FIBER VARIANCE", "MISSING BOM", "MISSING UG BOM", "MISSING STRAND BOM", "MISSING FIBER BOM", "MISSING SPLICING BOM", "POSSIBLE REROUTE", "BOM DISCREPANCY", "ADMIN: REFRESH REF DATA"];
              flags = flags.split("\n")
@@ -2366,7 +2368,9 @@ function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData, opt
       let currentFlags = String(row[flagsIdx] || "");
       const stageStr = String(row[stageIdx] || "").toUpperCase();
       const statusStr = String(row[statusIdx] || "").toUpperCase();
-      const isFinished = stageStr.includes("OFS") || stageStr.includes("COMPLETE") || statusStr.includes("OOS") || currentFlags.includes("LIKELY OFS");
+      
+      const qbFinished = refData && (refData.status.toUpperCase().includes("COMPLETE") || refData.stage.toUpperCase().includes("OFS"));
+      const isFinished = qbFinished || stageStr.includes("OFS") || stageStr.includes("COMPLETE") || statusStr.includes("OOS") || currentFlags.includes("LIKELY OFS");
 
       if (isFinished) {
         const irrelevantRisks = ["CHECK CROSSINGS", "CHECK BOM", "LIGHTING RISK", "STATUS MISMATCH", "PLEASE INPUT BOM", "HIGH UG VARIANCE", "HIGH STRAND VARIANCE", "HIGH FIBER VARIANCE", "MISSING BOM", "MISSING UG BOM", "MISSING STRAND BOM", "MISSING FIBER BOM", "MISSING SPLICING BOM", "POSSIBLE REROUTE", "BOM DISCREPANCY", "ADMIN: REFRESH REF DATA"];

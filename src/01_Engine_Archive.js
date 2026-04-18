@@ -1200,7 +1200,7 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
   if (dailyNAP > 0 && crewsNAP === 0) { flags.push("🚩 GHOST SPLICING"); flagColors.push(TEXT_COLORS.NAP); hCols.nap.push("Daily NAPs/Encl. Completed", "Splicing Crews"); adaePaletteIdx = "NAP"; }
   if (crewsNAP > 0 && (dailyNAP / crewsNAP) > 6) { flags.push(`⚠️ SPLICE PACE`); flagColors.push(TEXT_COLORS.NAP); drafts.push(`Splicing Pace is ${Math.round(dailyNAP/crewsNAP)} NAPs/crew.`); hCols.nap.push("Daily NAPs/Encl. Completed", "Splicing Crews"); adaePaletteIdx = "NAP"; }
   
-  if (refData && rowState !== "COMPLETE") {
+  if (refData && rowState !== "COMPLETE" && rowState !== "OFS") {
      const checkPhase = (name, vBom, rBom, vDaily, vTot, bomColName, totColName) => {
          if (rBom === 0 && (vBom > 0 || vDaily > 0 || vTot > 0)) {
              flags.push(`🚧 POSSIBLE REROUTE (${name})`);
