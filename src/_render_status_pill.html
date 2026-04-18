@@ -16,7 +16,21 @@
 function buildStatusPill(status) {
   var s = String(status || '').trim();
   if (!s) return '';
-  var cls = 'status-pill status-pill--' + s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
-  return '<span class="' + cls + '">' + escapeHtml(s) + '</span>';
+  
+  // High-fidelity mapping to app color tokens
+  var lower = s.toLowerCase();
+  var typeCls = 'chip-active';
+  if (lower.includes('ofs')) typeCls = 'chip-ofs';
+  else if (lower.includes('permit') || lower.includes('pre-con') || lower.includes('vendor assignment')) typeCls = 'chip-permit';
+  else if (lower.includes('complete')) typeCls = 'chip-complete';
+  else if (lower.includes('hold')) typeCls = 'chip-hold';
+  else if (lower.includes('missing')) typeCls = 'chip-missing';
+  else if (lower.includes('vendor') || lower.includes('drg')) typeCls = 'chip-drg';
+
+  // Use 'esc' helper from _utils_shared.html or fallback to simple String
+  var safeText = typeof esc === 'function' ? esc(s) : s;
+  
+  var cls = 'glass-pill status-pill ' + typeCls;
+  return '<span class="' + cls + '">' + safeText + '</span>';
 }
 </script>
