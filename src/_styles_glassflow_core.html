@@ -225,6 +225,41 @@
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 10px;
 }
+.global-search-mobile-results .global-search-group {
+  gap: 0;
+  border-radius: 12px;
+  min-width: 0;
+  background: var(--card-bg);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-sizing: border-box;
+}
+.global-search-mobile-results .global-search-group-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--card-bg) 96%, var(--bg));
+  border-bottom: 2px solid var(--accent); /* Matched desktop prominence */
+  border-radius: 11px 11px 0 0;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+.global-search-mobile-results .global-search-result {
+  padding: 14px;
+}
+.global-search-mobile-results .global-search-group .global-search-result:last-child {
+  border-radius: 0 0 11px 11px;
+}
+.global-search-mobile-results .global-search-result-title,
+.global-search-mobile-results .global-search-result-subtitle {
+  white-space: normal;
+}
+.global-search-mobile-results .global-search-result-pill {
+  min-height: 20px;
+  padding: 0 8px;
+  font-size: 9px;
+}
 
 @media (max-width: 480px) {
   .v2-shell-glassflow-header-btn#btn-global-search {

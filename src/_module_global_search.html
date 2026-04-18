@@ -7,6 +7,11 @@
 // ============================================================
 -->
 <script>
+// Global bridge for shared renderers
+window.escapeHtml = window.escapeHtml || function(s) {
+  return typeof esc === 'function' ? esc(s) : String(s || '');
+};
+
 (function() {
   const GLOBAL_SEARCH_GROUP_ORDER = ['Projects', 'Review Activity', 'SIGNAL', 'Help', 'Views/Tools'];
   const GLOBAL_SEARCH_MAX_PER_GROUP = 6;
@@ -62,12 +67,21 @@
     return (allActionItems || []).map(function(item) {
       const fdh = String(item && item.fdh || '').trim();
       if (!fdh) return null;
+      
+      // Determine severity for diagnostic queue styling
+      let severity = 'info';
+      if (typeof getSeverity === 'function') {
+        severity = getSeverity(item.flags || '');
+      }
+
       return {
         id: _gsMakeId('project', fdh),
         type: 'project',
         group: 'Projects',
         title: fdh,
-        subtitle: [item.vendor, item.city, item.stage, item.status].filter(Boolean).join(' | ') || 'Project result',
+        subtitle: [item.vendor, item.city, item.stage].filter(Boolean).join(' | ') || 'Project result',
+        status: item.status || item.stage || '',
+        severity: severity,
         keywords: [
           item.fdh, item.vendor, item.city, item.stage, item.status, item.flags, item.draft,
           item.comment, item.vendorComment, item.fieldProduction, item.gaps, item.geminiInsight,
@@ -94,12 +108,20 @@
             user: log.user
           })
         : [log.fdh || '', log.type || '', log.user || '', log.time || ''].join('|');
+      
+      let severity = 'info';
+      const typeStr = String(log.type || '').toUpperCase();
+      if (typeStr.includes('🚨') || typeStr.includes('CRITICAL')) severity = 'crit';
+      else if (typeStr.includes('🚩') || typeStr.includes('MISMATCH') || typeStr.includes('REVIEW')) severity = 'warn';
+
       return {
         id: _gsMakeId('activity', key),
         type: 'activity',
         group: 'Review Activity',
         title: String(log.fdh || 'Activity'),
         subtitle: [log.type, log.val, log.user, log.time].filter(Boolean).join(' | '),
+        status: log.type || '', 
+        severity: severity,
         keywords: [log.fdh, log.type, log.val, log.user, log.time].filter(Boolean).join(' \n '),
         target: { kind: 'activity', activityKey: key, fdh: String(log.fdh || '') },
         highlightText: String(log.val || log.type || log.fdh || '')
@@ -117,10 +139,11 @@
         const signalId = ['qb', tf, change.fdh, change.type, change.newVal, change.updatedBy, change.timestamp].join('|');
         entries.push({
           id: _gsMakeId('signal', signalId),
-          type: 'signal',
+          type: 'signal-qb',
           group: 'SIGNAL',
           title: String(change.fdh || 'QB Change'),
           subtitle: ['QB', change.type, change.newVal, tf].filter(Boolean).join(' | '),
+          status: change.newVal || '',
           keywords: [change.fdh, change.type, change.newVal, change.updatedBy, change.timestamp, tf].filter(Boolean).join(' \n '),
           target: { kind: 'signal', tab: 'qb', timeframe: tf, signalKey: signalId },
           highlightText: String(change.newVal || change.type || change.fdh || '')
@@ -130,10 +153,11 @@
         const signalId = ['log', tf, idx, log.timestamp, log.message].join('|');
         entries.push({
           id: _gsMakeId('signal', signalId),
-          type: 'signal',
+          type: 'signal-log',
           group: 'SIGNAL',
           title: 'System Log',
-          subtitle: [log.timestamp, log.message, tf].filter(Boolean).join(' | '),
+          subtitle: log.message || '',
+          timestamp: log.timestamp || '',
           keywords: [log.timestamp, log.message, tf].filter(Boolean).join(' \n '),
           target: { kind: 'signal', tab: 'log', timeframe: tf, signalKey: signalId },
           highlightText: String(log.message || '')
@@ -147,10 +171,11 @@
           const signalId = ['drive', tf, group.folder, file.name, file.modified].join('|');
           entries.push({
             id: _gsMakeId('signal', signalId),
-            type: 'signal',
+            type: 'signal-drive',
             group: 'SIGNAL',
             title: String(file.name || 'Drive File'),
-            subtitle: ['Drive', group.folder, file.modified, tf].filter(Boolean).join(' | '),
+            subtitle: group.folder || '',
+            timestamp: file.modified || '',
             keywords: [file.name, group.folder, file.modified, tf].filter(Boolean).join(' \n '),
             target: { kind: 'signal', tab: 'drive', timeframe: tf, signalKey: signalId, url: file.url || '' },
             highlightText: String(file.name || group.folder || '')
@@ -273,13 +298,112 @@
     });
   }
 
+  function _gsSlug(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function _gsResultAccentLabel(result) {
+    switch (result.group) {
+      case 'Projects': return 'Open Project';
+      case 'Review Activity': return 'Review Log';
+      case 'SIGNAL': return 'Signal';
+      case 'Help': return 'Guide';
+      case 'Views/Tools': return 'Open View';
+      default: return result.group || 'Result';
+    }
+  }
+
   function _gsRenderResultCard(result, idx, query) {
     const activeClass = idx === globalSearchActiveIndex ? ' is-active' : '';
+    const typeClass = ' result-type-' + _gsSlug(result.type || 'generic');
+    const groupClass = ' result-group-' + _gsSlug(result.group || 'misc');
+    const severityClass = result.severity ? ' ' + result.severity : '';
+    const accentLabel = _gsEsc(_gsResultAccentLabel(result));
+    
+    // Icons
+    const ICONS = {
+      project: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
+      activity: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+      'signal-qb': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+      'signal-log': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
+      'signal-drive': '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>',
+      tool: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+      help: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+    };
+
+    let statusHtml = '';
+    if (result.status && typeof buildStatusPill === 'function') {
+      statusHtml = buildStatusPill(result.status);
+    }
+
+    const typeIcon = ICONS[result.type] || ICONS.tool;
+    let cardInner = '';
+
+    if (result.type === 'project') {
+      cardInner = ''
+        + '  <div class="global-search-result-header">'
+        + '    <div class="global-search-result-title"><span class="gs-card-icon">' + typeIcon + '</span>' + _gsHighlight(result.title, query) + '</div>'
+        + '    <div class="global-search-result-meta">' + _gsEsc(result.group) + '</div>'
+        + '  </div>'
+        + '  <div class="global-search-result-footer">'
+        + '    <div class="global-search-result-subtitle">' + _gsHighlight(result.subtitle, query) + '</div>'
+        + '    <div class="global-search-result-pills">'
+        +        statusHtml
+        + '      <span class="global-search-result-pill">' + accentLabel + '</span>'
+        + '    </div>'
+        + '  </div>';
+    } 
+    else if (result.type === 'activity' || result.type === 'signal-qb') {
+      cardInner = ''
+        + '  <div class="global-search-result-header">'
+        + '    <div class="global-search-result-title"><span class="gs-card-icon">' + typeIcon + '</span>' + _gsHighlight(result.title, query) + '</div>'
+        + '    <div class="global-search-result-meta">' + _gsEsc(result.group) + '</div>'
+        + '  </div>'
+        + '  <div class="global-search-result-log-msg">' + _gsHighlight(result.subtitle, query) + '</div>'
+        + '  <div class="global-search-result-footer">'
+        + '    <div class="global-search-result-pills">'
+        +        statusHtml
+        + '      <span class="global-search-result-pill">' + accentLabel + '</span>'
+        + '    </div>'
+        + '  </div>';
+    }
+    else if (result.type === 'signal-log') {
+      cardInner = ''
+        + '  <div class="global-search-result-terminal">'
+        + '    <span class="gs-terminal-icon">' + typeIcon + '</span>'
+        + '    <span class="gs-terminal-ts">' + _gsEsc(result.timestamp) + '</span>'
+        + '    <span class="gs-terminal-msg">' + _gsHighlight(result.subtitle, query) + '</span>'
+        + '  </div>';
+    }
+    else if (result.type === 'signal-drive') {
+      cardInner = ''
+        + '  <div class="global-search-result-header">'
+        + '    <div class="global-search-result-title"><span class="gs-card-icon">' + typeIcon + '</span>' + _gsHighlight(result.title, query) + '</div>'
+        + '    <div class="global-search-result-meta">' + _gsEsc(result.timestamp) + '</div>'
+        + '  </div>'
+        + '  <div class="global-search-result-footer">'
+        + '    <div class="global-search-result-subtitle"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="margin-right:4px;opacity:0.6;"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>' + _gsHighlight(result.subtitle, query) + '</div>'
+        + '    <div class="global-search-result-pills">'
+        + '      <span class="global-search-result-pill">' + accentLabel + '</span>'
+        + '    </div>'
+        + '  </div>';
+    }
+    else {
+      // Tool or Help
+      cardInner = ''
+        + '  <div class="global-search-result-header">'
+        + '    <div class="global-search-result-title"><span class="gs-card-icon">' + typeIcon + '</span>' + _gsHighlight(result.title, query) + '</div>'
+        + '    <div class="global-search-result-meta">' + _gsEsc(result.group) + '</div>'
+        + '  </div>'
+        + '  <div class="global-search-result-subtitle" style="margin-top: 2px;">' + _gsHighlight(result.subtitle, query) + '</div>';
+    }
+
     return ''
-      + '<button class="global-search-result' + activeClass + '" type="button" data-result-id="' + _gsEsc(result.id) + '" onclick="navigateGlobalSearchResult(' + JSON.stringify(result.id) + ')">'
-      + '<span class="global-search-result-meta">' + _gsEsc(result.group) + '</span>'
-      + '<span class="global-search-result-title">' + _gsHighlight(result.title, query) + '</span>'
-      + '<span class="global-search-result-subtitle">' + _gsHighlight(result.subtitle, query) + '</span>'
+      + '<button class="global-search-result' + activeClass + typeClass + groupClass + severityClass + '" type="button" data-result-id="' + _gsEsc(result.id) + '" onclick="navigateGlobalSearchResult(' + JSON.stringify(result.id) + ')">'
+      + cardInner
       + '</button>';
   }
 
@@ -319,7 +443,13 @@
         if (!items.length) return '';
         return ''
           + '<section class="global-search-group">'
-          + '<div class="global-search-group-title">' + _gsEsc(group) + '</div>'
+          + '  <div class="global-search-group-header">'
+          + '    <div class="global-search-group-title">'
+          + '      <div class="global-search-group-label">Search Results</div>'
+          + '      <div class="global-search-group-name">' + _gsEsc(group) + '</div>'
+          + '    </div>'
+          + '    <div class="global-search-group-count">' + items.length + '</div>'
+          + '  </div>'
           + items.map(function(result) {
               runningIndex += 1;
               return _gsRenderResultCard(result, runningIndex, query);

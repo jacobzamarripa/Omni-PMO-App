@@ -6,6 +6,12 @@
 - **Topological Integrity:** Restored `UPSTREAM UNKNOWN` and `DOWNSTREAM UNKNOWN` placeholders at the ends of the recursive chains to provide a clear map of where information stops.
 - **Centering Polish:** Retained the smooth-scroll centering logic to ensure the current project remains the anchor of the visual map.
 
+> [!info] 2026-04-17: Turn-20 mental state checkpoint — spotlight search visual convergence
+- **What is solved:** The desktop spotlight shell, trigger language, and input sizing now feel materially closer to the app. Search routing behavior remains stable across desktop and mobile, and the branch stack is cleanly merged with a new follow-on branch for result styling.
+- **Current defect:** Search result rows still show right-edge spill/clipping under certain content widths. The detached card treatment improved hierarchy but introduced containment problems and felt less native than the inbox surfaces elsewhere in the app.
+- **Reference decision:** The correct visual target is Review Hub + SIGNAL, not macOS Spotlight. Review Hub provides the sticky-section behavior; SIGNAL provides the dense, contained inbox-row treatment.
+- **Active direction:** Collapse results into contained inbox sections, ensure rows can shrink correctly with `min-width: 0` grid/flex rules, and use sticky group headers inside the dropdown scroll container instead of stacked floating cards.
+
 > [!success] 2026-04-16: Quickbase FDH Dependencies (Table bvmsmt5cf) integrated
 - **Version Control:** Created `feat/quickbase-dependencies` branch for isolated development.
 - **Data Ingestion:** Added `syncFDHDependencies()` to `06_QBSync.js` to fetch and aggregate predecessor/successor pairs from Quickbase Table `bvmsmt5cf`. 
