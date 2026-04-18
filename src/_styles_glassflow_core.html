@@ -109,16 +109,17 @@
 }
 .v2-shell-glassflow-header-btn#btn-global-search {
   width: auto;
-  min-width: 52px;
-  padding: 0 14px;
-  gap: 8px;
+  min-width: 46px;
+  padding: 0 12px;
+  gap: 7px;
 }
 .v2-shell-glassflow-header-btn#btn-global-search::after {
   content: "Search";
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  opacity: 0.86;
 }
 .v2-shell-glassflow-header-btn {
   width: 42px;
@@ -148,10 +149,10 @@
   display: none;
   align-items: flex-start;
   justify-content: center;
-  padding: calc(env(safe-area-inset-top, 0px) + 16px) 14px 24px;
-  background: rgba(15, 23, 42, 0.42);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 12px 20px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   z-index: calc(var(--z-overlay) + 20);
 }
 .global-search-mobile-overlay.is-open { display: flex; }
@@ -161,14 +162,13 @@
   max-height: min(88vh, 820px);
   overflow: hidden;
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 16px;
-  border-radius: 28px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 14px;
+  border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: color-mix(in srgb, var(--card-bg) 85%, rgba(255, 255, 255, 0.05));
+  background: color-mix(in srgb, var(--card-bg) 90%, rgba(255, 255, 255, 0.05));
   box-shadow: 
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.15),
     0 24px 60px rgba(0, 0, 0, 0.3);
@@ -178,7 +178,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 .global-search-mobile-kicker {
   font-size: 11px;
@@ -199,28 +199,41 @@
   color: var(--text-main);
 }
 .global-search-mobile-sheet .global-search-icon {
-  margin-left: 8px;
   color: var(--text-muted);
-  transform: scale(1.1);
+  transform: none;
 }
 .global-search-mobile-sheet .global-search-input {
   flex: 1;
   min-width: 0;
-  font-size: 34px;
-  font-weight: 400;
-  height: 80px;
+  font-size: 22px;
+  font-weight: 700;
+  height: 64px;
   background: transparent;
   border: none;
   color: var(--text-main);
   letter-spacing: -0.02em;
 }
+.global-search-mobile-sheet .global-search-input::placeholder {
+  font-size: 16px;
+  font-weight: 500;
+}
 .global-search-mobile-results {
   width: 100%;
   flex: 1;
   overflow-y: auto;
-  margin-top: 8px;
+  margin-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 12px;
+  padding-top: 10px;
+}
+
+@media (max-width: 480px) {
+  .v2-shell-glassflow-header-btn#btn-global-search {
+    min-width: 42px;
+    padding: 0;
+  }
+  .v2-shell-glassflow-header-btn#btn-global-search::after {
+    content: "";
+  }
 }
 
 /* Animated Hamburger Icon */

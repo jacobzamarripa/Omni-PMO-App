@@ -493,12 +493,16 @@
     if (badge) badge.classList.remove('is-hidden');
     const shell = getEl('global-search-shell');
     if (shell) shell.classList.remove('has-results');
-    const host = getEl('global-search-dropdown');
-    if (host) host.innerHTML = '';
+    const desktopHost = getEl('global-search-dropdown');
+    const mobileHost = getEl('m-global-search-results');
+    if (desktopHost) desktopHost.innerHTML = '';
+    if (mobileHost) mobileHost.innerHTML = '';
     _gsSetDesktopOpen(false);
     _gsSetMobileOpen(false);
     const desktopInput = getEl('global-search-input');
+    const mobileInput = getEl('m-global-search-input');
     if (desktopInput) { desktopInput.blur(); desktopInput.value = ''; }
+    if (mobileInput) { mobileInput.blur(); mobileInput.value = ''; }
   }
 
   function toggleGlobalSearch(mode) {
