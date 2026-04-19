@@ -174,16 +174,18 @@
               const plain = cleanDiagnosticFlagText(f).toUpperCase();
               if (
                   f.includes("🚨") || f.includes("🛑") ||
-                  plain.includes("LIGHTING RISK") || plain.includes("OVERRUN")
+                  plain.includes("INVALID DATE") || plain.includes("MISSING BOM") || 
+                  plain.includes("OVERRUN") || plain.includes("NOT IN QB")
               ) { highestSev = "crit"; }
               else if (highestSev !== "crit" && (
                   f.includes("🚩") || f.includes("⚠️") || f.includes("🖍️") || f.includes("🚧") ||
-                  plain.includes("ADMIN: CHECK CROSSINGS") || plain.includes("ADMIN: REFRESH REF DATA") ||
-                  plain.includes("STATUS MISMATCH") || plain.includes("MISSING QB STATUS") ||
-                  plain.includes("SCOPE DEVIATION") || plain.includes("PACE") ||
-                  plain.includes("CHECK BOM") || plain.includes("PLEASE INPUT BOM") ||
-                  plain.includes("BLOCKED BY UPSTREAM") || plain.includes("DELAYING DOWNSTREAM") ||
-                  plain.includes("FORMAT ERROR")
+                  plain.includes("LIGHTING RISK") || plain.includes("ADMIN: CHECK CROSSINGS") || 
+                  plain.includes("ADMIN: REFRESH REF DATA") || plain.includes("STATUS MISMATCH") || 
+                  plain.includes("MISSING QB STATUS") || plain.includes("SCOPE DEVIATION") || 
+                  plain.includes("PACE") || plain.includes("CHECK BOM") || 
+                  plain.includes("PLEASE INPUT BOM") || plain.includes("BLOCKED BY UPSTREAM") || 
+                  plain.includes("DELAYING DOWNSTREAM") || plain.includes("FORMAT ERROR") ||
+                  plain.includes("TRACKER VARIANCE")
               )) { highestSev = "warn"; }
           });
           if (highestSev === "info") {
@@ -331,20 +333,19 @@
           if (plain.includes('ADMIN: CHECK CROSSINGS') || plain.includes('ADMIN: REFRESH REF DATA')) return 'chip-admin';
           if (plain.includes('STATUS MISMATCH') || plain.includes('MISSING QB STATUS')) return 'chip-warn';
           if (
-            f.includes('⚠️') || f.includes('🖍️') || f.includes('🚧') ||
-            plain.includes('SCOPE DEVIATION') || plain.includes('PACE') ||
-            plain.includes('CHECK BOM') || plain.includes('PLEASE INPUT BOM') ||
-            plain.includes('FORMAT ERROR') || plain.includes('BLOCKED BY UPSTREAM') ||
-            plain.includes('DELAYING DOWNSTREAM')
+            plain.includes('LIGHTING RISK') || plain.includes('SCOPE DEVIATION') || 
+            plain.includes('PACE') || plain.includes('CHECK BOM') || 
+            plain.includes('PLEASE INPUT BOM') || plain.includes('FORMAT ERROR') || 
+            plain.includes('BLOCKED BY UPSTREAM') || plain.includes('DELAYING DOWNSTREAM') ||
+            plain.includes('TRACKER VARIANCE') || plain.includes('BLOCKED BY PREDECESSOR')
           ) return 'chip-warn';
-          if (f.includes('🪄') || f.includes('🟣') || plain.includes('TRACKER UPDATE') || plain.includes('TRANSPORT OVERRIDE')) return 'chip-magic';
+          if (plain.includes('TRANSPORT OVERRIDE') || plain.includes('TRACKER UPDATE') || plain.includes('AUTO-CORRECTED') || plain.includes('SOFT MATCH')) return 'chip-magic';
           if (f.includes('STALE REPORT')) {
               if (f.includes('YESTERDAY')) return 'chip-warn';
               return 'tag-red';
           }
           if (f === 'MISSING DAILY REPORT') return 'chip-ghost';
-          if (f.includes('🚨') || f.includes('🛑') || plain.includes('LIGHTING RISK') || plain.includes('OVERRUN')) return 'tag-red';
-          if (f.includes('🚩')) return 'chip-warn';
+          if (plain.includes('INVALID DATE') || plain.includes('MISSING BOM') || plain.includes('OVERRUN')) return 'tag-red';
           return 'chip-muted';
       }
 

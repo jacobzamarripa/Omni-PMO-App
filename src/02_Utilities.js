@@ -501,8 +501,7 @@ function getDashboardData() {
      // Ignore all permitting projects unless they are Approved.
      if (stageStr.includes("PERMITTING") && !statStr.includes("APPROVED")) continue;
 
-     if (flags !== "" && !flags.includes("✅ No Anomalies")) {
-         const parseDate = (val) => {
+     if (flags !== "" && !flags.includes("No Anomalies")) {         const parseDate = (val) => {
              if (!val || val === "" || val === "-") return "";
              if (val instanceof Date) return Utilities.formatDate(val, "GMT-5", "MM/dd/yy");
              let s = String(val).trim();
@@ -1638,8 +1637,8 @@ function markAdminCheckComplete(fdhId) {
           for(let i=1; i<mData.length; i++) {
               if(mData[i][idIdx].toString().toUpperCase() === fdhId.toUpperCase()) {
                   let currentFlags = mData[i][flagIdx].toString();
-                  let newFlags = currentFlags.replace("🚩 ADMIN: CHECK CROSSINGS", "").trim().replace(/\n+/g, '\n');
-                  if(newFlags === "") newFlags = "✅ No Anomalies";
+                  let newFlags = currentFlags.replace("ADMIN: CHECK CROSSINGS", "").trim().replace(/\n+/g, '\n');
+                  if(newFlags === "") newFlags = "No Anomalies";
 
                   let currentGaps = mData[i][gapIdx].toString();
                   let newGaps = currentGaps.replace("[Chk: NEVER]", `[Chk: ${dateStr}]`);
@@ -1690,8 +1689,8 @@ function verifySpecialCrossings(fdhId) {
       for (let i = 1; i < mData.length; i++) {
         if (mData[i][idIdx].toString().toUpperCase() === fdhId.toUpperCase()) {
           let currentFlags = mData[i][flagIdx].toString();
-          let newFlags = currentFlags.replace("🚩 ADMIN: CHECK CROSSINGS", "").trim().replace(/\n+/g, '\n');
-          if (newFlags === "") newFlags = "✅ No Anomalies";
+          let newFlags = currentFlags.replace("ADMIN: CHECK CROSSINGS", "").trim().replace(/\n+/g, '\n');
+          if (newFlags === "") newFlags = "No Anomalies";
           let currentGaps = mData[i][gapIdx].toString();
           let newGaps = currentGaps.replace("[Chk: NEVER]", `[Chk: ${dateStr}]`);
           mirror.getRange(i + 1, flagIdx + 1).setValue(newFlags);

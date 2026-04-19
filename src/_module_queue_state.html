@@ -1037,7 +1037,10 @@ function applyFilters() {
             if (activeAdminFilter === 'status') return i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS");
             return true;
         });
-        currentCriticalHubItems = filtered.filter(i => getSeverity(i.flags) === 'crit');
+        currentCriticalHubItems = filtered.filter(i => {
+            let s = getSeverity(i.flags);
+            return s === 'crit' || s === 'warn';
+        });
         acknowledgedCriticalFdhs = acknowledgedCriticalFdhs.filter(fdh => currentCriticalHubItems.some(item => String(item.fdh || '') === String(fdh || '')));
 
         let activeProjCount = 0;
@@ -1072,7 +1075,8 @@ function applyFilters() {
             let bslStr = String(item.bsls).replace(/,/g, '');
             let bslNum = parseInt(bslStr, 10) || 0;
             activeBslsCount += bslNum;
-            if (getSeverity(item.flags) === 'crit') activeCritCount++;
+            let sev = getSeverity(item.flags);
+            if (sev === 'crit' || sev === 'warn') activeCritCount++;
 
             let v = item.vendor || "Unknown";
             currentFilterStats.bslByVendor[v] = (currentFilterStats.bslByVendor[v] || 0) + bslNum;

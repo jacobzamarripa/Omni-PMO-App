@@ -177,7 +177,7 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
   if (!isContinuation) {
     // 🛡️ Lock to prevent overlapping manual runs
     if (props.getProperty("INGESTION_IN_PROGRESS") === "true") {
-      if (!isSilent) SpreadsheetApp.getUi().alert("⚠️ Ingestion is already running in the background. Please wait.");
+      if (!isSilent) SpreadsheetApp.getUi().alert("Ingestion is already running in the background. Please wait.");
       return;
     }
     props.setProperty("INGESTION_IN_PROGRESS", "true");
@@ -868,7 +868,7 @@ function exportQuickBaseCSVCore(isSilent = false, contextType = "ROUTINE") {
 
   fileName = fileName.replace(/[\\/:*?"<>|]/g, "_");
   DriveApp.getFolderById(COMPILED_FOLDER_ID).createFile(fileName, csvContent, MimeType.CSV);
-  if (!isSilent) SpreadsheetApp.getUi().alert(`✅ CSV Exported: ${fileName}`);
+  if (!isSilent) SpreadsheetApp.getUi().alert(`CSV Exported: ${fileName}`);
 }
 
 function buildInferenceHistoryContext(histData, histHeaders) {
@@ -960,38 +960,38 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
   let blockedTarget = extractBlockedAutoMatchTarget(vendorComment);
   const origMatch = vendorComment.match(/\[Auto-Fixed FDH: (.*?)\]/);
   if (blockedTarget && origMatch) {
-      flags.push(`🚧 BLOCKED AUTO-MATCH`);
+      flags.push(`BLOCKED AUTO-MATCH`);
       flagColors.push(TEXT_COLORS.WARN);
       drafts.push(`Vendor submitted ${origMatch[1]}. Legacy auto-match to ${blockedTarget} was blocked by the market hard stop. Manual review required.`);
       vendorComment = vendorComment.replace(/\[Blocked Auto-Match: .*?\]\s*/g, "").replace(/\[Auto-Fixed FDH: .*?\]\s*/, "");
   } else if (origMatch && origMatch[1]) {
-      flags.push(`🪄 ID AUTO-CORRECTED`);
+      flags.push(`ID AUTO-CORRECTED`);
       flagColors.push(TEXT_COLORS.MAGIC);
       drafts.push(`Vendor submitted ${origMatch[1]}, auto-corrected to ${fdhId}.`);
       vendorComment = vendorComment.replace(/\[Auto-Fixed FDH: .*?\]\s*/, "");
   }
   if (!refDict[fdhId]) {
       let softHeal = attemptFuzzyMatch(fdhId, Object.keys(refDict));
-      if (softHeal) { fdhId = softHeal; healedId = softHeal; flags.push(`🪄 SOFT MATCH`); flagColors.push(TEXT_COLORS.MAGIC); drafts.push(`Archive has typo. Matched to ${softHeal}.`); }
+      if (softHeal) { fdhId = softHeal; healedId = softHeal; flags.push(`SOFT MATCH`); flagColors.push(TEXT_COLORS.MAGIC); drafts.push(`Archive has typo. Matched to ${softHeal}.`); }
   }
   let rowState = "ACTIVE", adaePaletteIdx = "CLEAN";
-  let refData = refDict[fdhId]; 
+  let refData = refDict[fdhId];
   let vTracker = vendorDict[fdhId];
 
   if (refData) {
     let status = refData.status.toLowerCase();
     if (status.includes("complete")) rowState = "COMPLETE"; else if (status.includes("on hold")) rowState = "ON_HOLD"; else if (refData.stage.toLowerCase().includes("ofs")) rowState = "OFS"; else if (refData.stage.toLowerCase().includes("permitting")) rowState = "PERMITTING";
-    
-    if (rowState !== "COMPLETE" && rowState !== "OFS") { 
-        qbGaps.push((refData.hasSOW ? "✅📄 SOW" : "❌📄 SOW")); 
-        qbGaps.push((refData.hasCD ? "✅💿 CD" : "❌💿 CD")); 
-        
+
+    if (rowState !== "COMPLETE" && rowState !== "OFS") {
+        qbGaps.push((refData.hasSOW ? "SOW" : "SOW"));
+        qbGaps.push((refData.hasCD ? "CD" : "CD"));
+
         // 🧠 Smart BOM Gap: Data-driven trigger
         const dailyUG = Number(row[HISTORY_HEADERS.indexOf("Daily UG Footage")]) || 0;
         const dailyAE = Number(row[HISTORY_HEADERS.indexOf("Daily Strand Footage")]) || 0;
         const dailyFIB = Number(row[HISTORY_HEADERS.indexOf("Daily Fiber Footage")]) || 0;
         const dailyNAP = Number(row[HISTORY_HEADERS.indexOf("Daily NAPs/Encl. Completed")]) || 0;
-        
+
         let bomMissingData = false;
         if (dailyUG > 0 && (refData.ugBOM || 0) === 0) bomMissingData = true;
         if (dailyAE > 0 && (refData.aeBOM || 0) === 0) bomMissingData = true;
@@ -999,16 +999,15 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
         if (dailyNAP > 0 && (refData.napBOM || 0) === 0) bomMissingData = true;
 
         if (bomMissingData) {
-            qbGaps.push("❌📦 BOM");
+            qbGaps.push("BOM");
         } else {
             // If data is present for active phases, show green even if checkbox is off
             const hasAnyBomData = (refData.ugBOM || 0) > 0 || (refData.aeBOM || 0) > 0 || (refData.fibBOM || 0) > 0 || (refData.napBOM || 0) > 0;
-            qbGaps.push((refData.hasBOM || hasAnyBomData) ? "✅📦 BOM" : "❌📦 BOM");
+            qbGaps.push("BOM");
         }
     }
-    if (refData.isSpecialX) qbGaps.push("⚠️ X-ING");
+    if (refData.isSpecialX) qbGaps.push("X-ING");
   }
-
   let dailyUG = Number(row[HISTORY_HEADERS.indexOf("Daily UG Footage")]) || 0;
   let totalUG = Number(row[HISTORY_HEADERS.indexOf("Total UG Footage Completed")]) || 0;
   let vendorBOMUG = (refData && refData.ugBOM > 0) ? refData.ugBOM : (Number(row[HISTORY_HEADERS.indexOf("UG BOM Quantity")]) || 0);
@@ -1118,11 +1117,11 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
   
   let isFormatValid = /^[A-Z]{3}\d{2,3}-F\d{2,4}$/i.test(fdhId);
   if (fdhId !== "" && !isFormatValid) {
-      flags.push(`🖍️ FORMAT ERROR`);
+      flags.push(`FORMAT ERROR`);
       flagColors.push(TEXT_COLORS.WARN);
       hCols.warn.push("FDH Engineering ID");
   } else if (fdhId !== "" && !refData) {
-      flags.push("🚩 NOT IN QB REFERENCE");
+      flags.push("NOT IN QB REFERENCE");
       flagColors.push(TEXT_COLORS.WARN);
       let inferredState = resolveMissingReferenceState({
           fdhId: fdhId,
@@ -1155,7 +1154,7 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
       hCols.warn.push("FDH Engineering ID");
   }
   
-  if (targetDate && !isNaN(targetDate.getTime()) && !lightToCab && rowState !== "COMPLETE") { let daysToTarget = Math.ceil((targetDate - new Date()) / (1000 * 60 * 60 * 24)); if (daysToTarget <= 14) { flags.push(`🚨 LIGHTING RISK`); flagColors.push(TEXT_COLORS.WARN); hCols.warn.push("Target Completion Date", "Light to Cabinets"); } }
+  if (targetDate && !isNaN(targetDate.getTime()) && !lightToCab && rowState !== "COMPLETE") { let daysToTarget = Math.ceil((targetDate - new Date()) / (1000 * 60 * 60 * 24)); if (daysToTarget <= 14) { flags.push(`LIGHTING RISK`); flagColors.push(TEXT_COLORS.WARN); hCols.warn.push("Target Completion Date", "Light to Cabinets"); } }
   if (refData) {
       let howFed = parseFdhList((refData.qbRef && refData.qbRef.howFed) || refData.howFed);
       let whatFeeds = parseFdhList((refData.qbRef && refData.qbRef.whatFeeds) || refData.whatFeeds);
@@ -1165,7 +1164,7 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
       if (howFed.length > 0 && !isTransportReady) {
           let blockingUpstream = howFed.find(upstreamId => !refIsLit(refDict[upstreamId]));
           if (blockingUpstream) {
-              flags.push("🚧 BLOCKED BY UPSTREAM");
+              flags.push("BLOCKED BY UPSTREAM");
               flagColors.push(TEXT_COLORS.WARN);
               drafts.push(`Waiting on light from upstream (${blockingUpstream}). Transport is not in place to override.`);
           }
@@ -1174,47 +1173,47 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
       if (whatFeeds.length > 0 && !isLit) {
           let delayedDownstream = whatFeeds.find(downstreamId => {
               let downstreamRef = refDict[downstreamId];
-              let downstreamTransport = isTruthyTransport((downstreamRef && downstreamRef.qbRef && downstreamRef.qbRef.transport) || (downstreamRef && downstreamRef.transport));
+              let downstreamTransport = isTruthyTransport((downstreamRef && downstreamRef.qbRef && downstreamRef.qbRef.transport) || (downstreamRef && downstreamTransport));
               return !downstreamTransport;
           });
           if (delayedDownstream) {
-              flags.push("🚨 DELAYING DOWNSTREAM");
+              flags.push("DELAYING DOWNSTREAM");
               flagColors.push(TEXT_COLORS.WARN);
               drafts.push(`This FDH feeds ${delayedDownstream}, which does not have transport. Prioritize lighting.`);
           }
       }
 
       if (howFed.length > 0 && isTransportReady && !isLit) {
-          flags.push("💡 TRANSPORT OVERRIDE");
+          flags.push("TRANSPORT OVERRIDE");
           flagColors.push(TEXT_COLORS.MAGIC);
           drafts.push(`Transport is available. This FDH can be lit independently of ${howFed[0]}.`);
       }
   }
   
-  if (dailyUG > 0 && drills === 0) { flags.push("🚩 GHOST UG"); flagColors.push(TEXT_COLORS.UG); hCols.ug.push("Daily UG Footage", "Drills"); adaePaletteIdx = "UG"; }
-  if (drills > 0 && (dailyUG / drills) > 800) { flags.push(`⚠️ UG PACE ANOMALY`); flagColors.push(TEXT_COLORS.UG); drafts.push(`UG Pace is ${Math.round(dailyUG/drills)}ft/drill.`); hCols.ug.push("Daily UG Footage", "Drills"); adaePaletteIdx = "UG"; }
-  if (dailyAE > 0 && crewsAE === 0) { flags.push("🚩 GHOST AE"); flagColors.push(TEXT_COLORS.AE); hCols.ae.push("Daily Strand Footage", "AE Crews"); adaePaletteIdx = "AE"; }
-  if (crewsAE > 0 && (dailyAE / crewsAE) > 5000) { flags.push(`⚠️ AE PACE ANOMALY`); flagColors.push(TEXT_COLORS.AE); drafts.push(`AE Pace is ${Math.round(dailyAE/crewsAE)}ft/crew.`); hCols.ae.push("Daily Strand Footage", "AE Crews"); adaePaletteIdx = "AE"; }
-  if (dailyFIB > 0 && crewsFIB === 0) { flags.push("🚩 GHOST FIBER"); flagColors.push(TEXT_COLORS.FIB); hCols.fib.push("Daily Fiber Footage", "Fiber Pulling Crews"); adaePaletteIdx = "FIB"; }
-  if (crewsFIB > 0 && (dailyFIB / crewsFIB) > 10000) { flags.push(`⚠️ FIBER PACE`); flagColors.push(TEXT_COLORS.FIB); drafts.push(`Fiber Pace is ${Math.round(dailyFIB/crewsFIB)}ft/crew.`); hCols.fib.push("Daily Fiber Footage", "Fiber Pulling Crews"); adaePaletteIdx = "FIB"; }
-  if (dailyNAP > 0 && crewsNAP === 0) { flags.push("🚩 GHOST SPLICING"); flagColors.push(TEXT_COLORS.NAP); hCols.nap.push("Daily NAPs/Encl. Completed", "Splicing Crews"); adaePaletteIdx = "NAP"; }
-  if (crewsNAP > 0 && (dailyNAP / crewsNAP) > 6) { flags.push(`⚠️ SPLICE PACE`); flagColors.push(TEXT_COLORS.NAP); drafts.push(`Splicing Pace is ${Math.round(dailyNAP/crewsNAP)} NAPs/crew.`); hCols.nap.push("Daily NAPs/Encl. Completed", "Splicing Crews"); adaePaletteIdx = "NAP"; }
+  if (dailyUG > 0 && drills === 0) { flags.push("GHOST UG"); flagColors.push(TEXT_COLORS.UG); hCols.ug.push("Daily UG Footage", "Drills"); adaePaletteIdx = "UG"; }
+  if (drills > 0 && (dailyUG / drills) > 800) { flags.push(`UG PACE ANOMALY`); flagColors.push(TEXT_COLORS.UG); drafts.push(`UG Pace is ${Math.round(dailyUG/drills)}ft/drill.`); hCols.ug.push("Daily UG Footage", "Drills"); adaePaletteIdx = "UG"; }
+  if (dailyAE > 0 && crewsAE === 0) { flags.push("GHOST AE"); flagColors.push(TEXT_COLORS.AE); hCols.ae.push("Daily Strand Footage", "AE Crews"); adaePaletteIdx = "AE"; }
+  if (crewsAE > 0 && (dailyAE / crewsAE) > 5000) { flags.push(`AE PACE ANOMALY`); flagColors.push(TEXT_COLORS.AE); drafts.push(`AE Pace is ${Math.round(dailyAE/crewsAE)}ft/crew.`); hCols.ae.push("Daily Strand Footage", "AE Crews"); adaePaletteIdx = "AE"; }
+  if (dailyFIB > 0 && crewsFIB === 0) { flags.push("GHOST FIBER"); flagColors.push(TEXT_COLORS.FIB); hCols.fib.push("Daily Fiber Footage", "Fiber Pulling Crews"); adaePaletteIdx = "FIB"; }
+  if (crewsFIB > 0 && (dailyFIB / crewsFIB) > 10000) { flags.push(`FIBER PACE ANOMALY`); flagColors.push(TEXT_COLORS.FIB); drafts.push(`Fiber Pace is ${Math.round(dailyFIB/crewsFIB)}ft/crew.`); hCols.fib.push("Daily Fiber Footage", "Fiber Pulling Crews"); adaePaletteIdx = "FIB"; }
+  if (dailyNAP > 0 && crewsNAP === 0) { flags.push("GHOST SPLICING"); flagColors.push(TEXT_COLORS.NAP); hCols.nap.push("Daily NAPs/Encl. Completed", "Splicing Crews"); adaePaletteIdx = "NAP"; }
+  if (crewsNAP > 0 && (dailyNAP / crewsNAP) > 6) { flags.push(`SPLICE PACE ANOMALY`); flagColors.push(TEXT_COLORS.NAP); drafts.push(`Splicing Pace is ${Math.round(dailyNAP/crewsNAP)} NAPs/crew.`); hCols.nap.push("Daily NAPs/Encl. Completed", "Splicing Crews"); adaePaletteIdx = "NAP"; }
   
   if (refData && rowState !== "COMPLETE" && rowState !== "OFS") {
      const checkPhase = (name, vBom, rBom, vDaily, vTot, bomColName, totColName) => {
          if (rBom === 0 && (vBom > 0 || vDaily > 0 || vTot > 0)) {
-             flags.push(`🚧 POSSIBLE REROUTE (${name})`);
+             flags.push(`POSSIBLE REROUTE (${name})`);
              flagColors.push(TEXT_COLORS.MISMATCH);
              drafts.push(`QB shows 0 BOM for ${name}, but vendor reported activity. Verify if a reroute occurred.`);
              hCols.mismatch.push(totColName);
          } else if (rBom > 0 && vBom > 0 && vBom !== rBom) {
-             flags.push(`🖍️ BOM DISCREPANCY (${name})`);
+             flags.push(`BOM DISCREPANCY (${name})`);
              flagColors.push(TEXT_COLORS.MISMATCH);
              hCols.mismatch.push(bomColName);
          }
          
          if (vTot > 0 && rBom > 0 && (vTot / rBom) > OVERAGE_THRESHOLD) {
-             flags.push(`🛑 OVERRUN (${name})`);
+             flags.push(`OVERRUN (${name})`);
              flagColors.push(TEXT_COLORS.WARN);
              hCols.warn.push(totColName, bomColName);
          }
@@ -1280,11 +1279,11 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
         let diff = trkPct - repPct;
 
         if (diff > 0.05) { 
-            flags.push(`💡 TRACKER UPDATE (${phaseName})`);
+            flags.push(`TRACKER UPDATE (${phaseName})`);
             flagColors.push(TEXT_COLORS.MAGIC); 
             drafts.push(`Tracker shows ${phaseName} higher at ${Math.round(trkPct*100)}%. Suggested: Update to match their tracker.`);
         } else if (diff < -0.15) { 
-            flags.push(`🔍 TRACKER VARIANCE (${phaseName})`);
+            flags.push(`TRACKER VARIANCE (${phaseName})`);
             flagColors.push(TEXT_COLORS.MISMATCH); 
             drafts.push(`Daily reports ${Math.round(repPct*100)}% ${phaseName}, but Tracker shows ${Math.round(trkPct*100)}%. Check if tracker is lagging.`);
             hCols.mismatch.push(totalColName);
@@ -1844,8 +1843,8 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
               cdIntelText = cdData.summary;
           }
           if (cdData.hasFindings) {
-              if (diag.flags !== "✅ No Anomalies" && diag.flags !== "") diag.flags += "\n🚧 CD: MAJOR CROSSING RISK";
-              else diag.flags = "🚧 CD: MAJOR CROSSING RISK";
+              if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nCD: MAJOR CROSSING RISK";
+              else diag.flags = "CD: MAJOR CROSSING RISK";
               diag.flagColors.push("#b45309");
           }
       }
@@ -1919,21 +1918,21 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
           let hasBeenChecked = refData.adminDate && refData.adminDate !== "";
           
           if (xingVal === "" && !hasBeenChecked) {
-              if (diag.flags !== "✅ No Anomalies" && diag.flags !== "") diag.flags += "\n🚩 ADMIN: CHECK CROSSINGS";
-              else diag.flags = "🚩 ADMIN: CHECK CROSSINGS";
+              if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nADMIN: CHECK CROSSINGS";
+              else diag.flags = "ADMIN: CHECK CROSSINGS";
               diag.flagColors.push("#991b1b"); 
           }
 
           let adminDateStr = hasBeenChecked ? `[Chk: ${refData.adminDate}]` : `[Chk: NEVER]`;
-          adminGapsStr = `${adminDateStr}  |  ${refData.hasSOW ? "✅ SOW" : "❌ SOW"}  ${refData.hasCD ? "✅ CD" : "❌ CD"}  ${refData.hasBOM ? "✅ BOM" : "❌ BOM"}  |  ${xingString}`;
+          adminGapsStr = `${adminDateStr}  |  ${refData.hasSOW ? "SOW" : "SOW"}  ${refData.hasCD ? "CD" : "CD"}  ${refData.hasBOM ? "BOM" : "BOM"}  |  ${xingString}`;
           
           let stageStr = (refData.stage || "").toUpperCase().trim();
           let statusStr = (refData.status || "").toUpperCase().trim();
           let isFieldCx = stageStr.includes("FIELD CX");
 
           if (stageStr === "" || stageStr === "-" || statusStr === "" || statusStr === "-") {
-              if (diag.flags !== "✅ No Anomalies" && diag.flags !== "") diag.flags += "\n🚩 MISSING QB STATUS";
-              else diag.flags = "🚩 MISSING QB STATUS";
+              if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nMISSING QB STATUS";
+              else diag.flags = "MISSING QB STATUS";
               diag.flagColors.push("#991b1b"); 
               diag.draft = `Project is missing Stage or Status in QB. Please update QuickBase.`;
           } 
@@ -1956,13 +1955,13 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
                   let hasSyncedToday = refData.statusSyncDate === todayStr;
 
                   if (hasSyncedToday) {
-                      if (diag.flags !== "✅ No Anomalies" && diag.flags !== "") diag.flags += "\n⚠️ ADMIN: REFRESH REF DATA";
-                      else diag.flags = "⚠️ ADMIN: REFRESH REF DATA";
+                      if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nADMIN: REFRESH REF DATA";
+                      else diag.flags = "ADMIN: REFRESH REF DATA";
                       diag.flagColors.push("#b45309"); 
                       diag.draft = `QB marked as updated on ${todayStr}. Import new Reference Data to clear this flag.`;
                   } else {
-                      if (diag.flags !== "✅ No Anomalies" && diag.flags !== "") diag.flags += "\n🚩 STATUS MISMATCH";
-                      else diag.flags = "🚩 STATUS MISMATCH";
+                      if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nSTATUS MISMATCH";
+                      else diag.flags = "STATUS MISMATCH";
                       diag.flagColors.push("#991b1b"); 
                       diag.draft = `Vendor reported activity, but QB shows ${refData.stage} | ${refData.status}. Please update QB to Field CX | In Progress.`;
                   }
@@ -1981,8 +1980,8 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
               });
 
               if (blockers.length > 0) {
-                  if (diag.flags !== "✅ No Anomalies" && diag.flags !== "") diag.flags += "\n🚩 BLOCKED BY PREDECESSOR";
-                  else diag.flags = "🚩 BLOCKED BY PREDECESSOR";
+                  if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nBLOCKED BY PREDECESSOR";
+                  else diag.flags = "BLOCKED BY PREDECESSOR";
                   diag.flagColors.push("#991b1b"); 
                   let bList = blockers.join(", ");
                   diag.draft = (diag.draft ? diag.draft + " " : "") + `Blocked by predecessor(s): ${bList}.`;

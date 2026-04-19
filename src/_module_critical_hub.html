@@ -11,12 +11,14 @@
 
 function getCriticalType(item) {
     let flags = String((item && item.flags) || '').toUpperCase();
-    if (flags.includes('OVERDUE')) return 'Overdue';
+    if (flags.includes('OVERDUE') || flags.includes('STALE')) return 'Overdue / Stale';
     if (flags.includes('MISSING DAILY REPORT')) return 'Missing Report';
+    if (flags.includes('INVALID DATE')) return 'Date / Timing Issue';
     if (flags.includes('CROSSING') || flags.includes('X-ING')) return 'Crossing Risk';
-    if (flags.includes('BOM') || flags.includes('REROUTE') || flags.includes('SCOPE') || flags.includes('DEVIATION')) return 'BOM / Scope Issue';
+    if (flags.includes('LIGHTING') || flags.includes('DOWNSTREAM') || flags.includes('UPSTREAM')) return 'Lighting / Flow Risk';
+    if (flags.includes('BOM') || flags.includes('REROUTE') || flags.includes('SCOPE') || flags.includes('DEVIATION') || flags.includes('OVERRUN')) return 'BOM / Scope Issue';
     if (flags.includes('QB') || flags.includes('REFERENCE') || flags.includes('STATUS MISMATCH') || flags.includes('MISSING QB STATUS')) return 'QB / Reference Issue';
-    return 'Other Critical';
+    return 'Other Action Items';
 }
 
 function toggleCriticalFilter() {
@@ -213,22 +215,25 @@ function renderCriticalHub() {
     panel.innerHTML = `
         <div class="critical-hub-header">
             <div>
-                <div class="critical-hub-kicker">Critical Hub</div>
-                <div class="critical-hub-title">Actionable Critical Items</div>
-                <div class="critical-hub-subtitle">Critical items are projects whose existing severity resolves to <b>critical</b> from current diagnostic flags. Market uses the current city field in v1, type is derived from flag families, and acknowledge is local to this browser session.</div>
+                <div class="critical-hub-kicker">Diagnostic Hub</div>
+                <div class="critical-hub-title">Actionable Risks & Flags</div>
+                <div class="critical-hub-subtitle">This hub captures projects with <b>critical</b> blockers and <b>pertinent</b> operational risks identified by diagnostic logic.</div>
             </div>
             <div class="critical-hub-header-actions">
                 <button class="btn" onclick="toggleCriticalShowAcknowledged()" style="background:transparent; color:var(--text-main); border-color:var(--border);">${criticalHubState.showAcknowledged ? 'Hide Acknowledged' : 'Show Acknowledged'}</button>
                 <button class="btn" onclick="resetCriticalAcknowledged()" style="background:transparent; color:var(--text-main); border-color:var(--border);">Reset Acknowledged</button>
-                <button class="panel-tab-close" onclick="closeCriticalHub()" title="Close hub" style="display:inline-flex;align-items:center;justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                <button class="panel-tab-close" onclick="closeCriticalHub()" title="Close hub" style="display:inline-flex;align-items:center;justify-content:center;">${icon('close', 15)}</button>
             </div>
         </div>
         <div class="critical-hub-body">
             <div class="critical-hub-summary">
                 <div class="critical-hub-stat">
-                    <div class="critical-hub-stat-label">Critical Count</div>
-                    <div class="critical-hub-stat-value">${totalCount}</div>
-                    <div class="critical-hub-stat-note">Matches the header pill count for the current working set.</div>
+                    <div class="critical-hub-stat-label">Active Flags</div>
+                    <div class="critical-hub-stat-value" style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                        <span style="color:var(--color-critical); opacity:0.8;">${icon('fire', 18)}</span>
+                        <span>${totalCount}</span>
+                    </div>
+                    <div class="critical-hub-stat-note">Critical & pertinent items in current set.</div>
                 </div>
                 <div class="critical-hub-stat">
                     <div class="critical-hub-stat-label">Visible</div>
@@ -238,12 +243,14 @@ function renderCriticalHub() {
                 <div class="critical-hub-stat">
                     <div class="critical-hub-stat-label">Acknowledged</div>
                     <div class="critical-hub-stat-value">${acknowledgedCount}</div>
-                    <div class="critical-hub-stat-note">Hidden by default until you choose to show them.</div>
+                    <div class="critical-hub-stat-note">Hidden by default until you show them.</div>
                 </div>
                 <div class="critical-hub-stat">
-                    <div class="critical-hub-stat-label">Filter Logic</div>
-                    <div class="critical-hub-stat-value" style="font-size:18px;">Live</div>
-                    <div class="critical-hub-stat-note">Hub follows the same current dataset as the red pill.</div>
+                    <div class="critical-hub-stat-label">Status</div>
+                    <div class="critical-hub-stat-value" style="font-size:18px; color:var(--color-review); display:flex; align-items:center; gap:6px; justify-content:center;">
+                        ${icon('shield', 16)} <span>Live</span>
+                    </div>
+                    <div class="critical-hub-stat-note">Hub follows the same dataset as the pipeline.</div>
                 </div>
             </div>
             ${controlsHtml}

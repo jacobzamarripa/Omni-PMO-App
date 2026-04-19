@@ -269,41 +269,65 @@ function renderDashFlagsFeed() {
     var container = getEl('dash-flag-feed');
     if (!container || !feedCard) return;
 
-    var items = (currentCriticalHubItems || []);
-    feedCard.style.display = ''; // Always show in 2-column layout
+    // Use all action items to capture both Critical and Warning flags
+    var items = Array.isArray(allActionItems) ? allActionItems : [];
+    feedCard.style.display = '';
 
     if (!items.length) {
-        container.innerHTML = '<div class="empty-msg" style="margin-top:40px; color:var(--text-muted); font-size:12px; font-weight:700;">All Clear ✓<br><span style="font-weight:500; font-size:10px; opacity:0.7;">No critical items currently flagged.</span></div>';
+        container.innerHTML = '<div class="empty-msg" style="margin-top:40px; color:var(--text-muted); font-size:12px; font-weight:700;">All Clear ✓<br><span style="font-weight:500; font-size:10px; opacity:0.7;">No items currently flagged.</span></div>';
         return;
     }
 
-    // Group items by their specific critical flags
+    // Group items by their flags, only including crit and warn
     var groups = {};
     items.forEach(function(item) {
-        var critFlags = (item.flags || "").split("\n")
-            .map(function(f) { return f.trim(); })
-            .filter(function(f) { return f.includes("🚨") || f.includes("🛑"); });
-
-        critFlags.forEach(function(flag) {
+        if (isCompleteOrOfs(item)) return;
+        
+        var rawFlags = (item.flags || "").split("\n").map(f => f.trim()).filter(Boolean);
+        rawFlags.forEach(function(flag) {
+            var sev = getSeverity(flag);
+            if (sev !== 'crit' && sev !== 'warn') return;
+            
             var cleanText = cleanDiagnosticFlagText(flag);
-            if (!groups[cleanText]) groups[cleanText] = [];
-            groups[cleanText].push(item);
+            if (!groups[cleanText]) {
+                groups[cleanText] = { items: [], severity: sev };
+            } else if (sev === 'crit') {
+                groups[cleanText].severity = 'crit'; // Group takes highest severity of any item (though flags are usually consistent)
+            }
+            // Avoid duplicate items in same group
+            if (!groups[cleanText].items.some(i => i.fdh === item.fdh)) {
+                groups[cleanText].items.push(item);
+            }
         });
     });
 
-    var sortedKeys = Object.keys(groups).sort();
+    var sortedKeys = Object.keys(groups).sort(function(a, b) {
+        // Sort by severity (crit first), then by name
+        if (groups[a].severity === groups[b].severity) return a.localeCompare(b);
+        return groups[a].severity === 'crit' ? -1 : 1;
+    });
+
+    if (sortedKeys.length === 0) {
+        container.innerHTML = '<div class="empty-msg" style="margin-top:40px; color:var(--text-muted); font-size:12px; font-weight:700;">All Clear ✓<br><span style="font-weight:500; font-size:10px; opacity:0.7;">No pertinent flags identified.</span></div>';
+        return;
+    }
+
     var html = "";
-
     sortedKeys.forEach(function(groupKey) {
-        var groupItems = groups[groupKey];
+        var group = groups[groupKey];
+        var iconName = group.severity === 'crit' ? 'fire' : 'shield';
+        var iconColor = group.severity === 'crit' ? 'var(--color-critical)' : 'var(--color-review)';
 
-        html += "<div class=\"dash-flag-group\">" +
+        html += "<div class=\"dash-flag-group group-sev-" + group.severity + "\">" +
             "<div class=\"dash-flag-group-header\">" +
-                "<span class=\"dash-flag-group-text\">" + esc(groupKey) + "</span>" +
-                "<span class=\"dash-flag-group-count\">" + groupItems.length + "</span>" +
+                "<div style=\"display:flex; align-items:center; gap:6px;\">" +
+                    "<span style=\"color:" + iconColor + "; opacity:0.8;\">" + icon(iconName, 12) + "</span>" +
+                    "<span class=\"dash-flag-group-text\">" + esc(groupKey) + "</span>" +
+                "</div>" +
+                "<span class=\"dash-flag-group-count\">" + group.items.length + "</span>" +
             "</div>";
 
-        groupItems.forEach(function(item) {
+        group.items.forEach(function(item) {
             html += getListCardHtml(item);
         });
 

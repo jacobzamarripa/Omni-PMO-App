@@ -1,5 +1,13 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-19: Diagnostic Flag Evolution & SVG Icon Integration
+- **Emoji Reduction:** Stripped all emojis from backend diagnostic flags in `01_Engine_Archive.js` and `02_Utilities.js`. Standardized flags as plain text (e.g., `LIGHTING RISK`, `INVALID DATE`) to improve professional aesthetic and data consistency.
+- **SVG Icon Adoption:** Integrated inline SVG icons (`fire` for Critical, `shield` for Warning) across the Dashboard and Diagnostic Hub. Replaced hardcoded emojis with scalable, theme-aware SVG assets.
+- **Expanded Dashboard Feed:** Refactored `renderDashFlagsFeed` to show both Critical and Warning flags. Grouped items by severity to capture all "pertinent" operational risks in a single view.
+- **Enhanced Diagnostic Hub:** Renamed "Critical Hub" to "Diagnostic Hub" (kicker) and updated categorization to include dedicated buckets for `Date / Timing Issue` and `Lighting / Flow Risk`.
+- **Logic Modernization:** Updated `getSeverity` and `getDiagnosticTagClass` in `_utils_shared.html` to rely on keyword matching rather than emoji detection. Included `INVALID DATE` and `MISSING BOM` in the high-severity "Critical" tier.
+- **Refined Red Pill:** Updated `activeCritCount` in `_module_queue_state.html` to include both Critical and Warning items, ensuring the global "Actionable" count captures all pertinent risks.
+
 > [!success] 2026-04-16: Dependency Parsing Robustness & Full Map Scrolling integrated
 - **Robust Regex Extraction:** Refactored `06_QBSync.js` to aggressively regex FDH patterns (`[A-Z]{3}\d{2}-F\d+`) from all dependency fields. This breaks up concatenated link strings (e.g., `TDO04-F96->TDO04-F208`) into individual parts before mapping.
 - **Node Shrinking Fixed:** Updated `_module_mini_sld.html` with `flex: 0 0 auto` and `min-width: max-content` on all nodes. This prevents pills from shrinking to fit the viewport and enables proper horizontal side-scrolling.
