@@ -1007,7 +1007,25 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
         }
     }
     if (refData.isSpecialX) qbGaps.push("X-ING");
+
+    // 🧠 CROSSING CHECK
+    const xingVal = (refData.rawSpecialX || "").toString().trim().toLowerCase();
+    const hasBeenChecked = refData.adminDate && refData.adminDate !== "";
+    if (xingVal === "" && !hasBeenChecked) {
+        flags.push("ADMIN: CHECK CROSSINGS");
+        flagColors.push("#991b1b");
+    }
+
+    // 🧠 QB STATUS HYGIENE
+    const stageStr = (refData.stage || "").toUpperCase().trim();
+    const statusStr = (refData.status || "").toUpperCase().trim();
+    if (stageStr === "" || stageStr === "-" || statusStr === "" || statusStr === "-") {
+        flags.push("MISSING QB STATUS");
+        flagColors.push("#991b1b");
+        drafts.push("Project is missing Stage or Status in QB. Please update QuickBase.");
+    }
   }
+
   let dailyUG = Number(row[HISTORY_HEADERS.indexOf("Daily UG Footage")]) || 0;
   let totalUG = Number(row[HISTORY_HEADERS.indexOf("Total UG Footage Completed")]) || 0;
   let vendorBOMUG = (refData && refData.ugBOM > 0) ? refData.ugBOM : (Number(row[HISTORY_HEADERS.indexOf("UG BOM Quantity")]) || 0);
@@ -1028,7 +1046,48 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
   let vendorBOMNAP = (refData && refData.napBOM > 0) ? refData.napBOM : (Number(row[HISTORY_HEADERS.indexOf("NAP/Encl. BOM Qty.")]) || 0);
   let crewsNAP = Number(row[HISTORY_HEADERS.indexOf("Splicing Crews")]) || 0;
   
+  let actualActivity = dailyUG > 0 || dailyAE > 0 || dailyFIB > 0 || dailyNAP > 0;
   let lightToCab = row[HISTORY_HEADERS.indexOf("Light to Cabinets")] === true;
+
+  if (refData && actualActivity) {
+      const stageStr = (refData.stage || "").toUpperCase().trim();
+      const statusStr = (refData.status || "").toUpperCase().trim();
+      const isFieldCx = stageStr.includes("FIELD CX");
+      if (!isFieldCx) {
+          // Cleanup heuristic: Ignore activity if it occurs in the same month as OFS.
+          let isOfs = stageStr.includes("OFS") || statusStr.includes("OFS") || statusStr.includes("OPEN FOR SALE");
+          let isCleanUp = false;
+          if (isOfs && refData.canonicalOfsDate) {
+              let ofsDate = new Date(refData.canonicalOfsDate);
+              let reportDate = row[0] instanceof Date ? row[0] : new Date(row[0]);
+              if (!isNaN(ofsDate.getTime()) && !isNaN(reportDate.getTime())) {
+                  if (ofsDate.getUTCMonth() === reportDate.getUTCMonth() && ofsDate.getUTCFullYear() === reportDate.getUTCFullYear()) {
+                      isCleanUp = true;
+                  }
+              }
+          }
+          if (!isCleanUp) {
+            let hasSyncedToday = false;
+            if (refData.statusSyncDate) {
+                let syncDate = new Date(refData.statusSyncDate);
+                let today = new Date();
+                if (syncDate.getDate() === today.getDate() && syncDate.getMonth() === today.getMonth() && syncDate.getFullYear() === today.getFullYear()) {
+                    hasSyncedToday = true;
+                }
+            }
+            if (hasSyncedToday) {
+                flags.push("ADMIN: REFRESH REF DATA");
+                flagColors.push("#991b1b");
+                drafts.push("QB status synced today but still showing " + stageStr + ". Please verify if project should be in Field CX.");
+            } else {
+                flags.push("STATUS MISMATCH");
+                flagColors.push("#991b1b");
+                drafts.push("Vendor reporting activity but QB stage is " + stageStr + ". Please update QuickBase.");
+            }
+          }
+      }
+  }
+
   let rowDateRaw = row[HISTORY_HEADERS.indexOf("Date")];
   let rowDate = rowDateRaw instanceof Date ? rowDateRaw : new Date(rowDateRaw);
   let targetDateRaw = row[HISTORY_HEADERS.indexOf("Target Completion Date")];
@@ -1734,11 +1793,13 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
    * 🧠 AGGRESSIVE NORMALIZER: Always returns YYYY-MM-DD
    */
   const normalizeDate = (d) => {
-    if (!d) return "";
+    if (!d || d === "" || d === "-") return "";
     let obj = (d instanceof Date) ? d : null;
     
     if (!obj) {
         let s = String(d).trim();
+        if (s === "") return "";
+        
         // Handle ISO: 2026-04-18
         let mIso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
         if (mIso) return `${mIso[1]}-${mIso[2].padStart(2,'0')}-${mIso[3].padStart(2,'0')}`;
@@ -1749,7 +1810,14 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
             let yr = mUs[3].length === 2 ? "20" + mUs[3] : mUs[3];
             return `${yr}-${mUs[1].padStart(2,'0')}-${mUs[2].padStart(2,'0')}`;
         }
-        obj = new Date(s);
+
+        // Handle Excel Serial Numbers (e.g., 45678)
+        let numVal = parseFloat(s);
+        if (!isNaN(numVal) && numVal > 30000 && numVal < 60000) {
+            obj = new Date((numVal - 25569) * 86400 * 1000);
+        } else {
+            obj = new Date(s);
+        }
     }
     
     if (!obj || isNaN(obj.getTime())) return String(d).split('T')[0].trim();
@@ -1765,7 +1833,10 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
    */
   const parseDateToMidnight = (val) => {
       const norm = normalizeDate(val);
-      if (!norm || norm.length < 10) return new Date(0); // 1970
+      if (!norm || norm.length < 10 || isNaN(new Date(norm).getTime())) {
+          // If truly invalid, return a date in the past to ensure it doesn't win "latest"
+          return new Date(1990, 0, 1); 
+      }
       const parts = norm.split('-');
       return new Date(parts[0], parts[1]-1, parts[2], 0, 0, 0);
   };
@@ -1809,7 +1880,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
   
   let reviewMap = new Map();
   let submittedFdhs = new Set();
-  let latestReportMap = new Map(); // 🧠 LATEST STATE TRACKER: FDH -> {row, idx}
+  let latestReportMap = new Map(); // 🧠 LATEST STATE TRACKER: FDH -> {row, idx, dateObj}
 
   logMsg("BENNY ENGINE: Processing " + histData.length + " archive rows for " + normalizedTargets.length + " target dates.");
 
@@ -1819,7 +1890,16 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     if (idx === 0) return; 
     
     let fdhId = row[fdhIdIdx].toString().toUpperCase().trim();
-    latestReportMap.set(fdhId, { row: row, idx: idx }); // Archive is chronological; last one wins.
+    if (!fdhId) return;
+
+    // 🧠 UPGRADE: Chronological tracking instead of row-index tracking
+    // This ensures that even if the archive is sorted newest-to-top, or has random old rows at the bottom,
+    // we always identify the true latest report date for each project.
+    let rowDateObj = parseDateToMidnight(row[0]);
+    let existing = latestReportMap.get(fdhId);
+    if (!existing || rowDateObj > existing.dateObj) {
+      latestReportMap.set(fdhId, { row: row, idx: idx, dateObj: rowDateObj });
+    }
 
     let rowDate = normalizeDate(row[0]);
     
@@ -1892,81 +1972,16 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       rowObj["Gemini Insight"] = refData ? refData.geminiInsight : "";
       rowObj["Gemini Insight Date"] = refData ? refData.geminiDate : "";
 
-      const parseNum = (val) => {
-          if (val === null || val === undefined || val === "") return 0;
-          if (typeof val === 'number') return val;
-          let match = String(val).split('(')[0].replace(/,/g, '').trim().match(/-?\d+(\.\d+)?/);
-          return match ? Number(match[0]) : 0;
-      };
-      
-      let locIdx = HISTORY_HEADERS.indexOf("Locates Called In");
-      let hasLocates = locIdx > -1 && ["true", "yes", "1"].includes(String(row[locIdx]).toLowerCase().trim());
-      let dUG = parseNum(row[HISTORY_HEADERS.indexOf("Daily UG Footage")]);
-      let dAE = parseNum(row[HISTORY_HEADERS.indexOf("Daily Strand Footage")]);
-      let dFIB = parseNum(row[HISTORY_HEADERS.indexOf("Daily Fiber Footage")]);
-      let dNAP = parseNum(row[HISTORY_HEADERS.indexOf("Daily NAPs/Encl. Completed")]);
-      let actualActivity = dUG > 0 || dAE > 0 || dFIB > 0 || dNAP > 0;
-      let hasActivity = hasLocates || actualActivity;
-
       let adminGapsStr = diag.gaps; 
       if (refData) {
-          let xingVal = (refData.rawSpecialX || "").toString().trim().toLowerCase();
+          const xingVal = (refData.rawSpecialX || "").toString().trim().toLowerCase();
           let xingString = "X-ING UNCHECKED"; 
           if (xingVal === "yes" || xingVal === "true") xingString = "X-ING YES";
           else if (xingVal === "no" || xingVal === "false") xingString = "X-ING CLEAR";
           
           let hasBeenChecked = refData.adminDate && refData.adminDate !== "";
-          
-          if (xingVal === "" && !hasBeenChecked) {
-              if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nADMIN: CHECK CROSSINGS";
-              else diag.flags = "ADMIN: CHECK CROSSINGS";
-              diag.flagColors.push("#991b1b"); 
-          }
-
           let adminDateStr = hasBeenChecked ? `[Chk: ${refData.adminDate}]` : `[Chk: NEVER]`;
           adminGapsStr = `${adminDateStr}  |  ${refData.hasSOW ? "SOW" : "SOW"}  ${refData.hasCD ? "CD" : "CD"}  ${refData.hasBOM ? "BOM" : "BOM"}  |  ${xingString}`;
-          
-          let stageStr = (refData.stage || "").toUpperCase().trim();
-          let statusStr = (refData.status || "").toUpperCase().trim();
-          let isFieldCx = stageStr.includes("FIELD CX");
-
-          if (stageStr === "" || stageStr === "-" || statusStr === "" || statusStr === "-") {
-              if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nMISSING QB STATUS";
-              else diag.flags = "MISSING QB STATUS";
-              diag.flagColors.push("#991b1b"); 
-              diag.draft = `Project is missing Stage or Status in QB. Please update QuickBase.`;
-          } 
-          else if (actualActivity && !isFieldCx) {
-              // 🔍 CLEANUP HEURISTIC: Ignore activity if it occurs in the same month as OFS.
-              let isOfs = stageStr.includes("OFS") || statusStr.includes("OFS") || statusStr.includes("OPEN FOR SALE");
-              let isCleanUp = false;
-              if (isOfs && refData.canonicalOfsDate) {
-                  let ofsDate = new Date(refData.canonicalOfsDate);
-                  let reportDate = row[0] instanceof Date ? row[0] : new Date(row[0]);
-                  if (!isNaN(ofsDate.getTime()) && !isNaN(reportDate.getTime())) {
-                      if (ofsDate.getUTCMonth() === reportDate.getUTCMonth() && ofsDate.getUTCFullYear() === reportDate.getUTCFullYear()) {
-                          isCleanUp = true;
-                      }
-                  }
-              }
-
-              if (!isCleanUp) {
-                  let todayStr = Utilities.formatDate(new Date(), "GMT-5", "MM/dd/yy");
-                  let hasSyncedToday = refData.statusSyncDate === todayStr;
-
-                  if (hasSyncedToday) {
-                      if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nADMIN: REFRESH REF DATA";
-                      else diag.flags = "ADMIN: REFRESH REF DATA";
-                      diag.flagColors.push("#b45309"); 
-                      diag.draft = `QB marked as updated on ${todayStr}. Import new Reference Data to clear this flag.`;
-                  } else {
-                      if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nSTATUS MISMATCH";
-                      else diag.flags = "STATUS MISMATCH";
-                      diag.flagColors.push("#991b1b"); 
-                      diag.draft = `Vendor reported activity, but QB shows ${refData.stage} | ${refData.status}. Please update QB to Field CX | In Progress.`;
-                  }
-              }
-          }
 
           // 🧠 DEPENDENCY CHECK: Flag if any hard predecessor (from QB) is not yet complete/active.
           if (refData.qbRef && refData.qbRef.predecessors && refData.qbRef.predecessors.length > 0) {
@@ -2005,6 +2020,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
         mappedRow: mappedRow,
         highlights: { rowState: diag.rowState, adaePaletteIdx: diag.adaePaletteIdx, colors: diag.colors, summary: diag.summary, gaps: adminGapsStr, flags: diag.flags, flagColors: diag.flagColors, cleanComment: diag.cleanComment, draft: diag.draft, benchmark: benchmarkDict[fdhId] || ""}
       });
+
     }
   });
   markTiming("reviewAssemblyMs", timerStartMs);
@@ -2019,11 +2035,16 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
 
   // GHOST ROW INJECTION — Active projects with no submission today
   const GHOST_ACTIVE_STAGES = ["FIELD CX", "PERMITTING", "CONSTRUCTION", "ACTIVE"];
-  const targetDateObj = parseDateToMidnight(normalizedTargets[0] || new Date());
+  
+  // 🧠 TARGET CAP: Ensure we don't calculate staleness against the future
+  let rawTargetDate = parseDateToMidnight(normalizedTargets[0] || new Date());
+  const todayAtMidnight = parseDateToMidnight(new Date());
+  const targetDateObj = (rawTargetDate > todayAtMidnight) ? todayAtMidnight : rawTargetDate;
   
   // 🔍 AUDIT: Verify date matching
   if (histData.length > 1) {
-      logMsg("BENNY ENGINE [Date Match Audit]: target=" + normalizedTargets[0] + ", firstRowDate=" + normalizeDate(histData[1][0]));
+      const lastRowDate = normalizeDate(histData[histData.length - 1][0]);
+      logMsg(`BENNY ENGINE [Date Match Audit]: target=${normalizedTargets[0] || 'NONE'}, lastArchiveDate=${lastRowDate}`);
   }
 
   timerStartMs = Date.now();
@@ -2043,6 +2064,17 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     if (latest) {
       // 🧠 UPGRADE: Use latest known report data instead of zeroes
       const lRow = latest.row;
+      
+      // 🧠 GHOST DIAGNOSTICS: Run full diagnostics on the latest row, but zero out daily production
+      let ghostDiagnosticRow = [...lRow];
+      const dailyCols = ["Daily UG Footage", "Daily Strand Footage", "Daily Fiber Footage", "Daily NAPs/Encl. Completed", "Locates Called In", "Drills", "AE Crews", "Fiber Pulling Crews", "Splicing Crews"];
+      dailyCols.forEach(col => {
+          let idx = HISTORY_HEADERS.indexOf(col);
+          if (idx > -1) ghostDiagnosticRow[idx] = (col === "Locates Called In") ? false : 0;
+      });
+      
+      let diag = runBennyDiagnostics(ghostDiagnosticRow, refDict, vendorDict, inferenceHistoryContext, lkvDict);
+
       HISTORY_HEADERS.forEach((h, i) => {
         ghostRowObj[h] = lRow[i];
       });
@@ -2062,8 +2094,17 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
         staleColor = TEXT_COLORS.MISMATCH; // Yellow/Orange (#b45309)
       }
 
-      ghostRowObj["Health Flags"]    = staleFlag;
-      ghostRowObj["Action Required"] = staleDraft;
+      // Merge stale flag with existing diagnostics
+      if (diag.flags !== "No Anomalies" && diag.flags !== "") {
+          diag.flags = staleFlag + "\n" + diag.flags;
+          diag.flagColors.unshift(staleColor);
+      } else {
+          diag.flags = staleFlag;
+          diag.flagColors = [staleColor];
+      }
+
+      ghostRowObj["Health Flags"]    = diag.flags;
+      ghostRowObj["Action Required"] = (diag.draft ? diag.draft + "\n" : "") + staleDraft;
       ghostRowObj["Vendor Comment"]  = lRow[HISTORY_HEADERS.indexOf("Vendor Comment")] || "No update provided.";
       ghostRowObj["Archive_Row"]     = latest.idx + 1;
 
@@ -2079,18 +2120,27 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       ghostRowObj["CX Complete"]        = ghostCx.cxComplete;
       ghostRowObj["CX Inferred"]        = ghostCx.inferredLabel;
       ghostRowObj["Historical Milestones"] = benchmarkDict[ghostFdhId] || "No history logged.";
+      
+      let xingString = "X-ING UNCHECKED";
+      const xingVal = (ref.rawSpecialX || "").toString().trim().toLowerCase();
+      if (xingVal === "yes" || xingVal === "true") xingString = "X-ING YES";
+      else if (xingVal === "no" || xingVal === "false") xingString = "X-ING CLEAR";
+      let hasBeenChecked = ref.adminDate && ref.adminDate !== "";
+      let adminDateStr = hasBeenChecked ? `[Chk: ${ref.adminDate}]` : `[Chk: NEVER]`;
+      let adminGapsStr = `${adminDateStr}  |  ${ref.hasSOW ? "SOW" : "SOW"}  ${ref.hasCD ? "CD" : "CD"}  ${ref.hasBOM ? "BOM" : "BOM"}  |  ${xingString}`;
+      ghostRowObj["QB Context & Gaps"] = adminGapsStr;
 
       reviewData.push(finalMirrorHeaders.map(h => ghostRowObj[h] !== undefined ? ghostRowObj[h] : ""));
       highlightsData.push({
         rowState:       "ACTIVE",
         adaePaletteIdx: "GHOST",
-        colors:         { warn: [], mismatch: [], ug: [], ae: [], fib: [], nap: [] },
+        colors:         diag.colors,
         summary:        `Last Report: ${Utilities.formatDate(reportDate, "GMT-5", "MM/dd/yy")}`,
-        gaps:           "",
-        flags:          staleFlag,
-        flagColors:     [staleColor],
+        gaps:           adminGapsStr,
+        flags:          diag.flags,
+        flagColors:     diag.flagColors,
         cleanComment:   ghostRowObj["Vendor Comment"],
-        draft:          staleDraft,
+        draft:          ghostRowObj["Action Required"],
         benchmark:      benchmarkDict[ghostFdhId] || ""
       });
 

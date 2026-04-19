@@ -2306,8 +2306,10 @@ function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData, opt
         if (!val || val === "" || val === "-") return "";
         if (val instanceof Date) return Utilities.formatDate(val, "GMT-5", "MM/dd/yy");
         let s = String(val).trim();
+        // ISO or Sheet-style yyyy-MM-dd
         let mIso = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
         if (mIso) return `${mIso[2].padStart(2,'0')}/${mIso[3].padStart(2,'0')}/${mIso[1].substring(2)}`;
+        // MM/dd/yyyy or MM/dd/yy
         let mUs = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
         if (mUs) {
             let yr = mUs[3].length === 4 ? mUs[3].substring(2) : mUs[3];
@@ -2315,6 +2317,7 @@ function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData, opt
         }
         let d = new Date(s);
         if (!isNaN(d.getTime())) return Utilities.formatDate(d, "GMT-5", "MM/dd/yy");
+        // FALLBACK: Return original string instead of empty, preventing "700+ days stale" (Jan 1 1970) logic on frontend
         return s;
     };
 

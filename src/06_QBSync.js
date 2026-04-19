@@ -1456,11 +1456,23 @@ function _getLatestArchiveDate() {
     if (dateIdx < 0) return Utilities.formatDate(new Date(), "GMT-5", "yyyy-MM-dd");
     const data = histSheet.getDataRange().getValues();
     let latest = null;
+    const today = new Date();
+    const threeDaysFromNow = new Date(today.getTime() + (3 * 24 * 60 * 60 * 1000));
+
     for (let i = 1; i < data.length; i++) {
       let d = data[i][dateIdx];
       if (!d) continue;
+
       let obj = (d instanceof Date) ? d : new Date(d);
-      if (!isNaN(obj.getTime()) && (!latest || obj > latest)) latest = obj;
+      if (isNaN(obj.getTime())) continue;
+
+      // 🧠 TYPO GUARD: Ignore dates significantly in the future (e.g., 2028 when it's 2026)
+      if (obj > threeDaysFromNow) {
+          logMsg(`_getLatestArchiveDate: Ignoring suspicious future date ${Utilities.formatDate(obj, "GMT-5", "yyyy-MM-dd")} at row ${i+1}`);
+          continue;
+      }
+
+      if (!latest || obj > latest) latest = obj;
     }
     return latest
       ? Utilities.formatDate(latest, "GMT-5", "yyyy-MM-dd")
