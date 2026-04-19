@@ -1,0 +1,375 @@
+<style>
+  /* === TOP OFFENDERS MODULE === */
+  .off-ctrl-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px 8px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .off-ctrl-btn {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .off-ctrl-btn:hover { background: color-mix(in srgb, var(--accent) 10%, var(--card-bg)); color: var(--accent); }
+  .off-ctrl-btn.active { background: color-mix(in srgb, var(--accent) 15%, var(--card-bg)); color: var(--accent); border-color: var(--accent); }
+  .off-ctrl-btn.export { border-color: #22c55e; color: #22c55e; }
+  .off-ctrl-btn.export:hover { background: rgba(34, 197, 94, 0.1); }
+  .off-ctrl-sep { width: 1px; height: 18px; background: var(--border); flex-shrink: 0; }
+  .off-ctrl-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; }
+  .off-pm-settings {
+    display: none;
+    padding: 12px 16px;
+    background: color-mix(in srgb, var(--accent) 4%, var(--bg));
+    border-bottom: 1px solid var(--border);
+  }
+  .off-pm-settings.open { display: block; }
+  .off-pm-title { font-size: 10px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 10px; }
+  .off-pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .off-pm-row { display: flex; flex-direction: column; gap: 3px; }
+  .off-pm-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+  .off-pm-input {
+    font-size: 12px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--fg, #1e293b);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .off-pm-input:focus { border-color: var(--accent); }
+  .off-pm-save-row { margin-top: 10px; display: flex; gap: 8px; align-items: center; }
+  .off-vendor-list { padding: 8px 0; }
+  .off-vendor-card {
+    border-bottom: 1px solid var(--border);
+  }
+  .off-vendor-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .off-vendor-header:hover { background: color-mix(in srgb, var(--accent) 5%, var(--bg)); }
+  .off-vendor-checkbox { width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; accent-color: var(--accent); }
+  .off-vendor-name { font-size: 13px; font-weight: 800; color: var(--fg, #1e293b); flex: 1; text-transform: uppercase; letter-spacing: 0.5px; }
+  .off-vendor-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    white-space: nowrap;
+  }
+  body.dark-mode .off-vendor-badge { background: rgba(239, 68, 68, 0.18); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
+  .off-vendor-expand { font-size: 12px; color: var(--text-muted); flex-shrink: 0; transition: transform 0.2s; }
+  .off-vendor-expand.open { transform: rotate(90deg); }
+  .off-flag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 4px 16px 8px 41px;
+  }
+  .off-flag-chip {
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1.5px solid;
+    text-transform: uppercase;
+    white-space: nowrap;
+    background: rgba(254, 252, 232, 0.72);
+    color: #854d0e;
+    border-color: #facc15;
+    letter-spacing: 0.3px;
+  }
+  body.dark-mode .off-flag-chip { background: rgba(234, 179, 8, 0.15); color: #fde047; border-color: #eab308; }
+  .off-flag-chip.crit { background: rgba(254, 226, 226, 0.72); color: #991b1b; border-color: #fca5a5; }
+  body.dark-mode .off-flag-chip.crit { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border-color: #ef4444; }
+  .off-flag-count { font-weight: 900; margin-left: 3px; }
+  .off-project-list { display: none; }
+  .off-project-list.open { display: block; }
+  .off-project-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 16px 5px 41px;
+    font-size: 12px;
+    border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    transition: background 0.1s;
+  }
+  .off-project-row:hover { background: color-mix(in srgb, var(--accent) 4%, var(--bg)); }
+  .off-project-fdh { font-weight: 700; color: var(--accent); min-width: 90px; font-size: 11px; }
+  .off-project-meta { color: var(--text-muted); font-size: 11px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .off-project-open {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 6px;
+    border: 1.5px solid var(--border);
+    background: var(--card-bg);
+    color: var(--accent);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.12s;
+  }
+  .off-project-open:hover { background: color-mix(in srgb, var(--accent) 12%, var(--card-bg)); }
+  .off-empty { padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 13px; font-weight: 600; }
+  .off-pm-toggle { margin-left: auto; }
+</style>
+
+<script>
+(function() {
+  var _offendersSortBy = 'count';
+  var _offendersSelectedVendors = {};
+  var _offendersExpanded = {};
+
+  var CRIT_FLAG_KEYWORDS = ['ADMIN', 'MISMATCH', 'MISSING', 'NOT IN QB', 'BLOCKED', 'ERROR', 'FORMAT'];
+
+  function _offendersFlagIsCrit(flag) {
+    return CRIT_FLAG_KEYWORDS.some(function(k) { return flag.toUpperCase().indexOf(k) !== -1; });
+  }
+
+  function _buildOffendersData() {
+    var src = (typeof allActionItems !== 'undefined') ? allActionItems : [];
+    var q = (typeof _signalSearchQuery !== 'undefined') ? _signalSearchQuery.trim().toLowerCase() : '';
+    var vendorMap = {};
+
+    src.forEach(function(item) {
+      if (!item.vendor) return;
+      var flags = (item.flags || '').split('\n').map(function(f) { return f.trim(); }).filter(function(f) { return f; });
+      if (!flags.length) return;
+
+      if (q) {
+        var matchable = [item.vendor, item.fdh, item.city, item.stage, item.status].concat(flags).join(' ').toLowerCase();
+        if (matchable.indexOf(q) === -1) return;
+      }
+
+      if (!vendorMap[item.vendor]) vendorMap[item.vendor] = { projects: [], flagCounts: {}, totalFlags: 0 };
+      vendorMap[item.vendor].projects.push({ fdh: item.fdh, city: item.city, stage: item.stage, status: item.status, flags: flags });
+      flags.forEach(function(f) {
+        vendorMap[item.vendor].flagCounts[f] = (vendorMap[item.vendor].flagCounts[f] || 0) + 1;
+        vendorMap[item.vendor].totalFlags++;
+      });
+    });
+
+    var vendors = Object.keys(vendorMap);
+    if (_offendersSortBy === 'vendor') {
+      vendors.sort(function(a, b) { return a.localeCompare(b); });
+    } else {
+      vendors.sort(function(a, b) { return vendorMap[b].totalFlags - vendorMap[a].totalFlags; });
+    }
+
+    return { vendors: vendors, vendorMap: vendorMap };
+  }
+
+  function _renderSignalOffenders() {
+    var el = document.getElementById('signal-panel-offenders');
+    if (!el) return;
+
+    var data = _buildOffendersData();
+    var vendors = data.vendors;
+    var vendorMap = data.vendorMap;
+    var total = vendors.reduce(function(acc, v) { return acc + vendorMap[v].projects.length; }, 0);
+
+    if (typeof _signalUpdateMatchCount === 'function') {
+      _signalUpdateMatchCount(vendors.length, Object.keys(vendorMap).length || vendors.length);
+    }
+
+    var html = '<div class="off-ctrl-bar">'
+      + '<span class="off-ctrl-label">Sort:</span>'
+      + '<button class="off-ctrl-btn' + (_offendersSortBy === 'count' ? ' active' : '') + '" onclick="_offendersSetSort(\'count\')">Flag Count</button>'
+      + '<button class="off-ctrl-btn' + (_offendersSortBy === 'vendor' ? ' active' : '') + '" onclick="_offendersSetSort(\'vendor\')">Vendor Name</button>'
+      + '<div class="off-ctrl-sep"></div>'
+      + '<button class="off-ctrl-btn export" onclick="_offendersExportAll()">Export All CSV</button>'
+      + '<button class="off-ctrl-btn export" onclick="_offendersExportSelected()">Export Selected</button>'
+      + '<div class="off-ctrl-sep"></div>'
+      + '<button class="off-ctrl-btn off-pm-toggle" onclick="_offendersTogglePmSettings()" title="Configure PM email addresses">&#9881; PM Emails</button>'
+      + '</div>';
+
+    html += '<div class="off-pm-settings" id="off-pm-settings-panel">'
+      + '<div class="off-pm-title">Configure PM Email Addresses</div>'
+      + '<div class="off-pm-grid" id="off-pm-grid">Loading…</div>'
+      + '<div class="off-pm-save-row">'
+      + '<button class="off-ctrl-btn export" onclick="_offendersSavePmEmails()">Save PM Emails</button>'
+      + '<span id="off-pm-save-status" style="font-size:11px;color:var(--text-muted)"></span>'
+      + '</div>'
+      + '</div>';
+
+    if (!vendors.length) {
+      html += '<div class="off-empty">No flagged projects found' + ((typeof _signalSearchQuery !== 'undefined' && _signalSearchQuery ? ' matching "' + _esc(_signalSearchQuery) + '"' : '')) + '.</div>';
+    } else {
+      html += '<div class="off-vendor-list">';
+      vendors.forEach(function(vendor) {
+        var vd = vendorMap[vendor];
+        var isExpanded = !!_offendersExpanded[vendor];
+        var isChecked = !!_offendersSelectedVendors[vendor];
+        var vendorKey = vendor.replace(/[^a-z0-9]/gi, '_');
+
+        html += '<div class="off-vendor-card" id="off-vc-' + vendorKey + '">';
+
+        html += '<div class="off-vendor-header" onclick="_offendersToggleExpand(\'' + _esc(vendor) + '\')">'
+          + '<input type="checkbox" class="off-vendor-checkbox"'
+          + (isChecked ? ' checked' : '')
+          + ' onclick="event.stopPropagation();_offendersToggleVendor(\'' + _esc(vendor) + '\')">'
+          + '<span class="off-vendor-name">' + _esc(vendor) + '</span>'
+          + '<span class="off-vendor-badge">' + vd.totalFlags + ' flags · ' + vd.projects.length + ' projects</span>'
+          + '<span class="off-vendor-expand' + (isExpanded ? ' open' : '') + '" id="off-expand-' + vendorKey + '">&#9658;</span>'
+          + '</div>';
+
+        html += '<div class="off-flag-row">';
+        Object.keys(vd.flagCounts).sort(function(a, b) { return vd.flagCounts[b] - vd.flagCounts[a]; }).forEach(function(flag) {
+          var isCrit = _offendersFlagIsCrit(flag);
+          html += '<span class="off-flag-chip' + (isCrit ? ' crit' : '') + '">'
+            + _esc(flag) + '<span class="off-flag-count">&times;' + vd.flagCounts[flag] + '</span>'
+            + '</span>';
+        });
+        html += '</div>';
+
+        html += '<div class="off-project-list' + (isExpanded ? ' open' : '') + '" id="off-pl-' + vendorKey + '">';
+        vd.projects.forEach(function(p) {
+          html += '<div class="off-project-row">'
+            + '<span class="off-project-fdh">' + _esc(p.fdh || '—') + '</span>'
+            + '<span class="off-project-meta">' + _esc([p.city, p.stage, p.status].filter(Boolean).join(' · ')) + '</span>'
+            + '<button class="off-project-open" onclick="event.stopPropagation();_signalNavigateToItem(\'' + _esc(p.fdh) + '\')">Open</button>'
+            + '</div>';
+        });
+        html += '</div>';
+
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    el.innerHTML = html;
+  }
+
+  function _offendersSetSort(by) {
+    _offendersSortBy = by;
+    _renderSignalOffenders();
+  }
+
+  function _offendersToggleVendor(vendor) {
+    _offendersSelectedVendors[vendor] = !_offendersSelectedVendors[vendor];
+  }
+
+  function _offendersToggleExpand(vendor) {
+    _offendersExpanded[vendor] = !_offendersExpanded[vendor];
+    var vendorKey = vendor.replace(/[^a-z0-9]/gi, '_');
+    var pl = document.getElementById('off-pl-' + vendorKey);
+    var arrow = document.getElementById('off-expand-' + vendorKey);
+    if (pl) pl.classList.toggle('open', !!_offendersExpanded[vendor]);
+    if (arrow) arrow.classList.toggle('open', !!_offendersExpanded[vendor]);
+  }
+
+  function _offendersTogglePmSettings() {
+    var panel = document.getElementById('off-pm-settings-panel');
+    if (!panel) return;
+    var isOpen = panel.classList.toggle('open');
+    if (isOpen) _offendersLoadPmEmails();
+  }
+
+  function _offendersLoadPmEmails() {
+    var grid = document.getElementById('off-pm-grid');
+    if (!grid) return;
+    grid.innerHTML = 'Loading…';
+    google.script.run
+      .withSuccessHandler(function(map) {
+        var vendors = (typeof allActionItems !== 'undefined')
+          ? Object.keys(allActionItems.reduce(function(acc, i) { if (i.vendor) acc[i.vendor] = true; return acc; }, {})).sort()
+          : Object.keys(map);
+        if (!vendors.length) { grid.innerHTML = '<span style="color:var(--text-muted);font-size:12px">No vendors found in queue.</span>'; return; }
+        var rows = vendors.map(function(v) {
+          var vKey = v.replace(/[^a-z0-9]/gi, '_');
+          return '<div class="off-pm-row"><label class="off-pm-label">' + _esc(v) + '</label>'
+            + '<input class="off-pm-input" id="off-pm-input-' + vKey + '" type="email" placeholder="pm@email.com" value="' + _esc(map[v] || '') + '"></div>';
+        }).join('');
+        grid.innerHTML = rows;
+      })
+      .withFailureHandler(function(err) {
+        if (grid) grid.innerHTML = '<span style="color:#ef4444;font-size:12px">Failed to load: ' + _esc(String(err)) + '</span>';
+      })
+      .getVendorPmEmailsForUI();
+  }
+
+  function _offendersSavePmEmails() {
+    var statusEl = document.getElementById('off-pm-save-status');
+    if (statusEl) statusEl.textContent = 'Saving…';
+
+    var src = (typeof allActionItems !== 'undefined') ? allActionItems : [];
+    var vendors = Object.keys(src.reduce(function(acc, i) { if (i.vendor) acc[i.vendor] = true; return acc; }, {})).sort();
+
+    var map = {};
+    vendors.forEach(function(v) {
+      var vKey = v.replace(/[^a-z0-9]/gi, '_');
+      var input = document.getElementById('off-pm-input-' + vKey);
+      if (input && input.value.trim()) map[v] = input.value.trim();
+    });
+
+    google.script.run
+      .withSuccessHandler(function() {
+        if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 3000); }
+      })
+      .withFailureHandler(function(err) {
+        if (statusEl) statusEl.textContent = 'Error: ' + String(err);
+      })
+      .saveVendorPmEmailsFromUI(map);
+  }
+
+  function _offendersExportAll() {
+    var email = prompt('Send CSV report to email:');
+    if (!email || !email.trim()) return;
+    _offendersRunExport(null, email.trim());
+  }
+
+  function _offendersExportSelected() {
+    var selected = Object.keys(_offendersSelectedVendors).filter(function(v) { return _offendersSelectedVendors[v]; });
+    if (!selected.length) { alert('Select at least one vendor using the checkboxes.'); return; }
+    var email = prompt('Send CSV for ' + selected.length + ' vendor(s) to email:');
+    if (!email || !email.trim()) return;
+    _offendersRunExport(selected, email.trim());
+  }
+
+  function _offendersRunExport(vendorList, email) {
+    var btn = event && event.target;
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+    google.script.run
+      .withSuccessHandler(function(msg) {
+        if (btn) { btn.disabled = false; btn.textContent = vendorList ? 'Export Selected' : 'Export All CSV'; }
+        if (typeof showToast === 'function') showToast(msg || '✅ CSV sent!', 'success');
+        else alert(msg || '✅ CSV sent!');
+      })
+      .withFailureHandler(function(err) {
+        if (btn) { btn.disabled = false; btn.textContent = vendorList ? 'Export Selected' : 'Export All CSV'; }
+        if (typeof showToast === 'function') showToast('Export failed: ' + String(err), 'error');
+        else alert('Export failed: ' + String(err));
+      })
+      .exportOffendersCsv(vendorList, email);
+  }
+
+  window._renderSignalOffenders = _renderSignalOffenders;
+  window._offendersSetSort = _offendersSetSort;
+  window._offendersToggleVendor = _offendersToggleVendor;
+  window._offendersToggleExpand = _offendersToggleExpand;
+  window._offendersTogglePmSettings = _offendersTogglePmSettings;
+  window._offendersExportAll = _offendersExportAll;
+  window._offendersExportSelected = _offendersExportSelected;
+  window._offendersSavePmEmails = _offendersSavePmEmails;
+})();
+</script>

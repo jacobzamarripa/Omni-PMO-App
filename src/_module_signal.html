@@ -616,14 +616,17 @@ function _signalSetDriveRootFilter(rootKey) {
 
 function _signalSetTab(tab) {
   _signalActiveTab = tab;
-  ['qb', 'log', 'drive'].forEach(function(t) {
+  ['qb', 'log', 'drive', 'offenders'].forEach(function(t) {
     var panel = document.getElementById('signal-panel-' + t);
     var btn = document.getElementById('signal-tab-' + t);
     if (panel) panel.style.display = t === tab ? 'block' : 'none';
     if (btn) btn.classList.toggle('active', t === tab);
   });
-  // Re-render with current search query applied to new tab
-  if (_signalSearchQuery) _signalOnSearch(_signalSearchQuery);
+  if (tab === 'offenders') {
+    if (typeof _renderSignalOffenders === 'function') _renderSignalOffenders();
+  } else if (_signalSearchQuery) {
+    _signalOnSearch(_signalSearchQuery);
+  }
 }
 
 function _esc(s) {
@@ -675,6 +678,8 @@ function _signalOnSearch(val) {
     _renderSignalLogs(fastData.systemLogs || [], tf);
   } else if (_signalActiveTab === 'drive' && Object.prototype.hasOwnProperty.call(_signalCache.drive, tf)) {
     _renderSignalDrive(_signalCache.drive[tf] || [], tf);
+  } else if (_signalActiveTab === 'offenders') {
+    if (typeof _renderSignalOffenders === 'function') _renderSignalOffenders();
   }
   // Show/hide clear button
   var clearEl = document.getElementById('signal-search-clear');

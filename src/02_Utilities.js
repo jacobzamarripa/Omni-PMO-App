@@ -2553,9 +2553,206 @@ function _decoratePayloadMeta(payload, overrides) {
 function checkSignalUpdates(lastClientTimeMs) {
   const latestEvent = Number(PropertiesService.getScriptProperties().getProperty("LATEST_SIGNAL_EVENT_MS") || 0);
   const lastClient = Number(lastClientTimeMs || 0);
-  
+
   return {
     hasUpdates: latestEvent > lastClient,
     latestEvent: latestEvent
   };
+}
+
+// ============================================================
+// 🚨 TOP OFFENDERS — PM Email Config (Script Properties)
+// ============================================================
+
+function getVendorPmEmailMap() {
+  var raw = PropertiesService.getScriptProperties().getProperty('VENDOR_PM_EMAILS');
+  try { return raw ? JSON.parse(raw) : {}; } catch(e) { return {}; }
+}
+
+function saveVendorPmEmailMap(mapObj) {
+  PropertiesService.getScriptProperties().setProperty('VENDOR_PM_EMAILS', JSON.stringify(mapObj || {}));
+}
+
+function getVendorPmEmailsForUI() {
+  return getVendorPmEmailMap();
+}
+
+function saveVendorPmEmailsFromUI(mapObj) {
+  if (!mapObj || typeof mapObj !== 'object') throw new Error('Invalid email map.');
+  saveVendorPmEmailMap(mapObj);
+  return 'Saved';
+}
+
+// ============================================================
+// 🚨 TOP OFFENDERS — CSV Export
+// ============================================================
+
+function exportOffendersCsv(vendorList, recipientEmail) {
+  if (!recipientEmail) throw new Error('No recipient email provided.');
+
+  var payload = getDashboardDataV2();
+  var items = (payload && payload.actionItems) ? payload.actionItems : [];
+
+  var filterSet = (vendorList && vendorList.length > 0)
+    ? vendorList.reduce(function(acc, v) { acc[v] = true; return acc; }, {})
+    : null;
+
+  var rows = items.filter(function(item) {
+    if (!item.vendor || !item.flags) return false;
+    if (filterSet && !filterSet[item.vendor]) return false;
+    return true;
+  });
+
+  // Collect all unique flag types across the selected rows
+  var flagSet = {};
+  rows.forEach(function(item) {
+    (item.flags || '').split('\n').forEach(function(f) {
+      f = f.trim();
+      if (f) flagSet[f] = true;
+    });
+  });
+  var flagCols = Object.keys(flagSet).sort();
+
+  // Build CSV
+  var META_COLS = ['Vendor', 'FDH', 'City', 'Stage', 'Status'];
+  var allCols = META_COLS.concat(flagCols);
+
+  function csvCell(val) {
+    var s = String(val == null ? '' : val);
+    if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  var lines = [allCols.map(csvCell).join(',')];
+  rows.forEach(function(item) {
+    var itemFlags = {};
+    (item.flags || '').split('\n').forEach(function(f) {
+      f = f.trim();
+      if (f) itemFlags[f] = true;
+    });
+    var row = [
+      item.vendor || '',
+      item.fdh || '',
+      item.city || '',
+      item.stage || '',
+      item.status || ''
+    ].concat(flagCols.map(function(f) { return itemFlags[f] ? '1' : ''; }));
+    lines.push(row.map(csvCell).join(','));
+  });
+
+  var csvContent = lines.join('\r\n');
+  var dateStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MM.dd.yy');
+  var fileName = 'Top_Offenders_Export_' + dateStr + '.csv';
+  var blob = Utilities.newBlob(csvContent, MimeType.CSV, fileName);
+
+  var vendorLabel = filterSet
+    ? vendorList.join(', ')
+    : 'All Vendors';
+
+  MailApp.sendEmail({
+    to: recipientEmail,
+    subject: '\uD83D\uDEA8 PMO Top Offenders Export — ' + dateStr,
+    body: 'Top Offenders CSV export attached.\n\nVendors: ' + vendorLabel + '\nProjects: ' + rows.length + '\nGenerated: ' + new Date().toLocaleString(),
+    attachments: [blob]
+  });
+
+  return '\u2705 CSV emailed to ' + recipientEmail + ' (' + rows.length + ' projects, ' + flagCols.length + ' flag types)';
+}
+
+// ============================================================
+// 🚨 TOP OFFENDERS — Weekly PMO Bot Report
+// ============================================================
+
+function sendWeeklyOffendersReport() {
+  var pmEmailMap = getVendorPmEmailMap();
+  var payload = getDashboardDataV2();
+  var items = (payload && payload.actionItems) ? payload.actionItems : [];
+
+  // Group flagged items by vendor
+  var vendorMap = {};
+  items.forEach(function(item) {
+    if (!item.vendor || !item.flags) return;
+    var flags = item.flags.split('\n').map(function(f) { return f.trim(); }).filter(function(f) { return f; });
+    if (!flags.length) return;
+    if (!vendorMap[item.vendor]) vendorMap[item.vendor] = [];
+    vendorMap[item.vendor].push({ fdh: item.fdh, city: item.city, stage: item.stage, status: item.status, flags: flags });
+  });
+
+  // Group vendors by PM email
+  var pmGroups = {};
+  Object.keys(vendorMap).forEach(function(vendor) {
+    var email = pmEmailMap[vendor];
+    if (!email) {
+      logMsg('WARN', 'sendWeeklyOffendersReport', 'No PM email configured for vendor: ' + vendor);
+      return;
+    }
+    if (!pmGroups[email]) pmGroups[email] = {};
+    pmGroups[email][vendor] = vendorMap[vendor];
+  });
+
+  var weekOf = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MM/dd/yyyy');
+
+  Object.keys(pmGroups).forEach(function(pmEmail) {
+    var vendorSections = pmGroups[pmEmail];
+    var totalFlags = 0;
+    var htmlParts = [
+      '<div style="font-family:Arial,sans-serif;max-width:700px">',
+      '<h2 style="color:#1e293b">\uD83D\uDEA8 PMO Weekly Flag Summary — Week of ' + weekOf + '</h2>',
+      '<p>Vendor flag summary for your assigned projects:</p>'
+    ];
+
+    Object.keys(vendorSections).sort().forEach(function(vendor) {
+      var projects = vendorSections[vendor];
+      var flagCounts = {};
+      projects.forEach(function(p) {
+        p.flags.forEach(function(f) { flagCounts[f] = (flagCounts[f] || 0) + 1; });
+        totalFlags += p.flags.length;
+      });
+
+      htmlParts.push('<hr style="border:1px solid #e2e8f0">');
+      htmlParts.push('<h3 style="color:#0f172a;margin-bottom:4px">' + vendor + ' <span style="font-size:13px;color:#64748b">(' + projects.length + ' flagged projects)</span></h3>');
+
+      var flagSummary = Object.keys(flagCounts).sort().map(function(f) {
+        return '<li>' + f + ' &times;' + flagCounts[f] + '</li>';
+      }).join('');
+      htmlParts.push('<ul style="margin:4px 0 8px 16px;color:#475569">' + flagSummary + '</ul>');
+
+      var tableRows = projects.map(function(p) {
+        return '<tr><td style="padding:3px 8px">' + (p.fdh || '') + '</td>'
+          + '<td style="padding:3px 8px">' + (p.city || '') + '</td>'
+          + '<td style="padding:3px 8px">' + (p.stage || '') + '</td>'
+          + '<td style="padding:3px 8px">' + (p.status || '') + '</td>'
+          + '<td style="padding:3px 8px;color:#dc2626;font-size:12px">' + p.flags.join(', ') + '</td></tr>';
+      }).join('');
+      htmlParts.push('<table style="border-collapse:collapse;width:100%;font-size:13px">');
+      htmlParts.push('<tr style="background:#f1f5f9;font-weight:bold"><th style="padding:4px 8px;text-align:left">FDH</th><th style="padding:4px 8px;text-align:left">City</th><th style="padding:4px 8px;text-align:left">Stage</th><th style="padding:4px 8px;text-align:left">Status</th><th style="padding:4px 8px;text-align:left">Flags</th></tr>');
+      htmlParts.push(tableRows);
+      htmlParts.push('</table>');
+    });
+
+    htmlParts.push('<hr style="border:1px solid #e2e8f0">');
+    htmlParts.push('<p style="color:#64748b;font-size:12px">Total portfolio flags across your vendors: <strong>' + totalFlags + '</strong><br>Auto-generated by PMO Bot each Monday. Open the Omni PMO App for details.</p>');
+    htmlParts.push('</div>');
+
+    GmailApp.sendEmail(pmEmail, '\uD83D\uDEA8 [PMO Bot] Weekly Flag Summary — Week of ' + weekOf, '', {
+      htmlBody: htmlParts.join('')
+    });
+    logMsg('\u2705 sendWeeklyOffendersReport: emailed ' + pmEmail + ' (' + Object.keys(vendorSections).length + ' vendors)');
+  });
+}
+
+function setupWeeklyOffendersTrigger() {
+  var allTriggers = ScriptApp.getProjectTriggers();
+  if (allTriggers.length >= 15) {
+    logMsg('WARN', 'setupWeeklyOffendersTrigger', 'Trigger quota near limit (' + allTriggers.length + '/20). Aborting.');
+    SpreadsheetApp.getUi().alert('\u26A0\uFE0F Trigger quota near limit. Delete unused triggers first.');
+    return;
+  }
+  var deleted = _deleteProjectTriggersByHandler_('sendWeeklyOffendersReport');
+  ScriptApp.newTrigger('sendWeeklyOffendersReport').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(7).create();
+  var count = _listProjectTriggersByHandler_('sendWeeklyOffendersReport').length;
+  logMsg('\u2705 setupWeeklyOffendersTrigger: deleted=' + deleted + ', active=' + count + ', fires=Monday@7am');
+  SpreadsheetApp.getUi().alert('\u2705 Weekly Offenders Report scheduled for Monday at 7am.');
 }

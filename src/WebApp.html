@@ -216,6 +216,7 @@
           <button class="signal-tab active" id="signal-tab-qb" onclick="_signalSetTab('qb')">QB Changes</button>
           <button class="signal-tab" id="signal-tab-drive" onclick="_signalSetTab('drive')">Drive Folders</button>
           <button class="signal-tab" id="signal-tab-log" onclick="_signalSetTab('log')">App Log</button>
+          <button class="signal-tab" id="signal-tab-offenders" onclick="_signalSetTab('offenders')">Top Offenders</button>
         </div>
         <div class="signal-search-row">
           <div class="signal-search-wrap">
@@ -233,6 +234,7 @@
           <div id="signal-panel-qb"><div class="signal-loading">Loading...</div></div>
           <div id="signal-panel-drive" style="display:none;"><div class="signal-loading">Loading...</div></div>
           <div id="signal-panel-log" style="display:none;"><div class="signal-loading">Loading...</div></div>
+          <div id="signal-panel-offenders" style="display:none;"><div class="signal-loading">Loading…</div></div>
         </div>
       </div>
     </div>
@@ -984,6 +986,7 @@
     <?!= include('_module_startup_boot') ?>
     <?!= include('_module_startup_refdata') ?>
     <?!= include('_module_signal') ?>
+    <?!= include('_module_offenders') ?>
     <?!= include('_module_global_search') ?>
     <?!= include('_module_dashboard') ?>
     <?!= include('_module_ui_shell_helpers') ?>
