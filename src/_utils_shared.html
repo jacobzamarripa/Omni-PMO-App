@@ -171,21 +171,19 @@
           let rawFlags = (flagsStr || "").split('\n').map(f => f.trim()).filter(f => f !== "");
           let highestSev = "info";
           rawFlags.forEach(f => {
-              const plain = cleanDiagnosticFlagText(f).toUpperCase();
+              const plain = f.toUpperCase();
               if (
-                  f.includes("🚨") || f.includes("🛑") ||
                   plain.includes("INVALID DATE") || plain.includes("MISSING BOM") || 
-                  plain.includes("OVERRUN") || plain.includes("NOT IN QB")
+                  plain.includes("BOM OVERRUN") || plain.includes("NOT IN QB")
               ) { highestSev = "crit"; }
               else if (highestSev !== "crit" && (
-                  f.includes("🚩") || f.includes("⚠️") || f.includes("🖍️") || f.includes("🚧") ||
                   plain.includes("LIGHTING RISK") || plain.includes("ADMIN: CHECK CROSSINGS") || 
-                  plain.includes("ADMIN: REFRESH REF DATA") || plain.includes("STATUS MISMATCH") || 
-                  plain.includes("MISSING QB STATUS") || plain.includes("SCOPE DEVIATION") || 
-                  plain.includes("PACE") || plain.includes("CHECK BOM") || 
-                  plain.includes("PLEASE INPUT BOM") || plain.includes("BLOCKED BY UPSTREAM") || 
-                  plain.includes("DELAYING DOWNSTREAM") || plain.includes("FORMAT ERROR") ||
-                  plain.includes("TRACKER VARIANCE")
+                  plain.includes("ADMIN: REFRESH REF DATA") || plain.includes("STAGE MISMATCH") || 
+                  plain.includes("SCOPE DEVIATION") || plain.includes("PACE") || 
+                  plain.includes("CHECK BOM") || plain.includes("PLEASE INPUT BOM") || 
+                  plain.includes("BLOCKED BY UPSTREAM") || plain.includes("DELAYING DOWNSTREAM") || 
+                  plain.includes("FORMAT ERROR") || plain.includes("TRACKER VARIANCE") ||
+                  plain.includes("BOM DISCREPANCY")
               )) { highestSev = "warn"; }
           });
           if (highestSev === "info") {
@@ -326,16 +324,16 @@
 
       function getDiagnosticTagClass(flag) {
           let f = String(flag || '').toUpperCase();
-          let plain = cleanDiagnosticFlagText(f).toUpperCase();
+          let plain = f; // Emojis already removed from backend strings
           if (f.includes('OFS') || f.includes('OPEN FOR SALE')) return 'chip-ofs';
           if (f.includes('COMPLETE')) return 'chip-complete';
           if (f.includes('ON HOLD')) return 'chip-hold';
           if (plain.includes('ADMIN: CHECK CROSSINGS') || plain.includes('ADMIN: REFRESH REF DATA')) return 'chip-admin';
-          if (plain.includes('STATUS MISMATCH') || plain.includes('MISSING QB STATUS')) return 'chip-warn';
+          if (plain.includes('STAGE MISMATCH')) return 'chip-warn';
           // Field Anomaly: production inconsistencies — ghost work, variance overruns, pace anomalies
           if (
             plain.includes('GHOST') || plain.includes('VARIANCE') ||
-            plain.includes('OVERRUN') || plain.includes('REROUTE') ||
+            plain.includes('BOM OVERRUN') || plain.includes('REROUTE') ||
             plain.includes('BOM DISCREPANCY') || plain.includes('PACE ANOMALY') ||
             plain.includes('PACE') && (plain.includes('UG') || plain.includes('AE') || plain.includes('FIBER') || plain.includes('SPLICE'))
           ) return 'chip-anomaly';
@@ -346,7 +344,7 @@
             plain.includes('DELAYING DOWNSTREAM') || plain.includes('TRACKER VARIANCE') ||
             plain.includes('BLOCKED BY PREDECESSOR')
           ) return 'chip-warn';
-          if (plain.includes('TRANSPORT OVERRIDE') || plain.includes('TRACKER UPDATE') || plain.includes('AUTO-CORRECTED') || plain.includes('SOFT MATCH')) return 'chip-magic';
+          if (plain.includes('TRANSPORT OVERRIDE') || plain.includes('TRACKER UPDATE') || plain.includes('AUTO-CORRECTED') || plain.includes('SOFT MATCH') || plain.includes('INFERRED STATE')) return 'chip-magic';
           if (f.includes('STALE REPORT')) {
               if (f.includes('1 BUSINESS DAY')) return 'chip-warn';
               return 'tag-red';
@@ -363,15 +361,12 @@
 
       function getQueueCombinedPill(item) {
           const flags = String((item && item.flags) || '');
-          if (flags.includes("INFERRED: SPLICING ONLY")) return "Field CX | Splicing Only";
-          if (flags.includes("INFERRED: FIELD CX")) return "Field CX (Inferred)";
-          if (flags.includes("INFERRED: PRE-CON")) return "Pre-Con (Inferred)";
-          if (flags.includes("INFERRED: HOLD")) return "On Hold (Inferred)";
+          if (flags.includes("INFERRED STATE")) {
+              return `${item.stage || "-"} (Inferred) | ${item.status || "-"}`;
+          }
           
-          const isOutOfCxScope = flags.includes("LIKELY OFS / OOS") || flags.includes("LIKELY OFS / OUT OF CX SCOPE");
-          const isMissingQbStatus = flags.includes("MISSING QB STATUS");
+          const isMissingQbStatus = flags.includes("STAGE MISMATCH");
           const isNotInQb = flags.includes("NOT IN QB REFERENCE");
-          if (isOutOfCxScope) return "OFS (Inferred) | OOS";
           if (isMissingQbStatus && !isNotInQb) return "Reference Status Missing";
           if (isNotInQb) return "Reference Data Missing";
           return `${item.stage || "-"} | ${item.status || "-"}`;
@@ -380,11 +375,9 @@
       function getDisplayStageLabel(item) {
           if (!item) return "-";
           const flags = String(item.flags || '');
-          if (flags.includes("INFERRED: SPLICING ONLY")) return "Field CX";
-          if (flags.includes("INFERRED: FIELD CX")) return "Field CX";
-          if (flags.includes("INFERRED: PRE-CON")) return "Pre-Construction";
-          if (flags.includes("INFERRED: HOLD")) return "On Hold";
-          if (flags.includes("LIKELY OFS / OOS")) return "OFS (Inferred)";
+          if (flags.includes("INFERRED STATE")) {
+              return item.stage || "-";
+          }
           return item.stage || "-";
       }
 

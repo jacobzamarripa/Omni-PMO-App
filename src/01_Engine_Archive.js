@@ -1060,13 +1060,13 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
         flagColors.push("#991b1b");
     }
 
-    // 🧠 QB STATUS HYGIENE
+    // QB STAGE HYGIENE
     const stageStr = (refData.stage || "").toUpperCase().trim();
     const statusStr = (refData.status || "").toUpperCase().trim();
     if (stageStr === "" || stageStr === "-" || statusStr === "" || statusStr === "-") {
-        flags.push("MISSING QB STATUS");
+        flags.push("STAGE MISMATCH");
         flagColors.push("#991b1b");
-        drafts.push("Project is missing Stage or Status in QB. Please update QuickBase.");
+        drafts.push("Action: Update QuickBase. Project is missing a valid Stage or Status.");
     }
   }
 
@@ -1122,11 +1122,11 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
             if (hasSyncedToday) {
                 flags.push("ADMIN: REFRESH REF DATA");
                 flagColors.push("#991b1b");
-                drafts.push("QB status synced today but still showing " + stageStr + ". Please verify if project should be in Field CX.");
+                drafts.push("Action: Refresh Reference Data. QB status was synced today but is still showing " + stageStr + ". Verify if project is truly in Field CX.");
             } else {
-                flags.push("STATUS MISMATCH");
+                flags.push("STAGE MISMATCH");
                 flagColors.push("#991b1b");
-                drafts.push("Vendor reporting activity but QB stage is " + stageStr + ". Please update QuickBase.");
+                drafts.push("Action: Update QuickBase Stage. Vendor is reporting production but QB is currently set to " + stageStr + ".");
             }
           }
       }
@@ -1310,25 +1310,31 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
   
   if (refData && rowState !== "COMPLETE" && rowState !== "OFS") {
      const checkPhase = (name, vBom, rBom, vDaily, vTot, bomColName, totColName) => {
-         if (rBom === 0 && (vBom > 0 || vDaily > 0 || vTot > 0)) {
-             flags.push(`POSSIBLE REROUTE (${name})`);
-             flagColors.push(TEXT_COLORS.MISMATCH);
-             drafts.push(`QB shows 0 BOM for ${name}, but vendor reported activity. Verify if a reroute occurred.`);
+         // A. MISSING BOM: Activity exists but QB is 0
+         if (rBom === 0 && (vDaily > 0 || vTot > 0)) {
+             flags.push("MISSING BOM");
+             flagColors.push(TEXT_COLORS.WARN);
+             drafts.push(`Action: Update QuickBase BOM. ${name} activity reported but ${name} BOM is 0 in QuickBase.`);
              hCols.mismatch.push(totColName);
-         } else if (rBom > 0 && vBom > 0 && vBom !== rBom) {
-             flags.push(`BOM DISCREPANCY (${name})`);
+         } 
+         // B. BOM DISCREPANCY: Input mismatch
+         else if (rBom > 0 && vBom > 0 && vBom !== rBom) {
+             flags.push("BOM DISCREPANCY");
              flagColors.push(TEXT_COLORS.MISMATCH);
+             drafts.push(`Action: Verify BOM Data. ${name} BOM mismatch found: Vendor reported ${vBom} vs QuickBase ${rBom}.`);
              hCols.mismatch.push(bomColName);
          }
          
+         // C. BOM OVERRUN: Production exceeds BOM
          if (vTot > 0 && rBom > 0 && (vTot / rBom) > OVERAGE_THRESHOLD) {
-             flags.push(`OVERRUN (${name})`);
+             flags.push("BOM OVERRUN");
              flagColors.push(TEXT_COLORS.WARN);
+             drafts.push(`Action: Audit Production. ${name} production is at ${Math.round((vTot/rBom)*100)}% of BOM (${vTot} of ${rBom}).`);
              hCols.warn.push(totColName, bomColName);
          }
      };
      
-     // 3-tier BOM check: distinguish missing data entry from actual reroutes
+     // 3-tier BOM check
      const _ugBom  = refData.ugBOM  || 0;
      const _aeBom  = refData.aeBOM  || 0;
      const _fibBom = refData.fibBOM || 0;
@@ -1337,47 +1343,15 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
 
      if (allBomZero) {
          if (dailyUG > 0 || dailyAE > 0 || dailyFIB > 0 || dailyNAP > 0) {
-             flags.push("MISSING BOM DATA");
+             flags.push("MISSING BOM");
              flagColors.push(TEXT_COLORS.WARN);
              drafts.push("Active progress reported but all BOM quantities in QB are 0. Please verify BOM data.");
          }
      } else {
-         if (dailyUG > 0 && _ugBom === 0) {
-             flags.push("MISSING UG BOM");
-             flagColors.push(TEXT_COLORS.WARN);
-             drafts.push("Underground activity reported but UG BOM is 0. Please update BOM in QuickBase.");
-         }
-         if (dailyAE > 0 && _aeBom === 0) {
-             flags.push("MISSING STRAND BOM");
-             flagColors.push(TEXT_COLORS.WARN);
-             drafts.push("Strand activity reported but Strand BOM is 0. Please update BOM in QuickBase.");
-         }
-         if (dailyFIB > 0 && _fibBom === 0) {
-             flags.push("MISSING FIBER BOM");
-             flagColors.push(TEXT_COLORS.WARN);
-             drafts.push("Fiber activity reported but Fiber BOM is 0. Please update BOM in QuickBase.");
-         }
-         if (dailyNAP > 0 && _napBom === 0) {
-             flags.push("MISSING SPLICING BOM");
-             flagColors.push(TEXT_COLORS.WARN);
-             drafts.push("Splicing activity reported but NAP BOM is 0. Please update BOM in QuickBase.");
-         }
-
-         const checkVariance = (name, rBom, vTot) => {
-             if (rBom > 0 && vTot > 0 && (vTot / rBom) > 1.15) {
-                 flags.push(`HIGH ${name === 'AE' ? 'STRAND' : name} VARIANCE`);
-                 flagColors.push(TEXT_COLORS.WARN);
-                 drafts.push(`Production is significantly exceeding BOM (${name}: ${Math.round((vTot/rBom)*100)}%). Verify BOM accuracy in QuickBase.`);
-             }
-         };
-         
-         checkVariance("UG", _ugBom, totalUG);
-         checkVariance("AE", _aeBom, totalAE);
-
-         checkPhase("UG",    vendorBOMUG,  refData.ugBOM,  dailyUG,  totalUG,  "UG BOM Quantity",     "Total UG Footage Completed");
-         checkPhase("AE",    vendorBOMAE,  refData.aeBOM,  dailyAE,  totalAE,  "Strand BOM Quantity", "Total Strand Footage Complete?");
-         checkPhase("Fiber", vendorBOMFIB, refData.fibBOM, dailyFIB, totalFIB, "Fiber BOM Quantity",  "Total Fiber Footage Complete");
-         checkPhase("NAP",   vendorBOMNAP, refData.napBOM, dailyNAP, totalNAP, "NAP/Encl. BOM Qty.", "Total NAPs Completed");
+         checkPhase("Underground", vendorBOMUG,  _ugBom,  dailyUG,  totalUG,  "UG BOM Quantity",     "Total UG Footage Completed");
+         checkPhase("Strand",      vendorBOMAE,  _aeBom,  dailyAE,  totalAE,  "Strand BOM Quantity", "Total Strand Footage Complete?");
+         checkPhase("Fiber",       vendorBOMFIB, _fibBom, dailyFIB, totalFIB, "Fiber BOM Quantity",  "Total Fiber Footage Complete");
+         checkPhase("NAP",         vendorBOMNAP, _napBom, dailyNAP, totalNAP, "NAP/Encl. BOM Qty.", "Total NAPs Completed");
      }
   }
   
@@ -1502,19 +1476,19 @@ function classifyInferredReviewState(stage, status) {
   if (st.includes("permit") || st.includes("pre-con") || st.includes("vendor assignment") || stat.includes("permit")) {
     let normalizedStage = stageText || "Pre-Construction";
     if (st.includes("vendor assignment")) normalizedStage = "Vendor Assignment";
-    return { stage: normalizedStage, status: statusText || "Permitting", flag: "INFERRED: PRE-CON", bucket: "precon" };
+    return { stage: normalizedStage, status: statusText || "Permitting", flag: "INFERRED STATE", bucket: "precon" };
   }
   if ((st.includes("field cx") || st.includes("construction")) && stat.includes("splicing only")) {
-    return { stage: stageText || "Field CX", status: statusText || "Splicing Only", flag: "INFERRED: SPLICING ONLY", bucket: "field" };
+    return { stage: stageText || "Field CX", status: statusText || "Splicing Only", flag: "INFERRED STATE", bucket: "field" };
   }
   if (st.includes("field cx") || st.includes("construction") || stat.includes("construction") || stat.includes("in progress")) {
-    return { stage: stageText || "Field CX", status: statusText || "Construction", flag: "INFERRED: FIELD CX", bucket: "field" };
+    return { stage: stageText || "Field CX", status: statusText || "Construction", flag: "INFERRED STATE", bucket: "field" };
   }
   if (st.includes("hold") || stat.includes("hold")) {
-    return { stage: stageText || "On Hold", status: statusText || "Hold", flag: "INFERRED: HOLD", bucket: "hold" };
+    return { stage: stageText || "On Hold", status: statusText || "Hold", flag: "INFERRED STATE", bucket: "hold" };
   }
   if (st.includes("ofs") || stat.includes("oos")) {
-    return { stage: stageText || "OFS (Inferred)", status: statusText || "OOS", flag: "LIKELY OFS / OOS", bucket: "ofs" };
+    return { stage: stageText || "OFS (Inferred)", status: statusText || "OOS", flag: "INFERRED STATE", bucket: "ofs" };
   }
 
   return { stage: stageText || "-", status: statusText || "-", flag: "", bucket: "" };
@@ -1559,9 +1533,9 @@ function resolveMissingReferenceState(context) {
     return {
       stage: "On Hold",
       status: "Hold",
-      flag: "INFERRED: HOLD",
+      flag: "INFERRED STATE",
       flagColor: TEXT_COLORS.WARN,
-      note: `Missing from reference data. Inferred as On Hold from explicit hold language in recent reporting. ${signalSummary}`
+      note: `Action: Add Project to QuickBase. Missing from reference data; inferred as On Hold from explicit hold language in recent reporting. Diagnostic Data: ${signalSummary}`
     };
   }
 
@@ -1569,9 +1543,9 @@ function resolveMissingReferenceState(context) {
     return {
       stage: "Field CX",
       status: "Splicing Only",
-      flag: "INFERRED: SPLICING ONLY",
+      flag: "INFERRED STATE",
       flagColor: TEXT_COLORS.DONE,
-      note: `Missing from reference data. Inferred as Field CX | Splicing Only because the vendor reported splice activity without civil production in the current signal set. ${signalSummary}`
+      note: `Action: Add Project to QuickBase. Missing from reference data; inferred as Splicing Only based on vendor reported activity. Diagnostic Data: ${signalSummary}`
     };
   }
 
@@ -1579,9 +1553,9 @@ function resolveMissingReferenceState(context) {
     return {
       stage: "Field CX",
       status: "Construction",
-      flag: "INFERRED: FIELD CX",
+      flag: "INFERRED STATE",
       flagColor: TEXT_COLORS.DONE,
-      note: `Missing from reference data. Inferred as Field CX from active production signals in archive history. ${signalSummary}`
+      note: `Action: Add Project to QuickBase. Missing from reference data; inferred as active Field CX based on production signals. Diagnostic Data: ${signalSummary}`
     };
   }
 
@@ -1589,9 +1563,9 @@ function resolveMissingReferenceState(context) {
     return {
       stage: "OFS (Inferred)",
       status: "OOS",
-      flag: "LIKELY OFS / OOS",
+      flag: "INFERRED STATE",
       flagColor: TEXT_COLORS.DONE,
-      note: `Missing from reference data. Inferred as OFS from light-to-cabinets confirmation with no recent active work. ${signalSummary}`
+      note: `Action: Add Project to QuickBase. Missing from reference data; inferred as OFS based on light-to-cabinets confirmation. Diagnostic Data: ${signalSummary}`
     };
   }
 
@@ -1605,7 +1579,7 @@ function resolveMissingReferenceState(context) {
       status: lastKnown.status,
       flag: lastKnown.flag,
       flagColor: TEXT_COLORS.MAGIC,
-      note: `Missing from reference data. Using last known Daily Review state (${lastKnown.stage} | ${lastKnown.status}) before falling back to weighted inference. ${signalSummary}`
+      note: `Action: Add Project to QuickBase. Missing from reference data; using last known Daily Review state (${lastKnown.stage} | ${lastKnown.status}). Diagnostic Data: ${signalSummary}`
     };
   }
 
@@ -1613,9 +1587,9 @@ function resolveMissingReferenceState(context) {
     return {
       stage: "OFS (Inferred)",
       status: "OOS",
-      flag: "LIKELY OFS / OOS",
+      flag: "INFERRED STATE",
       flagColor: TEXT_COLORS.DONE,
-      note: `Missing from reference data. Inferred as OFS from strong completion signals with no recent active work. ${signalSummary}`
+      note: `Action: Add Project to QuickBase. Missing from reference data; inferred as OFS based on strong completion signals. Diagnostic Data: ${signalSummary}`
     };
   }
 
@@ -1623,9 +1597,9 @@ function resolveMissingReferenceState(context) {
     return {
       stage: "Pre-Construction",
       status: "Permitting",
-      flag: "INFERRED: PRE-CON",
+      flag: "INFERRED STATE",
       flagColor: TEXT_COLORS.DONE,
-      note: `Missing from reference data. Inferred as Pre-Construction from permitting / planning signals with no active production. ${signalSummary}`
+      note: `Action: Add Project to QuickBase. Missing from reference data; inferred as Pre-Construction based on planning signals. Diagnostic Data: ${signalSummary}`
     };
   }
 
@@ -2109,11 +2083,29 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     if (submittedFdhs.has(ghostFdhId)) return;
     const ref = refDict[ghostFdhId];
     if (!ref.vendor) return;
+
     const stageUp = (ref.stage || "").toUpperCase();
     const statUp  = (ref.status || "").toUpperCase();
-    if (stageUp.includes("PERMITTING") && !statUp.includes("APPROVED")) return;
-    if (statUp.includes("COMPLETE") || statUp.includes("ON HOLD")) return;
-    if (!GHOST_ACTIVE_STAGES.some(s => stageUp.includes(s))) return;
+    const hasHistory = latestReportMap.has(ghostFdhId);
+
+    // 1. Terminal states are always skipped for missing report tracking
+    if (statUp.includes("COMPLETE") || statUp.includes("ON HOLD") || stageUp.includes("OFS")) return;
+
+    // 2. Production Stage Gate: Only track missing reports for active field work
+    const isProductionStage = stageUp.includes("FIELD CX") || stageUp.includes("CONSTRUCTION") || statUp.includes("IN PROGRESS");
+    if (!isProductionStage) return;
+
+    // 3. History Gate: A report is NOT missing if it has NEVER been made
+    if (!hasHistory) return;
+
+    // 4. Start Date Gate: A report is NOT missing if the start date hasn't passed
+    let cxDates = resolveCxDates(ghostFdhId, ref, lkvDict, histData, HISTORY_HEADERS);
+    let startDate = cxDates.cxStart ? new Date(cxDates.cxStart) : null;
+    if (startDate && !isNaN(startDate.getTime())) {
+        let todayAtMid = new Date();
+        todayAtMid.setHours(0,0,0,0);
+        if (startDate > todayAtMid) return; // Haven't reached the start date yet
+    }
 
     const latest = latestReportMap.get(ghostFdhId);
     let ghostRowObj = {};
@@ -2148,7 +2140,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
 
       let staleFlag = "STALE REPORT";
       let staleColor = TEXT_COLORS.GHOST;
-      let staleDraft = `Vendor (${ref.vendor}) did not submit a daily report today. Last report was ${daysAgo} business day(s) ago.`;
+      let staleDraft = `Action: Contact Vendor. Active project with reporting history is missing a submission for this date. Last report was ${daysAgo} business day(s) ago.`;
 
       if (isMondayCarry) {
         staleFlag = "WEEKEND CARRY";
@@ -2168,7 +2160,6 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
         staleColor = TEXT_COLORS.DONE;
         staleDraft = `Project is up to date based on the latest business day.`;
       }
-
       // Merge stale flag with existing diagnostics
       if (staleFlag !== "CURRENT") {
           if (diag.flags !== "No Anomalies" && diag.flags !== "") {
@@ -2236,7 +2227,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       ghostRowObj["CX Inferred"] = ghostCx.inferredLabel;
       ghostRowObj["Contractor"]         = ref.vendor;
       ghostRowObj["Health Flags"]       = "MISSING DAILY REPORT";
-      ghostRowObj["Action Required"]    = `Vendor (${ref.vendor}) has NEVER submitted a daily report for this project.`;
+      ghostRowObj["Action Required"]    = `Action: Contact Vendor. Active project with no submission history. Verify if Field CX has started.`;
       ghostRowObj["Field Production"]   = "No daily report history found.";
       ghostRowObj["Vendor Comment"]     = "Missing daily report.";
       ghostRowObj["Historical Milestones"] = benchmarkDict[ghostFdhId] || "No history logged.";
@@ -2252,7 +2243,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
         flags:          "MISSING DAILY REPORT",
         flagColors:     [TEXT_COLORS.WARN],
         cleanComment:   "Missing daily report.",
-        draft:          `Vendor (${ref.vendor}) has NEVER submitted a daily report.`,
+        draft:          `Action: Contact Vendor. Active project with no submission history. Verify if Field CX has started.`,
         benchmark:      benchmarkDict[ghostFdhId] || ""
       });
     }
