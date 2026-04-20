@@ -1,5 +1,15 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-20: Project Visibility Restoration & Engine Hardening
+- **Visibility Restore:** Expanded `GHOST_ACTIVE_STAGES` in `01_Engine_Archive.js` to include `"CX"` and `"VENDOR ASSIGNMENT"`. This restored ~120 suppressed projects to the dashboard and Daily Review.
+- **Robust Header Aliasing:** Implemented `getIdxByAliases` in `01_Engine_DataDicts.js` for critical reference headers (**FDH ID**, **Vendor**, **City**, **BOMs**, **Dates**). The engine now survives minor Quickbase header shifts (e.g., `"FDH ID"` vs `"FDH Engineering ID"`).
+- **Weekend & Lag Intelligence:** Refined stale flagging logic in the ghost row loop:
+    - **Weekend Carry:** Monday morning now correctly identifies Thursday/Friday reports as `WEEKEND CARRY` instead of `STALE`.
+    - **Reporting Lag:** 1-business-day lag is now marked as a muted `REPORT PENDING` instead of a warning, reflecting standard vendor reporting delays.
+    - **Suppression Override:** Removed early returns in the ghost loop to ensure all active projects remain visible, maintaining a consistent count (~200) regardless of today's report status.
+- **Crash Prevention:** Added safety guards to `buildCxLkvDictionary` in `01_Engine_Archive.js` to prevent script crashes if the Daily Review sheet headers are missing or renamed.
+- **Validation:** Successfully merged all changes (including feature branch additions) into `main` and pushed to remote.
+
 > [!success] 2026-04-19: Diagnostic Flag Evolution & SVG Icon Integration
 - **Emoji Reduction:** Stripped all emojis from backend diagnostic flags in `01_Engine_Archive.js` and `02_Utilities.js`. Standardized flags as plain text (e.g., `LIGHTING RISK`, `INVALID DATE`) to improve professional aesthetic and data consistency.
 - **SVG Icon Adoption:** Integrated inline SVG icons (`fire` for Critical, `shield` for Warning) across the Dashboard and Diagnostic Hub. Replaced hardcoded emojis with scalable, theme-aware SVG assets.

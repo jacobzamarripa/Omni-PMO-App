@@ -121,4 +121,5 @@
 - [x] Phase 2 — Drive Folders Focused Signal (CDs/Permits & BOMs ONLY)
 - [x] Phase 3 — App Log Terminal Console Polish
 - [x] Phase 4 — Rolling 24-hour Snapshot for "Current" view
-- [x] Phase 5 — Targeted Drive Scanning Optimization (< 3s load)
+- [x] Phase 5 — Target Inferred Stage Restoration (~200 projects)
+- [x] Phase 6 — Ghost Logic: Robust Header Aliasing & Monday Carry Refinement
