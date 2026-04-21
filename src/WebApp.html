@@ -108,6 +108,7 @@
           <div class="dash-header-left">
             <div class="dash-title"><span>PROGRAM</span><span>DASHBOARD</span></div>
             <div class="dash-program-name" id="dash-program-name">Loading...</div>
+            <div class="dash-filter-summary" id="dash-filter-summary">Full program view</div>
           </div>
 
           <div class="dash-header-actions">
@@ -157,17 +158,26 @@
 
               <!-- Vendor BSL -->
               <div class="dash-chart-card">
-                <div class="dash-card-label">BSLs by Vendor</div>
+                <div class="dash-card-label">Vendor Loadout</div>
                 <div class="dash-vendor-grid" id="dash-vendor-grid"></div>
               </div>
             </div>
 
             <!-- RIGHT COLUMN: Items & Feed -->
             <div class="dash-col-right">
-              <!-- Critical Flags Feed -->
               <div class="dash-chart-card dash-flags-card" id="dash-flags-card" style="display:none;">
-                <div class="dash-card-label">Critical Flags Feed</div>
-                <div class="dash-flag-feed" id="dash-flag-feed"></div>
+                <div class="dash-card-header">
+                  <div>
+                    <div class="dash-card-label">Diagnostic Breakdown</div>
+                    <div class="dash-card-subtext" id="dash-diagnostic-summary">Live breakdown of actionable diagnostics</div>
+                  </div>
+                  <button class="dash-inline-action" onclick="openCriticalHub()">Open Hub</button>
+                </div>
+                <div class="dash-flags-scroll" id="dash-flags-scroll">
+                  <div class="dash-diagnostic-chart" id="dash-diagnostic-chart"></div>
+                  <div class="dash-diagnostic-active" id="dash-diagnostic-active"></div>
+                  <div class="dash-flag-feed" id="dash-flag-feed"></div>
+                </div>
               </div>
             </div>
           </div>

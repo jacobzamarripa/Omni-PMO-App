@@ -1161,6 +1161,7 @@ function applyFilters() {
         if (typeof syncDesktopFiltersLauncherState === 'function') syncDesktopFiltersLauncherState();
         if (typeof syncUnifiedFabState === 'function') syncUnifiedFabState();
         filteredItems = displayFiltered;
+        if (document.body.classList.contains('dashboard-active') && typeof renderDashboard === 'function') renderDashboard();
         if (typeof syncMobileDockContext === 'function') syncMobileDockContext();
         ganttNeedsRender = true;
         if (currentWorkspaceView === 'gantt' && !ganttFocusedFdh && ganttHasVisited) captureGanttScrollState();

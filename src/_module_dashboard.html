@@ -30,90 +30,175 @@ function closeDashboard() {
     document.body.classList.remove('dashboard-active');
 }
 
+let dashboardDiagnosticState = { type: 'ALL', severity: 'ALL' };
+
+function getDashboardSourceItems() {
+    if (Array.isArray(filteredItems)) return filteredItems.slice();
+    if (Array.isArray(allActionItems)) return allActionItems.slice();
+    return [];
+}
+
+function getDashboardActionableItems(sourceItems) {
+    if (Array.isArray(currentCriticalHubItems) && currentCriticalHubItems.length) return currentCriticalHubItems.slice();
+    return (sourceItems || []).filter(function(item) {
+        var sev = getSeverity(item.flags);
+        return (sev === 'crit' || sev === 'warn') && !isCompleteOrOfs(item);
+    });
+}
+
+function getDashboardActiveFilterCount() {
+    if (!activeFilters) return 0;
+    return (activeFilters.sev || []).length +
+        (activeFilters.vendor || []).length +
+        (activeFilters.city || []).length +
+        (activeFilters.ofs || []).length +
+        (activeFilters.status || []).length +
+        (activeAdminFilter ? 1 : 0);
+}
+
+function getDashboardFilterSummary() {
+    var count = getDashboardActiveFilterCount();
+    if (count === 0) return 'Full program view';
+    return 'Scoped by ' + count + ' active filter' + (count === 1 ? '' : 's');
+}
+
+function getDashboardFreshnessMeta() {
+    var raw = (typeof globalRefDataDate === 'string' && globalRefDataDate) ? globalRefDataDate : '';
+    return {
+        label: raw ? 'Freshness' : 'Live session',
+        value: raw || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    };
+}
+
+function getDashboardUrgencyStats(sourceItems, actionableItems) {
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    var stats = {
+        overdue: 0,
+        blocked: 0,
+        reference: 0,
+        admin: 0,
+        ofsSoon: 0
+    };
+
+    (sourceItems || []).forEach(function(item) {
+        if (isCompleteOrOfs(item)) return;
+        var flags = String(item.flags || '').toUpperCase();
+        var endDate = safeDate(item.cxEnd || item.targetDate);
+        var ofsDate = getEffectiveOfsDate(item);
+
+        if (endDate && !isNaN(endDate.getTime()) && endDate < today) stats.overdue++;
+        if (flags.includes('BLOCKED BY PREDECESSOR') || flags.includes('BLOCKED BY UPSTREAM') || flags.includes('DELAYING DOWNSTREAM')) stats.blocked++;
+        if (flags.includes('NOT IN QB REFERENCE') || flags.includes('MISSING QB STATUS') || flags.includes('STATUS MISMATCH')) stats.reference++;
+        if (flags.includes('ADMIN: CHECK CROSSINGS') || flags.includes('ADMIN: REFRESH REF DATA') || flags.includes('MISSING BOM') || flags.includes('CHECK BOM') || flags.includes('PLEASE INPUT BOM')) stats.admin++;
+        if (ofsDate && !isNaN(ofsDate.getTime())) {
+            var daysUntil = Math.ceil((ofsDate.getTime() - today.getTime()) / 86400000);
+            if (daysUntil >= 0 && daysUntil <= 30) stats.ofsSoon++;
+        }
+    });
+
+    if ((actionableItems || []).length && stats.reference === 0) {
+        stats.reference = (actionableItems || []).filter(function(item) {
+            var flags = String(item.flags || '').toUpperCase();
+            return flags.includes('QB') || flags.includes('REFERENCE');
+        }).length;
+    }
+
+    return stats;
+}
+
+function buildDashboardDiagnosticBreakdown(items) {
+    var breakdown = {};
+    (items || []).forEach(function(item) {
+        var type = getCriticalType(item);
+        var sev = getSeverity(item.flags);
+        if (!breakdown[type]) breakdown[type] = { type: type, crit: 0, warn: 0, total: 0 };
+        if (sev === 'crit') breakdown[type].crit++;
+        else breakdown[type].warn++;
+        breakdown[type].total++;
+    });
+    return Object.keys(breakdown).map(function(key) { return breakdown[key]; })
+        .sort(function(a, b) {
+            if (b.total !== a.total) return b.total - a.total;
+            if (b.crit !== a.crit) return b.crit - a.crit;
+            return a.type.localeCompare(b.type);
+        });
+}
+
+function setDashboardDiagnosticType(type) {
+    dashboardDiagnosticState.type = dashboardDiagnosticState.type === type ? 'ALL' : type;
+    renderDashFlagsFeed();
+}
+
+function setDashboardDiagnosticSeverity(severity) {
+    dashboardDiagnosticState.severity = dashboardDiagnosticState.severity === severity ? 'ALL' : severity;
+    renderDashFlagsFeed();
+}
+
 function renderDashboard() {
-    var hasData = Array.isArray(allActionItems) && allActionItems.length > 0;
+    var sourceItems = getDashboardSourceItems();
+    var actionableItems = getDashboardActionableItems(sourceItems);
+    var hasLoadedItems = Array.isArray(allActionItems) && allActionItems.length > 0;
 
     var tsEl = getEl('dash-timestamp');
     var nameEl = getEl('dash-program-name');
+    var scopeEl = getEl('dash-filter-summary');
     
-    // Updated freshness pill logic
     if (tsEl) {
-        var freshTime = (typeof globalRefDataDate === 'string' && globalRefDataDate) ? globalRefDataDate : new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        // Force 2-digit year if it's a date string
-        if (freshTime.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) {
+        var freshnessMeta = getDashboardFreshnessMeta();
+        var freshTime = freshnessMeta.value;
+        if (freshTime.match && freshTime.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) {
             var p = freshTime.split(' ');
             var dPart = p[0].split('/');
             freshTime = dPart[0].padStart(2,'0') + '/' + dPart[1].padStart(2,'0') + '/' + dPart[2].substring(2) + (p[1] ? ' ' + p[1] : '');
         }
-        tsEl.textContent = 'FRESHNESS: ' + freshTime;
+        tsEl.innerHTML = '<span class="dash-freshness-label">' + esc(freshnessMeta.label) + '</span><span class="dash-freshness-value">' + esc(freshTime) + '</span>';
     }
     
-    if (nameEl) nameEl.textContent = hasData ? allActionItems.length + ' Projects Loaded' : 'Loading...';
+    if (nameEl) nameEl.textContent = hasLoadedItems ? sourceItems.length + ' Projects in Current View' : 'Loading...';
+    if (scopeEl) scopeEl.textContent = getDashboardFilterSummary();
 
-    if (!hasData) {
+    if (!hasLoadedItems) {
         _renderDashSkeletons();
         return;
     }
 
-    renderDashKpiStrip();
-    renderDashHealthDonut();
+    renderDashKpiStrip(sourceItems, actionableItems);
+    renderDashHealthDonut(sourceItems);
     renderDashStatusBar();
     renderDashVendorBsl();
-    renderDashFlagsFeed();
+    renderDashFlagsFeed(actionableItems);
 }
 
-function renderDashKpiStrip() {
+function renderDashKpiStrip(sourceItems, actionableItems) {
     var container = getEl('dash-kpi-strip');
     if (!container) return;
 
-    var stageCounts = (currentFilterStats && currentFilterStats.stageCounts) || {};
-
-    var ofsCount = 0, permitCount = 0, completeCount = 0, progressCount = 0;
-    Object.keys(stageCounts).forEach(function(stage) {
-        var s = stage.toLowerCase();
-        var cnt = stageCounts[stage] || 0;
-        if (s.indexOf('ofs') !== -1) ofsCount += cnt;
-        else if (s.indexOf('permit') !== -1) permitCount += cnt;
-        else if (s.indexOf('complete') !== -1) completeCount += cnt;
-        else progressCount += cnt; // Group everything else as In Progress
-    });
-
-    var items = (allActionItems || []);
-    var critCount = items.filter(function(i) {
-        return getSeverity(i.flags) === "crit" && !isCompleteOrOfs(i);
-    }).length;
-
-    var adminCount = items.filter(function(i) {
-        if (isCompleteOrOfs(i)) return false;
-        var f = (i.flags || "").toUpperCase();
-        return f.includes("ADMIN: CHECK CROSSINGS") ||
-               f.includes("STATUS MISMATCH") || f.includes("MISSING QB STATUS") ||
-               f.includes("MISSING BOM") || f.includes("CHECK BOM") || f.includes("VARIANCE") || f.includes("INPUT BOM") || f.includes("REROUTE") || f.includes("DISCREPANCY");
-    }).length;
+    var urgencyStats = getDashboardUrgencyStats(sourceItems, actionableItems);
 
     var cards = [
-        { label: "OFS",         val: ofsCount,      cls: "is-ofs" },
-        { label: "Permitting",  val: permitCount,    cls: "is-permit" },
-        { label: "Complete",    val: completeCount,  cls: "is-complete" },
-        { label: "In Progress", val: progressCount,  cls: "is-progress" },
-        { label: "Admin",       val: adminCount,     cls: "is-admin" },
-        { label: "Critical",    val: critCount,      cls: "is-critical" }
+        { label: "Overdue", val: urgencyStats.overdue, cls: "is-critical", note: 'Past target/end date' },
+        { label: "Blocked", val: urgencyStats.blocked, cls: "is-warning", note: 'Dependency risk' },
+        { label: "QB Risk", val: urgencyStats.reference, cls: "is-visible", note: 'Reference mismatch' },
+        { label: "Admin", val: urgencyStats.admin, cls: "is-admin", note: 'Crossings / BOM / data' },
+        { label: "OFS <=30d", val: urgencyStats.ofsSoon, cls: "is-progress", note: 'Near-term delivery' }
     ];
 
-    container.innerHTML = cards.map(function(c, idx) {
-        var sep = (idx === 5) ? "<div class=\"dash-kpi-sep\"></div>" : "";
-        return sep + "<div class=\"dash-kpi-card " + c.cls + "\">" +
+    container.innerHTML = cards.map(function(c) {
+        return "<div class=\"dash-kpi-card " + c.cls + "\">" +
             "<div class=\"dash-kpi-val\">" + c.val + "</div>" +
             "<div class=\"dash-kpi-label\">" + esc(c.label) + "</div>" +
+            "<div class=\"dash-kpi-note\">" + esc(c.note) + "</div>" +
         "</div>";
     }).join("");
 }
 
-function renderDashHealthDonut() {
+function renderDashHealthDonut(sourceItems) {
     var wrap = getEl('dash-donut-wrap');
     if (!wrap) return;
 
-    var items = Array.isArray(allActionItems) ? allActionItems : [];
+    var items = Array.isArray(sourceItems) ? sourceItems : [];
     var total = items.length;
     if (total === 0) { wrap.innerHTML = '<div class="dash-card-label" style="color:var(--text-muted)">No data</div>'; return; }
 
@@ -129,7 +214,7 @@ function renderDashHealthDonut() {
         '<div class="dash-donut-legend">' +
             '<div class="dash-legend-row">' +
                 '<div class="dash-legend-row-left">' +
-                    '<div class="dash-legend-dot" style="background:var(--pill-complete-bdr)"></div>' +
+                    '<div class="dash-legend-dot" style="background:var(--pill-complete-bg)"></div>' +
                     '<span>Clean</span>' +
                 '</div>' +
                 '<span class="dash-legend-val">' + cleanCnt + '</span>' +
@@ -176,7 +261,7 @@ function _buildDonutSVG(total, crit, warn, clean) {
             ' stroke-dasharray="' + critLen.toFixed(2) + ' ' + circ.toFixed(2) + '"' +
             ' stroke-dashoffset="' + critOffset.toFixed(2) + '" />' +
         '<text class="donut-center-val" x="50" y="46">' + total + '</text>' +
-        '<text class="donut-center-label" x="50" y="58">PROJECTS</text>' +
+        '<text class="donut-center-label" x="50" y="58">IN VIEW</text>' +
     '</svg>';
 }
 
@@ -184,59 +269,82 @@ function renderDashStatusBar() {
     var container = getEl('dash-stage-bars');
     if (!container) return;
 
-    // Use authoritative stageCounts from core analytics (reads item.stage)
     var stageMap = (currentFilterStats && currentFilterStats.stageCounts) || {};
-
-    // Explicit progression + color map
     var stageDefs = [
-        { match: ['ofs'],                            color: 'var(--pill-ofs-bdr)' },
-        { match: ['complete'],                       color: 'var(--pill-complete-bdr)' },
-        { match: ['field cx', 'in progress'],        color: 'var(--pill-active-bdr)' },
-        { match: ['pending start'],                  color: 'var(--pill-active-bdr)' },
-        { match: ['permit'],                         color: 'var(--pill-permit-bdr)' },
-        { match: ['vendor assignment', 'vendor'],    color: 'var(--pill-drg-bdr)' },
-        { match: ['hold'],                           color: 'var(--pill-hold-bdr)' },
-        { match: ['approved'],                       color: '#a855f7' },
-        { match: ['unknown', '-'],                   color: '#a855f7' }
+        { key: 'vendor', label: 'Vendor', match: ['vendor assignment', 'vendor'], color: 'var(--pill-drg-bdr)' },
+        { key: 'permit', label: 'Permitting', match: ['permit'], color: 'var(--pill-permit-bg)' },
+        { key: 'pending', label: 'Pending Start', match: ['pending start'], color: 'var(--color-review)' },
+        { key: 'field', label: 'Field CX', match: ['field cx', 'in progress'], color: 'var(--pill-active-bg)' },
+        { key: 'ofs', label: 'OFS', match: ['ofs'], color: 'var(--pill-ofs-bg)' },
+        { key: 'complete', label: 'Complete', match: ['complete'], color: 'var(--pill-complete-bg)' },
+        { key: 'hold', label: 'Hold', match: ['hold'], color: 'var(--pill-hold-bg)' },
+        { key: 'other', label: 'Other', match: ['approved', 'unknown', '-'], color: 'var(--color-insight)' }
     ];
 
-    function stageDefIndex(name) {
+    var stageTotals = {};
+    stageDefs.forEach(function(def) { stageTotals[def.key] = 0; });
+
+    function findStageDef(name) {
         var s = (name || '').toLowerCase().trim();
         for (var i = 0; i < stageDefs.length; i++) {
             for (var j = 0; j < stageDefs[i].match.length; j++) {
-                if (s === stageDefs[i].match[j] || s.indexOf(stageDefs[i].match[j]) !== -1) return i;
+                if (s === stageDefs[i].match[j] || s.indexOf(stageDefs[i].match[j]) !== -1) return stageDefs[i];
             }
         }
-        return stageDefs.length;
+        return stageDefs[stageDefs.length - 1];
     }
 
-    function stageColor(name) {
-        var idx = stageDefIndex(name);
-        return idx < stageDefs.length ? stageDefs[idx].color : 'var(--pill-hold-bdr)';
-    }
+    Object.keys(stageMap).forEach(function(stageName) {
+        var count = stageMap[stageName] || 0;
+        if (!count) return;
+        var def = findStageDef(stageName);
+        stageTotals[def.key] = (stageTotals[def.key] || 0) + count;
+    });
 
-    var entries = Object.keys(stageMap).map(function(k) { return [k, stageMap[k]]; })
-        .filter(function(e) { return e[1] > 0; })
-        .sort(function(a, b) { return stageDefIndex(a[0]) - stageDefIndex(b[0]); });
+    var entries = stageDefs.map(function(def) {
+        return {
+            key: def.key,
+            label: def.label,
+            color: def.color,
+            count: stageTotals[def.key] || 0
+        };
+    }).filter(function(entry) { return entry.count > 0; });
 
     if (!entries.length) {
-        container.innerHTML = '<div class="dash-bar-label" style="color:var(--text-muted)">No stage data</div>';
+        container.innerHTML = '<div class="dash-stage-summary-value" style="color:var(--text-muted)">No stage data</div>';
         return;
     }
 
-    var maxVal = Math.max.apply(null, entries.map(function(e) { return e[1]; }));
+    var total = entries.reduce(function(sum, entry) { return sum + entry.count; }, 0) || 1;
+    entries.forEach(function(entry) {
+        entry.pct = (entry.count / total) * 100;
+    });
+    var dominant = entries.slice().sort(function(a, b) { return b.count - a.count; })[0];
 
-    container.innerHTML = entries.map(function(e) {
-        var stage = e[0], cnt = e[1];
-        var pct = ((cnt / maxVal) * 100).toFixed(1);
-        return '<div class="dash-bar-row">' +
-            '<div class="dash-bar-label" title="' + esc(stage) + '">' + esc(stage) + '</div>' +
-            '<div class="dash-bar-track">' +
-                '<div class="dash-bar-fill" style="width:' + pct + '%;background:' + stageColor(stage) + ';opacity:0.7;"></div>' +
-            '</div>' +
-            '<div class="dash-bar-count">' + cnt + '</div>' +
+    container.innerHTML =
+        '<div class="dash-stage-summary">' +
+            '<span class="dash-stage-summary-label">Primary stage</span>' +
+            '<span class="dash-stage-summary-value">' + esc(dominant.label) + ' · ' + dominant.pct.toFixed(0) + '% of view</span>' +
+        '</div>' +
+        '<div class="dash-stage-strip">' +
+            entries.map(function(entry) {
+                return '<span class="dash-stage-seg" style="width:' + entry.pct.toFixed(2) + '%; background:' + entry.color + ';" title="' + esc(entry.label) + ': ' + entry.count + ' (' + entry.pct.toFixed(1) + '%)"></span>';
+            }).join('') +
+        '</div>' +
+        '<div class="dash-stage-legend">' +
+            entries.map(function(entry) {
+                return '<div class="dash-stage-pill' + (entry.key === dominant.key ? ' is-dominant' : '') + '">' +
+                    '<div class="dash-stage-pill-top">' +
+                        '<span class="dash-stage-pill-dot" style="background:' + entry.color + ';"></span>' +
+                        '<span class="dash-stage-pill-label">' + esc(entry.label) + '</span>' +
+                    '</div>' +
+                    '<div class="dash-stage-pill-meta">' +
+                        '<span class="dash-stage-pill-count">' + entry.count + '</span>' +
+                        '<span class="dash-stage-pill-pct">' + entry.pct.toFixed(0) + '%</span>' +
+                    '</div>' +
+                '</div>';
+            }).join('') +
         '</div>';
-    }).join('');
 }
 
 function renderDashVendorBsl() {
@@ -248,93 +356,137 @@ function renderDashVendorBsl() {
         .map(function(v) { return [v, bslByVendor[v]]; })
         .filter(function(e) { return e[1] > 0; })
         .sort(function(a, b) { return b[1] - a[1]; })
-        .slice(0, 20);
+        .slice(0, 6);
 
     if (!sorted.length) {
         container.innerHTML = '<div class="dash-vendor-name" style="color:var(--text-muted)">No BSL data</div>';
         return;
     }
 
-    container.innerHTML = sorted.map(function(e) {
-        return '<div class="dash-vendor-card">' +
-            '<div class="dash-vendor-name">' + esc(e[0]) + '</div>' +
-            '<div class="dash-vendor-bsl">' + Number(e[1]).toLocaleString() + '</div>' +
-            '<div class="dash-vendor-sub">BSLs</div>' +
+    var total = sorted.reduce(function(sum, entry) { return sum + entry[1]; }, 0) || 1;
+
+    container.innerHTML = sorted.map(function(e, idx) {
+        var pct = ((e[1] / total) * 100).toFixed(1);
+        return '<div class="dash-vendor-row">' +
+            '<div class="dash-vendor-rank">#' + (idx + 1) + '</div>' +
+            '<div class="dash-vendor-main">' +
+                '<div class="dash-vendor-name">' + esc(e[0]) + '</div>' +
+                '<div class="dash-vendor-meter"><span style="width:' + pct + '%;"></span></div>' +
+                '<div class="dash-vendor-sub">' + pct + '% of visible BSLs</div>' +
+            '</div>' +
+            '<div class="dash-vendor-side">' +
+                '<div class="dash-vendor-bsl">' + Number(e[1]).toLocaleString() + '</div>' +
+                '<div class="dash-vendor-sub">BSLs</div>' +
+            '</div>' +
         '</div>';
     }).join('');
 }
 
-function renderDashFlagsFeed() {
+function renderDashFlagsFeed(actionableItemsOverride) {
     var feedCard = getEl('dash-flags-card');
     var container = getEl('dash-flag-feed');
-    if (!container || !feedCard) return;
+    var chart = getEl('dash-diagnostic-chart');
+    var summary = getEl('dash-diagnostic-summary');
+    var activePill = getEl('dash-diagnostic-active');
+    if (!container || !feedCard || !chart || !summary || !activePill) return;
 
-    // Use all action items to capture both Critical and Warning flags
-    var items = Array.isArray(allActionItems) ? allActionItems : [];
+    var items = Array.isArray(actionableItemsOverride) ? actionableItemsOverride : getDashboardActionableItems(getDashboardSourceItems());
     feedCard.style.display = '';
 
+    if (dashboardDiagnosticState.severity !== 'ALL') {
+        items = items.filter(function(item) { return getSeverity(item.flags) === dashboardDiagnosticState.severity; });
+    }
+
     if (!items.length) {
-        container.innerHTML = '<div class="empty-msg" style="margin-top:40px; color:var(--text-muted); font-size:12px; font-weight:700;">All Clear ✓<br><span style="font-weight:500; font-size:10px; opacity:0.7;">No items currently flagged.</span></div>';
+        chart.innerHTML = '';
+        summary.textContent = 'No active diagnostic categories';
+        activePill.innerHTML = '<span class="dash-filter-chip active">All diagnostics clear</span>';
+        container.innerHTML = '<div class="empty-msg" style="margin-top:40px; color:var(--text-muted); font-size:12px; font-weight:700;">All Clear ✓<br><span style="font-weight:500; font-size:10px; opacity:0.7;">No actionable diagnostics in the current view.</span></div>';
         return;
     }
 
-    // Group items by their flags, only including crit and warn
-    var groups = {};
-    items.forEach(function(item) {
-        if (isCompleteOrOfs(item)) return;
-        
-        var rawFlags = (item.flags || "").split("\n").map(f => f.trim()).filter(Boolean);
-        rawFlags.forEach(function(flag) {
-            var sev = getSeverity(flag);
-            if (sev !== 'crit' && sev !== 'warn') return;
-            
-            var cleanText = cleanDiagnosticFlagText(flag);
-            if (!groups[cleanText]) {
-                groups[cleanText] = { items: [], severity: sev };
-            } else if (sev === 'crit') {
-                groups[cleanText].severity = 'crit'; // Group takes highest severity of any item (though flags are usually consistent)
-            }
-            // Avoid duplicate items in same group
-            if (!groups[cleanText].items.some(i => i.fdh === item.fdh)) {
-                groups[cleanText].items.push(item);
-            }
-        });
-    });
-
-    var sortedKeys = Object.keys(groups).sort(function(a, b) {
-        // Sort by severity (crit first), then by name
-        if (groups[a].severity === groups[b].severity) return a.localeCompare(b);
-        return groups[a].severity === 'crit' ? -1 : 1;
-    });
-
-    if (sortedKeys.length === 0) {
-        container.innerHTML = '<div class="empty-msg" style="margin-top:40px; color:var(--text-muted); font-size:12px; font-weight:700;">All Clear ✓<br><span style="font-weight:500; font-size:10px; opacity:0.7;">No pertinent flags identified.</span></div>';
-        return;
+    var breakdown = buildDashboardDiagnosticBreakdown(items);
+    var critCount = items.filter(function(item) { return getSeverity(item.flags) === 'crit'; }).length;
+    var warnCount = items.filter(function(item) { return getSeverity(item.flags) === 'warn'; }).length;
+    if (!breakdown.some(function(entry) { return entry.type === dashboardDiagnosticState.type; })) {
+        dashboardDiagnosticState.type = 'ALL';
     }
 
-    var html = "";
-    sortedKeys.forEach(function(groupKey) {
-        var group = groups[groupKey];
-        var iconName = group.severity === 'crit' ? 'fire' : 'shield';
-        var iconColor = group.severity === 'crit' ? 'var(--color-critical)' : 'var(--color-review)';
+    var severityHtml = '<div class="dash-diagnostic-severity">' +
+        '<button class="dash-severity-chip' + (dashboardDiagnosticState.severity === 'ALL' ? ' active' : '') + '" onclick="setDashboardDiagnosticSeverity(\'ALL\')">All<span>' + items.length + '</span></button>' +
+        '<button class="dash-severity-chip' + (dashboardDiagnosticState.severity === 'crit' ? ' active is-crit' : ' is-crit') + '" onclick="setDashboardDiagnosticSeverity(\'crit\')">Critical<span>' + critCount + '</span></button>' +
+        '<button class="dash-severity-chip' + (dashboardDiagnosticState.severity === 'warn' ? ' active is-warn' : ' is-warn') + '" onclick="setDashboardDiagnosticSeverity(\'warn\')">Warnings<span>' + warnCount + '</span></button>' +
+    '</div>';
 
-        html += "<div class=\"dash-flag-group group-sev-" + group.severity + "\">" +
-            "<div class=\"dash-flag-group-header\">" +
-                "<div style=\"display:flex; align-items:center; gap:6px;\">" +
-                    "<span style=\"color:" + iconColor + "; opacity:0.8;\">" + icon(iconName, 12) + "</span>" +
-                    "<span class=\"dash-flag-group-text\">" + esc(groupKey) + "</span>" +
-                "</div>" +
-                "<span class=\"dash-flag-group-count\">" + group.items.length + "</span>" +
-            "</div>";
+    var sectionEntries = (dashboardDiagnosticState.type === 'ALL'
+        ? breakdown.slice(0, 3)
+        : breakdown.filter(function(entry) { return entry.type === dashboardDiagnosticState.type; })
+    );
 
-        group.items.forEach(function(item) {
-            html += getListCardHtml(item);
-        });
+    chart.innerHTML = severityHtml + sectionEntries.map(function(entry) {
+        var sectionItems = items.filter(function(item) { return getCriticalType(item) === entry.type; })
+            .sort(function(a, b) {
+                var sevDiff = getSeverityOrder(a.flags) - getSeverityOrder(b.flags);
+                if (sevDiff !== 0) return sevDiff;
+                return compareWithSecondarySort(a, b, 'end');
+            })
+            .slice(0, 2);
+        var isActive = dashboardDiagnosticState.type === entry.type;
+        return '<section class="dash-review-section' + (isActive ? ' is-active' : '') + '">' +
+            '<button class="dash-review-section-header" onclick="setDashboardDiagnosticType(\'' + escJs(entry.type) + '\')">' +
+                '<div class="dash-review-section-title">' +
+                    '<div class="dash-review-section-kicker">Diagnostic</div>' +
+                    '<div class="dash-review-section-name">' + esc(entry.type) + '</div>' +
+                '</div>' +
+                '<div class="dash-review-section-meta">' +
+                    (entry.crit ? '<span class="dash-review-pill is-crit">' + entry.crit + ' critical</span>' : '') +
+                    (entry.warn ? '<span class="dash-review-pill is-warn">' + entry.warn + ' warnings</span>' : '') +
+                    '<span class="dash-review-count">' + entry.total + '</span>' +
+                '</div>' +
+            '</button>' +
+            '<div class="dash-review-section-body">' +
+                sectionItems.map(function(item) {
+                    return getListCardHtml(item);
+                }).join('') +
+            '</div>' +
+        '</section>';
+    }).join('');
 
-        html += "</div>";
+    var filteredItemsForList = dashboardDiagnosticState.type === 'ALL'
+        ? items.slice()
+        : items.filter(function(item) { return getCriticalType(item) === dashboardDiagnosticState.type; });
+
+    filteredItemsForList.sort(function(a, b) {
+        var sevDiff = getSeverityOrder(a.flags) - getSeverityOrder(b.flags);
+        if (sevDiff !== 0) return sevDiff;
+        return compareWithSecondarySort(a, b, 'end');
     });
 
-    container.innerHTML = html;
+    summary.textContent = breakdown.length + ' diagnostic categories across ' + items.length + ' actionable projects';
+    activePill.innerHTML =
+        (dashboardDiagnosticState.severity === 'ALL'
+            ? '<span class="dash-filter-chip active">All severities</span>'
+            : '<span class="dash-filter-chip active">' + esc(dashboardDiagnosticState.severity === 'crit' ? 'Critical only' : 'Warnings only') + '</span><button class="dash-filter-chip clear" onclick="setDashboardDiagnosticSeverity(\'ALL\')">Clear</button>') +
+        (dashboardDiagnosticState.type === 'ALL'
+            ? '<span class="dash-filter-chip active">All diagnostic types</span>'
+            : '<span class="dash-filter-chip active">' + esc(dashboardDiagnosticState.type) + '</span><button class="dash-filter-chip clear" onclick="setDashboardDiagnosticType(\'ALL\')">Clear</button>');
+
+    var previewLimit = dashboardDiagnosticState.type === 'ALL' ? 0 : 5;
+    var visibleListItems = previewLimit ? filteredItemsForList.slice(0, previewLimit) : [];
+    container.innerHTML = visibleListItems.map(function(item) {
+        return getListCardHtml(item);
+    }).join('');
+    if (previewLimit && !container.innerHTML) {
+        container.innerHTML = '<div class="empty-msg" style="margin-top:40px; color:var(--text-muted); font-size:12px; font-weight:700;">No items match this diagnostic filter.</div>';
+        return;
+    }
+    if (!previewLimit) {
+        container.innerHTML = '<div class="dash-list-footnote">Select a diagnostic section to preview specific projects, or open the Hub for the full queue.</div>';
+        return;
+    }
+    if (filteredItemsForList.length > visibleListItems.length) {
+        container.insertAdjacentHTML('beforeend', '<div class="dash-list-footnote">Showing first ' + visibleListItems.length + ' items. Open Hub for the full diagnostic queue.</div>');
+    }
 }
 
 function handleCardClick(fdh) {
