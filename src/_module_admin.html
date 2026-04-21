@@ -17,11 +17,6 @@
 //   state files. Crossings-specific UI/actions now live in
 //   _module_special_crossings.html.
 // ============================================================
-// STATE: activeAdminFilter
-// READS: admin pane rendering and filter controls
-// WRITES: admin toggle helpers and applyFilters
-// EXTRACT WITH: filteredItems, allActionItems, currentActiveItem
-let activeAdminFilter = null;
 
 /**
  * Navigates to a project and automatically opens the Special Xings popover.
@@ -220,7 +215,7 @@ function renderSpecialCrossingsAdminSection(items) {
                     <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
                     <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
                 </div>
-                <button class="btn" onclick="event.stopPropagation(); navToXings('${item.fdh}')" style="padding:5px 10px; font-size:10px; font-weight:900; background:var(--accent); color:#fff; border-color:var(--accent-dark); white-space:nowrap; flex-shrink:0;">${btnLabel}</button>
+                <button class="btn" onclick="event.stopPropagation(); navToXings('${item.fdh}')" style="display:inline-flex; align-items:center; justify-content:center; background:#171717; color:#facc15; padding:5px 12px; border-radius:999px; font-size:9px; font-weight:900; letter-spacing:0.05em; border:1px solid #facc15; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.18); text-transform:uppercase; white-space:nowrap; flex-shrink:0;">${btnLabel}</button>
             </div>
         </div>`;
     });
@@ -263,27 +258,23 @@ function renderAdminPane(items) {
     }
 
     if (!activeAdminFilter || activeAdminFilter === 'boms') {
-        const renderSpecificFlags = (item, keywords) => {
-            const flags = (item.flags || "").split('\n').filter(f => keywords.some(k => f.toUpperCase().includes(k)));
-            if (flags.length === 0) return '';
-            return `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">` + 
-                flags.map(f => `<span style="background:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2); padding:1px 5px; border-radius:3px; font-size:9px; font-weight:900;">${f.replace(/[🚩⚠️✅🚨🛑🚧🖍️🪄🟣]/g, '').trim()}</span>`).join('') + 
-                `</div>`;
-        };
-
         html += _adminSection('BOMs to Input', bomInput, function(item) {
+            const specificFlags = (item.flags || "").split('\n').filter(f => f.toUpperCase().includes('MISSING') || f.toUpperCase().includes('INPUT BOM'));
+            const flagsHtml = specificFlags.length ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${buildFlagBadges(specificFlags)}</div>` : '';
             return `<div class="admin-list-card" onclick="selectItemForNav('${item.fdh}')">
                 <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
                 <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor} · ${item.stage}</div>
-                ${renderSpecificFlags(item, ['MISSING', 'INPUT BOM'])}
+                ${flagsHtml}
                 <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">BOM quantity is missing despite reported activity. Verify BOM in QuickBase.</div>
             </div>`;
         });
         html += _adminSection('BOM Variance — High', bomCheck, function(item) {
+            const specificFlags = (item.flags || "").split('\n').filter(f => f.toUpperCase().includes('VARIANCE') || f.toUpperCase().includes('CHECK BOM'));
+            const flagsHtml = specificFlags.length ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${buildFlagBadges(specificFlags)}</div>` : '';
             return `<div class="admin-list-card" onclick="selectItemForNav('${item.fdh}')">
                 <div style="font-size:12px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
                 <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor} · ${item.stage}</div>
-                ${renderSpecificFlags(item, ['VARIANCE', 'CHECK BOM'])}
+                ${flagsHtml}
                 <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">Production significantly exceeding BOM. Verify BOM accuracy in QuickBase.</div>
             </div>`;
         });
@@ -298,7 +289,7 @@ function renderAdminPane(items) {
                         <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${item.city} · ${item.vendor}</div>
                         <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">QB Status: <span style="font-weight:bold; color:var(--text-main);">${item.status}</span></div>
                     </div>
-                    <button class="btn" onclick="event.stopPropagation(); markQbUpdatedFromAdmin('${item.fdh}', this)" style="padding:5px 10px; font-size:10px; font-weight:900; background:#2563eb; color:#fff; border-color:#1d4ed8; white-space:nowrap; flex-shrink:0; display:inline-flex; align-items:center; gap:4px;">Updated</button>
+                    <button class="btn" onclick="event.stopPropagation(); markQbUpdatedFromAdmin('${item.fdh}', this)" style="padding:5px 10px; font-size:10px; font-weight:900; background:var(--color-review, #f59e0b); color:#fff; border-color:color-mix(in srgb, var(--color-review, #f59e0b) 80%, #000); white-space:nowrap; flex-shrink:0; display:inline-flex; align-items:center; gap:4px;">Updated</button>
                 </div>
             </div>`;
         });
@@ -347,10 +338,10 @@ function refreshCDFindings() {
             let html = '<div style="font-size:9px; font-weight:900; color:var(--text-muted); margin-bottom:8px; padding:0 4px; margin-top:15px; text-transform:uppercase;">AI Extracted Crossings (To Verify)</div>';
             findings.forEach((f, idx) => {
                 html += `
-                    <div class="admin-list-card" style="border-left:3px solid #a855f7;" id="cd-finding-${idx}">
+                    <div class="admin-list-card" style="border-left:3px solid var(--color-insight, #a855f7);" id="cd-finding-${idx}">
                         <div style="font-weight:900; font-size:11px; color:var(--text-main);">${esc(f.fdh)}</div>
                         <div style="font-size:9px; color:var(--text-muted); margin-top:2px; line-height:1.2;">${esc(f.summary)}</div>
-                        <button class="btn" onclick="openCDFindingReview(${idx})" style="margin-top:8px; width:100%; padding:4px; font-size:9px; background:rgba(168,85,247,0.1); color:#a855f7; border:1px solid rgba(168,85,247,0.3);">Review Extraction</button>
+                        <button class="btn" onclick="openCDFindingReview(${idx})" style="margin-top:8px; width:100%; padding:4px; font-size:9px; background:color-mix(in srgb, var(--color-insight, #a855f7) 10%, transparent); color:var(--color-insight, #a855f7); border:1px solid color-mix(in srgb, var(--color-insight, #a855f7) 30%, transparent);">Review Extraction</button>
                     </div>
                 `;
             });
@@ -411,8 +402,8 @@ function unlockCDCommit() {
     if (btn) {
         btn.disabled = false;
         btn.style.opacity = '1';
-        btn.style.background = '#a855f7';
-        btn.style.borderColor = '#9333ea';
+        btn.style.background = 'var(--color-insight, #a855f7)';
+        btn.style.borderColor = 'color-mix(in srgb, var(--color-insight, #a855f7) 80%, #000)';
     }
 }
 

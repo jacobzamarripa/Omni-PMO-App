@@ -138,21 +138,26 @@
       .admin-kpi:hover { transform: translateY(-1px); }
       .admin-kpi-val { font-size: 20px; font-weight: 900; line-height: 1.1; }
       .admin-kpi-label { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; color: var(--text-muted); }
-      .admin-kpi.crossings { border-color: #facc15; }
-      .admin-kpi.crossings .admin-kpi-val { color: #854d0e; }
-      body.dark-mode .admin-kpi.crossings .admin-kpi-val { color: #fde047; }
-      .admin-kpi.status { border-color: #fca5a5; }
-      .admin-kpi.status .admin-kpi-val { color: #b91c1c; }
-      body.dark-mode .admin-kpi.status .admin-kpi-val { color: #fca5a5; }
-      .admin-kpi.active.crossings { background: #422006; border-color: #facc15; }
-      .admin-kpi.active.crossings .admin-kpi-val, .admin-kpi.active.crossings .admin-kpi-label { color: #fde047; }
-      .admin-kpi.active.status { background: #450a0a; border-color: #ef4444; }
-      .admin-kpi.active.status .admin-kpi-val, .admin-kpi.active.status .admin-kpi-label { color: #fca5a5; }
-      .admin-kpi.boms { border-color: #6ee7b7; }
-      .admin-kpi.boms .admin-kpi-val { color: #065f46; }
-      body.dark-mode .admin-kpi.boms .admin-kpi-val { color: #6ee7b7; }
-      .admin-kpi.active.boms { background: #022c22; border-color: #34d399; }
-      .admin-kpi.active.boms .admin-kpi-val, .admin-kpi.active.boms .admin-kpi-label { color: #6ee7b7; }
+      .admin-kpi.crossings { border-color: var(--status-admin, #facc15); }
+      .admin-kpi.crossings .admin-kpi-val { color: color-mix(in srgb, var(--status-admin, #facc15) 70%, #000); }
+      body.dark-mode .admin-kpi.crossings .admin-kpi-val { color: var(--status-admin, #fde047); }
+
+      .admin-kpi.status { border-color: var(--color-review, #f59e0b); }
+      .admin-kpi.status .admin-kpi-val { color: color-mix(in srgb, var(--color-review, #f59e0b) 70%, #000); }
+      body.dark-mode .admin-kpi.status .admin-kpi-val { color: var(--color-review, #fbbf24); }
+
+      .admin-kpi.active.crossings { background: color-mix(in srgb, var(--status-admin, #facc15) 20%, transparent); border-color: var(--status-admin, #facc15); }
+      .admin-kpi.active.crossings .admin-kpi-val, .admin-kpi.active.crossings .admin-kpi-label { color: var(--status-admin, #facc15); }
+
+      .admin-kpi.active.status { background: color-mix(in srgb, var(--color-review, #f59e0b) 20%, transparent); border-color: var(--color-review, #f59e0b); }
+      .admin-kpi.active.status .admin-kpi-val, .admin-kpi.active.status .admin-kpi-label { color: var(--color-review, #f59e0b); }
+
+      .admin-kpi.boms { border-color: var(--color-critical, #ef4444); }
+      .admin-kpi.boms .admin-kpi-val { color: color-mix(in srgb, var(--color-critical, #ef4444) 70%, #000); }
+      body.dark-mode .admin-kpi.boms .admin-kpi-val { color: var(--color-critical, #fca5a5); }
+
+      .admin-kpi.active.boms { background: color-mix(in srgb, var(--color-critical, #ef4444) 20%, transparent); border-color: var(--color-critical, #ef4444); }
+      .admin-kpi.active.boms .admin-kpi-val, .admin-kpi.active.boms .admin-kpi-label { color: var(--color-critical, #fca5a5); }
 
       .email-card { margin: 0 !important; padding: 14px 16px 12px; border: none; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s, border-color 0.3s; background: color-mix(in srgb, var(--card-bg) 92%, transparent); border-left: 4px solid transparent; display: flex; flex-direction: column; gap: 7px; box-sizing: border-box !important; }
       .email-card:hover {
@@ -305,6 +310,7 @@
       .chip-muted, .tag-muted { background: #f8fafc; color: #64748b; border-color: #cbd5e1; }
       .chip-ghost, .tag-ghost { background: #f1f5f9; color: #64748b; border-color: #cbd5e1; }
       .tag-red { background: rgba(254, 226, 226, 0.72); color: #991b1b; border-color: #fca5a5; }
+
       /* Field Anomaly: ghost work, high variance, pace anomalies, overruns — orange tint */
       .chip-anomaly { background: rgba(255, 237, 213, 0.78); color: #9a3412; border-color: #fb923c; }
       /* ⚡ Path-to-Light: Splicing/Lighting risks - Splicing Gradient (Option A) */

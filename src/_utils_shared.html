@@ -18,6 +18,7 @@
               .replace(/"/g, '&quot;')
               .replace(/'/g, '&#39;');
       }
+      const escapeHtml = esc;
 
       function escJs(s) {
           return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");

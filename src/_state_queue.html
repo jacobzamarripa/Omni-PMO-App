@@ -102,6 +102,11 @@ let queueGroupCollapseState = (function() {
 // WRITES: pie HUD interactions, applyFilters, clearAllFilters
 // EXTRACT WITH: currentFilterStats, activeFilters
 let activePieStageFilter = null;
+// STATE: activeAdminFilter
+// READS: admin pane rendering and filter controls
+// WRITES: admin toggle helpers and applyFilters
+// EXTRACT WITH: filteredItems, allActionItems, currentActiveItem
+let activeAdminFilter = null;
 // STATE: openDropdownId
 // READS: filter dropdown rendering
 // WRITES: dropdown toggles and reset flows

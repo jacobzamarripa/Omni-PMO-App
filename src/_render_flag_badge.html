@@ -18,8 +18,8 @@
 function buildFlagBadge(flagText, severityClass) {
   var text = String(flagText || '').trim();
   if (!text) return '';
-  var base = 'flag-badge';
-  var cls = severityClass ? base + ' ' + base + '--' + severityClass : base;
+  // Use the standard 'tag' base class plus the semantic modifier
+  var cls = 'tag ' + (severityClass || 'chip-muted');
   return '<span class="' + cls + '">' + escapeHtml(text) + '</span>';
 }
 
@@ -33,10 +33,8 @@ function buildFlagBadges(flags) {
   if (!Array.isArray(flags) || !flags.length) return '';
   return flags.map(function(f) {
     var clean = cleanDiagnosticFlagText(f);
-    var sev = /critical|missing/i.test(f) ? 'critical'
-      : /review|mismatch|missing.?qb/i.test(f) ? 'review'
-      : /crossings|refresh.?ref/i.test(f) ? 'admin'
-      : '';
+    // Use the authoritative classification logic from _utils_shared.html
+    var sev = typeof getFlagClass === 'function' ? getFlagClass(f) : '';
     return buildFlagBadge(clean, sev);
   }).join('');
 }
