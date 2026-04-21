@@ -672,21 +672,28 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
           let prevDate = prevEntry.date || "";
 
           if (dailyVal === 0 && totalVal > prevVal && prevVal > 0) {
-              // 🛡️ Recency Guard: Only calculate if the previous entry is within 7 days
-              let canCalc = false;
+              let diff = totalVal - prevVal;
+              let gapDays = 0;
               if (prevDate && rowTargetDate) {
-                  let d1 = new Date(prevDate);
-                  let d2 = new Date(rowTargetDate);
-                  let diffDays = (d2.getTime() - d1.getTime()) / 86400000;
-                  if (diffDays >= 0 && diffDays <= 7) canCalc = true;
+                  gapDays = Math.round((new Date(rowTargetDate).getTime() - new Date(prevDate).getTime()) / 86400000);
               }
+              calculatedOverrides[dailyH] = diff;
+              let gapNote = gapDays > 1 ? ` ⚠ ${gapDays}-day gap` : "";
+              calculatedNotes.push(`Daily ${type.toUpperCase()} (+${diff}') from Total Jump (${prevVal} [on ${prevDate}] -> ${totalVal})${gapNote}`);
+          }
 
-              if (canCalc) {
-                  let diff = totalVal - prevVal;
-                  calculatedOverrides[dailyH] = diff;
-                  calculatedNotes.push(`Daily ${type.toUpperCase()} (+${diff}') from Total Jump (${prevVal} [on ${prevDate}] -> ${totalVal})`);
+          if (dailyVal > 0 && totalVal > prevVal && prevVal > 0) {
+              let impliedDaily = totalVal - prevVal;
+              let tolerance = impliedDaily * 0.10;
+              if (Math.abs(impliedDaily - dailyVal) > tolerance) {
+                  calculatedNotes.push(`DAILY/TOTAL MISMATCH: ${type.toUpperCase()} (reported daily: ${dailyVal}, total implies: ${impliedDaily})`);
               }
           }
+
+          if (totalVal > 0 && prevVal > 0 && totalVal < prevVal) {
+              calculatedNotes.push(`TOTAL REGRESSION: ${type.toUpperCase()} (prev max: ${prevVal} on ${prevDate}, now: ${totalVal})`);
+          }
+
           // Update running total for this run
           if (totalVal > rowTotals[type].val) {
             rowTotals[type].val = totalVal;
@@ -713,7 +720,13 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
 
           if (h === "Contractor") {
             let derivedVendor = refData ? refData.vendor : "";
-            return (val && String(val).trim() !== "") ? val : derivedVendor;
+            if (!val || String(val).trim() === "") {
+              if (overrides !== null && derivedVendor) {
+                calculatedNotes.push(`[Contractor: derived from ref — ${derivedVendor}]`);
+              }
+              return derivedVendor;
+            }
+            return val;
           }
 
           if (h === "Vendor Comment") { 
@@ -1307,7 +1320,24 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
   if (crewsFIB > 0 && (dailyFIB / crewsFIB) > 10000) { flags.push(`FIBER PACE ANOMALY`); flagColors.push(TEXT_COLORS.FIB); drafts.push(`Fiber Pace is ${Math.round(dailyFIB/crewsFIB)}ft/crew.`); hCols.fib.push("Daily Fiber Footage", "Fiber Pulling Crews"); adaePaletteIdx = "FIB"; }
   if (dailyNAP > 0 && crewsNAP === 0) { flags.push("GHOST SPLICING"); flagColors.push(TEXT_COLORS.NAP); hCols.nap.push("Daily NAPs/Encl. Completed", "Splicing Crews"); adaePaletteIdx = "NAP"; }
   if (crewsNAP > 0 && (dailyNAP / crewsNAP) > 6) { flags.push(`SPLICE PACE ANOMALY`); flagColors.push(TEXT_COLORS.NAP); drafts.push(`Splicing Pace is ${Math.round(dailyNAP/crewsNAP)} NAPs/crew.`); hCols.nap.push("Daily NAPs/Encl. Completed", "Splicing Crews"); adaePaletteIdx = "NAP"; }
-  
+
+  const _ingestComment = (row[HISTORY_HEADERS.indexOf("Vendor Comment")] || "").toString();
+  if (_ingestComment.includes("from Total Jump")) {
+      flags.push("DAILY INFERRED");
+      flagColors.push(TEXT_COLORS.MAGIC);
+      drafts.push("One or more daily values were inferred from a total column jump. Review Construction Comments for detail.");
+  }
+  if (_ingestComment.includes("TOTAL REGRESSION")) {
+      flags.push("TOTAL REGRESSION");
+      flagColors.push(TEXT_COLORS.WARN);
+      drafts.push("A cumulative total decreased vs. its prior max. Vendor may have submitted a correction. Verify source data.");
+  }
+  if (_ingestComment.includes("DAILY/TOTAL MISMATCH")) {
+      flags.push("DAILY/TOTAL MISMATCH");
+      flagColors.push(TEXT_COLORS.MISMATCH);
+      drafts.push("Reported daily footage does not reconcile with the total column jump. One of these values is likely wrong.");
+  }
+
   if (refData && rowState !== "COMPLETE" && rowState !== "OFS") {
      const checkPhase = (name, vBom, rBom, vDaily, vTot, bomColName, totColName) => {
          // A. MISSING BOM: Activity exists but QB is 0

@@ -147,5 +147,5 @@ function safeParseFootage(val) {
   let cleanStr = strVal.replace(/[,'"\sft]/gi, "");
   let numVal = parseFloat(cleanStr);
   
-  return isNaN(numVal) ? 0 : numVal;
+  return (isNaN(numVal) || numVal < 0) ? 0 : numVal;
 }
