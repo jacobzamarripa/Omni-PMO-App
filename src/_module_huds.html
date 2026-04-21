@@ -1,167 +1,124 @@
 <script>
 // ============================================================
-// FILE: _module_huds.html | ROLE: Projects/BSLs HUD lock controls and HUD rendering helpers
-// DEPENDS ON: _state_analytics.html, _state_queue.html, _state_ui_shell.html, _utils_shared.html, _module_queue_state.html
+// FILE: _module_huds.html | ROLE: Projects/BSLs/Critical HUD lock controls and HUD rendering helpers
+// DEPENDS ON: _state_analytics.html, _state_queue.html, _state_ui_shell.html, _utils_shared.html, _module_queue_state.html, _module_critical_hub.html
 // DEPENDED ON BY: _module_webapp_core.html, WebApp.html
 // ============================================================
+function getPipelineHudConfig(type) {
+    return {
+        projects: { hudId: 'projects-pie-hud', pillId: 'nav-projects-pill', lockKey: 'projectsHudLocked' },
+        bsls: { hudId: 'bsls-pie-hud', pillId: 'nav-bsls-pill', lockKey: 'bslsHudLocked' },
+        critical: { hudId: 'critical-pie-hud', pillId: 'nav-critical-pill', lockKey: 'criticalHudLocked' }
+    }[type] || null;
+}
+
+function getPipelineHudLocked(type) {
+    if (type === 'projects') return projectsHudLocked;
+    if (type === 'bsls') return bslsHudLocked;
+    if (type === 'critical') return criticalHudLocked;
+    return false;
+}
+
+function setPipelineHudLocked(type, nextValue) {
+    if (type === 'projects') projectsHudLocked = !!nextValue;
+    if (type === 'bsls') bslsHudLocked = !!nextValue;
+    if (type === 'critical') criticalHudLocked = !!nextValue;
+}
+
+function shouldOpenAnchoredCriticalHud() {
+    return !((window.innerWidth <= 768 && !window.__surfaceIpad) || window.innerWidth <= 480);
+}
+
 function showBslsHUD() { if (!bslsHudLocked) renderBslsHUD(); }
 function hideBslsHUD() { if (!bslsHudLocked) hidePieHUD('bsls'); }
+function showProjectsHUD() { if (!projectsHudLocked) renderProjectsHUD(); }
+function hideProjectsHUD() { if (!projectsHudLocked) hidePieHUD('projects'); }
+function showCriticalHUD() {
+    if (!criticalHudLocked && shouldOpenAnchoredCriticalHud()) renderCriticalHUD();
+}
+function hideCriticalHUD() {
+    if (!criticalHudLocked) hidePieHUD('critical');
+}
+
 function toggleBslsHUDLock(e) {
+    togglePipelineHudLock('bsls', renderBslsHUD, e);
+}
+
+function toggleProjectsHUDLock(e) {
+    togglePipelineHudLock('projects', renderProjectsHUD, e);
+}
+
+function toggleCriticalHUDLock(e) {
     if (e) e.stopPropagation();
-    bslsHudLocked = !bslsHudLocked;
-    let pill = getEl('nav-bsls-pill');
-    if (bslsHudLocked) {
-        if (!renderBslsHUD()) {
-            bslsHudLocked = false;
+    if (!shouldOpenAnchoredCriticalHud()) {
+        openDashboard();
+        return;
+    }
+    togglePipelineHudLock('critical', renderCriticalHUD, e);
+}
+
+function togglePipelineHudLock(type, renderFn, e) {
+    if (e) e.stopPropagation();
+    let cfg = getPipelineHudConfig(type);
+    if (!cfg) return;
+    let nextLocked = !getPipelineHudLocked(type);
+    let pill = getEl(cfg.pillId);
+    setPipelineHudLocked(type, nextLocked);
+    if (nextLocked) {
+        closeOtherPipelineHuds(type);
+        if (!renderFn()) {
+            setPipelineHudLocked(type, false);
             if (pill) pill.classList.remove('is-locked');
             return;
         }
         if (pill) pill.classList.add('is-locked');
     } else {
         if (pill) pill.classList.remove('is-locked');
-        hidePieHUD('bsls');
+        hidePieHUD(type);
     }
 }
 
-function showProjectsHUD() { if (!projectsHudLocked) renderProjectsHUD(); }
-function hideProjectsHUD() { if (!projectsHudLocked) hidePieHUD('projects'); }
-function toggleProjectsHUDLock(e) {
-    if (e) e.stopPropagation();
-    projectsHudLocked = !projectsHudLocked;
-    let pill = getEl('nav-projects-pill');
-    if (projectsHudLocked) {
-        if (!renderProjectsHUD()) {
-            projectsHudLocked = false;
-            if (pill) pill.classList.remove('is-locked');
-            return;
-        }
-        if (pill) pill.classList.add('is-locked');
-    } else {
+function closeOtherPipelineHuds(activeType) {
+    ['projects', 'bsls', 'critical'].forEach(function(type) {
+        if (type === activeType) return;
+        let cfg = getPipelineHudConfig(type);
+        let pill = cfg ? getEl(cfg.pillId) : null;
+        setPipelineHudLocked(type, false);
         if (pill) pill.classList.remove('is-locked');
-        hidePieHUD('projects');
-    }
+        hidePieHUD(type);
+    });
 }
 
 document.addEventListener('click', function(e) {
-    if (bslsHudLocked) {
-        let hud = getEl('bsls-pie-hud');
-        let pill = getEl('nav-bsls-pill');
+    ['projects', 'bsls', 'critical'].forEach(function(type) {
+        if (!getPipelineHudLocked(type)) return;
+        let cfg = getPipelineHudConfig(type);
+        let hud = cfg ? getEl(cfg.hudId) : null;
+        let pill = cfg ? getEl(cfg.pillId) : null;
         if (hud && !hud.contains(e.target) && pill && !pill.contains(e.target)) {
-            bslsHudLocked = false;
+            setPipelineHudLocked(type, false);
             if (pill) pill.classList.remove('is-locked');
-            hidePieHUD('bsls');
+            hidePieHUD(type);
         }
-    }
-    if (projectsHudLocked) {
-        let hud = getEl('projects-pie-hud');
-        let pill = getEl('nav-projects-pill');
-        if (hud && !hud.contains(e.target) && pill && !pill.contains(e.target)) {
-            projectsHudLocked = false;
-            if (pill) pill.classList.remove('is-locked');
-            hidePieHUD('projects');
-        }
-    }
+    });
 });
 
 function hidePieHUD(type) {
-    let hud = getEl(`${type}-pie-hud`);
+    let cfg = getPipelineHudConfig(type);
+    let hud = cfg ? getEl(cfg.hudId) : null;
     if (hud) {
         hud.classList.remove('visible');
-        setTimeout(() => {
+        setTimeout(function() {
             if (!hud.classList.contains('visible')) hud.style.display = 'none';
         }, 200);
     }
 }
 
-function renderProjectsHUD() {
-    let pieCounts = currentFilterStats.pieCounts || {};
-    let total = Object.values(pieCounts).reduce((a, b) => a + b, 0);
-    let hud = getEl('projects-pie-hud');
-    let pill = getEl('nav-projects-pill');
+function positionPipelineHud(type) {
+    let cfg = getPipelineHudConfig(type);
+    let hud = cfg ? getEl(cfg.hudId) : null;
+    let pill = cfg ? getEl(cfg.pillId) : null;
     if (!hud || !pill) return false;
-    if (total === 0) {
-        hud.classList.remove('visible');
-        hud.style.display = 'none';
-        return false;
-    }
-
-    let defaultColors = ['#94a3b8', '#cbd5e1', '#f1f5f9'];
-    let sortedStages = Object.keys(pieCounts).sort((a, b) => pieCounts[b] - pieCounts[a]);
-
-    let slices = sortedStages.map((stage, idx) => {
-        let color = defaultColors[idx % defaultColors.length];
-        let sLower = stage.toLowerCase();
-
-        if (sLower.includes('permit') || sLower.includes('pre-con')) color = '#a855f7';
-        else if (sLower.includes('field cx')) {
-            if (sLower.includes('complete')) color = '#22c55e';
-            else if (sLower.includes('pending') || sLower.includes('assignment')) color = '#f97316';
-            else if (sLower.includes('hold')) color = '#64748b';
-            else color = '#facc15';
-        }
-        else if (sLower.includes('ofs')) color = '#3b82f6';
-        else if (sLower.includes('hold') || sLower.includes('on hold')) color = '#64748b';
-        else if (sLower.includes('pending') || sLower.includes('assignment')) color = '#f97316';
-
-        return { label: stage, count: pieCounts[stage], color: color };
-    });
-
-    let conicStr = [];
-    let legendHtml = '';
-    let currentPct = 0;
-    let activeFilterEntries = getProjectsHudFilterEntries();
-
-    slices.forEach(s => {
-        let pct = (s.count / total) * 100;
-        conicStr.push(`${s.color} ${currentPct}% ${currentPct + pct}%`);
-        currentPct += pct;
-        let isActive = activePieStageFilter === s.label;
-        let escapedLabel = s.label.replace(/'/g, "\\'");
-        legendHtml += `
-        <div onclick="togglePieStageFilter('${escapedLabel}')" class="projects-hud-legend-row${isActive ? ' is-active' : ''}" style="border-color:${isActive ? s.color : 'transparent'};">
-            <div class="projects-hud-legend-main">
-                <span class="projects-hud-legend-swatch" style="background:${s.color};"></span>
-                <span class="projects-hud-legend-name">${s.label}</span>
-            </div>
-            <span class="projects-hud-legend-count">${s.count.toLocaleString()}</span>
-        </div>`;
-    });
-
-    let pieStyle = `background: conic-gradient(${conicStr.join(', ')});`;
-    let clearStageBtn = activePieStageFilter ? `<button onclick="togglePieStageFilter(null)" class="projects-hud-textbtn">Clear Stage</button>` : '';
-    let clearAllBtn = activeFilterEntries.length > 0 ? `<button onclick="clearAllFilters()" class="projects-hud-textbtn neutral">Clear All</button>` : '';
-    let filterSummaryHtml = activeFilterEntries.length > 0
-        ? `<div class="projects-hud-chip-row">` + activeFilterEntries.map(function(entry) {
-                let removeAction = entry.category === 'stage'
-                    ? `togglePieStageFilter(null)`
-                    : `toggleFilterValue('${entry.category}','${escJs(entry.value)}')`;
-                let chipStyle = entry.color ? ` style="border-color:${entry.color}; box-shadow: inset 3px 0 0 ${entry.color};"` : '';
-                return `<span class="projects-hud-chip"${chipStyle}><span class="projects-hud-chip-label">${esc(entry.categoryLabel)}</span><span>${esc(entry.label)}</span><span class="projects-hud-chip-remove" onclick="${removeAction}">${icon('close', 11)}</span></span>`;
-            }).join('') + `</div>`
-        : `<div class="projects-hud-empty">None</div>`;
-
-    hud.innerHTML = `
-        <div class="projects-hud-header">
-            <div class="projects-hud-title">Projects</div>
-            <div class="projects-hud-actions">
-                ${clearStageBtn}
-                ${clearAllBtn}
-            </div>
-        </div>
-        <div class="projects-hud-section">
-            <div class="projects-hud-label">Active Filters</div>
-            ${filterSummaryHtml}
-        </div>
-        <div class="projects-hud-section">
-            <div class="projects-hud-label">Stage Breakdown</div>
-            <div class="projects-hud-main">
-            <div class="projects-hud-pie" style="${pieStyle}"></div>
-            <div class="projects-hud-legend">
-                ${legendHtml}
-            </div>
-            </div>
-        </div>
-    `;
 
     let rect = pill.getBoundingClientRect();
     let left = Math.max(12, Math.min(rect.left, window.innerWidth - hud.offsetWidth - 12));
@@ -171,7 +128,7 @@ function renderProjectsHUD() {
     hud.style.top = top + 'px';
     hud.style.left = left + 'px';
 
-    requestAnimationFrame(() => {
+    requestAnimationFrame(function() {
         if (hud.offsetWidth && left + hud.offsetWidth > window.innerWidth - 12) {
             hud.style.left = Math.max(12, window.innerWidth - hud.offsetWidth - 12) + 'px';
         }
@@ -183,68 +140,282 @@ function renderProjectsHUD() {
     return true;
 }
 
+function renderHudSummaryCards(cards) {
+    return `<div class="projects-hud-summary-grid">` + (cards || []).map(function(card) {
+        return `
+            <div class="projects-hud-stat-card">
+                <div class="projects-hud-stat-value">${esc(String(card.value || '0'))}</div>
+                <div class="projects-hud-stat-label">${esc(card.label || '')}</div>
+                <div class="projects-hud-stat-note">${esc(card.note || '')}</div>
+            </div>`;
+    }).join('') + `</div>`;
+}
+
+function renderHudFooterActions(actions) {
+    return `<div class="projects-hud-footer">` + (actions || []).map(function(action) {
+        return `<button type="button" class="projects-hud-cta${action.primary ? ' is-primary' : ''}" onclick="${action.onclick}">${esc(action.label)}</button>`;
+    }).join('') + `</div>`;
+}
+
+function openPipelineHudWorkspace(view, type) {
+    hidePieHUD(type);
+    setPipelineHudLocked(type, false);
+    let cfg = getPipelineHudConfig(type);
+    let pill = cfg ? getEl(cfg.pillId) : null;
+    if (pill) pill.classList.remove('is-locked');
+    if (view === 'dashboard') {
+        openDashboard();
+        return;
+    }
+    switchWorkspaceView(view);
+}
+
+function getTopVendorSummary(projectCounts) {
+    let entries = Object.entries(projectCounts || {}).sort(function(a, b) { return b[1] - a[1]; });
+    let top = entries[0];
+    let total = Object.values(projectCounts || {}).reduce(function(sum, count) { return sum + count; }, 0);
+    if (!top || total === 0) return { value: 'None', note: 'No vendor concentration' };
+    let share = Math.round((top[1] / total) * 100);
+    return { value: top[0], note: top[1] + ' projects • ' + share + '% share' };
+}
+
+function getHudTopEntries(map, limit) {
+    return Object.entries(map || {})
+        .sort(function(a, b) { return b[1] - a[1]; })
+        .slice(0, limit || 3);
+}
+
+function renderProjectsHUD() {
+    let pieCounts = currentFilterStats.pieCounts || {};
+    let total = Object.values(pieCounts).reduce(function(sum, count) { return sum + count; }, 0);
+    let hud = getEl('projects-pie-hud');
+    if (!hud || total === 0) {
+        hidePieHUD('projects');
+        return false;
+    }
+
+    let defaultColors = ['#94a3b8', '#cbd5e1', '#f1f5f9'];
+    let sortedStages = Object.keys(pieCounts).sort(function(a, b) { return pieCounts[b] - pieCounts[a]; });
+    let slices = sortedStages.map(function(stage, idx) {
+        let color = defaultColors[idx % defaultColors.length];
+        let sLower = stage.toLowerCase();
+        if (sLower.includes('permit') || sLower.includes('pre-con')) color = '#a855f7';
+        else if (sLower.includes('field cx')) {
+            if (sLower.includes('complete')) color = '#22c55e';
+            else if (sLower.includes('pending') || sLower.includes('assignment')) color = '#f97316';
+            else if (sLower.includes('hold')) color = '#64748b';
+            else color = '#facc15';
+        } else if (sLower.includes('ofs')) color = '#3b82f6';
+        else if (sLower.includes('hold') || sLower.includes('on hold')) color = '#64748b';
+        else if (sLower.includes('pending') || sLower.includes('assignment')) color = '#f97316';
+        return { label: stage, count: pieCounts[stage], color: color };
+    });
+
+    let conicStr = [];
+    let legendHtml = '';
+    let currentPct = 0;
+    let activeFilterEntries = getProjectsHudFilterEntries();
+    slices.forEach(function(slice) {
+        let pct = (slice.count / total) * 100;
+        conicStr.push(`${slice.color} ${currentPct}% ${currentPct + pct}%`);
+        currentPct += pct;
+        let isActive = activePieStageFilter === slice.label;
+        let escapedLabel = slice.label.replace(/'/g, "\\'");
+        legendHtml += `
+            <div onclick="togglePieStageFilter('${escapedLabel}')" class="projects-hud-legend-row${isActive ? ' is-active' : ''}" style="border-color:${isActive ? slice.color : 'transparent'};">
+                <div class="projects-hud-legend-main">
+                    <span class="projects-hud-legend-swatch" style="background:${slice.color};"></span>
+                    <span class="projects-hud-legend-name">${esc(slice.label)}</span>
+                </div>
+                <span class="projects-hud-legend-count">${slice.count.toLocaleString()}</span>
+            </div>`;
+    });
+
+    let topVendor = getTopVendorSummary(currentFilterStats.projectCountByVendor || {});
+    let clearStageBtn = activePieStageFilter ? `<button type="button" onclick="togglePieStageFilter(null)" class="projects-hud-textbtn">Clear Stage</button>` : '';
+    let clearAllBtn = activeFilterEntries.length > 0 ? `<button type="button" onclick="clearAllFilters()" class="projects-hud-textbtn neutral">Clear All</button>` : '';
+    let filterSummaryHtml = activeFilterEntries.length > 0
+        ? `<div class="projects-hud-chip-row">` + activeFilterEntries.map(function(entry) {
+                let removeAction = entry.category === 'stage'
+                    ? `togglePieStageFilter(null)`
+                    : `toggleFilterValue('${entry.category}','${escJs(entry.value)}')`;
+                let chipStyle = entry.color ? ` style="border-color:${entry.color}; box-shadow: inset 3px 0 0 ${entry.color};"` : '';
+                return `<span class="projects-hud-chip"${chipStyle}><span class="projects-hud-chip-label">${esc(entry.categoryLabel)}</span><span>${esc(entry.label)}</span><span class="projects-hud-chip-remove" onclick="${removeAction}">${icon('close', 11)}</span></span>`;
+            }).join('') + `</div>`
+        : `<div class="projects-hud-empty">Full program view</div>`;
+
+    hud.innerHTML = `
+        <div class="projects-hud-header">
+            <div>
+                <div class="projects-hud-title">Projects</div>
+                <div class="projects-hud-subtitle">Pipeline distribution and active stage scope</div>
+            </div>
+            <div class="projects-hud-actions">
+                ${clearStageBtn}
+                ${clearAllBtn}
+            </div>
+        </div>
+        ${renderHudSummaryCards([
+            { value: (currentFilterStats.totals && currentFilterStats.totals.projects) || total, label: 'Visible', note: 'Current scoped view' },
+            { value: currentFilterStats.lifecycle.active + ' / ' + currentFilterStats.lifecycle.pending + ' / ' + currentFilterStats.lifecycle.overdue, label: 'Active / Pending / Overdue', note: 'Lifecycle split' },
+            { value: topVendor.value, label: 'Top Vendor', note: topVendor.note }
+        ])}
+        <div class="projects-hud-section">
+            <div class="projects-hud-label">Current Scope</div>
+            ${filterSummaryHtml}
+        </div>
+        <div class="projects-hud-section">
+            <div class="projects-hud-label">Stage Breakdown</div>
+            <div class="projects-hud-main">
+                <div class="projects-hud-pie" style="background: conic-gradient(${conicStr.join(', ')});"></div>
+                <div class="projects-hud-legend">${legendHtml}</div>
+            </div>
+        </div>
+        ${renderHudFooterActions([
+            { label: 'Open Queue', onclick: `openPipelineHudWorkspace('detail','projects')`, primary: true },
+            { label: 'Open Gantt', onclick: `openPipelineHudWorkspace('gantt','projects')` }
+        ])}
+    `;
+
+    return positionPipelineHud('projects');
+}
+
 function renderBslsHUD() {
-    let matrix = currentFilterStats.bslMatrix || {};
-    let months = Object.keys(currentFilterStats.bslByMonth || {})
-        .sort((a, b) => currentFilterStats.bslByMonth[b] - currentFilterStats.bslByMonth[a])
-        .slice(0, 3);
+    let totalBsls = (currentFilterStats.totals && currentFilterStats.totals.bsls) || 0;
+    let vendorEntries = getHudTopEntries(currentFilterStats.bslByVendor || {}, 5);
+    let monthEntries = getHudTopEntries(currentFilterStats.bslByMonth || {}, 4);
     let hud = getEl('bsls-pie-hud');
-    let pill = getEl('nav-bsls-pill');
-    if (!hud || !pill) return false;
-    if (months.length === 0) {
-        hud.classList.remove('visible');
-        hud.style.display = 'none';
+    if (!hud || totalBsls === 0 || vendorEntries.length === 0) {
+        hidePieHUD('bsls');
         return false;
     }
 
-    let vendors = Object.keys(matrix).sort((a, b) => (currentFilterStats.bslByVendor[b] || 0) - (currentFilterStats.bslByVendor[a] || 0));
-    if (vendors.length === 0) {
-        hud.classList.remove('visible');
-        hud.style.display = 'none';
-        return false;
-    }
-
-    let thHtml = months.map(m => `<th style="padding:8px 10px; text-align:right; color:#93c5fd; white-space:nowrap;">${m}</th>`).join('');
-    let rowsHtml = vendors.map(v => {
-        let tdHtml = months.map(m => {
-            let val = (matrix[v] && matrix[v][m]) || 0;
-            let color = val > 0 ? '#fafafa' : '#52525b';
-            return `<td style="padding:6px 10px; text-align:right; font-family:monospace; font-weight:900; color:${color};">${val > 0 ? val.toLocaleString() : '-'}</td>`;
-        }).join('');
-        return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:6px 10px; font-weight:800; color:#fafafa; border-right:1px solid #333338; white-space:nowrap;">${v}</td>${tdHtml}</tr>`;
+    let topVendor = vendorEntries[0];
+    let topMonth = monthEntries[0];
+    let vendorBarsHtml = vendorEntries.map(function(entry) {
+        let share = totalBsls > 0 ? Math.max(4, Math.round((entry[1] / totalBsls) * 100)) : 0;
+        return `
+            <div class="projects-hud-bar-row">
+                <div class="projects-hud-bar-meta">
+                    <span class="projects-hud-bar-label">${esc(entry[0])}</span>
+                    <span class="projects-hud-bar-value">${entry[1].toLocaleString()}</span>
+                </div>
+                <div class="projects-hud-bar-track"><span class="projects-hud-bar-fill" style="width:${share}%;"></span></div>
+                <div class="projects-hud-bar-foot">${share}% of scoped BSLs</div>
+            </div>`;
+    }).join('');
+    let monthChipsHtml = monthEntries.map(function(entry) {
+        return `<span class="projects-hud-month-chip"><strong>${esc(entry[0])}</strong><span>${entry[1].toLocaleString()}</span></span>`;
     }).join('');
 
     hud.innerHTML = `
-        <div style="font-size:11px; font-weight:900; text-transform:uppercase; color:#93c5fd; letter-spacing:0.5px; border-bottom:1px solid #333338; padding-bottom:8px; margin-bottom:12px;">BSLs</div>
-        <table style="width:100%; border-collapse:collapse; font-size:11px;">
-            <thead>
-                <tr style="border-bottom:1px solid #333338;">
-                    <th style="padding:8px 10px; text-align:left; color:#93c5fd; border-right:1px solid #333338;">VENDOR</th>
-                    ${thHtml}
-                </tr>
-            </thead>
-            <tbody>
-                ${rowsHtml}
-            </tbody>
-        </table>
+        <div class="projects-hud-header">
+            <div>
+                <div class="projects-hud-title projects-hud-title-blue">BSLs</div>
+                <div class="projects-hud-subtitle">Load concentration across vendors and delivery buckets</div>
+            </div>
+        </div>
+        ${renderHudSummaryCards([
+            { value: totalBsls.toLocaleString(), label: 'Scoped BSLs', note: 'All visible projects' },
+            { value: topVendor ? topVendor[0] : 'None', label: 'Top Vendor', note: topVendor ? topVendor[1].toLocaleString() + ' BSLs' : 'No vendor load' },
+            { value: topMonth ? topMonth[0] : 'TBD', label: 'Top Month', note: topMonth ? topMonth[1].toLocaleString() + ' BSLs' : 'No delivery buckets' }
+        ])}
+        <div class="projects-hud-section">
+            <div class="projects-hud-label">Vendor Loadout</div>
+            <div class="projects-hud-bar-list">${vendorBarsHtml}</div>
+        </div>
+        <div class="projects-hud-section">
+            <div class="projects-hud-label">Top Delivery Buckets</div>
+            <div class="projects-hud-chip-row">${monthChipsHtml || '<div class="projects-hud-empty">No OFS buckets</div>'}</div>
+        </div>
+        ${renderHudFooterActions([
+            { label: 'Open Gantt', onclick: `openPipelineHudWorkspace('gantt','bsls')`, primary: true },
+            { label: 'Open Grid', onclick: `openPipelineHudWorkspace('grid','bsls')` }
+        ])}
     `;
 
-    let rect = pill.getBoundingClientRect();
-    let left = rect.left;
-    let top = rect.bottom + 12;
-    hud.style.display = 'flex';
-    hud.style.top = top + 'px';
-    hud.style.left = left + 'px';
+    return positionPipelineHud('bsls');
+}
 
-    requestAnimationFrame(() => {
-        if (hud.offsetWidth && left + hud.offsetWidth > window.innerWidth - 12) {
-            hud.style.left = Math.max(12, window.innerWidth - hud.offsetWidth - 12) + 'px';
-        }
-        if (top + hud.offsetHeight > window.innerHeight - 12) {
-            hud.style.top = Math.max(12, rect.top - hud.offsetHeight - 12) + 'px';
-        }
-        hud.classList.add('visible');
+function getCriticalHudSourceItems() {
+    if (Array.isArray(filteredItems)) return filteredItems.slice();
+    if (Array.isArray(allActionItems)) return allActionItems.slice();
+    return [];
+}
+
+function renderCriticalHUD() {
+    let hud = getEl('critical-pie-hud');
+    if (!hud) return false;
+    let actionableItems = getCriticalHudSourceItems().filter(function(item) {
+        let sev = getSeverity(item.flags);
+        return (sev === 'crit' || sev === 'warn') && !isCompleteOrOfs(item);
     });
-    return true;
+    if (!actionableItems.length) {
+        hidePieHUD('critical');
+        return false;
+    }
+
+    let severityCounts = actionableItems.reduce(function(acc, item) {
+        let sev = getSeverity(item.flags);
+        if (sev === 'crit') acc.crit++;
+        else if (sev === 'warn') acc.warn++;
+        return acc;
+    }, { crit: 0, warn: 0 });
+    let typeCounts = actionableItems.reduce(function(acc, item) {
+        let type = getCriticalType(item);
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+    }, {});
+    let vendorCounts = actionableItems.reduce(function(acc, item) {
+        let vendor = String(item.vendor || 'Unknown Vendor').trim() || 'Unknown Vendor';
+        acc[vendor] = (acc[vendor] || 0) + 1;
+        return acc;
+    }, {});
+    let topTypes = getHudTopEntries(typeCounts, 3);
+    let topVendors = getHudTopEntries(vendorCounts, 4);
+    let typeRowsHtml = topTypes.map(function(entry) {
+        return `
+            <div class="projects-hud-list-row">
+                <span class="projects-hud-list-label">${esc(entry[0])}</span>
+                <span class="projects-hud-list-value">${entry[1]}</span>
+            </div>`;
+    }).join('');
+    let vendorRowsHtml = topVendors.map(function(entry) {
+        return `
+            <div class="projects-hud-list-row">
+                <span class="projects-hud-list-label">${esc(entry[0])}</span>
+                <span class="projects-hud-list-value">${entry[1]} items</span>
+            </div>`;
+    }).join('');
+
+    hud.innerHTML = `
+        <div class="projects-hud-header">
+            <div>
+                <div class="projects-hud-title projects-hud-title-red">Critical</div>
+                <div class="projects-hud-subtitle">Diagnostic triage before the full dashboard</div>
+            </div>
+        </div>
+        ${renderHudSummaryCards([
+            { value: actionableItems.length, label: 'Actionable', note: 'Warnings + criticals' },
+            { value: severityCounts.crit, label: 'Critical', note: 'High severity items' },
+            { value: severityCounts.warn, label: 'Warning', note: 'Needs attention soon' }
+        ])}
+        <div class="projects-hud-two-col">
+            <div class="projects-hud-section">
+                <div class="projects-hud-label">Top Diagnostic Types</div>
+                <div class="projects-hud-list">${typeRowsHtml}</div>
+            </div>
+            <div class="projects-hud-section">
+                <div class="projects-hud-label">Top Vendors</div>
+                <div class="projects-hud-list">${vendorRowsHtml}</div>
+            </div>
+        </div>
+        ${renderHudFooterActions([
+            { label: 'Open Queue', onclick: `openPipelineHudWorkspace('detail','critical')`, primary: true },
+            { label: 'Open Dashboard', onclick: `openPipelineHudWorkspace('dashboard','critical')` }
+        ])}
+    `;
+
+    return positionPipelineHud('critical');
 }
 </script>

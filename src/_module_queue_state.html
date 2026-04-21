@@ -1037,23 +1037,21 @@ function applyFilters() {
             if (activeAdminFilter === 'status') return i.flags.includes("STATUS MISMATCH") || i.flags.includes("MISSING QB STATUS");
             return true;
         });
-        currentCriticalHubItems = filtered.filter(i => {
-            let s = getSeverity(i.flags);
-            return s === 'crit' || s === 'warn';
-        });
-        acknowledgedCriticalFdhs = acknowledgedCriticalFdhs.filter(fdh => currentCriticalHubItems.some(item => String(item.fdh || '') === String(fdh || '')));
-
         let activeProjCount = 0;
         let pendingProjCount = 0;
         let overdueProjCount = 0;
         let activeBslsCount = 0;
         let activeCritCount = 0;
+        let activeWarnCount = 0;
         currentFilterStats.bslByVendor = {};
         currentFilterStats.bslByMonth = {};
         currentFilterStats.bslMatrix = {};
         currentFilterStats.lifecycle = { active: 0, pending: 0, overdue: 0 };
         currentFilterStats.stageCounts = {};
         currentFilterStats.pieCounts = {};
+        currentFilterStats.projectCountByVendor = {};
+        currentFilterStats.actionable = { crit: 0, warn: 0, total: 0 };
+        currentFilterStats.totals = { projects: filtered.length, bsls: 0 };
 
         filtered.forEach(item => {
             let ofsD = getEffectiveOfsDate(item);
@@ -1068,6 +1066,8 @@ function applyFilters() {
 
             let stageName = item.stage || 'Unknown';
             currentFilterStats.stageCounts[stageName] = (currentFilterStats.stageCounts[stageName] || 0) + 1;
+            let vendorName = item.vendor || "Unknown";
+            currentFilterStats.projectCountByVendor[vendorName] = (currentFilterStats.projectCountByVendor[vendorName] || 0) + 1;
 
             let pieSliceName = getProjectsPieSliceLabel(item);
             currentFilterStats.pieCounts[pieSliceName] = (currentFilterStats.pieCounts[pieSliceName] || 0) + 1;
@@ -1076,9 +1076,17 @@ function applyFilters() {
             let bslNum = parseInt(bslStr, 10) || 0;
             activeBslsCount += bslNum;
             let sev = getSeverity(item.flags);
-            if (sev === 'crit' || sev === 'warn') activeCritCount++;
+            if (sev === 'crit') {
+                activeCritCount++;
+                currentFilterStats.actionable.crit++;
+                currentFilterStats.actionable.total++;
+            } else if (sev === 'warn') {
+                activeWarnCount++;
+                currentFilterStats.actionable.warn++;
+                currentFilterStats.actionable.total++;
+            }
 
-            let v = item.vendor || "Unknown";
+            let v = vendorName;
             currentFilterStats.bslByVendor[v] = (currentFilterStats.bslByVendor[v] || 0) + bslNum;
 
             let mKey = (ofsD && !isNaN(ofsD.getTime()))
@@ -1105,13 +1113,15 @@ function applyFilters() {
         let displayFiltered = activePieStageFilter
             ? filtered.filter(i => getProjectsPieSliceLabel(i) === activePieStageFilter)
             : filtered.slice();
+        currentFilterStats.totals.projects = displayFiltered.length;
+        currentFilterStats.totals.bsls = activeBslsCount;
 
         setTxt('kpi-total-proj', displayFiltered.length);
         setTxt('kpi-active-bsls', activeBslsCount.toLocaleString());
-        setTxt('kpi-active-crit', activeCritCount);
+        setTxt('kpi-active-crit', activeCritCount + activeWarnCount);
         setTxt('nav-pipeline-projects-count', displayFiltered.length);
         setTxt('nav-pipeline-bsls-count', activeBslsCount.toLocaleString());
-        setTxt('nav-pipeline-critical-count', activeCritCount);
+        setTxt('nav-pipeline-critical-count', activeCritCount + activeWarnCount);
         let sortedStageKeys = Object.keys(currentFilterStats.stageCounts).sort((a, b) => currentFilterStats.stageCounts[b] - currentFilterStats.stageCounts[a]);
         let top2Stages = sortedStageKeys.slice(0, 2);
         let stageHtml = top2Stages.map(s => `<span class="kpi-expand-token">${currentFilterStats.stageCounts[s]} ${esc(s)}</span>`).join('<span class="kpi-expand-sep">•</span>');
@@ -1136,6 +1146,13 @@ function applyFilters() {
             let pill = getEl('nav-projects-pill');
             if (!renderProjectsHUD()) {
                 projectsHudLocked = false;
+                if (pill) pill.classList.remove('is-locked');
+            }
+        }
+        if (criticalHudLocked) {
+            let pill = getEl('nav-critical-pill');
+            if (!renderCriticalHUD()) {
+                criticalHudLocked = false;
                 if (pill) pill.classList.remove('is-locked');
             }
         }
@@ -1175,7 +1192,6 @@ function applyFilters() {
         }
         if (currentWorkspaceView === 'gantt') ensureGanttRendered({ focusFdh: ganttFocusedFdh, defer: false, immediate: true });
         renderActiveFilterPills();
-        if (getEl('critical-hub-overlay')?.classList.contains('open')) renderCriticalHub();
     });
 }
 
@@ -1191,6 +1207,13 @@ function clearAllFilters() {
     applyFilters();
     hidePieHUD('projects');
     hidePieHUD('bsls');
+    hidePieHUD('critical');
+    projectsHudLocked = false;
+    bslsHudLocked = false;
+    criticalHudLocked = false;
+    getEl('nav-projects-pill')?.classList.remove('is-locked');
+    getEl('nav-bsls-pill')?.classList.remove('is-locked');
+    getEl('nav-critical-pill')?.classList.remove('is-locked');
     let clearBtn = getEl('btn-clear-filters');
     let clearZone = getEl('dock-clear-zone');
     if (clearBtn) clearBtn.classList.add('collapsed');

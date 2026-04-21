@@ -171,7 +171,7 @@
                     <div class="dash-card-label">Diagnostic Breakdown</div>
                     <div class="dash-card-subtext" id="dash-diagnostic-summary">Live breakdown of actionable diagnostics</div>
                   </div>
-                  <button class="dash-inline-action" onclick="openCriticalHub()">Open Hub</button>
+                  <button class="dash-inline-action" onclick="completeStartup('detail')">Open Queue</button>
                 </div>
                 <div class="dash-flags-scroll" id="dash-flags-scroll">
                   <div class="dash-diagnostic-chart" id="dash-diagnostic-chart"></div>
@@ -301,7 +301,10 @@
                 <div class="kpi-expand-inner" id="kpi-bsls-breakdown"></div>
               </div>
             </div>
-            <div class="kpi-nav-box metric-red has-tooltip" data-tooltip="Open Critical Hub" onclick="openCriticalHub()">
+            <div class="kpi-nav-box metric-red" id="nav-critical-pill"
+                 onmouseenter="showCriticalHUD()"
+                 onmouseleave="hideCriticalHUD()"
+                 onclick="toggleCriticalHUDLock(event)">
               <div class="kpi-base">
                 <div class="kpi-val" id="kpi-active-crit">0</div>
                 <div class="kpi-label">Critical</div>
@@ -310,6 +313,7 @@
 	          </div>
 	          <div id="bsls-pie-hud" class="projects-hud"></div>
 	          <div id="projects-pie-hud" class="projects-hud"></div>
+            <div id="critical-pie-hud" class="projects-hud"></div>
 	        </div>
 	        <div class="desktop-sync-fab nav-pipeline-fab" id="nav-pipeline-fab-wrap">
 	          <button class="btn-icon" onclick="toggleNavPipelineFab()" title="Pipeline">PIPELINE</button>
@@ -386,9 +390,6 @@
                   </button>
               </div>
           </div>
-      </div>
-      <div id="critical-hub-overlay" class="critical-hub-overlay" onclick="closeCriticalHub()">
-          <div id="critical-hub-panel" class="critical-hub-panel" onclick="event.stopPropagation()"></div>
       </div>
       <button type="button" class="nav-search-trigger" id="btn-global-search-trigger" onclick="openGlobalSearch('desktop')" title="Search everywhere" aria-label="Open search">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>

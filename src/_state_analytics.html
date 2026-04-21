@@ -22,20 +22,15 @@ let globalTodayData = { total: 0, vendors: {}, projects: [], activeBsls: 0, crit
 // READS: BSL and projects HUDs
 // WRITES: applyFilters and HUD recompute flows
 // EXTRACT WITH: filteredItems, globalEndCounts, globalTodayData, activePieStageFilter
-let currentFilterStats = { bslByVendor: {}, bslByMonth: {}, bslMatrix: {}, lifecycle: { active: 0, pending: 0, overdue: 0 }, stageCounts: {}, pieCounts: {} };
-// STATE: currentCriticalHubItems
-// READS: critical hub render and navigation
-// WRITES: applyFilters
-// EXTRACT WITH: criticalHubState, acknowledgedCriticalFdhs, filteredItems
-let currentCriticalHubItems = [];
-// STATE: acknowledgedCriticalFdhs
-// READS: critical hub filters and badges
-// WRITES: applyFilters and critical-hub actions
-// EXTRACT WITH: currentCriticalHubItems, criticalHubState
-let acknowledgedCriticalFdhs = [];
-// STATE: criticalHubState
-// READS: critical hub filters and render
-// WRITES: critical hub controls
-// EXTRACT WITH: currentCriticalHubItems, acknowledgedCriticalFdhs
-let criticalHubState = { market: 'ALL', vendor: 'ALL', type: 'ALL', sort: 'default', showAcknowledged: false };
+let currentFilterStats = {
+    bslByVendor: {},
+    bslByMonth: {},
+    bslMatrix: {},
+    lifecycle: { active: 0, pending: 0, overdue: 0 },
+    stageCounts: {},
+    pieCounts: {},
+    projectCountByVendor: {},
+    actionable: { crit: 0, warn: 0, total: 0 },
+    totals: { projects: 0, bsls: 0 }
+};
 </script>
