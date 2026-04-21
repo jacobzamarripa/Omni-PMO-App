@@ -1334,24 +1334,45 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
          }
      };
      
-     // 3-tier BOM check
-     const _ugBom  = refData.ugBOM  || 0;
-     const _aeBom  = refData.aeBOM  || 0;
-     const _fibBom = refData.fibBOM || 0;
-     const _napBom = refData.napBOM || 0;
-     const allBomZero  = _ugBom === 0 && _aeBom === 0 && _fibBom === 0 && _napBom === 0;
+     // 🧠 TIERED BOM FALLBACK: QB (refData) -> Vendor (vendorBOMXX)
+     const _ugBom  = refData.ugBOM  > 0 ? refData.ugBOM  : (vendorBOMUG  > 0 ? vendorBOMUG  : 0);
+     const _aeBom  = refData.aeBOM  > 0 ? refData.aeBOM  : (vendorBOMAE  > 0 ? vendorBOMAE  : 0);
+     const _fibBom = refData.fibBOM > 0 ? refData.fibBOM : (vendorBOMFIB > 0 ? vendorBOMFIB : 0);
+     const _napBom = refData.napBOM > 0 ? refData.napBOM : (vendorBOMNAP > 0 ? vendorBOMNAP : 0);
 
-     if (allBomZero) {
-         if (dailyUG > 0 || dailyAE > 0 || dailyFIB > 0 || dailyNAP > 0) {
+     const phases = [
+         { n: "Underground", qb: refData.ugBOM, r: vendorBOMUG,  d: dailyUG,  t: totalUG },
+         { n: "Strand",      qb: refData.aeBOM, r: vendorBOMAE,  d: dailyAE,  t: totalAE },
+         { n: "Fiber",       qb: refData.fibBOM, r: vendorBOMFIB, d: dailyFIB, t: totalFIB },
+         { n: "NAP",         qb: refData.napBOM, r: vendorBOMNAP, d: dailyNAP, t: totalNAP }
+     ];
+
+     phases.forEach(p => {
+         // A. FALLBACK DIAGNOSTIC (Action Required only, no badge)
+         if (p.qb === 0 && p.r > 0 && (p.d > 0 || p.t > 0)) {
+             drafts.push(`Action: Update QuickBase. ${p.n} BOM is 0 in QB; using report value (${p.r}) as fallback.`);
+         }
+         
+         // B. CRITICAL MISSING (QB and Row are 0)
+         if (p.qb === 0 && p.r === 0 && (p.d > 0 || p.t > 0)) {
              flags.push("MISSING BOM");
              flagColors.push(TEXT_COLORS.WARN);
-             drafts.push("Active progress reported but all BOM quantities in QB are 0. Please verify BOM data.");
+             drafts.push(`Action: QB BOM is missing. Production reported for ${p.n} but BOM is 0 in QB and Report.`);
          }
-     } else {
-         checkPhase("Underground", vendorBOMUG,  _ugBom,  dailyUG,  totalUG,  "UG BOM Quantity",     "Total UG Footage Completed");
-         checkPhase("Strand",      vendorBOMAE,  _aeBom,  dailyAE,  totalAE,  "Strand BOM Quantity", "Total Strand Footage Complete?");
-         checkPhase("Fiber",       vendorBOMFIB, _fibBom, dailyFIB, totalFIB, "Fiber BOM Quantity",  "Total Fiber Footage Complete");
-         checkPhase("NAP",         vendorBOMNAP, _napBom, dailyNAP, totalNAP, "NAP/Encl. BOM Qty.", "Total NAPs Completed");
+     });
+
+     checkPhase("Underground", vendorBOMUG,  _ugBom,  dailyUG,  totalUG,  "UG BOM Quantity",     "Total UG Footage Completed");
+     checkPhase("Strand",      vendorBOMAE,  _aeBom,  dailyAE,  totalAE,  "Strand BOM Quantity", "Total Strand Footage Complete?");
+     checkPhase("Fiber",       vendorBOMFIB, _fibBom, dailyFIB, totalFIB, "Fiber BOM Quantity",  "Total Fiber Footage Complete");
+     checkPhase("NAP",         vendorBOMNAP, _napBom, dailyNAP, totalNAP, "NAP/Encl. BOM Qty.", "Total NAPs Completed");
+
+     // 🧠 SUMMARY CALLOUT: Notify admin that fallback is active for specific phases
+     let fallbackPhases = [];
+     phases.forEach(p => {
+         if (p.qb === 0 && p.r > 0 && (p.d > 0 || p.t > 0)) fallbackPhases.push(p.n);
+     });
+     if (fallbackPhases.length > 0) {
+         summary.push(`\n[📡 Using Report BOM Fallback for: ${fallbackPhases.join(", ")}]`);
      }
   }
   

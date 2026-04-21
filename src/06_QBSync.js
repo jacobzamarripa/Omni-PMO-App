@@ -1205,6 +1205,13 @@ function _fetchReferenceTableSnapshot(token) {
   if (reportFids) {
     var fidSet = {};
     reportFids.forEach(function(id) { fidSet[id] = true; });
+    // 🧠 ENSURE CRITICAL FIELDS: Merge whitelist into report selection so the engine
+    // always has BOMs, Status, and Phase, even if the report UI is missing them.
+    allFields.forEach(function(f) {
+      if (QB_REFERENCE_FIELD_WHITELIST.indexOf((f.label || "").trim()) > -1) {
+        fidSet[Number(f.id)] = true;
+      }
+    });
     fields = allFields.filter(function(f) { return fidSet[Number(f.id)]; });
   } else {
     // Whitelist fallback — exact label match only (no broad FDH fuzzy to avoid junk fields)

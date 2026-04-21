@@ -194,16 +194,16 @@ function getReferenceDictionary() {
     let cxStartIdx = getIdx("CX Start");
     let cxEndIdx   = getIdxByAliases(["CX Complete", "CX End"]);
 
-    let bomUGIdx  = getIdxByAliases(["UG BOM Qty.", "UG BOM Quantity"]);
-    let bomAEIdx  = getIdxByAliases(["AE BOM Qty.", "Strand BOM Quantity", "AE BOM Quantity"]);
-    let bomFIBIdx = getIdxByAliases(["Fiber BOM Qty.", "Fiber BOM Quantity"]);
-    let bomNAPIdx = getIdxByAliases(["NAPs BOM Qty.", "NAP/Encl. BOM Qty.", "NAP BOM Quantity"]);
+    let bomUGIdx  = getIdxByAliases(["UG BOM Qty.", "UG BOM Quantity", "UG Footage", "UG BOM"]);
+    let bomAEIdx  = getIdxByAliases(["AE BOM Qty.", "Strand BOM Quantity", "AE BOM Quantity", "AE Footage", "AE BOM", "Strand BOM"]);
+    let bomFIBIdx = getIdxByAliases(["Fiber BOM Qty.", "Fiber BOM Quantity", "Fiber Footage", "Fiber BOM"]);
+    let bomNAPIdx = getIdxByAliases(["NAPs BOM Qty.", "NAP/Encl. BOM Qty.", "NAP BOM Quantity", "Total Naps", "NAP BOM", "NAP Qty."]);
     
     // 🔍 AUDIT: Ensure we found the critical columns
     if (fdhIdx === -1 || cityIdx === -1) {
         logMsg("❌ CRITICAL ERROR [BOM Detection]: FDH or City column not found in Reference Data! fdhIdx=" + fdhIdx + ", cityIdx=" + cityIdx);
     } else {
-        logMsg("BENNY ENGINE [BOM Detection]: fdhIdx=" + fdhIdx + ", ug=" + bomUGIdx + ", ae=" + bomAEIdx + ", fib=" + bomFIBIdx + ", nap=" + bomNAPIdx);
+        logMsg("BENNY ENGINE [BOM Detection]: SUCCESS. Indices found: FDH=" + fdhIdx + ", UG=" + bomUGIdx + ", AE=" + bomAEIdx + ", FIB=" + bomFIBIdx + ", NAP=" + bomNAPIdx);
     }
 
     let ridIdx = getIdx("Record ID#"), bomDelIdx = getIdxByAliases(["BOM in Deliverables", "BOM Deliverable"]);
