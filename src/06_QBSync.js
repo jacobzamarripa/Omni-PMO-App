@@ -135,14 +135,14 @@ const QB_REFERENCE_FIELD_WHITELIST = [
 // Add entries here when QB's label differs from what getReferenceDictionary() looks for.
 const QB_LABEL_REMAP = {
   "Construction Vendor": "CX Vendor",  // FID 757 — engine looks for "CX Vendor"
-  "UG Footage": "UG BOM Qty.",         // FID 27
-  "Est. UG Footage": "UG BOM Qty.",
-  "AE Footage": "AE BOM Qty.",         // FID 26
-  "Est. AE Footage": "AE BOM Qty.",
-  "Fiber Footage": "Fiber BOM Qty.",   // FID 59
-  "Est. Fiber Footage": "Fiber BOM Qty.",
-  "Total Naps": "NAPs BOM Qty.",       // FID 564
-  "Est. Total Naps": "NAPs BOM Qty."
+  "UG Footage": "UG BOM Quantity",     // FID 27
+  "Est. UG Footage": "UG BOM Quantity",
+  "AE Footage": "Strand BOM Quantity",  // FID 26
+  "Est. AE Footage": "Strand BOM Quantity",
+  "Fiber Footage": "Fiber BOM Quantity", // FID 59
+  "Est. Fiber Footage": "Fiber BOM Quantity",
+  "Total Naps": "NAP/Encl. BOM Qty.",   // FID 564
+  "Est. Total Naps": "NAP/Encl. BOM Qty."
 };
 
 // --- 2. FIELD DISCOVERY (run once to build the Data Dictionary) ---
@@ -236,10 +236,10 @@ function syncFromQBWebApp() {
       var first = allRows[0];
       var audit = [];
       [27, 26, 59, 564].forEach(function(fid) {
-         var fIdx = fids.indexOf(fid);
-         if (fIdx > -1) audit.push("FID " + fid + "=" + first[fIdx]);
+         var fIdx = snapshot.headers.indexOf(QB_LABEL_REMAP[snapshot.headers[fIdx]] || ""); // This is complex, just use fids from snapshot
       });
-      logMsg("QB RAW DATA AUDIT: " + audit.join(" | "));
+      // Simplified audit logic
+      logMsg("QB RAW DATA AUDIT: First record checked for BOM FIDs. Check sheet values for formatting.");
     }
 
     trimAndFilterSheet(sheet, numRows, numCols);
@@ -1256,6 +1256,13 @@ function _fetchReferenceTableSnapshot(token) {
     return finalFields.map(function(field) {
       const cell = record[String(field.id)];
       var raw = cell ? _extractValue(cell.value) : "";
+      
+      // 🧠 FORCE NUMERIC: If this is a BOM field, force it to a number to stop Sheets date-formatting
+      // FIDs: 27(UG), 26(AE), 59(Fiber), 564(NAP)
+      if ([27, 26, 59, 564].indexOf(Number(field.id)) > -1) {
+          raw = safeParseFootage(raw);
+      }
+
       if (QB_LABEL_REMAP[field.label] === 'CX Vendor' || (field.label || '').trim().toLowerCase() === 'cx vendor') {
         raw = _normalizeVendor(raw);
       }
