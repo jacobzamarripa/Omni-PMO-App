@@ -9,6 +9,13 @@ const ENGINE_REF_DICT_CACHE_KEY = 'engine_ref_dict_v1';
 const ENGINE_VENDOR_DICT_CACHE_KEY = 'engine_vendor_dict_v1';
 const ENGINE_DICT_CACHE_VERSION_PROP = 'ENGINE_DICT_CACHE_VERSION';
 
+// Strips the optional leg letter from old-style FDH IDs so both formats key to the same entry.
+// "SHE01b-F02" → "SHE01-F02"   |   "SHE01-F02" → "SHE01-F02" (no change)
+function _normalizeFdhId(id) {
+  return String(id || "").trim().toUpperCase()
+    .replace(/^([A-Z]{3}\d{2,3})[A-Z](-F\d{2,4})$/i, '$1$2');
+}
+
 function _getEngineDictCacheKey(baseKey) {
   const version = PropertiesService.getScriptProperties().getProperty(ENGINE_DICT_CACHE_VERSION_PROP) || '0';
   return `${baseKey}_${version}`;
@@ -274,7 +281,7 @@ function getReferenceDictionary() {
     if (fdhIdx > -1) {
       let refData = refSheet.getRange(2, 1, refSheet.getLastRow() - 1, refSheet.getLastColumn()).getValues();
       refData.forEach(r => {
-         let f = r[fdhIdx] != null ? String(r[fdhIdx]).trim().toUpperCase() : "";
+         let f = r[fdhIdx] != null ? _normalizeFdhId(r[fdhIdx]) : "";
          let xingVal = specXIdx > -1 ? String(r[specXIdx] || "").trim() : "";
          if (f) refDict[f] = { 
            city: cityIdx > -1 ? String(r[cityIdx] || "-") : "-", 

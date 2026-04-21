@@ -145,6 +145,35 @@ const QB_LABEL_REMAP = {
   "Est. Total Naps": "NAP/Encl. BOM Qty."
 };
 
+// Canonical column order for Reference_Data sheet.
+// Columns not listed here are appended at the end in QB return order.
+const REFERENCE_COLUMN_ORDER = [
+  "FDH Engineering ID",
+  "Record ID#",
+  "City",
+  "Phase",
+  "Stage",
+  "Status",
+  "OFS DATE",
+  "CX Start",
+  "CX Complete",
+  "BSLs",
+  "HHPs",
+  "CX Vendor",
+  "UG BOM Quantity",
+  "Strand BOM Quantity",
+  "Fiber BOM Quantity",
+  "NAP/Encl. BOM Qty."
+];
+
+// Format rules applied after every write. Any column not listed here gets no
+// special format (plain text default), so new QB columns never auto-format as dates.
+const REFERENCE_COLUMN_FORMATS = {
+  numeric: ["UG BOM Quantity", "Strand BOM Quantity", "Fiber BOM Quantity", "NAP/Encl. BOM Qty.", "BSLs", "HHPs"],
+  integer: ["Record ID#"],
+  date:    ["OFS DATE", "CX Start", "CX Complete"]
+};
+
 // --- 2. FIELD DISCOVERY (run once to build the Data Dictionary) ---
 
 /**
@@ -220,26 +249,51 @@ function syncFromQBWebApp() {
     const allRows = snapshot.rows;
     if (allRows.length === 0) return { success: false, error: "QuickBase returned 0 records. Check the table access and token permissions." };
 
-    const headers = snapshot.headers;
-    const outputData = [headers].concat(allRows);
-    const numRows = outputData.length, numCols = headers.length;
+    const rawHeaders = snapshot.headers;
+
+    // --- Column ordering ---
+    // Preferred columns first (in declared order), then any QB columns not in the list.
+    var orderedHeaders = [];
+    REFERENCE_COLUMN_ORDER.forEach(function(col) {
+      if (rawHeaders.indexOf(col) > -1) orderedHeaders.push(col);
+    });
+    rawHeaders.forEach(function(col) {
+      if (orderedHeaders.indexOf(col) === -1) orderedHeaders.push(col);
+    });
+
+    // Reindex each data row to match the new column order
+    var orderedRows = snapshot.rows.map(function(row) {
+      return orderedHeaders.map(function(col) {
+        var i = rawHeaders.indexOf(col);
+        return i > -1 ? row[i] : "";
+      });
+    });
+
+    const outputData = [orderedHeaders].concat(orderedRows);
+    const numRows = outputData.length, numCols = orderedHeaders.length;
 
     const refWriteStartMs = Date.now();
-    sheet.clear().clearFormats(); // 🧠 CRITICAL: Force reset formatting to stop numbers showing as dates
+    sheet.clear();
     ensureCapacity(sheet, numRows, numCols);
     sheet.getRange(1, 1, numRows, numCols).setValues(outputData);
     sheet.getRange(1, 1, 1, numCols).setBackground("#003366").setFontColor("#ffffff").setFontWeight("bold");
     sheet.setFrozenRows(1);
-    
-    // 🧠 Audit raw data for first record (Verification of Number vs Date)
-    if (allRows.length > 0) {
-      var first = allRows[0];
-      var audit = [];
-      [27, 26, 59, 564].forEach(function(fid) {
-         var fIdx = snapshot.headers.indexOf(QB_LABEL_REMAP[snapshot.headers[fIdx]] || ""); // This is complex, just use fids from snapshot
+
+    // --- Type-aware formatting (applied every sync, prevents Sheets auto-date mis-format) ---
+    if (numRows > 1) {
+      var dataRows = numRows - 1;
+      REFERENCE_COLUMN_FORMATS.numeric.forEach(function(col) {
+        var ci = orderedHeaders.indexOf(col);
+        if (ci > -1) sheet.getRange(2, ci + 1, dataRows, 1).setNumberFormat("0.##");
       });
-      // Simplified audit logic
-      logMsg("QB RAW DATA AUDIT: First record checked for BOM FIDs. Check sheet values for formatting.");
+      REFERENCE_COLUMN_FORMATS.integer.forEach(function(col) {
+        var ci = orderedHeaders.indexOf(col);
+        if (ci > -1) sheet.getRange(2, ci + 1, dataRows, 1).setNumberFormat("0");
+      });
+      REFERENCE_COLUMN_FORMATS.date.forEach(function(col) {
+        var ci = orderedHeaders.indexOf(col);
+        if (ci > -1) sheet.getRange(2, ci + 1, dataRows, 1).setNumberFormat("MM/dd/yyyy");
+      });
     }
 
     trimAndFilterSheet(sheet, numRows, numCols);

@@ -84,5 +84,8 @@ assertEqual(/let isPermit = st\.includes\('permit'\) \|\| st\.includes\('pre-con
 assertEqual(/let isOnHold = stat\.includes\('hold'\);/.test(queueSource), true, 'Queue schedule logic no longer treats assignment as hold');
 assertEqual(/let isPermit = st\.includes\('permit'\) \|\| st\.includes\('pre-con'\) \|\| st\.includes\('vendor assignment'\);/.test(gridSource), true, 'Grid schedule logic treats vendor assignment as pre-con');
 assertEqual(/let isOnHold = stat\.includes\('hold'\);/.test(gridSource), true, 'Grid schedule logic no longer treats assignment as hold');
+assertEqual(/const GHOST_ACTIVE_STAGES = \["FIELD CX", "PERMITTING", "CONSTRUCTION", "ACTIVE", "CX", "VENDOR ASSIGNMENT"\];/.test(archiveSource), true, 'Ghost carry-forward stage family includes permitting and vendor assignment');
+assertEqual(/const isGhostEligibleStage = GHOST_ACTIVE_STAGES\.some\(function\(token\) \{\s*return stageUp\.includes\(token\) \|\| statUp\.includes\(token\);\s*\}\) \|\| statUp\.includes\("IN PROGRESS"\);/m.test(archiveSource), true, 'Ghost carry-forward eligibility uses the broader active stage family');
+assertEqual(/if \(hasHistory && latest\) \{/.test(archiveSource), true, 'Ghost carry-forward keeps the no-history fallback path reachable');
 
 console.log('\nProject inference validation passed.');

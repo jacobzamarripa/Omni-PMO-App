@@ -20,9 +20,9 @@ function getExistingKeys() {
   
   for (let i = 1; i < data.length; i++) {
      let d = data[i][dateIdx];
-     let f = data[i][fdhIdx] ? data[i][fdhIdx].toString().trim().toUpperCase() : "";
+     let f = data[i][fdhIdx] ? _normalizeFdhId(data[i][fdhIdx]) : "";
      if (!f) continue;
-     
+
      let dStr = normalizeDateString(d);
      if (dStr) keys.add(dStr + "_" + f);
   }
@@ -176,7 +176,7 @@ function repairLegacyAutoFixedFdhs() {
     if (!originalId) continue;
 
     scanned++;
-    let storedFdh = String(data[i][fdhIdx] || "").trim().toUpperCase();
+    let storedFdh = _normalizeFdhId(data[i][fdhIdx]);
     let rematchedFdh = attemptFuzzyMatch(originalId, officialKeys, null, refDict);
 
     if (rematchedFdh && rematchedFdh === storedFdh) {
@@ -621,7 +621,7 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
     let maxDateFound = "";
 
     rows.forEach(row => {
-      let fdhId = row[fdhIdx] ? row[fdhIdx].toString().trim().toUpperCase() : ""; 
+      let fdhId = row[fdhIdx] ? _normalizeFdhId(row[fdhIdx]) : "";
       if (!fdhId || fdhId === "NAN" || fdhId === "0" || fdhId.includes("ID")) return;
       
       let originalFdh = fdhId;
@@ -927,7 +927,7 @@ function buildInferenceHistoryContext(histData, histHeaders) {
 
   for (let i = 1; i < histData.length; i++) {
     let row = histData[i];
-    let fdh = row[fdhIdx] ? String(row[fdhIdx]).trim().toUpperCase() : "";
+    let fdh = row[fdhIdx] ? _normalizeFdhId(row[fdhIdx]) : "";
     if (!fdh) continue;
 
     let rawDate = row[dateIdx];
@@ -994,7 +994,7 @@ function getRecentInferenceSignals(fdhId, rowDate, inferenceHistoryContext, look
 function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, lkvDict) {
   let flags = [], drafts = [], summary = [], qbGaps = [], hCols = { warn: [], mismatch: [], ug: [], ae: [], fib: [], nap: [] }, flagColors = [], healedId = null;
   let inferredStage = "", inferredStatus = "";
-  let fdhId = row[HISTORY_HEADERS.indexOf("FDH Engineering ID")] ? row[HISTORY_HEADERS.indexOf("FDH Engineering ID")].toString().toUpperCase().trim() : "";
+  let fdhId = row[HISTORY_HEADERS.indexOf("FDH Engineering ID")] ? _normalizeFdhId(row[HISTORY_HEADERS.indexOf("FDH Engineering ID")]) : "";
   let vendorComment = row[HISTORY_HEADERS.indexOf("Vendor Comment")] ? row[HISTORY_HEADERS.indexOf("Vendor Comment")].toString().trim() : "";
   
   // 🧠 HEURISTIC: ID Correction & Reference Data Hydration (Moved early for BOM prioritization)
@@ -1224,7 +1224,7 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
      addNapSummary("NAP", dailyNAP, totalNAP, vendorBOMNAP, 0);
   }
   
-  let isFormatValid = /^[A-Z]{3}\d{2,3}-F\d{2,4}$/i.test(fdhId);
+  let isFormatValid = /^[A-Z]{3}\d{2,3}[a-z]?-F\d{2,4}$/i.test(fdhId);
   if (fdhId !== "" && !isFormatValid) {
       flags.push(`FORMAT ERROR`);
       flagColors.push(TEXT_COLORS.WARN);
@@ -1334,45 +1334,25 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
          }
      };
      
-     // 🧠 TIERED BOM FALLBACK: QB (refData) -> Vendor (vendorBOMXX)
+     // QB Reference is source of truth; vendor history row is fallback if QB is 0
      const _ugBom  = refData.ugBOM  > 0 ? refData.ugBOM  : (vendorBOMUG  > 0 ? vendorBOMUG  : 0);
      const _aeBom  = refData.aeBOM  > 0 ? refData.aeBOM  : (vendorBOMAE  > 0 ? vendorBOMAE  : 0);
      const _fibBom = refData.fibBOM > 0 ? refData.fibBOM : (vendorBOMFIB > 0 ? vendorBOMFIB : 0);
      const _napBom = refData.napBOM > 0 ? refData.napBOM : (vendorBOMNAP > 0 ? vendorBOMNAP : 0);
 
-     const phases = [
-         { n: "Underground", qb: refData.ugBOM, r: vendorBOMUG,  d: dailyUG,  t: totalUG },
-         { n: "Strand",      qb: refData.aeBOM, r: vendorBOMAE,  d: dailyAE,  t: totalAE },
-         { n: "Fiber",       qb: refData.fibBOM, r: vendorBOMFIB, d: dailyFIB, t: totalFIB },
-         { n: "NAP",         qb: refData.napBOM, r: vendorBOMNAP, d: dailyNAP, t: totalNAP }
-     ];
+     const allBomZero = _ugBom === 0 && _aeBom === 0 && _fibBom === 0 && _napBom === 0;
 
-     phases.forEach(p => {
-         // A. FALLBACK DIAGNOSTIC (Action Required only, no badge)
-         if (p.qb === 0 && p.r > 0 && (p.d > 0 || p.t > 0)) {
-             drafts.push(`Action: Update QuickBase. ${p.n} BOM is 0 in QB; using report value (${p.r}) as fallback.`);
-         }
-         
-         // B. CRITICAL MISSING (QB and Row are 0)
-         if (p.qb === 0 && p.r === 0 && (p.d > 0 || p.t > 0)) {
+     if (allBomZero) {
+         if (dailyUG > 0 || dailyAE > 0 || dailyFIB > 0 || dailyNAP > 0) {
              flags.push("MISSING BOM");
              flagColors.push(TEXT_COLORS.WARN);
-             drafts.push(`Action: QB BOM is missing. Production reported for ${p.n} but BOM is 0 in QB and Report.`);
+             drafts.push("Active progress reported but all BOM quantities are 0. Please verify BOM data in QuickBase.");
          }
-     });
-
-     checkPhase("Underground", vendorBOMUG,  _ugBom,  dailyUG,  totalUG,  "UG BOM Quantity",     "Total UG Footage Completed");
-     checkPhase("Strand",      vendorBOMAE,  _aeBom,  dailyAE,  totalAE,  "Strand BOM Quantity", "Total Strand Footage Complete?");
-     checkPhase("Fiber",       vendorBOMFIB, _fibBom, dailyFIB, totalFIB, "Fiber BOM Quantity",  "Total Fiber Footage Complete");
-     checkPhase("NAP",         vendorBOMNAP, _napBom, dailyNAP, totalNAP, "NAP/Encl. BOM Qty.", "Total NAPs Completed");
-
-     // 🧠 SUMMARY CALLOUT: Notify admin that fallback is active for specific phases
-     let fallbackPhases = [];
-     phases.forEach(p => {
-         if (p.qb === 0 && p.r > 0 && (p.d > 0 || p.t > 0)) fallbackPhases.push(p.n);
-     });
-     if (fallbackPhases.length > 0) {
-         summary.push(`\n[📡 Using Report BOM Fallback for: ${fallbackPhases.join(", ")}]`);
+     } else {
+         checkPhase("Underground", vendorBOMUG,  _ugBom,  dailyUG,  totalUG,  "UG BOM Quantity",     "Total UG Footage Completed");
+         checkPhase("Strand",      vendorBOMAE,  _aeBom,  dailyAE,  totalAE,  "Strand BOM Quantity", "Total Strand Footage Complete?");
+         checkPhase("Fiber",       vendorBOMFIB, _fibBom, dailyFIB, totalFIB, "Fiber BOM Quantity",  "Total Fiber Footage Complete");
+         checkPhase("NAP",         vendorBOMNAP, _napBom, dailyNAP, totalNAP, "NAP/Encl. BOM Qty.", "Total NAPs Completed");
      }
   }
   
@@ -2112,14 +2092,14 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     // 1. Terminal states are always skipped for missing report tracking
     if (statUp.includes("COMPLETE") || statUp.includes("ON HOLD") || stageUp.includes("OFS")) return;
 
-    // 2. Production Stage Gate: Only track missing reports for active field work
-    const isProductionStage = stageUp.includes("FIELD CX") || stageUp.includes("CONSTRUCTION") || statUp.includes("IN PROGRESS");
-    if (!isProductionStage) return;
+    // 2. Portfolio visibility gate: carry forward the latest known state for any
+    // active project family, not just field-construction rows from the selected date.
+    const isGhostEligibleStage = GHOST_ACTIVE_STAGES.some(function(token) {
+      return stageUp.includes(token) || statUp.includes(token);
+    }) || statUp.includes("IN PROGRESS");
+    if (!isGhostEligibleStage) return;
 
-    // 3. History Gate: A report is NOT missing if it has NEVER been made
-    if (!hasHistory) return;
-
-    // 4. Start Date Gate: A report is NOT missing if the start date hasn't passed
+    // 3. Start Date Gate: A report is NOT missing if the start date hasn't passed
     let cxDates = resolveCxDates(ghostFdhId, ref, lkvDict, histData, HISTORY_HEADERS);
     let startDate = cxDates.cxStart ? new Date(cxDates.cxStart) : null;
     if (startDate && !isNaN(startDate.getTime())) {
@@ -2131,7 +2111,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     const latest = latestReportMap.get(ghostFdhId);
     let ghostRowObj = {};
     
-    if (latest) {
+    if (hasHistory && latest) {
       // 🧠 UPGRADE: Use latest known report data instead of zeroes
       const lRow = latest.row;
       

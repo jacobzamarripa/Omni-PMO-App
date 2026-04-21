@@ -2,6 +2,81 @@
  * FILE: 02_Utilities.gs
  */
 
+/**
+ * Run from the GAS editor to audit how many history FDHs resolve to reference entries.
+ * Forces a fresh refDict build (bypasses cache) before comparing.
+ */
+function runReferenceDiagnostic() {
+  bumpEngineDictionaryCacheVersion();
+  var refDict = getReferenceDictionary();
+  var refKeys = Object.keys(refDict);
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var histSheet = ss.getSheetByName(HISTORY_SHEET);
+  if (!histSheet || histSheet.getLastRow() < 2) {
+    Logger.log("REFERENCE DIAGNOSTIC: History sheet '" + HISTORY_SHEET + "' not found or empty.");
+    return;
+  }
+
+  var histHeaders = histSheet.getRange(1, 1, 1, histSheet.getLastColumn()).getValues()[0];
+  var fdhColIdx = histHeaders.indexOf("FDH Engineering ID");
+  if (fdhColIdx < 0) {
+    Logger.log("REFERENCE DIAGNOSTIC: 'FDH Engineering ID' column not found in history sheet.");
+    return;
+  }
+
+  var histData = histSheet.getRange(2, 1, histSheet.getLastRow() - 1, histSheet.getLastColumn()).getValues();
+  var formatRe = /^[A-Z]{3}\d{2,3}[a-z]?-F\d{2,4}$/i;
+
+  var counts = { matched: 0, notInRef: 0, formatError: 0, empty: 0 };
+  var notInRefIds = [];
+  var formatErrorIds = [];
+
+  histData.forEach(function(row) {
+    var raw = row[fdhColIdx];
+    if (!raw) { counts.empty++; return; }
+    var id = _normalizeFdhId(raw);
+    if (!id || id === "NAN" || id === "0") { counts.empty++; return; }
+    if (!formatRe.test(id)) {
+      counts.formatError++;
+      if (formatErrorIds.indexOf(id) === -1) formatErrorIds.push(id);
+      return;
+    }
+    if (refDict[id]) {
+      counts.matched++;
+    } else {
+      counts.notInRef++;
+      if (notInRefIds.indexOf(id) === -1) notInRefIds.push(id);
+    }
+  });
+
+  var total = counts.matched + counts.notInRef + counts.formatError + counts.empty;
+  var pct = function(n) { return total > 0 ? Math.round(n / total * 100) + "%" : "0%"; };
+
+  var lines = [
+    "=== REFERENCE DIAGNOSTIC ===",
+    "RefDict size: " + refKeys.length + " keys",
+    "RefDict sample: " + refKeys.slice(0, 8).join(", "),
+    "History rows scanned: " + total,
+    "MATCHED:          " + counts.matched     + " (" + pct(counts.matched)     + ")",
+    "NOT_IN_REFERENCE: " + counts.notInRef    + " (" + pct(counts.notInRef)    + ")",
+    "FORMAT_ERROR:     " + counts.formatError + " (" + pct(counts.formatError) + ")",
+    "EMPTY:            " + counts.empty       + " (" + pct(counts.empty)       + ")",
+    "",
+    "NOT_IN_REFERENCE unique IDs (" + notInRefIds.length + "): " + notInRefIds.join(", "),
+    "FORMAT_ERROR unique IDs (" + formatErrorIds.length + "): " + formatErrorIds.join(", "),
+    "==========================="
+  ];
+
+  // Write to GAS execution log (visible in editor after running)
+  lines.forEach(function(l) { Logger.log(l); });
+
+  // Also append a summary row to the system log sheet for persistence
+  logMsg("REFERENCE DIAGNOSTIC: matched=" + counts.matched + "/" + total +
+    " | notInRef=" + counts.notInRef + " | formatErr=" + counts.formatError +
+    " | unmatched IDs: " + notInRefIds.slice(0, 20).join(", "));
+}
+
 function getVendorHybridStats() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let stats = {};
