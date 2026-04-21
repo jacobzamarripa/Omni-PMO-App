@@ -218,7 +218,7 @@
       { id: 'tool-detail', title: 'Detail View', subtitle: 'Open project detail workspace', action: function() { switchWorkspaceView('detail'); } },
       { id: 'tool-grid', title: 'Grid View', subtitle: 'Open grid workspace', action: function() { switchWorkspaceView('grid'); } },
       { id: 'tool-gantt', title: 'Gantt View', subtitle: 'Open schedule timeline', action: function() { openGanttView(); } },
-      { id: 'tool-review-hub', title: 'Review Hub', subtitle: 'Open admin / reviewed workspace', action: function() { if (typeof switchPanelTab === 'function') switchPanelTab('admin'); else if (typeof setAdminPanelOpen === 'function') setAdminPanelOpen(true); } },
+      { id: 'tool-review-hub', title: 'Action Center', subtitle: 'Open tasks / outbox workspace', action: function() { if (typeof switchPanelTab === 'function') switchPanelTab('admin'); else if (typeof setAdminPanelOpen === 'function') setAdminPanelOpen(true); } },
       { id: 'tool-signal', title: 'SIGNAL', subtitle: 'Open SIGNAL console', action: function() { if (typeof openSignal === 'function') openSignal(true); } },
       { id: 'tool-help', title: 'Help', subtitle: 'Open in-app help guide', action: function() { if (typeof toggleHelpPanel === 'function') toggleHelpPanel(); } },
       { id: 'tool-calendar', title: 'Calendar Widget', subtitle: 'Open project calendar widget', action: function() { toggleWidget('cal-widget', window.event); } },

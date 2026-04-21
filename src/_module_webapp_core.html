@@ -1053,13 +1053,20 @@
               .getDashboardDataV2();
       }
 
-      function _adminSection(title, items, renderCard) {
+      function _adminSection(title, items, renderCard, type) {
           if (items.length === 0) return '';
           let cards = items.map(renderCard).join('');
+          const typeClass = type ? ` review-hub-section-header--${type}` : '';
+          const icons = {
+              crossings: '<svg class="rh-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v8H2z"></path><line x1="6" y1="8" x2="6" y2="16"></line><line x1="10" y1="8" x2="10" y2="16"></line></svg>',
+              bom: '<svg class="rh-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>',
+              status: '<svg class="rh-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>',
+          };
+          const icon = icons[type] || '';
           return `<div class="review-hub-section">
-              <div class="review-hub-section-header">
+              <div class="review-hub-section-header${typeClass}">
                   <div class="review-hub-section-title">
-                      <div class="review-hub-section-label">Admin Tasks</div>
+                      ${icon}
                       <div class="review-hub-section-name">${title}</div>
                   </div>
                   <div class="review-hub-section-count">${items.length}</div>

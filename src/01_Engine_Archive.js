@@ -1507,13 +1507,13 @@ function classifyInferredReviewState(stage, status) {
   if (st.includes("permit") || st.includes("pre-con") || st.includes("vendor assignment") || stat.includes("permit")) {
     let normalizedStage = stageText || "Pre-Construction";
     if (st.includes("vendor assignment")) normalizedStage = "Vendor Assignment";
-    return { stage: normalizedStage, status: statusText || "Permitting", flag: "INFERRED STATE", bucket: "precon" };
+    return { stage: normalizedStage, status: statusText || "Permitting", flag: "INFERRED: PRE-CON", bucket: "precon" };
   }
   if ((st.includes("field cx") || st.includes("construction")) && stat.includes("splicing only")) {
-    return { stage: stageText || "Field CX", status: statusText || "Splicing Only", flag: "INFERRED STATE", bucket: "field" };
+    return { stage: stageText || "Field CX", status: statusText || "Splicing Only", flag: "INFERRED: SPLICING ONLY", bucket: "field" };
   }
   if (st.includes("field cx") || st.includes("construction") || stat.includes("construction") || stat.includes("in progress")) {
-    return { stage: stageText || "Field CX", status: statusText || "Construction", flag: "INFERRED STATE", bucket: "field" };
+    return { stage: stageText || "Field CX", status: statusText || "Construction", flag: "INFERRED: FIELD CX", bucket: "field" };
   }
   if (st.includes("hold") || stat.includes("hold")) {
     return { stage: stageText || "On Hold", status: statusText || "Hold", flag: "INFERRED STATE", bucket: "hold" };

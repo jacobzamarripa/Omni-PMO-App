@@ -226,8 +226,18 @@
         }
         /* Title row stays on one line; actions pin right */
         .outbox-pane .review-hub-section-title {
-          flex-wrap: nowrap;
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+          flex-wrap: nowrap !important;
+          gap: 6px !important;
+          overflow: visible !important;
+          min-width: 0;
+        }
+        .outbox-pane .review-hub-section-title .review-hub-section-name {
           overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
           min-width: 0;
         }
         .outbox-pane .review-hub-section-actions {
@@ -237,6 +247,32 @@
           flex-shrink: 0;
           margin-left: auto;
         }
+        /* Section header icon — left of title text */
+        .rh-section-icon {
+          display: block;
+          width: 13px;
+          height: 13px;
+          flex-shrink: 0;
+        }
+        /* Section type color variants — colored left border + subtle tinted background + icon tint */
+        .review-hub-section-header--crossings {
+          border-left-color: #f59e0b !important;
+          background: color-mix(in srgb, #f59e0b 7%, var(--card-bg)) !important;
+        }
+        .review-hub-section-header--crossings .review-hub-section-name { color: var(--text-main); }
+        .review-hub-section-header--crossings .rh-section-icon { color: #f59e0b; }
+        .review-hub-section-header--bom {
+          border-left-color: #3b82f6 !important;
+          background: color-mix(in srgb, #3b82f6 7%, var(--card-bg)) !important;
+        }
+        .review-hub-section-header--bom .review-hub-section-name { color: var(--text-main); }
+        .review-hub-section-header--bom .rh-section-icon { color: #3b82f6; }
+        .review-hub-section-header--status {
+          border-left-color: #ef4444 !important;
+          background: color-mix(in srgb, #ef4444 7%, var(--card-bg)) !important;
+        }
+        .review-hub-section-header--status .review-hub-section-name { color: var(--text-main); }
+        .review-hub-section-header--status .rh-section-icon { color: #ef4444; }
         .outbox-pane .review-hub-section-count {
           display: inline-flex !important;
           align-items: center;

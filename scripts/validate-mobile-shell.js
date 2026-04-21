@@ -51,7 +51,7 @@ const checks = [
   {
     label: 'Desktop Review Hub header uses the unified count and KPI strip',
     file: 'src/WebApp.html',
-    patterns: [/id="review-hub-main-header"/, /id="ob-header-count"/, /id="admin-kpi-header-wrap"/, /id="ob-panel-admin"/, /id="ob-panel-reviewed"/, /id="ob-panel-changelog"/],
+    patterns: [/id="review-hub-main-header"/, /id="admin-kpi-header-wrap"/, /id="ob-panel-admin"/, /id="ob-panel-reviewed"/, /id="ob-panel-changelog"/],
   },
   {
     label: 'Phone filter presentation stays sheet-based behind the shared smart dock',

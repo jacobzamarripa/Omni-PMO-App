@@ -523,7 +523,7 @@
       <button onclick="triggerProcessIncoming(); toggleMobileMenu()" style="display:inline-flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><rect x="4" y="17" width="16" height="4" rx="1.5"/></svg> Process Incoming</button>
       <button onclick="triggerRunReview(); toggleMobileMenu()" style="display:inline-flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run Review</button>
       <button onclick="triggerUIRefresh(); toggleMobileMenu()" style="display:inline-flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15.5-6.36L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15.5 6.36L3 16"/></svg> Refresh UI</button>
-      <button onclick="toggleAdminPanel(); toggleMobileMenu()" style="display:inline-flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="13" x2="8" y2="13"/><line x1="12" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="8" y2="17"/><line x1="12" y1="17" x2="16" y2="17"/></svg> Review Hub</button>
+      <button onclick="toggleAdminPanel(); toggleMobileMenu()" style="display:inline-flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="13" x2="8" y2="13"/><line x1="12" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="8" y2="17"/><line x1="12" y1="17" x2="16" y2="17"/></svg> Action Center</button>
       <button onclick="toggleDarkMode(); toggleMobileMenu()" id="mob-theme-btn">Theme</button>
       <button onclick="toggleHelpPanel(); toggleMobileMenu()">? Help</button>
     </div>
@@ -599,7 +599,7 @@
       <div class="inbox-sidebar">
         <div class="inbox-header">
           <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-              <div class="inbox-title inbox-title-stack"><span>Diagnostics</span><span>Queue</span></div>
+              <div class="inbox-title inbox-title-stack"><span>Active</span><span>Portfolio</span></div>
               <div class="inbox-count" id="inbox-count">0</div>
           </div>
           <div style="display:flex; align-items:center; gap:4px; margin-left:auto; flex-shrink:0;">
@@ -773,20 +773,19 @@
                    <!-- Row 1: Unified Header — title + count + close -->
                    <div id="review-hub-main-header" class="inbox-header is-admin-tab">
                       <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                         <div class="inbox-title inbox-title-stack" id="review-hub-title"><span>Review</span><span>Hub</span></div>
-                         <div class="inbox-count" id="ob-header-count">0</div>
+                         <div class="inbox-title inbox-title-stack" id="review-hub-title"><span>Action</span><span>Center</span></div>
                       </div>
                       <div class="glassflow-queue-actions" style="margin-left:auto;">
-                         <button id="admin-panel-close" class="review-hub-close-btn" onclick="toggleAdminPanel()" title="Close Review Hub">
+                         <button id="admin-panel-close" class="review-hub-close-btn" onclick="toggleAdminPanel()" title="Close Action Center">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                          </button>
                       </div>
                    </div>
                    <!-- Row 2: Tab strip -->
                    <div class="ob-desktop-tab-strip">
-                      <button class="ob-desktop-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">Admin <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span></button>
-                      <button class="ob-desktop-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">Reviewed <span id="ob-count" class="ob-tab-badge ob-tab-badge-green" style="display:none;">0</span></button>
-                      <button class="ob-desktop-tab" id="panel-tab-changelog" onclick="switchPanelTab('changelog')">Activity <span id="changelog-badge" class="ob-tab-badge ob-tab-badge-purple" style="display:none;">0</span></button>
+                      <button class="ob-desktop-tab active" id="panel-tab-admin" onclick="switchPanelTab('admin')">Tasks <span id="admin-badge" class="ob-tab-badge ob-tab-badge-crit" style="display:none;">0</span></button>
+                      <button class="ob-desktop-tab" id="panel-tab-reviewed" onclick="switchPanelTab('reviewed')">Outbox <span id="ob-count" class="ob-tab-badge ob-tab-badge-green" style="display:none;">0</span></button>
+                      <button class="ob-desktop-tab" id="panel-tab-changelog" onclick="switchPanelTab('changelog')">Change Log <span id="changelog-badge" class="ob-tab-badge ob-tab-badge-purple" style="display:none;">0</span></button>
                    </div>
 
                    <!-- Row 3: KPI Mini Chips (Visible on Admin tab) -->
@@ -853,7 +852,6 @@
           </div>
         </div>
       </div>
-    </div>
 
     <!-- HELP OVERLAY + PANEL -->
     <div class="help-overlay" id="help-overlay" onclick="toggleHelpPanel()"></div>

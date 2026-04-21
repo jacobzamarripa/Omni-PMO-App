@@ -208,7 +208,6 @@ function renderSpecialCrossingsAdminSection(items) {
         // Use logic similar to Project Schedule to decide label
         const needsConfirmation = !item.isXing || !item.rawSpecialX || item.rawSpecialX === "—";
         const btnLabel = needsConfirmation ? 'CONFIRM X-INGS' : 'REVIEW X-INGS';
-        
         return `<div class="admin-list-card">
             <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
                 <div style="cursor:pointer;" onclick="selectItemForNav('${item.fdh}')">
@@ -218,7 +217,7 @@ function renderSpecialCrossingsAdminSection(items) {
                 <button class="btn" onclick="event.stopPropagation(); navToXings('${item.fdh}')" style="display:inline-flex; align-items:center; justify-content:center; background:#171717; color:#facc15; padding:5px 12px; border-radius:999px; font-size:9px; font-weight:900; letter-spacing:0.05em; border:1px solid #facc15; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.18); text-transform:uppercase; white-space:nowrap; flex-shrink:0;">${btnLabel}</button>
             </div>
         </div>`;
-    });
+    }, 'crossings');
     
     // Inject AI Findings into the same section container
     html += `<div id="cd-findings-integrated-list"></div>`;
@@ -267,7 +266,7 @@ function renderAdminPane(items) {
                 ${flagsHtml}
                 <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">BOM quantity is missing despite reported activity. Verify BOM in QuickBase.</div>
             </div>`;
-        });
+        }, 'bom');
         html += _adminSection('BOM Variance — High', bomCheck, function(item) {
             const specificFlags = (item.flags || "").split('\n').filter(f => f.toUpperCase().includes('VARIANCE') || f.toUpperCase().includes('CHECK BOM'));
             const flagsHtml = specificFlags.length ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${buildFlagBadges(specificFlags)}</div>` : '';
@@ -277,7 +276,7 @@ function renderAdminPane(items) {
                 ${flagsHtml}
                 <div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-style:italic;">Production significantly exceeding BOM. Verify BOM accuracy in QuickBase.</div>
             </div>`;
-        });
+        }, 'bom');
     }
 
     if ((!activeAdminFilter || activeAdminFilter === 'status') && status.length > 0) {
@@ -292,7 +291,7 @@ function renderAdminPane(items) {
                     <button class="btn" onclick="event.stopPropagation(); markQbUpdatedFromAdmin('${item.fdh}', this)" style="padding:5px 10px; font-size:10px; font-weight:900; background:var(--color-review, #f59e0b); color:#fff; border-color:color-mix(in srgb, var(--color-review, #f59e0b) 80%, #000); white-space:nowrap; flex-shrink:0; display:inline-flex; align-items:center; gap:4px;">Updated</button>
                 </div>
             </div>`;
-        });
+        }, 'status');
     }
 
     if (html === '') html = '<div class="empty-msg" style="padding:40px 20px;">No items in this category.</div>';
