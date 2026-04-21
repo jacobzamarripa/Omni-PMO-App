@@ -194,10 +194,10 @@ function getReferenceDictionary() {
     let cxStartIdx = getIdx("CX Start");
     let cxEndIdx   = getIdxByAliases(["CX Complete", "CX End"]);
 
-    let bomUGIdx  = getIdxByAliases(["UG BOM Qty.", "UG BOM Quantity", "UG Footage", "UG BOM"]);
-    let bomAEIdx  = getIdxByAliases(["AE BOM Qty.", "Strand BOM Quantity", "AE BOM Quantity", "AE Footage", "AE BOM", "Strand BOM"]);
-    let bomFIBIdx = getIdxByAliases(["Fiber BOM Qty.", "Fiber BOM Quantity", "Fiber Footage", "Fiber BOM"]);
-    let bomNAPIdx = getIdxByAliases(["NAPs BOM Qty.", "NAP/Encl. BOM Qty.", "NAP BOM Quantity", "Total Naps", "NAP BOM", "NAP Qty."]);
+    let bomUGIdx  = getIdxByAliases(["UG BOM Qty.", "UG BOM Quantity", "UG Footage", "UG BOM", "Est. UG Footage"]);
+    let bomAEIdx  = getIdxByAliases(["AE BOM Qty.", "Strand BOM Quantity", "AE BOM Quantity", "AE Footage", "AE BOM", "Strand BOM", "Est. AE Footage"]);
+    let bomFIBIdx = getIdxByAliases(["Fiber BOM Qty.", "Fiber BOM Quantity", "Fiber Footage", "Fiber BOM", "Est. Fiber Footage"]);
+    let bomNAPIdx = getIdxByAliases(["NAPs BOM Qty.", "NAP/Encl. BOM Qty.", "NAP BOM Quantity", "Total Naps", "NAP BOM", "NAP Qty.", "Est. Total Naps"]);
     
     // 🔍 AUDIT: Ensure we found the critical columns
     if (fdhIdx === -1 || cityIdx === -1) {

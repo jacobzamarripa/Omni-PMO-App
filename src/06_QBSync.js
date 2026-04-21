@@ -136,9 +136,13 @@ const QB_REFERENCE_FIELD_WHITELIST = [
 const QB_LABEL_REMAP = {
   "Construction Vendor": "CX Vendor",  // FID 757 — engine looks for "CX Vendor"
   "UG Footage": "UG BOM Qty.",         // FID 27
+  "Est. UG Footage": "UG BOM Qty.",
   "AE Footage": "AE BOM Qty.",         // FID 26
+  "Est. AE Footage": "AE BOM Qty.",
   "Fiber Footage": "Fiber BOM Qty.",   // FID 59
-  "Total Naps": "NAPs BOM Qty."        // FID 564
+  "Est. Fiber Footage": "Fiber BOM Qty.",
+  "Total Naps": "NAPs BOM Qty.",       // FID 564
+  "Est. Total Naps": "NAPs BOM Qty."
 };
 
 // --- 2. FIELD DISCOVERY (run once to build the Data Dictionary) ---
@@ -221,11 +225,23 @@ function syncFromQBWebApp() {
     const numRows = outputData.length, numCols = headers.length;
 
     const refWriteStartMs = Date.now();
-    sheet.clear();
+    sheet.clear().clearFormats(); // 🧠 CRITICAL: Force reset formatting to stop numbers showing as dates
     ensureCapacity(sheet, numRows, numCols);
     sheet.getRange(1, 1, numRows, numCols).setValues(outputData);
     sheet.getRange(1, 1, 1, numCols).setBackground("#003366").setFontColor("#ffffff").setFontWeight("bold");
     sheet.setFrozenRows(1);
+    
+    // 🧠 Audit raw data for first record (Verification of Number vs Date)
+    if (allRows.length > 0) {
+      var first = allRows[0];
+      var audit = [];
+      [27, 26, 59, 564].forEach(function(fid) {
+         var fIdx = fids.indexOf(fid);
+         if (fIdx > -1) audit.push("FID " + fid + "=" + first[fIdx]);
+      });
+      logMsg("QB RAW DATA AUDIT: " + audit.join(" | "));
+    }
+
     trimAndFilterSheet(sheet, numRows, numCols);
     timings.referenceWriteMs = Date.now() - refWriteStartMs;
 
