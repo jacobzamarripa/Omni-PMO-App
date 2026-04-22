@@ -58,10 +58,10 @@ const GROUP_BY_OPTIONS = ['none', 'vendor', 'city', 'health', 'stage', 'status']
 // WORKSTREAM 3 RISK: High
 let currentGroupBy = (function() {
     try {
-        let stored = sessionStorage.getItem(GROUP_BY_SESSION_KEY) || 'none';
-        return GROUP_BY_OPTIONS.includes(stored) ? stored : 'none';
+        let stored = sessionStorage.getItem(GROUP_BY_SESSION_KEY) || 'vendor';
+        return GROUP_BY_OPTIONS.includes(stored) ? stored : 'vendor';
     } catch (e) {
-        return 'none';
+        return 'vendor';
     }
 })();
 // STATE: _VIEW_MODES
@@ -112,4 +112,8 @@ let activeAdminFilter = null;
 // WRITES: dropdown toggles and reset flows
 // EXTRACT WITH: renderMultiSelect, toggleDropdown
 let openDropdownId = null;
+
+// STATE: lastRenderedQueueHash
+// ROLE: Prevents entrance animations from re-triggering on simple group toggles
+let lastRenderedQueueHash = '';
 </script>

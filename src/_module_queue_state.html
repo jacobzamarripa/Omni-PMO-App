@@ -18,17 +18,55 @@ function setGroupBy(value) {
     applyFilters();
 }
 
-function toggleQueueGroupSection(groupKey) {
+function toggleQueueGroupSection(groupKey, isAuto) {
     if (currentGroupBy === 'none') return;
     let modeState = queueGroupCollapseState[currentGroupBy] || {};
-    modeState[groupKey] = !modeState[groupKey];
+    let isCurrentlyCollapsed = modeState[groupKey] === undefined ? true : modeState[groupKey];
+    let nextCollapsed = !isCurrentlyCollapsed;
+
+    // Update state
+    modeState[groupKey] = nextCollapsed;
     queueGroupCollapseState[currentGroupBy] = modeState;
-    persistQueueGroupingSession();
-    renderList(filteredItems || []);
+    if (!isAuto) persistQueueGroupingSession();
+
+    // Direct DOM update to enable smooth transitions and avoid "blinking"
+    // Handle special characters in groupKey for selector
+    let escapedKey = groupKey.replace(/:/g, '\\:').replace(/\|/g, '\\|');
+    let groupEl = document.querySelector(`.queue-group[data-key="${escapedKey}"]`);
+    
+    if (groupEl) {
+        let body = groupEl.querySelector(':scope > .queue-group-body');
+        if (body) {
+            body.classList.toggle('collapsed', nextCollapsed);
+        }
+        groupEl.classList.toggle('collapsed-state', nextCollapsed);
+    } else {
+        // Fallback: if element not found in DOM, re-render
+        if (!isAuto) renderList(filteredItems || []);
+    }
+
+    // ── Auto-Expand Single City ──
+    // If we just expanded a Vendor, check if it only has ONE city.
+    if (!nextCollapsed && currentGroupBy === 'vendor' && !groupKey.includes('|')) {
+        let sections = getGroupedQueueSections(filteredItems || []);
+        let section = sections.find(s => s.key === groupKey);
+        if (section && section.subSections && section.subSections.length === 1) {
+            let subKey = section.subSections[0].key;
+            if (isQueueGroupCollapsed(subKey)) {
+                // Recursive call with isAuto=true
+                toggleQueueGroupSection(subKey, true);
+            }
+        }
+    }
 }
 
 function isQueueGroupCollapsed(groupKey) {
-    return !!(queueGroupCollapseState[currentGroupBy] && queueGroupCollapseState[currentGroupBy][groupKey]);
+    let modeState = queueGroupCollapseState[currentGroupBy] || {};
+    // If the specific group state is not defined, default to true (collapsed)
+    if (modeState[groupKey] === undefined) {
+        return true;
+    }
+    return !!modeState[groupKey];
 }
 
 function getGroupMetaForItem(item, groupBy) {
@@ -77,11 +115,41 @@ function getGroupedQueueSections(items) {
         if (currentGroupBy === 'health') return Number(a.sortKey) - Number(b.sortKey);
         return String(a.sortKey || '').localeCompare(String(b.sortKey || ''));
     });
+
+    // ── Nested Grouping for Vendor ──
+    if (currentGroupBy === 'vendor') {
+        sections.forEach(function(vendorSection) {
+            let cityGroups = new Map();
+            vendorSection.items.forEach(function(item) {
+                let cityLabel = String(item.city || 'Unknown City').trim() || 'Unknown City';
+                let cityKey = vendorSection.key + '|city:' + cityLabel.toLowerCase();
+                if (!cityGroups.has(cityKey)) {
+                    cityGroups.set(cityKey, { 
+                        key: cityKey, 
+                        label: cityLabel, 
+                        sortKey: cityLabel.toLowerCase(), 
+                        items: [],
+                        isSubGroup: true 
+                    });
+                }
+                cityGroups.get(cityKey).items.push(item);
+            });
+            let citySections = Array.from(cityGroups.values());
+            citySections.sort(function(a, b) {
+                return String(a.sortKey || '').localeCompare(String(b.sortKey || ''));
+            });
+            vendorSection.subSections = citySections;
+        });
+    }
+
     return sections;
 }
 
 function flattenGroupedSections(sections) {
     return (sections || []).reduce(function(acc, section) {
+        if (section.subSections && section.subSections.length > 0) {
+            return acc.concat(flattenGroupedSections(section.subSections));
+        }
         return acc.concat(section.items || []);
     }, []);
 }
@@ -239,9 +307,18 @@ function renderList(items) {
     let list = getEl('inbox-list');
     if (!list) return;
     setTxt('inbox-count', items.length);
-    
+
     let groupedSections = currentGroupBy !== 'none' ? getGroupedQueueSections(items) : [];
     let html = '';
+    let animationIndex = 0;
+
+    // ── Animation Gating ──
+    // Only trigger the staggered entrance if the data or grouping mode has changed.
+    // This prevents jarring "blinks" when just toggling a group or selecting an item.
+    let currentHash = currentGroupBy + '|' + (items || []).length + '|' + ((items && items[0]) ? items[0].fdh : '');
+    let listIsEmpty = !list.innerHTML || list.innerHTML.trim() === '';
+    let shouldAnimateEntrance = (currentHash !== lastRenderedQueueHash) || listIsEmpty;
+    lastRenderedQueueHash = currentHash;
 
     function getGridCardHtml(item) {
         let pivot = getEl('sidebar-pivot-select')?.value || 'schedule';
@@ -265,7 +342,7 @@ function renderList(items) {
         let isComplete = (item.status || "").toLowerCase().includes('complete');
         let isPermit = (item.stage || "").toLowerCase().includes('permit');
         let isOnHold = (item.status || "").toLowerCase().includes('hold');
-        
+
         let finalEnd = ofsDate || pEnd;
         let isOverdue = finalEnd && today > finalEnd && !isOFS && !isOnHold && !isPermit;
 
@@ -341,25 +418,49 @@ function renderList(items) {
             </div>`;
     }
 
+    function renderSection(section) {
+        let collapsed = isQueueGroupCollapsed(section.key);
+        let delay = animationIndex * 35; // Smoother stagger
+        animationIndex++;
+
+        let animClass = shouldAnimateEntrance ? 'animate-enter' : '';
+        let animStyle = shouldAnimateEntrance ? `style="animation-delay: ${delay}ms;"` : '';
+
+        let sectionHtml = `
+            <div class="queue-group ${animClass} ${section.isSubGroup ? 'is-sub-group' : ''} ${collapsed ? 'collapsed-state' : ''}" 
+                 data-key="${section.key}" ${animStyle}>
+                <div class="queue-group-header" onclick="toggleQueueGroupSection('${section.key}')">
+                    <div class="queue-group-title">
+                        <span class="queue-group-toggle"></span>
+                        <span>${esc(section.label)}</span>
+                    </div>
+                    <span class="queue-group-count">${section.items.length}</span>
+                </div>
+                <div class="queue-group-body ${collapsed ? 'collapsed' : ''}">
+                    <div class="queue-group-body-inner">
+        `;
+
+        if (section.subSections && section.subSections.length > 0) {
+            sectionHtml += section.subSections.map(renderSection).join('');
+        } else {
+            sectionHtml += section.items.map(item => currentViewMode === 'grid' ? getGridCardHtml(item) : getListCardHtml(item)).join('');
+        }
+
+        sectionHtml += `</div></div></div>`;
+        return sectionHtml;
+    }
+
     if (groupedSections.length > 0) {
-        groupedSections.forEach(section => {
-            let collapsed = isQueueGroupCollapsed(section.key);
-            html += `
-                <div class="queue-group">
-                    <div class="queue-group-header" onclick="toggleQueueGroupSection('${section.key}')">
-                        <div class="queue-group-title">
-                            <span class="queue-group-toggle">${collapsed ? '&#9656;' : '&#9662;'}</span>
-                            <span>${esc(section.label)}</span>
-                        </div>
-                        <span class="queue-group-count">${section.items.length}</span>
-                    </div>
-                    <div class="queue-group-body ${collapsed ? 'collapsed' : ''}">
-                        ${section.items.map(item => currentViewMode === 'grid' ? getGridCardHtml(item) : getListCardHtml(item)).join('')}
-                    </div>
-                </div>`;
-        });
+        html = groupedSections.map(renderSection).join('');
     } else {
-        html = items.map(item => currentViewMode === 'grid' ? getGridCardHtml(item) : getListCardHtml(item)).join('');
+        html = items.map(item => {
+            let delay = animationIndex * 25;
+            animationIndex++;
+            let animClass = shouldAnimateEntrance ? 'animate-enter' : '';
+            let animStyle = shouldAnimateEntrance ? `style="animation-delay: ${delay}ms;"` : '';
+            let cardHtml = currentViewMode === 'grid' ? getGridCardHtml(item) : getListCardHtml(item);
+            return `<div class="${animClass}" ${animStyle}>${cardHtml}</div>`;
+        }).join('');
     }
 
     list.innerHTML = html;
@@ -368,7 +469,6 @@ function renderList(items) {
         handleCardClick(items[0].fdh);
     }
 }
-
 // ── OPTIMIZED CLICK HANDLER ──
 function handleCardClick(fdh) {
     let item = (allActionItems || []).find(i => String(i.fdh) === String(fdh));

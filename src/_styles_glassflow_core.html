@@ -1335,9 +1335,46 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
     top: 0;
 }
 .v2-shell-glassflow .queue-group-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+    opacity: 1;
+}
+.v2-shell-glassflow .queue-group-body.collapsed {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    pointer-events: none;
+}
+/* 🔄 Smooth Toggle Rotation */
+.v2-shell-glassflow .queue-group-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    color: var(--text-muted);
+    font-size: 11px;
+    flex-shrink: 0;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.v2-shell-glassflow .queue-group:not(.collapsed-state) > .queue-group-header .queue-group-toggle {
+    transform: rotate(90deg);
+}
+.v2-shell-glassflow .queue-group-toggle::before {
+    content: "▶";
+    font-size: 8px;
+    display: inline-block;
+}
+.v2-shell-glassflow .queue-group.is-sub-group {
+    margin-left: 10px;
+    border-left: 1px solid var(--border);
+}
+.v2-shell-glassflow .queue-group.is-sub-group .queue-group-header {
+    padding: 8px 14px;
+    background: color-mix(in srgb, var(--card-bg) 80%, var(--bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.v2-shell-glassflow .queue-group.is-sub-group .queue-group-title {
+    font-size: 10px;
 }
 .v2-shell-glassflow .queue-group:last-child .email-card:last-child,
 .v2-shell-glassflow #inbox-list > .email-card:last-child {
