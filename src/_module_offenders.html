@@ -1,15 +1,91 @@
 <style>
-/* === TOP OFFENDERS — minimal additions; reuses signal-tf-pill, signal-qb-card, glass-pill === */
+/* === TOP OFFENDERS — SIGNAL-native hierarchy polish === */
+.off-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.off-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 92%, white 8%), var(--card-bg));
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+}
+.off-summary-label {
+  font-size: 9px;
+  font-weight: 900;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.off-summary-value {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 900;
+  color: var(--text-main);
+  letter-spacing: -0.4px;
+}
+.off-summary-card.is-accent .off-summary-value { color: var(--accent); }
+.off-summary-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.off-summary-meta {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+.off-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 2.5%, var(--card-bg));
+}
+.off-toolbar-main,
+.off-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.off-toolbar-label {
+  font-size: 9px;
+  font-weight: 900;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.75px;
+}
+.off-toolbar-hint {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.off-selected-count {
+  font-variant-numeric: tabular-nums;
+}
 .off-ctrl-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border);
+  gap: 8px;
   flex-wrap: wrap;
 }
 .off-export-btn {
-  /* signal-tf-pill variant — green tint for export actions */
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid rgba(34,197,94,0.45);
@@ -28,31 +104,62 @@
   border-color: #22c55e;
 }
 .off-export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.off-ctrl-sep { width: 1px; height: 14px; background: var(--border); flex-shrink: 0; }
-.off-ctrl-spacer { flex: 1; min-width: 8px; }
 .off-filter-bar {
   display: flex;
-  gap: 6px;
-  padding: 8px 16px;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--border);
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 6px;
+  margin: 0 0 14px;
+  padding: 2px 2px 8px;
+  min-height: 64px;
+  overflow: visible;
 }
-.off-filter-bar::-webkit-scrollbar { display: none; }
 .off-filter-chip {
-  flex-shrink: 0;
+  flex: 0 1 auto;
   cursor: pointer;
   transition: box-shadow 0.12s, opacity 0.12s, transform 0.1s;
   user-select: none;
 }
 .off-filter-chip:hover { transform: translateY(-1px); }
 .off-filter-chip.active { box-shadow: 0 0 0 2px currentColor; }
+.off-utility-drawer {
+  display: none;
+  margin: 0 0 14px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 2%, var(--card-bg));
+}
+.off-utility-drawer.open { display: block; }
+.off-utility-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.off-utility-title {
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--text-main);
+  letter-spacing: -0.1px;
+}
+.off-utility-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.off-utility-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .off-pm-panel {
   display: none;
-  padding: 12px 16px 14px;
-  background: color-mix(in srgb, var(--accent) 3%, var(--bg));
-  border-bottom: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }
 .off-pm-panel.open { display: block; }
 .off-pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 10px; }
@@ -83,25 +190,198 @@
   color: var(--text-muted);
   transition: transform 0.2s;
   display: inline-block;
-  margin-left: 5px;
+  margin-left: 2px;
 }
 .off-expand-arrow.open { transform: rotate(90deg); }
-.off-project-list { display: none; border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+.off-feed-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.off-feed-title {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+.off-feed-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.off-vendor-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.off-vendor-card {
+  padding: 0 16px 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 95%, white 5%), var(--card-bg));
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+  overflow: visible;
+}
+.off-vendor-header {
+  position: sticky;
+  top: -1px;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  margin: 0 -16px;
+  padding: 14px 16px 12px;
+  border-radius: 18px 18px 14px 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 97%, white 3%), color-mix(in srgb, var(--card-bg) 94%, var(--accent) 6%));
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+.off-vendor-title-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.off-vendor-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+.off-vendor-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.off-vendor-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.off-vendor-name {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--text-main);
+  letter-spacing: -0.3px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.off-vendor-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+.off-vendor-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  text-align: right;
+  flex-shrink: 0;
+}
+.off-vendor-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+}
+.off-vendor-stat-value {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--text-main);
+  line-height: 1;
+}
+.off-vendor-stat-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.65px;
+  color: var(--text-muted);
+}
+.off-vendor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 12px;
+}
+.off-vendor-flags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+.off-vendor-flags .glass-pill {
+  max-width: 100%;
+  font-size: clamp(7px, 0.68vw, 10px);
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.off-project-list {
+  display: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
 .off-project-list.open { display: block; }
 .off-project-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px 16px 7px 20px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
   transition: background 0.1s;
 }
 .off-project-row:last-child { border-bottom: none; }
-.off-project-row:hover { background: color-mix(in srgb, var(--accent) 4%, var(--bg)); }
-.off-project-row-top { display: flex; align-items: center; gap: 8px; }
-.off-project-fdh { font-size: 11px; font-weight: 800; color: var(--accent); min-width: 88px; flex-shrink: 0; }
-.off-project-meta { font-size: 11px; color: var(--text-muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.off-project-flags { display: flex; flex-wrap: wrap; gap: 4px; padding-left: 96px; }
+.off-project-row:hover { background: color-mix(in srgb, var(--accent) 3%, transparent); }
+.off-project-row-top {
+  display: grid;
+  grid-template-columns: minmax(84px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.off-project-fdh { font-size: 11px; font-weight: 900; color: var(--accent); min-width: 0; }
+.off-project-meta { font-size: 11px; color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.off-project-flags { display: flex; flex-wrap: wrap; gap: 4px; padding-left: 0; }
+@media (max-width: 768px) {
+  .off-summary-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .off-toolbar { flex-direction: column; align-items: stretch; }
+  .off-toolbar-main, .off-toolbar-actions { justify-content: space-between; }
+  .off-utility-header { flex-direction: column; }
+  .off-pm-grid { grid-template-columns: 1fr; }
+  .off-vendor-header, .off-vendor-footer { flex-direction: column; align-items: stretch; }
+  .off-vendor-stats { justify-content: flex-start; text-align: left; }
+  .off-project-row-top { grid-template-columns: 1fr; align-items: flex-start; }
+  .off-project-meta { white-space: normal; }
+}
 </style>
 
 <script>
@@ -110,6 +390,8 @@
   var _offendersSelectedVendors = {};
   var _offendersExpanded = {};
   var _offendersActiveFlagFilter = null;
+  var _offendersUtilityDrawerOpen = false;
+  var _offendersPmPanelOpen = false;
 
   // ── Active project gate ──────────────────────────────────────────
   // Include only projects that are actively in construction OR have
@@ -170,6 +452,16 @@
     return { vendors: vendors, vendorMap: vendorMap, globalFlagCounts: globalFlagCounts };
   }
 
+  function _offendersCountSelected() {
+    return Object.keys(_offendersSelectedVendors).filter(function(v) { return _offendersSelectedVendors[v]; }).length;
+  }
+
+  function _offendersGetTopFlags(vendorData, limit) {
+    return Object.keys(vendorData.flagCounts)
+      .sort(function(a, b) { return vendorData.flagCounts[b] - vendorData.flagCounts[a]; })
+      .slice(0, limit || 4);
+  }
+
   function _renderSignalOffenders() {
     var el = document.getElementById('signal-panel-offenders');
     if (!el) return;
@@ -187,83 +479,103 @@
     }
 
     var html = '';
+    var selectedCount = _offendersCountSelected();
 
-    // ── KPI movers (hidden when search is active) ─────────────────
+    // ── Summary strip (hidden when search is active) ──────────────
     if (!_signalSearchQuery) {
       var worstVendor  = vendors[0] || null;
       var sortedGlobal = Object.keys(globalFlagCounts).sort(function(a, b) { return globalFlagCounts[b] - globalFlagCounts[a]; });
       var topFlag      = sortedGlobal[0] || null;
-
-      // Count Field Anomaly flags (chip-anomaly class)
-      var anomalyTotal = 0;
-      if (typeof getDiagnosticTagClass === 'function') {
-        Object.keys(globalFlagCounts).forEach(function(f) {
-          if (getDiagnosticTagClass(f) === 'chip-anomaly') anomalyTotal += globalFlagCounts[f];
-        });
-      }
-
-      html += '<div class="signal-movers-row">';
+      html += '<div class="off-summary-strip">';
 
       if (worstVendor) {
         var worstPct = totalFlags > 0 ? Math.round(vendorMap[worstVendor].totalFlags / totalFlags * 100) : 0;
-        html += '<div class="signal-mover-card">'
-          + '<div class="signal-mover-name">' + _esc(worstVendor) + '</div>'
-          + '<div class="signal-mover-count">' + worstPct + '%</div>'
-          + '<div class="signal-mover-label">Worst Offender</div>'
-          + '<div class="signal-mover-primary">' + vendorMap[worstVendor].totalFlags + ' flag' + (vendorMap[worstVendor].totalFlags !== 1 ? 's' : '') + ' · ' + vendorMap[worstVendor].projects.length + ' project' + (vendorMap[worstVendor].projects.length !== 1 ? 's' : '') + '</div>'
+        html += '<div class="off-summary-card is-accent">'
+          + '<div class="off-summary-label">Worst Vendor</div>'
+          + '<div class="off-summary-title">' + _esc(worstVendor) + '</div>'
+          + '<div class="off-summary-value">' + worstPct + '%</div>'
+          + '<div class="off-summary-meta">' + vendorMap[worstVendor].totalFlags + ' flag' + (vendorMap[worstVendor].totalFlags !== 1 ? 's' : '') + ' across ' + vendorMap[worstVendor].projects.length + ' project' + (vendorMap[worstVendor].projects.length !== 1 ? 's' : '') + '</div>'
+          + '</div>';
+      } else {
+        html += '<div class="off-summary-card is-accent">'
+          + '<div class="off-summary-label">Worst Vendor</div>'
+          + '<div class="off-summary-title">No active vendors</div>'
+          + '<div class="off-summary-value">0%</div>'
+          + '<div class="off-summary-meta">No offender distribution in this timeframe.</div>'
           + '</div>';
       }
 
-      html += '<div class="signal-mover-card">'
-        + '<div class="signal-mover-name">' + vendors.length + ' Active Vendor' + (vendors.length !== 1 ? 's' : '') + '</div>'
-        + '<div class="signal-mover-count">' + totalFlags + '</div>'
-        + '<div class="signal-mover-label">Total Flags</div>'
-        + '<div class="signal-mover-primary">' + totalProjects + ' flagged project' + (totalProjects !== 1 ? 's' : '') + '</div>'
+      html += '<div class="off-summary-card">'
+        + '<div class="off-summary-label">Active Vendors</div>'
+        + '<div class="off-summary-value">' + vendors.length + '</div>'
+        + '<div class="off-summary-meta">' + totalProjects + ' flagged project' + (totalProjects !== 1 ? 's' : '') + ' currently in play.</div>'
         + '</div>';
 
       if (topFlag) {
         var topFlagVendorCount = Object.keys(vendorMap).filter(function(v) { return vendorMap[v].flagCounts[topFlag]; }).length;
-        html += '<div class="signal-mover-card">'
-          + '<div class="signal-mover-name">' + _esc(topFlag) + '</div>'
-          + '<div class="signal-mover-count">' + globalFlagCounts[topFlag] + '</div>'
-          + '<div class="signal-mover-label">Top Flag Type</div>'
-          + '<div class="signal-mover-primary">across ' + topFlagVendorCount + ' vendor' + (topFlagVendorCount !== 1 ? 's' : '') + '</div>'
+        var topFlagDisplay = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(topFlag) : topFlag;
+        html += '<div class="off-summary-card">'
+          + '<div class="off-summary-label">Top Flag Type</div>'
+          + '<div class="off-summary-title">' + _esc(topFlagDisplay) + '</div>'
+          + '<div class="off-summary-value">' + globalFlagCounts[topFlag] + '</div>'
+          + '<div class="off-summary-meta">Seen across ' + topFlagVendorCount + ' vendor' + (topFlagVendorCount !== 1 ? 's' : '') + '.</div>'
+          + '</div>';
+      } else {
+        html += '<div class="off-summary-card">'
+          + '<div class="off-summary-label">Top Flag Type</div>'
+          + '<div class="off-summary-title">No recurring flag</div>'
+          + '<div class="off-summary-value">0</div>'
+          + '<div class="off-summary-meta">No active flag clusters in this timeframe.</div>'
           + '</div>';
       }
 
-      html += '<div class="signal-mover-card">'
-        + '<div class="signal-mover-name">Field Anomalies</div>'
-        + '<div class="signal-mover-count chip-anomaly" style="display:inline-block;border-radius:6px;padding:2px 10px">' + anomalyTotal + '</div>'
-        + '<div class="signal-mover-label">Ghost · Variance · Overrun</div>'
-        + '<div class="signal-mover-primary">across active portfolio</div>'
+      html += '<div class="off-summary-card">'
+        + '<div class="off-summary-label">Total Flags</div>'
+        + '<div class="off-summary-value">' + totalFlags + '</div>'
+        + '<div class="off-summary-meta">' + selectedCount + ' vendor' + (selectedCount !== 1 ? 's' : '') + ' selected for export.</div>'
         + '</div>';
 
       html += '</div>';
     }
 
-    // ── Controls bar — signal-tf-pill style ───────────────────────
-    html += '<div class="off-ctrl-bar">'
-      + '<span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.6px;flex-shrink:0">Sort:</span>'
+    // ── Toolbar ────────────────────────────────────────────────────
+    html += '<div class="off-toolbar">'
+      + '<div class="off-toolbar-main">'
+      + '<span class="off-toolbar-label">Refine Feed</span>'
+      + '<div class="off-ctrl-bar">'
       + '<button class="signal-tf-pill' + (_offendersSortBy === 'count' ? ' active' : '') + '" onclick="_offendersSetSort(\'count\')">Flag Count</button>'
-      + '<button class="signal-tf-pill' + (_offendersSortBy === 'vendor' ? ' active' : '') + '" onclick="_offendersSetSort(\'vendor\')">Vendor A–Z</button>'
-      + '<div class="off-ctrl-sep"></div>'
-      + '<button class="off-export-btn" id="off-btn-export-all" onclick="_offendersExportAll()">Export All</button>'
-      + '<button class="off-export-btn" id="off-btn-export-sel" onclick="_offendersExportSelected()">Export Selected</button>'
-      + '<div class="off-ctrl-spacer"></div>'
-      + '<button class="signal-tf-pill" onclick="_offendersTogglePmPanel()">PM Emails</button>'
+      + '<button class="signal-tf-pill' + (_offendersSortBy === 'vendor' ? ' active' : '') + '" onclick="_offendersSetSort(\'vendor\')">Vendor A-Z</button>'
+      + '</div>'
+      + '</div>'
+      + '<div class="off-toolbar-actions">'
+      + '<span class="off-toolbar-hint">Selected: <strong class="off-selected-count">' + selectedCount + '</strong></span>'
+      + '<button class="signal-tf-pill' + (_offendersUtilityDrawerOpen ? ' active' : '') + '" onclick="_offendersToggleUtilityDrawer()">' + (_offendersUtilityDrawerOpen ? 'Hide Utilities' : 'Utilities') + '</button>'
+      + '</div>'
       + '</div>';
 
-    // ── PM email panel (state preserved across re-renders) ────────
-    var pmWasOpen = (function() { var p = document.getElementById('off-pm-panel'); return p && p.classList.contains('open'); })();
-    html += '<div class="off-pm-panel' + (pmWasOpen ? ' open' : '') + '" id="off-pm-panel">'
+    // ── Utilities drawer ───────────────────────────────────────────
+    html += '<div class="off-utility-drawer' + (_offendersUtilityDrawerOpen ? ' open' : '') + '" id="off-utility-drawer">'
+      + '<div class="off-utility-header">'
+      + '<div>'
+      + '<div class="off-utility-title">Reporting Utilities</div>'
+      + '<div class="off-utility-sub">Keep export and PM email maintenance available without competing with the vendor triage feed.</div>'
+      + '</div>'
+      + '<div class="off-utility-actions">'
+      + '<button class="off-export-btn" id="off-btn-export-all" onclick="_offendersExportAll()">Export All</button>'
+      + '<button class="off-export-btn" id="off-btn-export-sel" onclick="_offendersExportSelected()">Export Selected</button>'
+      + '<button class="signal-tf-pill' + (_offendersPmPanelOpen ? ' active' : '') + '" onclick="_offendersTogglePmPanel()">' + (_offendersPmPanelOpen ? 'Hide PM Emails' : 'PM Emails') + '</button>'
+      + '</div>'
+      + '</div>'
+      + '<div class="off-pm-panel' + (_offendersPmPanelOpen ? ' open' : '') + '" id="off-pm-panel">'
       + '<div class="signal-section-header" style="padding:0 0 2px">PM Email Addresses</div>'
       + '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Used for the weekly PMO report. One address per vendor.</div>'
-      + '<div class="off-pm-grid" id="off-pm-grid">' + (pmWasOpen ? '<span style="font-size:11px;color:var(--text-muted)">Loading...</span>' : '') + '</div>'
-      + '<div style="display:flex;gap:8px;align-items:center">'
+      + '<div class="off-pm-grid" id="off-pm-grid">' + (_offendersPmPanelOpen ? '<span style="font-size:11px;color:var(--text-muted)">Loading...</span>' : '') + '</div>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       + '<button class="off-export-btn" onclick="_offendersSavePmEmails()">Save</button>'
       + '<span id="off-pm-save-status" style="font-size:11px;color:var(--text-muted)"></span>'
       + '</div>'
       + '</div>';
+    html += '</div>';
 
     // ── Flag filter chips ─────────────────────────────────────────
     var sortedFlags = Object.keys(globalFlagCounts).sort(function(a, b) { return globalFlagCounts[b] - globalFlagCounts[a]; });
@@ -274,10 +586,11 @@
       html += '<span class="off-filter-chip glass-pill chip-muted' + (allActive ? ' active' : '') + '" onclick="_offendersSetFlagFilter(null)">All (' + totalFlags + ')</span>';
       sortedFlags.forEach(function(flag) {
         var isActive = _offendersActiveFlagFilter === flag;
+        var displayFlag = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
         // Use the same getDiagnosticTagClass used throughout the app
         var cls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(flag) : 'chip-warn';
         html += '<span class="off-filter-chip glass-pill ' + cls + (isActive ? ' active' : '') + '" onclick="_offendersSetFlagFilter(' + JSON.stringify(flag) + ')">'
-          + _esc(flag) + ' &times;' + globalFlagCounts[flag]
+          + _esc(displayFlag) + ' &times;' + globalFlagCounts[flag]
           + '</span>';
       });
       html += '</div>';
@@ -285,7 +598,10 @@
 
     // ── Vendor feed ───────────────────────────────────────────────
     var feedLabel = 'Active Vendor Feed' + (_offendersActiveFlagFilter ? ' — ' + _esc(_offendersActiveFlagFilter) : '');
-    html += '<div class="signal-section-header">' + feedLabel + '</div>';
+    html += '<div class="off-feed-header">'
+      + '<div class="off-feed-title">' + feedLabel + '</div>'
+      + '<div class="off-feed-sub">' + vendors.length + ' vendor' + (vendors.length !== 1 ? 's' : '') + ' in view</div>'
+      + '</div>';
 
     if (!vendors.length) {
       var emptyReason = _signalSearchQuery
@@ -295,34 +611,43 @@
           : 'No active vendors with open flags.';
       html += '<div class="signal-empty">' + emptyReason + '</div>';
     } else {
+      html += '<div class="off-vendor-stack">';
       vendors.forEach(function(vendor) {
         var vd = vendorMap[vendor];
         var isExpanded = !!_offendersExpanded[vendor];
         var isChecked  = !!_offendersSelectedVendors[vendor];
         var vKey = vendor.replace(/[^a-z0-9]/gi, '_');
+        var vendorJs = (typeof escJs === 'function') ? escJs(vendor) : String(vendor || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        var topFlags = _offendersGetTopFlags(vd, 4);
+        var rank = _offendersSortBy === 'count' ? (vendors.indexOf(vendor) + 1) : null;
+        var leadingFlag = topFlags[0] || null;
 
-        var topFlags = Object.keys(vd.flagCounts)
-          .sort(function(a, b) { return vd.flagCounts[b] - vd.flagCounts[a]; })
-          .slice(0, 4);
-
-        html += '<div class="signal-qb-card">'
-          // Header
-          + '<div class="signal-qb-header" onclick="_offendersToggleExpand(\'' + _esc(vendor) + '\')" style="cursor:pointer">'
-          + '<div class="signal-qb-fdh" style="display:flex;align-items:center">'
+        html += '<div class="off-vendor-card">'
+          + '<div class="off-vendor-header" onclick="_offendersToggleExpand(\'' + vendorJs + '\')">'
+          + '<div class="off-vendor-title-wrap">'
+          + (rank ? '<div class="off-vendor-rank">#' + rank + '</div>' : '')
+          + '<div class="off-vendor-title-block">'
+          + '<div class="off-vendor-title-line">'
           + '<input type="checkbox" class="off-vendor-checkbox"' + (isChecked ? ' checked' : '')
-          + ' onclick="event.stopPropagation();_offendersToggleVendor(\'' + _esc(vendor) + '\')">'
-          + _esc(vendor)
+          + ' onclick="event.stopPropagation();_offendersToggleVendor(\'' + vendorJs + '\')">'
+          + '<div class="off-vendor-name">' + _esc(vendor) + '</div>'
           + '<span class="off-expand-arrow' + (isExpanded ? ' open' : '') + '" id="off-arrow-' + vKey + '">&#9658;</span>'
           + '</div>'
-          + '<div class="signal-qb-meta">' + vd.totalFlags + ' flag' + (vd.totalFlags !== 1 ? 's' : '') + '<br>' + vd.projects.length + ' project' + (vd.projects.length !== 1 ? 's' : '') + '</div>'
+          + '<div class="off-vendor-subtitle">' + (leadingFlag ? 'Primary pressure: ' + _esc(leadingFlag) : 'No active flag concentration') + '</div>'
           + '</div>'
-          // Flag pills + expand button
-          + '<div class="signal-qb-footer">'
-          + '<div class="signal-qb-pills">';
+          + '</div>'
+          + '<div class="off-vendor-stats">'
+          + '<div class="off-vendor-stat"><span class="off-vendor-stat-value">' + vd.totalFlags + '</span><span class="off-vendor-stat-label">Flags</span></div>'
+          + '<div class="off-vendor-stat"><span class="off-vendor-stat-value">' + vd.projects.length + '</span><span class="off-vendor-stat-label">Projects</span></div>'
+          + '</div>'
+          + '</div>'
+          + '<div class="off-vendor-footer">'
+          + '<div class="off-vendor-flags">';
 
         topFlags.forEach(function(flag) {
           var cls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(flag) : 'chip-warn';
-          html += '<span class="glass-pill ' + cls + '">' + _esc(flag) + ' &times;' + vd.flagCounts[flag] + '</span>';
+          var displayFlag = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
+          html += '<span class="glass-pill ' + cls + '" title="' + _esc(displayFlag) + ' ×' + vd.flagCounts[flag] + '">' + _esc(displayFlag) + ' ×' + vd.flagCounts[flag] + '</span>';
         });
         if (Object.keys(vd.flagCounts).length > 4) {
           html += '<span class="glass-pill chip-muted">+' + (Object.keys(vd.flagCounts).length - 4) + ' more</span>';
@@ -330,8 +655,8 @@
 
         html += '</div>'
           + '<button class="signal-qb-open-btn" id="off-expandbtn-' + vKey + '"'
-          + ' onclick="event.stopPropagation();_offendersToggleExpand(\'' + _esc(vendor) + '\')">'
-          + (isExpanded ? 'Hide' : vd.projects.length + ' Project' + (vd.projects.length !== 1 ? 's' : ''))
+          + ' onclick="event.stopPropagation();_offendersToggleExpand(\'' + vendorJs + '\')">'
+          + (isExpanded ? 'Hide Projects' : 'Review ' + vd.projects.length + ' Project' + (vd.projects.length !== 1 ? 's' : ''))
           + '</button>'
           + '</div>'
           + '</div>';
@@ -340,20 +665,22 @@
         html += '<div class="off-project-list' + (isExpanded ? ' open' : '') + '" id="off-pl-' + vKey + '">';
         vd.projects.forEach(function(p) {
           var stageStatus = [p.city, p.stage, p.status].filter(Boolean).join(' · ');
+          var fdhJs = (typeof escJs === 'function') ? escJs(p.fdh || '') : String(p.fdh || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
           // Top row: FDH + meta + Open button
           var rowHtml = '<div class="off-project-row">'
             + '<div class="off-project-row-top">'
             + '<span class="off-project-fdh">' + _esc(p.fdh || '—') + '</span>'
             + '<span class="off-project-meta">' + _esc(stageStatus) + '</span>'
             + '<button class="signal-qb-open-btn" style="font-size:9px;padding:4px 8px;flex-shrink:0"'
-            + ' onclick="event.stopPropagation();_signalNavigateToItem(\'' + _esc(p.fdh) + '\')">Open Detail</button>'
+            + ' onclick="event.stopPropagation();_signalNavigateToItem(\'' + fdhJs + '\')">Open Detail</button>'
             + '</div>';
           // Flag chips row — each project's specific offences
           if (p.flags && p.flags.length) {
             rowHtml += '<div class="off-project-flags">';
             p.flags.forEach(function(flag) {
               var cls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(flag) : 'chip-muted';
-              rowHtml += '<span class="glass-pill ' + cls + '" style="font-size:8px;padding:2px 7px">' + _esc(flag) + '</span>';
+              var displayFlag = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
+              rowHtml += '<span class="glass-pill ' + cls + '" style="font-size:8px;padding:2px 7px">' + _esc(displayFlag) + '</span>';
             });
             rowHtml += '</div>';
           }
@@ -362,10 +689,11 @@
         });
         html += '</div>';
       });
+      html += '</div>';
     }
 
     el.innerHTML = html;
-    if (pmWasOpen) _offendersLoadPmEmails();
+    if (_offendersPmPanelOpen) _offendersLoadPmEmails();
   }
 
   // ── Sort & filter ─────────────────────────────────────────────────
@@ -382,6 +710,7 @@
   // ── Vendor selection (checkboxes for export) ──────────────────────
   function _offendersToggleVendor(vendor) {
     _offendersSelectedVendors[vendor] = !_offendersSelectedVendors[vendor];
+    _renderSignalOffenders();
   }
 
   // ── Expand/collapse project list ──────────────────────────────────
@@ -396,16 +725,20 @@
     if (arrow) arrow.classList.toggle('open', open);
     if (btn) {
       var count = pl ? pl.querySelectorAll('.off-project-row').length : 0;
-      btn.textContent = open ? 'Hide' : count + ' Project' + (count !== 1 ? 's' : '');
+      btn.textContent = open ? 'Hide Projects' : 'Review ' + count + ' Project' + (count !== 1 ? 's' : '');
     }
+  }
+
+  function _offendersToggleUtilityDrawer() {
+    _offendersUtilityDrawerOpen = !_offendersUtilityDrawerOpen;
+    _renderSignalOffenders();
   }
 
   // ── PM email panel ────────────────────────────────────────────────
   function _offendersTogglePmPanel() {
-    var panel = document.getElementById('off-pm-panel');
-    if (!panel) return;
-    var isOpen = panel.classList.toggle('open');
-    if (isOpen) _offendersLoadPmEmails();
+    _offendersUtilityDrawerOpen = true;
+    _offendersPmPanelOpen = !_offendersPmPanelOpen;
+    _renderSignalOffenders();
   }
 
   function _offendersLoadPmEmails() {
@@ -502,6 +835,7 @@
   window._offendersSetFlagFilter   = _offendersSetFlagFilter;
   window._offendersToggleVendor    = _offendersToggleVendor;
   window._offendersToggleExpand    = _offendersToggleExpand;
+  window._offendersToggleUtilityDrawer = _offendersToggleUtilityDrawer;
   window._offendersTogglePmPanel   = _offendersTogglePmPanel;
   window._offendersExportAll       = _offendersExportAll;
   window._offendersExportSelected  = _offendersExportSelected;

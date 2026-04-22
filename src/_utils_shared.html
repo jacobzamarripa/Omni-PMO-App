@@ -360,7 +360,11 @@
       }
 
       function cleanDiagnosticFlagText(flag) {
-          return String(flag || '').replace(/[\u{1F6A8}\u{1F6D1}\u{1F6A9}\u26A0\uFE0F\u{1F58D}\u{1F6A7}\u{1FA84}\u{1F7E3}\u{1F535}\u{1F7E2}\u26AA]/gu, '').trim();
+          let cleaned = String(flag || '')
+              .replace(/[\u{1F6A8}\u{1F6D1}\u{1F6A9}\u26A0\uFE0F\u{1F58D}\u{1F6A7}\u{1FA84}\u{1F7E3}\u{1F535}\u{1F7E2}\u26AA]/gu, '')
+              .trim();
+          if (cleaned.toUpperCase() === 'ADMIN: CHECK CROSSINGS') return 'CHECK CROSSINGS';
+          return cleaned;
       }
 
       function getQueueCombinedPill(item) {
