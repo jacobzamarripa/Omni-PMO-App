@@ -342,6 +342,9 @@
         }
         #review-hub-main-header:not(.is-reviewed-tab) ~ #outbox-kpi-header-wrap {
           display: none !important;
+        }
+        #review-hub-main-header:not(.is-changelog-tab) ~ #changelog-kpi-header-wrap {
+          display: none !important;
         }        /* Label & Value */
         .admin-kpi-mini-label { font-size: 8px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); opacity: 0.8; }
         .admin-kpi-mini-val { font-size: 14px; font-weight: 900; color: var(--text-main); }
@@ -360,6 +363,12 @@
         .admin-kpi-mini.status.active { background: rgba(239, 68, 68, 0.1); border-color: #ef4444; }
         .admin-kpi-mini.boms { color: #3b82f6; }
         .admin-kpi-mini.boms.active { background: rgba(59, 130, 246, 0.1); border-color: #3b82f6; }
+        .admin-kpi-mini.milestones { color: #3b82f6; }
+        .admin-kpi-mini.milestones.active { background: rgba(59, 130, 246, 0.1); border-color: #3b82f6; }
+        .admin-kpi-mini.schedule { color: #f59e0b; }
+        .admin-kpi-mini.schedule.active { background: rgba(245, 158, 11, 0.1); border-color: #f59e0b; }
+        .admin-kpi-mini.all { color: var(--text-main); }
+        .admin-kpi-mini.all.active { background: rgba(15, 23, 42, 0.1); border-color: var(--text-main); }
 
         /* Unified Header Padding Adjustment */
         .outbox-pane .inbox-header {

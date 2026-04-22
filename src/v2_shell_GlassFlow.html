@@ -317,6 +317,25 @@
              <div class="admin-kpi-mini-val" id="kpi-outbox-reviewed-val">0</div>
          </div>
      </div>
+
+     <!-- Row 5: KPI Mini Chips (Visible on Change Log tab) -->
+     <div class="admin-kpi-mini-wrap" id="changelog-kpi-header-wrap" style="padding: 10px 14px; border-bottom: 1px solid var(--border); display: none; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+         <div class="admin-kpi-mini milestones" id="kpi-changelog-milestones" onclick="toggleChangelogFilter('milestones')" title="Filter: Status & Stage updates">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+             <div class="admin-kpi-mini-label">Milestones</div>
+             <div class="admin-kpi-mini-val" id="kpi-changelog-milestones-val">0</div>
+         </div>
+         <div class="admin-kpi-mini schedule" id="kpi-changelog-schedule" onclick="toggleChangelogFilter('schedule')" title="Filter: Schedule & Date changes">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+             <div class="admin-kpi-mini-label">Schedule</div>
+             <div class="admin-kpi-mini-val" id="kpi-changelog-schedule-val">0</div>
+         </div>
+         <div class="admin-kpi-mini all active" id="kpi-changelog-all" onclick="toggleChangelogFilter('all')" title="Filter: All activity">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+             <div class="admin-kpi-mini-label">All</div>
+             <div class="admin-kpi-mini-val" id="kpi-changelog-all-val">0</div>
+         </div>
+     </div>
      <div id="ob-panel-admin" class="review-hub-panel" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
         <div id="admin-pane-content" class="review-hub-scroll-area" style="flex:1; overflow-y:auto;"></div>
      </div>

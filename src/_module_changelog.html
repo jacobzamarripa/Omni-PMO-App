@@ -119,6 +119,15 @@ function toggleActivityRow(key) {
     renderChangeLog();
 }
 
+function toggleChangelogFilter(type) {
+    activeChangelogFilter = type;
+    let kpiM = getEl('kpi-changelog-milestones'), kpiS = getEl('kpi-changelog-schedule'), kpiA = getEl('kpi-changelog-all');
+    if (kpiM) kpiM.classList.toggle('active', activeChangelogFilter === 'milestones');
+    if (kpiS) kpiS.classList.toggle('active', activeChangelogFilter === 'schedule');
+    if (kpiA) kpiA.classList.toggle('active', activeChangelogFilter === 'all');
+    renderChangeLog();
+}
+
 function getActivityIconMarkup(type) {
     let t = String(type || '').toUpperCase();
     if (t.includes('REVIEW')) {
@@ -143,69 +152,149 @@ function renderChangeLog() {
     let list = getEl('changelog-list');
     if (!list) return;
     let search = (getEl('changelog-search')?.value || '').toLowerCase();
-    let timeFilter = getEl('changelog-time')?.value || 'ALL';
-    let userFilter = getEl('changelog-user')?.value || 'ALL';
-    let currentFdhOnly = getEl('changelog-current-fdh')?.checked;
+    let timeFilter = (getEl('changelog-time')?.value || 'ALL');
+    let userFilter = (getEl('changelog-user')?.value || 'ALL');
+    let currentFdhOnly = !!getEl('changelog-current-fdh')?.checked;
 
-    let logsToRender = getChangelogEntries({
+    let baseLogs = getChangelogEntries({
         search: search,
         timeFilter: timeFilter,
         userFilter: userFilter,
         currentFdhOnly: currentFdhOnly
     });
 
+    // 1. Sync counts to top KPI mini chips (base counts before type filter)
+    const milLogs = baseLogs.filter(l => {
+        const t = String(l.type || '').toLowerCase();
+        return t.includes('status') || t.includes('stage');
+    });
+    const schLogs = baseLogs.filter(l => String(l.type || '').toLowerCase().includes('date'));
+    
+    setTxt('kpi-changelog-milestones-val', milLogs.length);
+    setTxt('kpi-changelog-schedule-val', schLogs.length);
+    setTxt('kpi-changelog-all-val', baseLogs.length);
+
+    // 2. Filter by active category
+    let logsToRender = baseLogs;
+    if (activeChangelogFilter === 'milestones') logsToRender = milLogs;
+    else if (activeChangelogFilter === 'schedule') logsToRender = schLogs;
+
+    // 3. Overall count for tab badge
     const displayCount = logsToRender.length;
     setTxt('ob-header-count', displayCount);
     syncChangelogBadgeCount(getChangelogBadgeCount());
     let headerBadge = getEl('ob-header-count');
     if (headerBadge) {
-        headerBadge.style.display = 'inline-flex'; // Always show in Hub for current tab
+        headerBadge.style.display = 'inline-flex';
     }
 
+    list.innerHTML = '';
+
+    // 4. Action bar for current filtered view (Aligned with Outbox)
+    let actionBar = document.createElement('div');
+    actionBar.className = 'outbox-action-bar';
+    actionBar.style.cssText = 'padding:10px 14px; display:flex; justify-content:center; gap:8px; border-bottom: 1px solid var(--border); background:var(--card-bg); position:sticky; top:0; z-index:10;';
+    
+    let refreshBtn = document.createElement('button');
+    refreshBtn.className = 'btn';
+    refreshBtn.style.cssText = 'font-size:10px; padding:4px 10px; font-weight:900;';
+    refreshBtn.textContent = '↻ Refresh Logs';
+    refreshBtn.onclick = function() { if(typeof triggerUIRefresh === 'function') triggerUIRefresh(); };
+    actionBar.appendChild(refreshBtn);
+    
+    list.appendChild(actionBar);
+
     if (logsToRender.length === 0) {
-        list.innerHTML = `<div class="empty-msg" style="margin-top:20px; font-size:11px;">No activity matches current filters.</div>`;
+        list.insertAdjacentHTML('beforeend', `<div class="empty-msg" style="padding:24px 20px; text-align:center; color:var(--text-muted); opacity:0.8; font-size:11px;">No activity matches current filters.</div>`);
         return;
     }
 
-    let html = '';
-    logsToRender.forEach(log => {
-        let cleanVal = _formatChangelogValue(log.type, log.val || log.type || 'Activity');
-        let normalizedType = String(log.type || '').toLowerCase().trim();
-        let isDateField = normalizedType === 'ofs date' || normalizedType === 'cx start date' || normalizedType === 'cx end date';
-        let fdhText = String(log.fdh || '').trim() || 'FDH Unavailable';
-        let key = getActivityRowKey({
-          fdh: log.fdh,
-          timestampObj: _getChangelogTimestamp(log),
-          type: log.type,
-          user: log.user
+    // 5. Conditional Grouping Logic (Threshold: 10 items)
+    // Group by Date for high volumes
+    if (logsToRender.length < 10) {
+        let flatBody = document.createElement('div');
+        flatBody.style.padding = '8px';
+        logsToRender.forEach(log => {
+            let card = document.createElement('div');
+            card.innerHTML = createActivityCard(log);
+            flatBody.appendChild(card.firstElementChild);
         });
-        let metaTime = _getChangelogTimestamp(log) ? formatDate(new Date(_getChangelogTimestamp(log)), true) : esc(String(log.time || ''));
-        let metaHtml = esc(String(log.user || 'System')) + '<br>' + metaTime;
+        list.appendChild(flatBody);
+    } else {
+        const groups = {};
+        logsToRender.forEach(log => {
+            const date = new Date(_getChangelogTimestamp(log));
+            const dateKey = isNaN(date.getTime()) ? 'Unknown Date' : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            if (!groups[dateKey]) groups[dateKey] = [];
+            groups[dateKey].push(log);
+        });
+        
+        Object.keys(groups).forEach(dateKey => {
+            const logs = groups[dateKey];
+            const groupKey = `changelog-${activeChangelogFilter}-${dateKey.replace(/\s+/g, '-')}`;
+            
+            let groupEl = document.createElement('div');
+            groupEl.className = 'queue-group collapsed-state';
+            groupEl.setAttribute('data-key', groupKey);
+            
+            groupEl.innerHTML = `
+                <div class="queue-group-header" onclick="toggleAdminGroupSection(this)">
+                    <div class="queue-group-title">
+                        <span class="queue-group-toggle"></span>
+                        <span>${esc(dateKey)}</span>
+                    </div>
+                    <span class="queue-group-count">${logs.length}</span>
+                </div>
+                <div class="queue-group-body collapsed">
+                    <div class="queue-group-body-inner" style="padding:4px 8px 8px;">
+                        ${logs.map(createActivityCard).join('')}
+                    </div>
+                </div>
+            `;
+            list.appendChild(groupEl);
+        });
+    }
+}
 
-        const itemExists = typeof allActionItems !== 'undefined' && allActionItems.some(i => String(i.fdh) === fdhText);
-        const navBtn = itemExists
-          ? '<button class="signal-qb-open-btn" onclick="event.stopPropagation(); selectItemForNav(' + JSON.stringify(fdhText) + ');">Open Detail</button>'
-          : '';
-
-        const pillText = isDateField
-          ? (normalizedType === 'ofs date' ? 'OFS DATE' : normalizedType === 'cx start date' ? 'CX START' : 'CX END') + ' | ' + esc(cleanVal)
-          : esc(cleanVal || log.type);
-
-        html += '<div class="signal-qb-card" data-activity-key="' + esc(key) + '">'
-          + '<div class="signal-qb-header">'
-          + '<div class="signal-qb-fdh">' + esc(fdhText) + '</div>'
-          + '<div class="signal-qb-meta">' + metaHtml + '</div>'
-          + '</div>'
-          + '<div class="signal-qb-footer">'
-          + '<div class="signal-qb-pills">'
-          + '<span class="glass-pill ' + _getQBPillClass(log.type, cleanVal) + '">' + pillText + '</span>'
-          + (isDateField ? '' : '<span class="glass-pill pill-hold" style="opacity:0.6;">' + esc(log.type) + '</span>')
-          + '</div>'
-          + navBtn
-          + '</div>'
-          + '</div>';
+/**
+ * Helper to create activity card markup.
+ */
+function createActivityCard(log) {
+    let cleanVal = _formatChangelogValue(log.type, log.val || log.type || 'Activity');
+    let normalizedType = String(log.type || '').toLowerCase().trim();
+    let isDateField = normalizedType === 'ofs date' || normalizedType === 'cx start date' || normalizedType === 'cx end date';
+    let fdhText = String(log.fdh || '').trim() || 'FDH Unavailable';
+    let key = getActivityRowKey({
+      fdh: log.fdh,
+      timestampObj: _getChangelogTimestamp(log),
+      type: log.type,
+      user: log.user
     });
+    let ts = _getChangelogTimestamp(log);
+    let metaTime = ts ? formatDate(new Date(ts), true) : esc(String(log.time || ''));
+    let metaHtml = esc(String(log.user || 'System')) + ' &bull; ' + metaTime;
 
-    list.innerHTML = html;
+    const itemExists = typeof allActionItems !== 'undefined' && allActionItems.some(i => String(i.fdh) === fdhText);
+    const navBtn = itemExists
+      ? '<button class="signal-qb-open-btn" onclick="event.stopPropagation(); selectItemForNav(' + JSON.stringify(fdhText) + ');">Open Detail</button>'
+      : '';
+
+    const pillText = isDateField
+      ? (normalizedType === 'ofs date' ? 'OFS DATE' : normalizedType === 'cx start date' ? 'CX START' : 'CX END') + ' | ' + esc(cleanVal)
+      : esc(cleanVal || log.type);
+
+    return '<div class="signal-qb-card" data-activity-key="' + esc(key) + '">'
+      + '<div class="signal-qb-header">'
+      + '<div class="signal-qb-fdh">' + esc(fdhText) + '</div>'
+      + '<div class="signal-qb-meta" style="font-size:9px; opacity:0.7;">' + metaHtml + '</div>'
+      + '</div>'
+      + '<div class="signal-qb-footer">'
+      + '<div class="signal-qb-pills">'
+      + '<span class="glass-pill ' + _getQBPillClass(log.type, cleanVal) + '">' + pillText + '</span>'
+      + (isDateField ? '' : '<span class="glass-pill pill-hold" style="opacity:0.6;">' + esc(log.type) + '</span>')
+      + '</div>'
+      + navBtn
+      + '</div>'
+      + '</div>';
 }
 </script>

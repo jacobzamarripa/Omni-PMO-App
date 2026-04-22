@@ -402,6 +402,7 @@ function switchPanelTab(tab) {
     let desktopTabStrip = document.querySelector('.ob-desktop-tab-strip');
     let adminKpiRow = getEl('admin-kpi-header-wrap');
     let outboxKpiRow = getEl('outbox-kpi-header-wrap');
+    let changelogKpiRow = getEl('changelog-kpi-header-wrap');
 
     if (adminPanel) adminPanel.style.display = (tab === 'admin') ? 'flex' : 'none';
     if (reviewedPanel) reviewedPanel.style.display = (tab === 'reviewed') ? 'flex' : 'none';
@@ -422,6 +423,7 @@ function switchPanelTab(tab) {
     if (desktopTabStrip) desktopTabStrip.style.display = 'flex';
     if (adminKpiRow) adminKpiRow.style.display = (tab === 'admin') ? '' : 'none';
     if (outboxKpiRow) outboxKpiRow.style.display = (tab === 'reviewed') ? '' : 'none';
+    if (changelogKpiRow) changelogKpiRow.style.display = (tab === 'changelog') ? '' : 'none';
 
     if (tab === 'changelog') {
         try { sessionStorage.setItem(CHANGELOG_PULSE_SESSION_KEY, '1'); } catch (e) {}

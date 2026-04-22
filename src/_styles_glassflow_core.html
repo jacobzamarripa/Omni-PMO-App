@@ -1762,6 +1762,9 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
 #review-hub-main-header:not(.is-reviewed-tab) ~ #outbox-kpi-header-wrap {
   display: none !important;
 }
+#review-hub-main-header:not(.is-changelog-tab) ~ #changelog-kpi-header-wrap {
+  display: none !important;
+}
 
 .admin-kpi-mini-wrap {
   display: grid;
@@ -1829,6 +1832,13 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
 .admin-kpi-mini.qb.active { background: color-mix(in srgb, #0ea5e9 14%, transparent); border-color: color-mix(in srgb, #0ea5e9 42%, transparent); }
 .admin-kpi-mini.reviewed { color: #10b981; }
 .admin-kpi-mini.reviewed.active { background: color-mix(in srgb, #10b981 14%, transparent); border-color: color-mix(in srgb, #10b981 42%, transparent); }
+
+.admin-kpi-mini.milestones { color: #3b82f6; }
+.admin-kpi-mini.milestones.active { background: color-mix(in srgb, #3b82f6 14%, transparent); border-color: color-mix(in srgb, #3b82f6 42%, transparent); }
+.admin-kpi-mini.schedule { color: #f59e0b; }
+.admin-kpi-mini.schedule.active { background: color-mix(in srgb, #f59e0b 14%, transparent); border-color: color-mix(in srgb, #f59e0b 42%, transparent); }
+.admin-kpi-mini.all { color: var(--text-main); }
+.admin-kpi-mini.all.active { background: color-mix(in srgb, var(--text-main) 10%, transparent); border-color: color-mix(in srgb, var(--text-main) 30%, transparent); }
 
 
 .v2-shell-glassflow .admin-list-card,
