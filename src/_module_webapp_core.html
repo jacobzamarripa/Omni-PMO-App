@@ -1055,7 +1055,7 @@
 
       function _adminSection(title, items, renderCard, type) {
           if (items.length === 0) return '';
-          let cards = items.map(renderCard).join('');
+          
           const typeClass = type ? ` review-hub-section-header--${type}` : '';
           const icons = {
               crossings: '<svg class="rh-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v8H2z"></path><line x1="6" y1="8" x2="6" y2="16"></line><line x1="10" y1="8" x2="10" y2="16"></line></svg>',
@@ -1063,6 +1063,43 @@
               status: '<svg class="rh-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>',
           };
           const icon = icons[type] || '';
+
+          // Group items by vendor
+          const vendorMap = {};
+          items.forEach(item => {
+              const vendor = (item.vendor || 'Unknown Vendor').toString().trim();
+              if (!vendorMap[vendor]) vendorMap[vendor] = [];
+              vendorMap[vendor].push(item);
+          });
+
+          // Sort vendor names alphabetically
+          const sortedVendors = Object.keys(vendorMap).sort((a, b) => a.localeCompare(b));
+
+          // Build group HTML with Active Portfolio animations/behaviors
+          let groupsHtml = '';
+          sortedVendors.forEach(vendor => {
+              const vendorItems = vendorMap[vendor];
+              // Use a composite key to keep state stable during the session if needed
+              const groupKey = `admin-${type}-${vendor.toLowerCase().replace(/\s+/g, '-')}`;
+              
+              groupsHtml += `
+                  <div class="queue-group collapsed-state" data-key="${groupKey}">
+                      <div class="queue-group-header" onclick="toggleAdminGroupSection(this)">
+                          <div class="queue-group-title">
+                              <span class="queue-group-toggle"></span>
+                              <span>${esc(vendor)}</span>
+                          </div>
+                          <span class="queue-group-count">${vendorItems.length}</span>
+                      </div>
+                      <div class="queue-group-body collapsed">
+                          <div class="queue-group-body-inner">
+                              ${vendorItems.map(renderCard).join('')}
+                          </div>
+                      </div>
+                  </div>
+              `;
+          });
+
           return `<div class="review-hub-section">
               <div class="review-hub-section-header${typeClass}">
                   <div class="review-hub-section-title">
@@ -1071,8 +1108,8 @@
                   </div>
                   <div class="review-hub-section-count">${items.length}</div>
               </div>
-              <div class="review-hub-section-body">
-                  ${cards}
+              <div class="review-hub-section-body" style="padding:0;">
+                  ${groupsHtml}
               </div>
           </div>`;
       }

@@ -52,6 +52,23 @@ function toggleAdminPanel() {
     setAdminPanelOpen(!isOpen);
 }
 
+/**
+ * Lightweight toggle for vendor groups within the Admin Panel.
+ * Does not depend on global currentGroupBy state.
+ */
+function toggleAdminGroupSection(headerEl) {
+    const groupEl = headerEl.closest('.queue-group');
+    if (!groupEl) return;
+    
+    const bodyEl = groupEl.querySelector(':scope > .queue-group-body');
+    const isCollapsed = groupEl.classList.contains('collapsed-state');
+    
+    if (bodyEl) {
+        bodyEl.classList.toggle('collapsed', !isCollapsed);
+    }
+    groupEl.classList.toggle('collapsed-state', !isCollapsed);
+}
+
 function shouldAutoOpenAdminPanel() {
     return window.innerWidth > 768 && !isIPadLike();
 }
