@@ -516,6 +516,13 @@
       function toggleHelpPanel() {
           let panel = getEl('help-panel'); let overlay = getEl('help-overlay');
           if (!panel) return;
+          
+          // Close vendor alias panel if open
+          if (typeof toggleVendorAliasPanel === 'function') {
+              const vaPanel = getEl('vendor-alias-panel');
+              if (vaPanel && vaPanel.classList.contains('open')) toggleVendorAliasPanel();
+          }
+
           let isOpen = panel.classList.toggle('open');
           if (overlay) overlay.classList.toggle('open', isOpen);
           if (isOpen) {

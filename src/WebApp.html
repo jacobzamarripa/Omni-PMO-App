@@ -414,6 +414,9 @@
           </div>
         </div>
         <button class="btn-nav" onclick="toggleDarkMode()" id="btn-theme" title="Toggle dark mode"></button>
+        <button class="btn-nav" onclick="toggleVendorAliasPanel()" id="btn-vendor-aliases" title="Vendor Aliases">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
+        </button>
         <button class="btn-nav" onclick="toggleHelpPanel()" id="btn-help">?</button>
         <button class="btn-icon mobile-menu-toggle" id="btn-hamburger" onclick="toggleMobileMenu()" title="Menu"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       </div>
@@ -1211,8 +1214,8 @@
     <?!= include('_module_queue_state') ?>
     <?!= include('_module_digest') ?>
     <?!= include('_module_admin') ?>
-    <?!= include('_module_gantt') ?>
-    <?!= include('_module_deck') ?>
+    <?!= include('_module_vendor_aliases') ?>
+    <?!= include('_module_gantt') ?>    <?!= include('_module_deck') ?>
     <?!= include('_module_tabs') ?>
     <?!= include('_module_quick_peek') ?>
     <?!= include('_module_grid') ?>

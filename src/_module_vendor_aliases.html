@@ -1,0 +1,385 @@
+<!-- 
+  ============================================================
+  MODULE: Vendor Alias Manager (Intelligence Edition)
+  ============================================================
+  This module allows users to map raw vendor names reported
+  in daily field files to canonical QuickBase vendor names.
+  ============================================================
+-->
+
+<div class="help-overlay" id="vendor-alias-overlay" onclick="toggleVendorAliasPanel()"></div>
+<div class="help-panel" id="vendor-alias-panel">
+    <div class="help-hdr" style="background: var(--surface-2);">
+        <div>
+            <div class="help-hdr-title">Vendor Intelligence</div>
+            <div class="help-hdr-sub">Manage reporting aliases & typos</div>
+        </div>
+        <button class="help-close" onclick="toggleVendorAliasPanel()" style="display:inline-flex;align-items:center;justify-content:center;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+    </div>
+
+    <div class="help-body" style="padding: 0; display: flex; flex-direction: column;">
+        <!-- Tabs -->
+        <div style="display:flex; gap:2px; padding:12px 18px; background:var(--surface-1); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10;">
+            <button onclick="_switchAliasTab('custom')" id="tab-alias-custom" class="alias-tab-btn">Custom</button>
+            <button onclick="_switchAliasTab('suggestions')" id="tab-alias-suggestions" class="alias-tab-btn">Suggestions</button>
+            <button onclick="_switchAliasTab('builtin')" id="tab-alias-builtin" class="alias-tab-btn">Built-in</button>
+        </div>
+
+        <!-- Add Form (Only for Custom) - Anchored to top -->
+        <div id="alias-add-header" style="padding:16px 20px 20px 20px; background:var(--surface-2); border-bottom:1px solid var(--border); display:none;">
+            <div style="font-size:10px; font-weight:900; color:var(--text-muted); margin-bottom:14px; text-transform:uppercase; letter-spacing:0.08em; display:flex; align-items:center; gap:6px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
+                Add New Alias
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div style="display:flex; flex-direction:column; gap:5px;">
+                    <label for="alias-input-raw" style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.02em;">Reported Name (from daily file)</label>
+                    <input id="alias-input-raw" placeholder="e.g. Acme Const. Inc" class="alias-input" />
+                </div>
+                <div style="display:flex; align-items:center; justify-content:center; color:var(--text-muted); height:12px; opacity:0.5;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:5px;">
+                    <label for="alias-input-canonical" style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.02em;">Canonical Name (in QuickBase)</label>
+                    <input id="alias-input-canonical" placeholder="e.g. Acme Construction" class="alias-input" />
+                </div>
+                <button onclick="_saveAlias(this)" class="btn" style="margin-top:4px; width:100%; background:var(--accent,#6366f1); color:#fff; border:none; padding:11px; font-size:11px; font-weight:900; border-radius:10px; cursor:pointer; transition: opacity 0.2s;">Save Alias Mapping</button>
+            </div>
+        </div>
+
+        <div id="alias-manager-content" style="flex:1; overflow-y:auto; padding:0 18px 24px 18px;">
+            <div id="alias-list-container" style="padding-top:12px;"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .alias-tab-btn {
+        flex: 1;
+        cursor: pointer;
+        padding: 6px 4px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text-muted);
+        transition: all 0.2s;
+    }
+    .alias-tab-btn.active {
+        background: var(--surface-3);
+        color: var(--text-main);
+        border-color: var(--border);
+    }
+    .alias-suggestion-card {
+        padding: 12px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        margin-bottom: 10px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .alias-suggestion-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .alias-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .alias-input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--text-main);
+        font-size: 13px;
+        box-sizing: border-box; /* Critical fix for bleeding */
+        transition: border-color 0.2s;
+    }
+    .alias-input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+</style>
+
+<script>
+let _aliasTab = 'custom'; 
+let _aliasData = null;    
+let _aliasSuggestions = [];
+
+function toggleVendorAliasPanel() {
+    const panel = getEl('vendor-alias-panel');
+    const overlay = getEl('vendor-alias-overlay');
+    if (!panel) return;
+
+    // Close help panel if open
+    const helpPanel = getEl('help-panel');
+    if (helpPanel && helpPanel.classList.contains('open')) {
+        if (typeof toggleHelpPanel === 'function') toggleHelpPanel();
+    }
+
+    const isOpen = panel.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('open', isOpen);
+    if (isOpen) {
+        _loadAliasData();
+    }
+}
+
+function _loadAliasData() {
+    const container = getEl('alias-list-container');
+    if (container) container.innerHTML = '<div style="padding:40px 0; text-align:center; color:var(--text-muted); font-size:12px;">Gathering intelligence...</div>';
+    
+    google.script.run
+        .withSuccessHandler(function(data) {
+            _aliasData = data;
+            _computeAliasSuggestions();
+            _renderAliasManager();
+        })
+        .withFailureHandler(function(err) {
+            if (container) container.innerHTML = '<div style="color:#ef4444; font-size:12px; padding:20px 0; text-align:center;">Failed to load data.</div>';
+        })
+        .getVendorAliasData();
+}
+
+function _switchAliasTab(tab) {
+    _aliasTab = tab;
+    _renderAliasManager();
+}
+
+function _renderAliasManager() {
+    const container = getEl('alias-list-container');
+    const header = getEl('alias-add-header');
+    if (!container || !_aliasData) return;
+
+    // Sync Tabs
+    ['custom', 'suggestions', 'builtin'].forEach(t => {
+        const btn = getEl('tab-alias-' + t);
+        if (btn) btn.classList.toggle('active', _aliasTab === t);
+    });
+
+    header.style.display = (_aliasTab === 'custom') ? 'block' : 'none';
+
+    if (_aliasTab === 'suggestions') {
+        _renderSuggestions();
+        return;
+    }
+
+    let html = list.map(a => {
+        let del = _aliasTab === 'custom'
+            ? `<button onclick="_deleteAlias('${a.raw.replace(/'/g,"\\'")}', this)" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:16px; padding:0 8px; line-height:1;" title="Remove">x</button>`
+            : '';
+        return `
+            <div class="alias-row">
+                <div style="flex:1;">
+                    <div style="font-size:10px; color:var(--text-muted); font-family:monospace; line-height:1.2;">${a.raw}</div>
+                    <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="color:var(--text-muted);"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        <div style="font-size:12px; font-weight:700; color:var(--text-main);">${a.canonical}</div>
+                    </div>
+                </div>
+                ${del}
+            </div>`;
+    }).join('');
+
+    container.innerHTML = html || `<div style="color:var(--text-muted); font-size:12px; padding:40px 0; text-align:center;">No ${_aliasTab} aliases found.</div>`;
+}
+
+function _renderSuggestions() {
+    const container = getEl('alias-list-container');
+    if (_aliasSuggestions.length === 0) {
+        container.innerHTML = `<div style="padding:40px 0; text-align:center;">
+            <div style="font-size:24px; margin-bottom:12px; opacity:0.5;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            <div style="font-size:12px; font-weight:900; color:var(--text-main);">All Clean</div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">No obvious typos detected in active reports.</div>
+        </div>`;
+        return;
+    }
+
+    let html = `<div style="font-size:10px; color:var(--text-muted); margin-bottom:16px; line-height:1.4; background:var(--surface-2); padding:10px; border-radius:8px; border:1px dashed var(--border);">
+        Intelligence identified vendor names appearing in single reports that closely match known vendors.
+    </div>`;
+
+    html += _aliasSuggestions.map(s => `
+        <div class="alias-suggestion-card">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                <span style="font-size:9px; font-weight:900; color:var(--accent); text-transform:uppercase;">Typo Detected</span>
+                <span style="font-size:9px; color:var(--text-muted);">Match: ${Math.round(s.score * 100)}%</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div style="flex:1;">
+                    <div style="font-size:10px; color:var(--text-muted); font-family:monospace;">${s.raw}</div>
+                    <div style="margin:4px 0; color:var(--text-muted);"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m7 10 5 5 5-5"/></svg></div>
+                    <div style="font-size:13px; font-weight:900; color:var(--text-main);">${s.canonical}</div>
+                </div>
+                <button onclick="_quickAddAlias('${s.raw.replace(/'/g,"\\'")}', '${s.canonical.replace(/'/g,"\\'")}', this)" 
+                        style="background:var(--surface-3); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:10px; font-weight:900; cursor:pointer; color:var(--text-main);">
+                    Approve
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    container.innerHTML = html;
+}
+
+function _quickAddAlias(raw, canonical, btn) {
+    if (btn) { btn.disabled = true; btn.innerText = 'Saving...'; }
+    google.script.run
+        .withSuccessHandler(function() {
+            _aliasData = null;
+            _loadAliasData();
+            showToast('Alias approved.', 'success');
+        })
+        .withFailureHandler(function(err) {
+            if (btn) { btn.disabled = false; btn.innerText = 'Approve'; }
+            showToast('Failed: ' + err.message, 'error');
+        })
+        .saveVendorAlias(raw, canonical);
+}
+
+function _saveAlias(btn) {
+    let rawEl = getEl('alias-input-raw');
+    let canEl = getEl('alias-input-canonical');
+    let raw = rawEl ? rawEl.value.trim() : '';
+    let canonical = canEl ? canEl.value.trim() : '';
+    if (!raw || !canonical) { showToast('Enter both fields.', 'warn'); return; }
+    if (btn) { btn.disabled = true; btn.innerText = 'Saving...'; }
+    google.script.run
+        .withSuccessHandler(function() {
+            _aliasData = null;
+            _loadAliasData();
+            rawEl.value = '';
+            canEl.value = '';
+            showToast('Alias saved.', 'success');
+        })
+        .withFailureHandler(function(err) {
+            if (btn) { btn.disabled = false; btn.innerText = 'Save Alias'; }
+            showToast('Save failed: ' + err.message, 'error');
+        })
+        .saveVendorAlias(raw, canonical);
+}
+
+function _deleteAlias(raw, btn) {
+    if (!confirm('Remove alias for "' + raw + '"?')) return;
+    if (btn) btn.style.opacity = '0.4';
+    google.script.run
+        .withSuccessHandler(function() {
+            _aliasData = null;
+            _loadAliasData();
+            showToast('Alias removed.', 'success');
+        })
+        .withFailureHandler(function(err) {
+            if (btn) btn.style.opacity = '1';
+            showToast('Delete failed: ' + err.message, 'error');
+        })
+        .deleteVendorAlias(raw);
+}
+
+/**
+ * INTELLIGENCE ENGINE: Compute suggestions for unaliased vendors
+ */
+function _computeAliasSuggestions() {
+    _aliasSuggestions = [];
+    if (!window.allActionItems || !_aliasData) return;
+
+    // 1. Map known aliases and raw vendors
+    const knownRaws = new Set([
+        ..._aliasData.custom.map(a => a.raw.toLowerCase()),
+        ..._aliasData.builtin.map(a => a.raw.toLowerCase())
+    ]);
+    const canonicals = Array.from(new Set([
+        ..._aliasData.custom.map(a => a.canonical),
+        ..._aliasData.builtin.map(a => a.canonical)
+    ]));
+
+    // 2. Build frequency map of vendors in queue
+    const freq = {};
+    window.allActionItems.forEach(item => {
+        if (!item || !item.vendor) return;
+        const v = item.vendor.trim();
+        freq[v] = (freq[v] || 0) + 1;
+    });
+
+    // 3. Identify potential typos (Frequency = 1 AND not already aliased)
+    const candidates = Object.keys(freq).filter(v => freq[v] === 1 && !knownRaws.has(v.toLowerCase()));
+    
+    // 4. Also use high-frequency vendors as potential targets if not in canonicals
+    const targets = [...canonicals];
+    Object.keys(freq).forEach(v => {
+        if (freq[v] > 5 && !targets.includes(v)) targets.push(v);
+    });
+
+    candidates.forEach(raw => {
+        let bestMatch = null;
+        let bestScore = 0;
+
+        targets.forEach(target => {
+            if (raw === target) return;
+            const score = _calculateSimilarity(raw.toLowerCase(), target.toLowerCase());
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = target;
+            }
+        });
+
+        // Threshold for a "smart" suggestion
+        if (bestScore > 0.7) {
+            _aliasSuggestions.push({
+                raw: raw,
+                canonical: bestMatch,
+                score: bestScore
+            });
+        }
+    });
+
+    // Sort by confidence
+    _aliasSuggestions.sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Simple string similarity (Levenshtein based or Substring overlap)
+ */
+function _calculateSimilarity(s1, s2) {
+    let longer = s1;
+    let shorter = s2;
+    if (s1.length < s2.length) {
+        longer = s2;
+        shorter = s1;
+    }
+    const longerLength = longer.length;
+    if (longerLength === 0) return 1.0;
+    return (longerLength - _editDistance(longer, shorter)) / parseFloat(longerLength);
+}
+
+function _editDistance(s1, s2) {
+    s1 = s1.toLowerCase();
+    s2 = s2.toLowerCase();
+    const costs = [];
+    for (let i = 0; i <= s1.length; i++) {
+        let lastValue = i;
+        for (let j = 0; j <= s2.length; j++) {
+            if (i === 0) {
+                costs[j] = j;
+            } else if (j > 0) {
+                let newValue = costs[j - 1];
+                if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+                    newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                }
+                costs[j - 1] = lastValue;
+                lastValue = newValue;
+            }
+        }
+        if (i > 0) costs[s2.length] = lastValue;
+    }
+    return costs[s2.length];
+}
+</script>
