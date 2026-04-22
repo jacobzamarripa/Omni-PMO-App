@@ -27,6 +27,8 @@ var _duInitialized = false;
 var _duModalRestoreFocus = null;
 var _duLastLoadedAt = null;
 var _duSearchTimeout = null;
+var _duValidation = {};
+var _duSwimlaneOpen = { issues: true, ready: true, uploaded: false };
 
 var _DU_COL_GROUP = {
   'Date':                       'col-dark-navy',
@@ -180,6 +182,7 @@ function _duApplyFilters() {
     return av > bv ? -1 : av < bv ? 1 : 0;
   });
 
+  _duBuildValidation();
   _duRenderTable();
   _duRenderToolbar();
 }
@@ -342,46 +345,64 @@ function _duRenderToolbar() {
 function _duRenderTable() {
   var tbody = document.getElementById('upload-table-body');
   if (!tbody) return;
+  var colSpan = _DU_TABLE_COLS.length + 2;
 
   if (_duFiltered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="' + (_DU_TABLE_COLS.length + 2) + '" class="upload-empty">No rows match the current filter.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="upload-empty">No rows match the current filter.</td></tr>';
     _duSyncSortHeaders();
     return;
   }
 
-  tbody.innerHTML = _duFiltered.map(function(row) {
-    var isUploaded = row.uploadStatus === 'Uploaded';
-    var isFailed = row.uploadStatus === 'Failed';
-    var isDupe = row.uploadStatus === 'Duplicate';
-    var isDirty = !!_duDirty[row.rowIdx];
-    var isChecked = _duSelected.has(row.rowIdx);
-    var rowEditable = _duCanEditRow(row);
+  var issues = [], ready = [], uploaded = [];
+  _duFiltered.forEach(function(row) {
+    var s = row.uploadStatus;
+    if (s === 'Uploaded' || s === 'Skipped') {
+      uploaded.push(row);
+    } else {
+      var v = _duValidation[row.rowIdx] || { errors: [], warnings: [] };
+      if (v.errors.length > 0 || v.warnings.length > 0) {
+        issues.push(row);
+      } else {
+        ready.push(row);
+      }
+    }
+  });
 
-    var trClass = [
-      isUploaded ? 'row-uploaded' : '',
-      isFailed ? 'row-failed' : '',
-      isDupe ? 'row-duplicate' : '',
-      isDirty ? 'row-dirty' : '',
-      rowEditable ? 'row-editable' : '',
-      _duEditMode ? 'table-edit-mode' : ''
-    ].filter(Boolean).join(' ');
+  _duUpdateUploadButtonLabel(ready.length);
 
-    var cells = _DU_TABLE_COLS.map(function(col) {
-      return _duRenderCell(row, col, rowEditable);
-    }).join('');
+  var html = '';
 
-    return '<tr class="' + trClass + '" data-rowidx="' + row.rowIdx + '">' +
-      '<td class="col-check"><input type="checkbox" class="upload-row-check" aria-label="Select row ' + row.rowIdx + '" ' + (isChecked ? 'checked ' : '') + ((row.uploadStatus === 'Uploaded' || row.uploadStatus === 'Skipped') ? 'disabled ' : '') + 'onchange="_duToggleRow(' + row.rowIdx + ',this.checked)"></td>' +
-      cells +
-      '<td class="col-status">' + _duStatusCell(row) + '</td>' +
-    '</tr>';
-  }).join('');
+  html += _duBuildSwimlaneDivider('issues', issues.length, colSpan);
+  if (_duSwimlaneOpen.issues) {
+    if (issues.length > 0) {
+      html += issues.map(function(r) { return _duBuildRowHtml(r); }).join('');
+    } else {
+      html += '<tr class="upload-swimlane-empty-row"><td colspan="' + colSpan + '" class="upload-swimlane-empty-cell upload-swimlane-ok">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+        'All clear — no validation issues detected.</td></tr>';
+    }
+  }
 
+  html += _duBuildSwimlaneDivider('ready', ready.length, colSpan);
+  if (_duSwimlaneOpen.ready) {
+    if (ready.length > 0) {
+      html += ready.map(function(r) { return _duBuildRowHtml(r); }).join('');
+    } else {
+      html += '<tr class="upload-swimlane-empty-row"><td colspan="' + colSpan + '" class="upload-swimlane-empty-cell">No rows ready — fix issues above or adjust filters.</td></tr>';
+    }
+  }
+
+  html += _duBuildSwimlaneDivider('uploaded', uploaded.length, colSpan);
+  if (_duSwimlaneOpen.uploaded && uploaded.length > 0) {
+    html += uploaded.map(function(r) { return _duBuildRowHtml(r); }).join('');
+  }
+
+  tbody.innerHTML = html;
   _duApplyColWidths();
   _duSyncSortHeaders();
 }
 
-function _duRenderCell(row, col, rowEditable) {
+function _duRenderCell(row, col, rowEditable, v) {
   var val = _duGetCellDisplayValue(row.rowIdx, col, row[col]);
   var tdClass = (_DU_COL_GROUP[col] || '') + (rowEditable && _DU_EDITABLE_COLS.has(col) ? ' upload-td-editable' : '');
   var escaped = _duEsc(val);
@@ -398,28 +419,52 @@ function _duRenderCell(row, col, rowEditable) {
     return '<td class="' + tdClass + ' upload-bool-cell"><input type="checkbox" class="du-bool-checkbox is-readonly" ' + (boolVal ? 'checked ' : '') + 'disabled aria-label="' + _duEsc(col) + ' for row ' + row.rowIdx + '"></td>';
   }
 
+  // Inline validation annotation on FDH cell
+  var annotation = '';
+  if (col === 'FDH Engineering ID' && v) {
+    var firstMsg = (v.errors && v.errors[0]) || (v.warnings && v.warnings[0]);
+    if (firstMsg) {
+      var annCls = (v.errors && v.errors.length > 0) ? 'upload-inline-error' : 'upload-inline-warn';
+      annotation += '<span class="' + annCls + '">' + _duEsc(firstMsg) + '</span>';
+    }
+    if (row.uploadStatus === 'Duplicate') {
+      annotation += '<button type="button" class="upload-dup-view-btn" onclick="event.stopPropagation();_duOpenDupCompareModal(' + row.rowIdx + ')">View Match</button>';
+    }
+  }
+
   if (rowEditable && _DU_EDITABLE_COLS.has(col)) {
     var tag = col === 'Construction Comments' ? 'textarea' : 'input';
-    var attrs = tag === 'textarea'
-      ? 'rows="1"'
-      : 'type="text"';
+    var attrs = tag === 'textarea' ? 'rows="1"' : 'type="text"';
     var cls = 'upload-cell-input' + (col === 'Construction Comments' ? ' is-comments' : '');
     return '<td class="' + tdClass + '">' +
       (tag === 'textarea'
         ? '<textarea ' + attrs + ' class="' + cls + '" data-rowidx="' + row.rowIdx + '" data-field="' + _duEsc(col) + '" oninput="_duHandleCellInput(this)" onblur="_duNormalizeCellInput(this)">' + escaped + '</textarea>'
         : '<input ' + attrs + ' class="' + cls + '" data-rowidx="' + row.rowIdx + '" data-field="' + _duEsc(col) + '" value="' + escaped + '" oninput="_duHandleCellInput(this)" onblur="_duNormalizeCellInput(this)">') +
+      annotation +
     '</td>';
   }
 
-  return '<td class="' + tdClass + '"><span class="upload-cell-readonly' + (col === 'Construction Comments' ? ' is-comments' : '') + '">' + escaped + '</span></td>';
+  return '<td class="' + tdClass + '"><span class="upload-cell-readonly' + (col === 'Construction Comments' ? ' is-comments' : '') + '">' + escaped + '</span>' + annotation + '</td>';
 }
 
-function _duStatusCell(row) {
+function _duStatusCell(row, v) {
+  v = v || _duValidation[row.rowIdx] || { errors: [], warnings: [] };
   var dirtyDot = _duDirty[row.rowIdx] ? '<span class="upload-dirty-dot"></span>' : '';
-  var lockText = row.uploadStatus === 'Uploaded' || row.uploadStatus === 'Skipped'
+  var status = row.uploadStatus;
+  var healthIcon = '';
+  if (status !== 'Uploaded' && status !== 'Skipped') {
+    if (v.errors.length > 0) {
+      healthIcon = '<span class="upload-health-icon health-error" title="' + _duEsc(v.errors.join(', ')) + '">✕</span>';
+    } else if (v.warnings.length > 0) {
+      healthIcon = '<span class="upload-health-icon health-warn" title="' + _duEsc(v.warnings.join(', ')) + '">⚠</span>';
+    } else {
+      healthIcon = '<span class="upload-health-icon health-ok" title="Validated">✓</span>';
+    }
+  }
+  var lockText = status === 'Uploaded' || status === 'Skipped'
     ? '<span class="upload-lock-note">Locked</span>'
     : (_duEditMode ? '<span class="upload-lock-note editable">Editable</span>' : '<span class="upload-lock-note">Read only</span>');
-  return dirtyDot + _duStatusBadge(row.uploadStatus) + lockText;
+  return dirtyDot + healthIcon + _duStatusBadge(status) + lockText;
 }
 
 function _duStatusBadge(status) {
@@ -508,7 +553,9 @@ function _duSyncDirtyRowState(rowIdx) {
   if (!tr) return;
   tr.classList.toggle('row-dirty', !!_duDirty[rowIdx]);
   var statusCell = tr.querySelector('.col-status');
-  if (statusCell) statusCell.innerHTML = _duStatusCell(_duGetRow(rowIdx));
+  var row = _duGetRow(rowIdx);
+  var v = _duValidation[rowIdx] || { errors: [], warnings: [] };
+  if (statusCell && row) statusCell.innerHTML = _duStatusCell(row, v);
 }
 
 function _duSaveDirtyRows() {
@@ -741,8 +788,9 @@ function _duDoUpload(rowIndices, skipDuplicates, forceRows) {
   var batchId = 'batch-' + Date.now().toString(36);
   google.script.run
     .withSuccessHandler(function(result) {
-      _duOpenUploadResultModal(result);
-      _duRefreshAll({ force: true });
+      _duRenderResultsCard(result);
+      _duLoadStats();
+      _duLoadHistory();
     })
     .withFailureHandler(function(err) {
       showToast('Upload failed: ' + (err.message || err), 'error');
@@ -1019,6 +1067,270 @@ function _duFormatRelativeTime(dateObj) {
   var hrs = Math.round(mins / 60);
   if (hrs === 1) return '1 hour ago';
   return hrs + ' hours ago';
+}
+
+// ── Triage: validation ──────────────────────────────────────
+function _duBuildValidation() {
+  _duValidation = {};
+  _duFiltered.forEach(function(row) {
+    if (row.uploadStatus !== 'Uploaded' && row.uploadStatus !== 'Skipped') {
+      _duValidation[row.rowIdx] = _duValidateRow(row);
+    }
+  });
+}
+
+function _duValidateRow(row) {
+  var errors = [], warnings = [];
+  if (!row['Date'] || String(row['Date']).trim() === '') errors.push('Missing Date');
+  if (!row['Contractor'] || String(row['Contractor']).trim() === '') errors.push('Missing Contractor');
+  if (!row['FDH Engineering ID'] || String(row['FDH Engineering ID']).trim() === '') errors.push('Missing FDH ID');
+  _DU_NUMERIC_COLS.forEach(function(col) {
+    var raw = row[col];
+    if (raw !== null && raw !== undefined && raw !== '') {
+      var n = parseFloat(raw);
+      if (!isNaN(n) && n < 0) errors.push(_duShortColName(col) + ' is negative');
+    }
+  });
+  if (!row['Target Completion Date'] || String(row['Target Completion Date']).trim() === '') warnings.push('No target date');
+  if (row.uploadStatus === 'Duplicate') warnings.push('Possible duplicate in QB');
+  if (row.uploadStatus === 'Failed') errors.push('Previous upload failed');
+  return { errors: errors, warnings: warnings };
+}
+
+function _duShortColName(col) {
+  var map = {
+    'Daily UG Footage': 'UG Footage', 'Daily Strand Footage': 'Strand Footage',
+    'Daily Fiber Footage': 'Fiber Footage', 'Daily NAPs/Encl. Completed': 'NAPs',
+    'Drills': 'Drills', 'Missles': 'Missles', 'AE Crews': 'AE Crews',
+    'Fiber Pulling Crews': 'Fiber Crews', 'Splicing Crews': 'Splice Crews'
+  };
+  return map[col] || col;
+}
+
+// ── Triage: row HTML ─────────────────────────────────────────
+function _duBuildRowHtml(row) {
+  var isFailed = row.uploadStatus === 'Failed';
+  var isDupe = row.uploadStatus === 'Duplicate';
+  var isDirty = !!_duDirty[row.rowIdx];
+  var isChecked = _duSelected.has(row.rowIdx);
+  var rowEditable = _duCanEditRow(row);
+  var v = _duValidation[row.rowIdx] || { errors: [], warnings: [] };
+  var hasErrors = v.errors.length > 0;
+  var hasWarnings = !hasErrors && v.warnings.length > 0;
+
+  var trClass = [
+    row.uploadStatus === 'Uploaded' ? 'row-uploaded' : '',
+    isFailed ? 'row-failed' : '',
+    isDupe ? 'row-duplicate' : '',
+    isDirty ? 'row-dirty' : '',
+    rowEditable ? 'row-editable' : '',
+    _duEditMode ? 'table-edit-mode' : '',
+    hasErrors ? 'row-has-error' : '',
+    hasWarnings ? 'row-has-warning' : ''
+  ].filter(Boolean).join(' ');
+
+  var cells = _DU_TABLE_COLS.map(function(col) {
+    return _duRenderCell(row, col, rowEditable, v);
+  }).join('');
+
+  var isLocked = row.uploadStatus === 'Uploaded' || row.uploadStatus === 'Skipped';
+  return '<tr class="' + trClass + '" data-rowidx="' + row.rowIdx + '">' +
+    '<td class="col-check"><input type="checkbox" class="upload-row-check" aria-label="Select row ' + row.rowIdx + '" ' +
+    (isChecked ? 'checked ' : '') + (isLocked ? 'disabled ' : '') +
+    'onchange="_duToggleRow(' + row.rowIdx + ',this.checked)"></td>' +
+    cells +
+    '<td class="col-status">' + _duStatusCell(row, v) + '</td>' +
+  '</tr>';
+}
+
+// ── Triage: swimlane dividers ────────────────────────────────
+function _duBuildSwimlaneDivider(key, count, colSpan) {
+  var isOpen = _duSwimlaneOpen[key];
+  var cfgs = {
+    issues: {
+      label: 'ISSUES',
+      cls: 'swimlane-issues',
+      icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      action: count > 0 ? '<button type="button" class="upload-swimlane-action" onclick="event.stopPropagation();_duSelectSwimlane(\'issues\')">Select All</button>' : ''
+    },
+    ready: {
+      label: 'READY TO UPLOAD',
+      cls: 'swimlane-ready',
+      icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+      action: count > 0 ? '<button type="button" class="upload-swimlane-action" onclick="event.stopPropagation();_duSelectSwimlane(\'ready\')">Select All</button>' : ''
+    },
+    uploaded: {
+      label: 'UPLOADED TODAY',
+      cls: 'swimlane-uploaded',
+      icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+      action: ''
+    }
+  };
+  var cfg = cfgs[key] || cfgs.ready;
+  var chevronSvg = '<svg class="upload-swimlane-chevron' + (isOpen ? ' is-open' : '') + '" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
+
+  return '<tr class="upload-swimlane-row ' + cfg.cls + '" onclick="_duToggleSwimlane(\'' + key + '\')">' +
+    '<td colspan="' + colSpan + '" class="upload-swimlane-cell">' +
+      '<div class="upload-swimlane-header">' +
+        '<div class="upload-swimlane-header-left">' +
+          chevronSvg + cfg.icon +
+          '<span class="upload-swimlane-label">' + cfg.label + '</span>' +
+          '<span class="upload-swimlane-count">' + count + '</span>' +
+        '</div>' +
+        cfg.action +
+      '</div>' +
+    '</td>' +
+  '</tr>';
+}
+
+function _duToggleSwimlane(key) {
+  if (_duSwimlaneOpen.hasOwnProperty(key)) _duSwimlaneOpen[key] = !_duSwimlaneOpen[key];
+  _duRenderTable();
+}
+
+function _duSelectSwimlane(key) {
+  var issues = [], ready = [];
+  _duFiltered.forEach(function(row) {
+    var s = row.uploadStatus;
+    if (s !== 'Uploaded' && s !== 'Skipped') {
+      var v = _duValidation[row.rowIdx] || { errors: [], warnings: [] };
+      if (v.errors.length > 0 || v.warnings.length > 0) issues.push(row);
+      else ready.push(row);
+    }
+  });
+  var target = key === 'issues' ? issues : key === 'ready' ? ready : [];
+  target.forEach(function(row) { if (_duIsSelectableRow(row)) _duSelected.add(row.rowIdx); });
+  _duRenderTable();
+  _duRenderToolbar();
+}
+
+function _duUpdateUploadButtonLabel(readyCount) {
+  var btn = document.getElementById('upload-btn-upload');
+  if (!btn) return;
+  var svgEl = btn.querySelector('svg');
+  var svgHtml = svgEl ? svgEl.outerHTML : '';
+  btn.innerHTML = svgHtml + ' Upload ' + readyCount + ' Record' + (readyCount === 1 ? '' : 's') + ' ↑';
+}
+
+// ── Triage: duplicate comparison modal ──────────────────────
+function _duOpenDupCompareModal(rowIdx) {
+  var row = _duGetRow(rowIdx);
+  if (!row) return;
+  var keyFields = [
+    ['Date', row['Date']],
+    ['FDH Engineering ID', row['FDH Engineering ID']],
+    ['Contractor', row['Contractor']],
+    ['UG Footage', row['Daily UG Footage']],
+    ['Strand Footage', row['Daily Strand Footage']],
+    ['Fiber Footage', row['Daily Fiber Footage']]
+  ];
+  var fieldRows = keyFields.map(function(f) {
+    return '<div class="upload-dup-field-row">' +
+      '<span class="upload-dup-field-label">' + _duEsc(f[0]) + '</span>' +
+      '<span class="upload-dup-field-val">' + _duEsc(f[1] || '—') + '</span>' +
+    '</div>';
+  }).join('');
+
+  var body =
+    '<div class="upload-dup-warning">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;vertical-align:-3px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+      'A record with this FDH + Date already exists in QuickBase. Uploading will create a duplicate entry unless you skip or force override.' +
+    '</div>' +
+    '<div class="upload-dup-fields">' + fieldRows + '</div>';
+
+  _duOpenModal('Duplicate Detected', body, [
+    { label: 'Skip This Row', cls: 'upload-btn', onclick: '_duCloseModal();_duSkipDupeRow(' + rowIdx + ')' },
+    { label: 'Force Override', cls: 'upload-btn btn-danger', onclick: '_duCloseModal();_duForceDupeRow(' + rowIdx + ')' },
+    { label: 'Cancel', cls: 'upload-btn btn-ghost', onclick: '_duCloseModal()' }
+  ]);
+}
+
+function _duSkipDupeRow(rowIdx) {
+  _duSelected.delete(rowIdx);
+  var row = _duGetRow(rowIdx);
+  if (row) { row._duDupResolved = 'skip'; row.uploadStatus = 'Skipped'; }
+  _duBuildValidation();
+  _duRenderTable();
+  _duRenderToolbar();
+  showToast('Row will be skipped during upload.', 'info');
+}
+
+function _duForceDupeRow(rowIdx) {
+  var row = _duGetRow(rowIdx);
+  if (row) { row._duDupResolved = 'force'; row.uploadStatus = 'Pending'; }
+  _duSelected.add(rowIdx);
+  _duBuildValidation();
+  _duRenderTable();
+  _duRenderToolbar();
+  showToast('Row will be force-uploaded — duplicate check bypassed.', 'warn');
+}
+
+// ── Triage: post-upload results card ────────────────────────
+function _duRenderResultsCard(result) {
+  var tableWrap = document.querySelector('#upload-workspace .upload-table-wrap');
+  if (!tableWrap) { _duOpenUploadResultModal(result); return; }
+
+  var failedRows = (result.results || []).filter(function(r) { return r.status === 'failed'; });
+  var succCount = result.success || 0;
+  var failCount = result.failed || 0;
+  var skipCount = result.duplicates || 0;
+
+  var failList = failedRows.length > 0
+    ? '<div class="upload-rc-failures">' +
+        '<div class="upload-rc-failures-title">Failed Records</div>' +
+        failedRows.map(function(r) {
+          return '<div class="upload-rc-failure-row">' +
+            '<span class="upload-rc-failure-fdh">' + _duEsc(r.fdh || 'Row ' + r.rowIdx) + '</span>' +
+            '<span class="upload-rc-failure-err">' + _duEsc(r.error || 'Unknown error') + '</span>' +
+          '</div>';
+        }).join('') +
+      '</div>'
+    : '';
+
+  var retryBtn = failedRows.length > 0
+    ? '<button type="button" class="upload-btn btn-danger" onclick="_duCloseResultsCard();_duRetryFailed(' + JSON.stringify(failedRows.map(function(r) { return r.rowIdx; })) + ')">Retry Failed</button>'
+    : '';
+
+  tableWrap.innerHTML =
+    '<div class="upload-results-card">' +
+      '<div class="upload-rc-header">' +
+        '<div class="upload-rc-icon">' +
+          '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+        '</div>' +
+        '<div>' +
+          '<div class="upload-rc-title">Upload Complete</div>' +
+          '<div class="upload-rc-batch">Batch · ' + _duEsc(result.batchId || '') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="upload-rc-stats">' +
+        '<div class="upload-rc-stat stat-success">' +
+          '<div class="upload-rc-stat-value">' + succCount + '</div>' +
+          '<div class="upload-rc-stat-label">Uploaded</div>' +
+        '</div>' +
+        '<div class="upload-rc-stat stat-skipped">' +
+          '<div class="upload-rc-stat-value">' + skipCount + '</div>' +
+          '<div class="upload-rc-stat-label">Skipped</div>' +
+        '</div>' +
+        '<div class="upload-rc-stat stat-failed">' +
+          '<div class="upload-rc-stat-value">' + failCount + '</div>' +
+          '<div class="upload-rc-stat-label">Failed</div>' +
+        '</div>' +
+      '</div>' +
+      failList +
+      '<div class="upload-rc-footer">' +
+        retryBtn +
+        '<button type="button" class="upload-btn btn-primary" onclick="_duCloseResultsCard()">Back to Review</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function _duCloseResultsCard() {
+  _duRefreshAll({ force: true });
+}
+
+function _duRetryFailed(rowIndices) {
+  if (!rowIndices || rowIndices.length === 0) return;
+  _duDoUpload(rowIndices, true, []);
 }
 
 function _duEsc(str) {
