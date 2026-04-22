@@ -5,7 +5,7 @@
 
 // --- 1. DATA DICTIONARIES ---
 
-const ENGINE_REF_DICT_CACHE_KEY = 'engine_ref_dict_v1';
+const ENGINE_REF_DICT_CACHE_KEY = 'engine_ref_dict_v2';
 const ENGINE_VENDOR_DICT_CACHE_KEY = 'engine_vendor_dict_v1';
 const ENGINE_DICT_CACHE_VERSION_PROP = 'ENGINE_DICT_CACHE_VERSION';
 
@@ -287,6 +287,7 @@ function getReferenceDictionary() {
            city: cityIdx > -1 ? String(r[cityIdx] || "-") : "-", 
            stage: stageIdx > -1 ? String(r[stageIdx] || "-") : "-", 
            status: statusIdx > -1 ? String(r[statusIdx] || "-") : "-", 
+           vendor: vendorIdx > -1 ? String(r[vendorIdx] || "").trim() : "",
            bsls: bslIdx > -1 ? String(r[bslIdx] || "-") : "-",
            forecastedOFS: ofsIdx > -1 ? safeDate(r[ofsIdx]) : "-",
            canonicalOfsDate: ofsIdx > -1 ? safeDate(r[ofsIdx]) : "",

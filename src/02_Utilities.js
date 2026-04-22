@@ -87,7 +87,7 @@ function getVendorHybridStats() {
     const data = refSheet.getDataRange().getValues();
     const headers = data[0];
     const contractorIdx = headers.findIndex(h => h && ["CX VENDOR", "CONTRACTOR", "VENDOR"].includes(h.trim().toUpperCase()));
-    const fiberTotIdx = headers.findIndex(h => h && ["FIBER FOOTAGE", "TOTAL FIBER FOOTAGE COMPLETE", "FIBER FOOTAGE COMPLETE"].includes(h.trim().toUpperCase()));
+    const fiberTotIdx = headers.findIndex(h => h && ["FIBER FOOTAGE", "TOTAL FIBER FOOTAGE COMPLETE", "FIBER FOOTAGE COMPLETE", "FIBER BOM QUANTITY"].includes(h.trim().toUpperCase()));
     const fdhIdx = headers.findIndex(h => h && h.trim().toUpperCase().includes("FDH"));
 
     if (fiberTotIdx === -1) logMsg('WARN', 'getVendorHybridStats', 'Fiber Footage column not found in Reference_Data. Headers: ' + JSON.stringify(headers.slice(0, 20)));
@@ -381,21 +381,165 @@ function _parseDashboardDateValue(value) {
   return isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function _isStaleOfsItem(stage, status, flags, primaryOfsDate, fallbackOfsDate, reportDate) {
-  const stageStr = String(stage || '').toUpperCase();
+function _normalizePortfolioDate(dateLike) {
+  const parsed = _parseDashboardDateValue(dateLike);
+  if (!parsed) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
+function _isPortfolioApprovedStatus(status) {
   const statusStr = String(status || '').toUpperCase();
-  const flagsStr = String(flags || '').toUpperCase();
-  const isOfsScoped = stageStr.includes('OFS') || statusStr.includes('OOS') || flagsStr.includes('LIKELY OFS');
-  if (!isOfsScoped) return false;
+  return statusStr.includes('APPROV');
+}
 
-  const ofsDate = _parseDashboardDateValue(primaryOfsDate) || _parseDashboardDateValue(fallbackOfsDate) || _parseDashboardDateValue(reportDate);
-  if (!ofsDate) return false;
+function _getPortfolioGraceCutoff(ofsDateLike) {
+  const ofsDate = _normalizePortfolioDate(ofsDateLike);
+  if (!ofsDate) return null;
+  const cutoff = new Date(ofsDate.getFullYear(), ofsDate.getMonth() + 1, 7, 23, 59, 59, 999);
+  return cutoff;
+}
 
-  // RULE: Hide if more than 7 days past the OFS month.
-  // Example: OFS March (3/31) cutoff is April 7th.
-  const cutoff = new Date(ofsDate.getFullYear(), ofsDate.getMonth() + 1, 7);
-  cutoff.setHours(23, 59, 59, 999);
-  return Date.now() > cutoff.getTime();
+function _getPortfolioTimingAnchor(input) {
+  if (!input) return null;
+  return _normalizePortfolioDate(input.cxStart) ||
+    _normalizePortfolioDate(input.targetDate) ||
+    _normalizePortfolioDate(input.primaryOfsDate) ||
+    _normalizePortfolioDate(input.fallbackOfsDate) ||
+    null;
+}
+
+function _getPortfolioVisibilityMeta(input) {
+  input = input || {};
+  const today = _normalizePortfolioDate(input.referenceDate || new Date()) || new Date();
+  today.setHours(0,0,0,0);
+  const stageStr = String(input.stage || '').toUpperCase();
+  const statusStr = String(input.status || '').toUpperCase();
+  const flagsStr = String(input.flags || '').toUpperCase();
+  const vendorName = String(input.vendor || '').trim();
+  const hasHistory = !!input.hasHistory;
+  const hasVendor = vendorName.length > 0;
+  const isApproved = _isPortfolioApprovedStatus(statusStr);
+  const isPermitStage = stageStr.includes('PERMIT');
+  const isSowOrDesign = stageStr.includes('SOW') || stageStr.includes('DESIGN') || stageStr.includes('BID');
+  
+  const isCanceled = (
+    statusStr.includes('CANCEL') ||
+    stageStr.includes('CANCEL') ||
+    statusStr.includes('REMOVED FROM QB')
+  );
+  const isHold = (
+    statusStr.includes('HOLD') ||
+    stageStr.includes('HOLD')
+  );
+
+  const isOfsState = (
+    stageStr.includes('OFS') ||
+    stageStr.includes('OPEN FOR SALE') ||
+    statusStr.includes('OFS') ||
+    statusStr.includes('OPEN FOR SALE') ||
+    statusStr.includes('OOS') ||
+    flagsStr.includes('LIKELY OFS')
+  );
+  const isCompleteState = statusStr.includes('COMPLETE') || stageStr.includes('COMPLETE');
+  const isTerminalWithGrace = isOfsState || isCompleteState;
+
+  const graceSourceDate = _normalizePortfolioDate(input.primaryOfsDate) ||
+    _normalizePortfolioDate(input.fallbackOfsDate) ||
+    _normalizePortfolioDate(input.reportDate);
+  const graceUntil = _getPortfolioGraceCutoff(graceSourceDate);
+
+  const cxStartDate = _normalizePortfolioDate(input.cxStart);
+  const anchorDate = _getPortfolioTimingAnchor(input);
+
+  const isPastStart = cxStartDate ? (cxStartDate.getTime() <= today.getTime()) : false;
+  const inFutureWindow = !!(anchorDate && anchorDate.getTime() > today.getTime());
+  const horizonDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 60);
+  const withinHorizon = !!(anchorDate && anchorDate.getTime() <= horizonDate.getTime());
+
+  // 1. CANCELED / REMOVED - ALWAYS EXCLUDE
+  if (isCanceled) {
+    return { includeInPortfolio: false, expectDailyReport: false, reason: 'excluded-canceled', graceUntil: null, isTerminalGraceOnly: false };
+  }
+
+  // 2. TERMINAL (OFS/COMPLETE)
+  if (isTerminalWithGrace) {
+    // CLUTTER FIX: Strict exclusion if no hard OFS date
+    if (!graceUntil) {
+      return { includeInPortfolio: false, expectDailyReport: false, reason: 'excluded-terminal-no-ofs-date', graceUntil: null, isTerminalGraceOnly: true };
+    }
+    // Grace window check
+    if (today.getTime() <= graceUntil.getTime()) {
+      return { includeInPortfolio: true, expectDailyReport: false, reason: 'terminal-grace-window', graceUntil: graceUntil, isTerminalGraceOnly: true };
+    }
+    return { includeInPortfolio: false, expectDailyReport: false, reason: 'excluded-post-grace', graceUntil: graceUntil, isTerminalGraceOnly: true };
+  }
+
+  // 3. PRIORITIZE HISTORY & HOLD LOGIC
+  if (hasHistory) {
+    // If it has history, it surfaces. But we only expect reports if it's NOT on hold.
+    return {
+      includeInPortfolio: true,
+      expectDailyReport: !isHold,
+      reason: isHold ? 'active-hold' : 'reported-history',
+      graceUntil: null,
+      isTerminalGraceOnly: false
+    };
+  }
+
+  // 4. VENDOR CHECK: If no history and NO VENDOR assigned, exclude (too early/unconnected)
+  if (!hasVendor) {
+    return { includeInPortfolio: false, expectDailyReport: false, reason: 'excluded-no-vendor', graceUntil: null, isTerminalGraceOnly: false };
+  }
+
+  // 5. HOLD (without history) -> EXCLUDE
+  if (isHold) {
+    return { includeInPortfolio: false, expectDailyReport: false, reason: 'excluded-hold-no-history', graceUntil: null, isTerminalGraceOnly: false };
+  }
+
+  // 6. EARLY STAGE (SOW/Design/Bid) -> EXCLUDE (Unconnected/Too early)
+  if (isSowOrDesign) {
+    return { includeInPortfolio: false, expectDailyReport: false, reason: 'excluded-early-stage', graceUntil: null, isTerminalGraceOnly: false };
+  }
+
+  // 7. PERMITTING
+  if (isPermitStage) {
+    if (!isApproved) {
+      return { includeInPortfolio: false, expectDailyReport: false, reason: 'excluded-unapproved-permitting', graceUntil: null, isTerminalGraceOnly: false };
+    }
+    // Approved Permitting
+    if (inFutureWindow) {
+      if (withinHorizon) {
+        return { includeInPortfolio: true, expectDailyReport: false, reason: 'approved-upcoming-60d', graceUntil: null, isTerminalGraceOnly: false };
+      } else {
+        return { includeInPortfolio: false, expectDailyReport: false, reason: 'excluded-outside-window', graceUntil: null, isTerminalGraceOnly: false };
+      }
+    }
+  }
+
+  // 8. CONSTRUCTION / FIELD CX (Everything else that made it this far)
+  // We surface it. We expect a report if it's past start date.
+  const expectReport = isPastStart;
+
+  return {
+    includeInPortfolio: true,
+    expectDailyReport: expectReport,
+    reason: expectReport ? 'active-default' : 'active-upcoming-start',
+    graceUntil: null,
+    isTerminalGraceOnly: false
+  };
+}
+
+function _isStaleOfsItem(stage, status, vendor, flags, primaryOfsDate, fallbackOfsDate, reportDate) {
+  const meta = _getPortfolioVisibilityMeta({
+    stage: stage,
+    status: status,
+    vendor: vendor,
+    flags: flags,
+    primaryOfsDate: primaryOfsDate,
+    fallbackOfsDate: fallbackOfsDate,
+    reportDate: reportDate
+  });
+  return meta.isTerminalGraceOnly && !meta.includeInPortfolio;
 }
 
 function _buildReferenceConfidenceMeta(input) {
@@ -426,6 +570,341 @@ function _buildReferenceConfidenceMeta(input) {
   else if (score >= 40) tier = 'partial';
 
   return { score: score, tier: tier };
+}
+
+function _createDashboardPayloadFieldAccessors(headers) {
+  headers = Array.isArray(headers) ? headers.map(function(h) { return String(h || ""); }) : [];
+  const getIdx = function(name) { return headers.indexOf(name); };
+  const getIdxByAliases = function(aliases) {
+    return headers.findIndex(function(h) {
+      return aliases.indexOf(String(h || '').trim().toUpperCase()) > -1;
+    });
+  };
+
+  return {
+    headers: headers,
+    getIdx: getIdx,
+    getIdxByAliases: getIdxByAliases,
+    fdhIdx: getIdx("FDH Engineering ID"),
+    flagsIdx: getIdx("Health Flags"),
+    draftIdx: getIdx("Action Required"),
+    vendorIdx: getIdx("Contractor"),
+    statusIdx: getIdx("Status"),
+    cityIdx: getIdx("City"),
+    stageIdx: getIdx("Stage"),
+    ofsIdx: getIdxByAliases(["OFS DATE", "BUDGET OFS"]),
+    benchIdx: getIdx("Historical Milestones"),
+    dateIdx: getIdx("Date"),
+    targetIdx: getIdx("Target Completion Date"),
+    cxStartIdx: getIdx("CX Start"),
+    cxEndIdx: getIdx("CX Complete"),
+    cxInferredIdx: getIdx("CX Inferred"),
+    summaryIdx: getIdx("Field Production"),
+    gapsIdx: getIdx("QB Context & Gaps"),
+    bslsIdx: getIdx("BSLs"),
+    lightIdx: getIdx("Light to Cabinets"),
+    cdIntelIdx: getIdx("CD Intelligence"),
+    geminiInsightIdx: getIdx("Gemini Insight"),
+    geminiDateIdx: getIdx("Gemini Insight Date"),
+    specXIdx: getIdx("Special Crossings?"),
+    specXDetIdx: headers.indexOf("Special Crossing Details") > -1 ? headers.indexOf("Special Crossing Details") : headers.indexOf("Sepcial Crossings Details"),
+    vcIdx: getIdx("Vendor Comment") > -1 ? getIdx("Vendor Comment") : getIdx("Construction Comments"),
+    drgIdx: getIdxByAliases(["DRG", "DIRECT VENDOR", "DIRECT VENDOR TRACKING", "DRG TRACKER", "DIRECT VENDOR TRACKER"]),
+    drgUrlIdx: getIdxByAliases(["DRG TRACKER URL", "DIRECT VENDOR TRACKER URL", "DRG URL", "DIRECT VENDOR URL", "TRACKER URL"]),
+    ugTotIdx: getIdx("Total UG Footage Completed"),
+    ugBomIdx: getIdx("UG BOM Quantity"),
+    ugDailyIdx: getIdx("Daily UG Footage"),
+    aeTotIdx: getIdx("Total Strand Footage Complete?"),
+    aeBomIdx: getIdx("Strand BOM Quantity"),
+    aeDailyIdx: getIdx("Daily Strand Footage"),
+    fibTotIdx: getIdx("Total Fiber Footage Complete"),
+    fibBomIdx: getIdx("Fiber BOM Quantity"),
+    fibDailyIdx: getIdx("Daily Fiber Footage"),
+    napTotIdx: getIdx("Total NAPs Completed"),
+    napBomIdx: getIdx("NAP/Encl. BOM Qty."),
+    napDailyIdx: getIdx("Daily NAPs/Encl. Completed")
+  };
+}
+
+function _dashboardParseNumber(val) {
+  if (val == null || val === "") return 0;
+  if (typeof val === 'number') return val;
+  let match = String(val).split('(')[0].replace(/,/g, '').trim().match(/-?\d+(\.\d+)?/);
+  return match ? Number(match[0]) : 0;
+}
+
+function _dashboardIsChecked(val) {
+  if (val === true) return true;
+  let normalized = String(val || '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'y', 'checked', 'x', 'drg', 'direct vendor', 'tracked'].includes(normalized);
+}
+
+function _dashboardParseDate(val) {
+  if (!val || val === "" || val === "-") return "";
+  if (val instanceof Date) return Utilities.formatDate(val, "GMT-5", "MM/dd/yy");
+  let s = String(val).trim();
+  let mIso = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (mIso) return `${mIso[2].padStart(2,'0')}/${mIso[3].padStart(2,'0')}/${mIso[1].substring(2)}`;
+  let mUs = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+  if (mUs) {
+    let yr = mUs[3].length === 4 ? mUs[3].substring(2) : mUs[3];
+    return `${mUs[1].padStart(2,'0')}/${mUs[2].padStart(2,'0')}/${yr}`;
+  }
+  let d = new Date(s);
+  if (!isNaN(d.getTime())) return Utilities.formatDate(d, "GMT-5", "MM/dd/yy");
+  return s;
+}
+
+function _buildSyntheticAdminGaps(refData) {
+  refData = refData || {};
+  let xingString = "X-ING UNCHECKED";
+  const xingVal = String(refData.rawSpecialX || "").trim().toLowerCase();
+  if (xingVal === "yes" || xingVal === "true") xingString = "X-ING YES";
+  else if (xingVal === "no" || xingVal === "false") xingString = "X-ING CLEAR";
+  let hasBeenChecked = refData.adminDate && refData.adminDate !== "";
+  let adminDateStr = hasBeenChecked ? `[Chk: ${refData.adminDate}]` : `[Chk: NEVER]`;
+  return `${adminDateStr}  |  ${refData.hasSOW ? "SOW" : "SOW"}  ${refData.hasCD ? "CD" : "CD"}  ${refData.hasBOM ? "BOM" : "BOM"}  |  ${xingString}`;
+}
+
+function _buildDashboardOverlayIndex(rows, fieldMap) {
+  const overlayMap = {};
+  (rows || []).forEach(function(row, idx) {
+    const fdh = fieldMap.fdhIdx > -1 ? String(row[fieldMap.fdhIdx] || "").trim().toUpperCase() : "";
+    if (!fdh) return;
+    overlayMap[fdh] = {
+      row: row,
+      rowNum: idx + 2
+    };
+  });
+  return overlayMap;
+}
+
+function _stripReportingFlags(flags, preserveUpcoming) {
+  const lines = String(flags || "")
+    .split("\n")
+    .map(function(line) { return String(line || "").trim(); })
+    .filter(Boolean);
+
+  return lines.filter(function(line) {
+    const up = line.toUpperCase();
+    if (preserveUpcoming && up === "UPCOMING START WINDOW") return true;
+    return (
+      up !== "MISSING DAILY REPORT" &&
+      up !== "REPORT PENDING" &&
+      up !== "WEEKEND CARRY" &&
+      !up.includes("STALE REPORT")
+    );
+  }).join("\n").trim();
+}
+
+function _deriveReportingStatusFromFlags(flags) {
+  const up = String(flags || "").toUpperCase();
+  if (up.includes("UPCOMING START WINDOW")) return "upcoming";
+  if (up.includes("MISSING DAILY REPORT")) return "missing";
+  if (up.includes("REPORT PENDING") || up.includes("WEEKEND CARRY")) return "pending";
+  if (up.includes("STALE REPORT")) return "stale";
+  return "current";
+}
+
+function _buildPortfolioActionItems(options) {
+  options = options || {};
+  const headers = options.headers || [];
+  const rows = options.rows || [];
+  const refDict = options.refDict || {};
+  const fiberStats = options.fiberStats || {};
+  const defaultDrgTrackerUrl = options.defaultDrgTrackerUrl || "";
+  const fieldMap = _createDashboardPayloadFieldAccessors(headers);
+  const overlayMap = _buildDashboardOverlayIndex(rows, fieldMap);
+  const actionItems = [];
+
+  Object.keys(refDict).forEach(function(fdhKey) {
+    const refData = refDict[fdhKey] || {};
+    const overlay = overlayMap[fdhKey] || null;
+    const row = overlay ? overlay.row : [];
+    const getRowVal = function(idx, fallback) {
+      if (idx > -1 && row && row.length > idx) {
+        const val = row[idx];
+        if (val !== "" && val != null) return val;
+      }
+      return fallback;
+    };
+
+    const rawFlags = String(getRowVal(fieldMap.flagsIdx, "") || "");
+    const rawStage = String(getRowVal(fieldMap.stageIdx, refData.stage || "") || "");
+    const rawStatus = String(getRowVal(fieldMap.statusIdx, refData.status || "") || "");
+    const rawTargetDate = getRowVal(fieldMap.targetIdx, refData.canonicalOfsDate || refData.forecastedOFS || "");
+    const rawCxStart = getRowVal(fieldMap.cxStartIdx, refData.cxStart || "");
+    const rawReportDate = getRowVal(fieldMap.dateIdx, "");
+    const vendorName = String(getRowVal(fieldMap.vendorIdx, refData.vendor || "") || "").trim();
+    const portfolioMeta = _getPortfolioVisibilityMeta({
+      stage: rawStage,
+      status: rawStatus,
+      vendor: vendorName,
+      flags: rawFlags,
+      primaryOfsDate: refData.canonicalOfsDate || refData.forecastedOFS || "",
+      fallbackOfsDate: getRowVal(fieldMap.ofsIdx, refData.canonicalOfsDate || refData.forecastedOFS || ""),
+      targetDate: rawTargetDate,
+      cxStart: rawCxStart,
+      reportDate: rawReportDate,
+      hasHistory: !!overlay
+    });
+    if (!portfolioMeta.includeInPortfolio) return;
+
+    const rawMirrorOfsDate = _dashboardParseDate(getRowVal(fieldMap.ofsIdx, ""));
+    const canonicalOfsDate = String(refData.canonicalOfsDate || refData.forecastedOFS || getRowVal(fieldMap.ofsIdx, "") || "").trim();
+    const normalizedCanonicalOfsDate = (!canonicalOfsDate || canonicalOfsDate === '-' || canonicalOfsDate === 'Unknown')
+      ? ""
+      : canonicalOfsDate;
+
+    const referenceMeta = _buildReferenceConfidenceMeta({
+      flags: rawFlags,
+      hasReferencePresence: true,
+      rid: String(refData.rid || ""),
+      hasSOW: refData.hasSOW,
+      hasCDDel: refData.hasCDDel,
+      hasCDDist: refData.hasCDDist,
+      hasBOMDel: refData.hasBOMDel,
+      hasBOMPo: refData.hasBOMPo,
+      cxInferred: String(getRowVal(fieldMap.cxInferredIdx, "") || "")
+    });
+
+    let currentFlags = rawFlags;
+    let draft = String(getRowVal(fieldMap.draftIdx, "") || "");
+    let fieldProduction = String(getRowVal(fieldMap.summaryIdx, "") || "");
+    let vendorComment = String(getRowVal(fieldMap.vcIdx, "") || "");
+    let reportingStatus = _deriveReportingStatusFromFlags(currentFlags);
+
+    if (portfolioMeta.reason === 'approved-upcoming-60d') {
+      currentFlags = _stripReportingFlags(currentFlags, true);
+      currentFlags = currentFlags ? ("UPCOMING START WINDOW\n" + currentFlags) : "UPCOMING START WINDOW";
+      draft = "Action: Monitor schedule. Approved project is inside the rolling 60-day horizon and not expected to report yet.";
+      fieldProduction = fieldProduction || "No reporting history yet. Upcoming within the 60-day planning window.";
+      vendorComment = vendorComment || "Approved upcoming project inside the 60-day planning window.";
+      reportingStatus = "upcoming";
+    } else if (!portfolioMeta.expectDailyReport) {
+      currentFlags = _stripReportingFlags(currentFlags, false);
+      if (!overlay && portfolioMeta.isTerminalGraceOnly) {
+        fieldProduction = fieldProduction || "Terminal project remains visible during the portfolio grace window.";
+        vendorComment = vendorComment || "Visible in Active Portfolio through grace window.";
+      }
+      reportingStatus = "current";
+    } else if (!overlay) {
+      currentFlags = "MISSING DAILY REPORT";
+      draft = "Action: Contact Vendor. Active project with no submission history. Verify if Field CX has started.";
+      fieldProduction = "No daily report history found.";
+      vendorComment = "Missing daily report.";
+      reportingStatus = "missing";
+    }
+
+    const stageStr = rawStage.toUpperCase();
+    const statusStr = rawStatus.toUpperCase();
+
+    // 🧠 HOLD OVERRIDE: If the project is on hold, it suppresses all other flags
+    const isHold = statusStr.includes('HOLD') || stageStr.includes('HOLD');
+    if (isHold) {
+      currentFlags = "ON HOLD";
+      draft = "Project is currently on hold.";
+    }
+
+    const qbFinished = !!(
+      String(refData.status || "").toUpperCase().includes("COMPLETE") ||
+      String(refData.stage || "").toUpperCase().includes("OFS")
+    );
+    const isFinished = qbFinished || stageStr.includes("OFS") || stageStr.includes("COMPLETE") || statusStr.includes("OOS") || currentFlags.includes("LIKELY OFS");
+    if (isFinished) {
+      const irrelevantRisks = ["CHECK CROSSINGS", "CHECK BOM", "LIGHTING RISK", "STATUS MISMATCH", "PLEASE INPUT BOM", "HIGH UG VARIANCE", "HIGH STRAND VARIANCE", "HIGH FIBER VARIANCE", "MISSING BOM", "MISSING UG BOM", "MISSING STRAND BOM", "MISSING FIBER BOM", "MISSING SPLICING BOM", "POSSIBLE REROUTE", "BOM DISCREPANCY", "ADMIN: REFRESH REF DATA"];
+      currentFlags = currentFlags.split("\n")
+        .filter(function(line) {
+          const upLine = String(line || "").toUpperCase();
+          return !irrelevantRisks.some(function(risk) { return upLine.includes(risk); });
+        })
+        .join("\n").trim();
+    }
+
+    let safeRawRow = [];
+    if (overlay && row) {
+      safeRawRow = row.map(function(cell, idx) {
+        let val = cell;
+        if (cell instanceof Date) {
+          val = !isNaN(cell.getTime()) ? cell.toISOString() : "";
+        } else {
+          val = String(cell || "");
+        }
+        return { h: headers[idx], v: val };
+      }).filter(function(entry) { return entry.v !== ""; });
+    }
+
+    const vStats = fiberStats[vendorName] || { lifetime: { miles: 0 } };
+    const fieldProductionText = fieldProduction || "";
+    const mirrorTrackerLinked = fieldProductionText.includes("[📡 Tracker Linked]") || fieldProductionText.includes("[Tracker Linked]");
+    const mirrorDrgTracked = _dashboardIsChecked(getRowVal(fieldMap.drgIdx, false));
+    const mirrorDrgTrackerUrl = String(getRowVal(fieldMap.drgUrlIdx, "") || "").trim();
+    const lastReportDate = _dashboardParseDate(rawReportDate);
+
+    actionItems.push({
+      fdh: fdhKey,
+      vendor: vendorName,
+      city: String(getRowVal(fieldMap.cityIdx, refData.city || "") || ""),
+      stage: rawStage,
+      status: rawStatus,
+      bsls: String(getRowVal(fieldMap.bslsIdx, refData.bsls || "-") || "-"),
+      isLight: _dashboardIsChecked(getRowVal(fieldMap.lightIdx, false)),
+      canonicalOfsDate: normalizedCanonicalOfsDate,
+      ofsDate: normalizedCanonicalOfsDate,
+      isStaleOfs: _isStaleOfsItem(rawStage, rawStatus, vendorName, currentFlags, normalizedCanonicalOfsDate, rawMirrorOfsDate, rawReportDate),
+      rawMirrorOfsDate: rawMirrorOfsDate,
+      reportDate: lastReportDate,
+      targetDate: _dashboardParseDate(rawTargetDate),
+      cxStart: _dashboardParseDate(rawCxStart),
+      cxEnd: _dashboardParseDate(getRowVal(fieldMap.cxEndIdx, refData.cxComplete || "")),
+      cxInferred: String(getRowVal(fieldMap.cxInferredIdx, "") || ""),
+      isXing: String(getRowVal(fieldMap.gapsIdx, refData.isSpecialX ? "X-ING YES" : "") || "").includes("X-ING YES") || !!refData.isSpecialX,
+      gaps: String(getRowVal(fieldMap.gapsIdx, _buildSyntheticAdminGaps(refData)) || ""),
+      flags: currentFlags,
+      draft: draft,
+      fieldProduction: fieldProductionText,
+      bench: String(getRowVal(fieldMap.benchIdx, "No history logged.") || ""),
+      vendorComment: vendorComment,
+      cdIntel: String(getRowVal(fieldMap.cdIntelIdx, "") || "").trim(),
+      geminiInsight: String(getRowVal(fieldMap.geminiInsightIdx, refData.geminiInsight || "") || "").trim(),
+      geminiDate: String(getRowVal(fieldMap.geminiDateIdx, refData.geminiDate || "") || "").trim(),
+      rawSpecialX: String(getRowVal(fieldMap.specXIdx, refData.rawSpecialX || "") || "").trim(),
+      specXDetails: String(getRowVal(fieldMap.specXDetIdx, refData.specXDetails || "") || "").trim(),
+      isTrackerLinked: mirrorTrackerLinked,
+      isDrgTracked: mirrorDrgTracked || !!refData.isDrgTracked,
+      drgTrackerUrl: mirrorDrgTrackerUrl || String(refData.drgTrackerUrl || "") || defaultDrgTrackerUrl,
+      rid: String(refData.rid || ""),
+      hasBOMDel: !!refData.hasBOMDel,
+      hasSpliceDel: !!refData.hasSpliceDel,
+      hasStandDel: !!refData.hasStandDel,
+      hasCDDel: !!refData.hasCDDel,
+      hasSpliceDist: !!refData.hasSpliceDist,
+      hasStrandDist: !!refData.hasStrandDist,
+      hasCDDist: !!refData.hasCDDist,
+      hasBOMPo: !!refData.hasBOMPo,
+      hasSOW: !!refData.hasSOW,
+      rawReferenceOfsDate: String(refData.canonicalOfsDate || refData.forecastedOFS || "").trim(),
+      ofsDateMismatch: !!(rawMirrorOfsDate && normalizedCanonicalOfsDate && rawMirrorOfsDate !== normalizedCanonicalOfsDate),
+      referenceConfidenceScore: referenceMeta.score,
+      referenceConfidenceTier: referenceMeta.tier,
+      portfolioEligibilityReason: portfolioMeta.reason,
+      portfolioGraceUntil: portfolioMeta.graceUntil ? portfolioMeta.graceUntil.toISOString() : "",
+      reportingStatus: reportingStatus,
+      lastReportDate: lastReportDate,
+      qbRef: refData.qbRef || {},
+      fiberTotalMiles: Number(Number((vStats.lifetime && vStats.lifetime.miles) || 0).toFixed(2)),
+      vel: {
+        ug: { tot: _dashboardParseNumber(getRowVal(fieldMap.ugTotIdx, 0)), bom: refData.ugBOM > 0 ? refData.ugBOM : _dashboardParseNumber(getRowVal(fieldMap.ugBomIdx, 0)), daily: _dashboardParseNumber(getRowVal(fieldMap.ugDailyIdx, 0)) },
+        ae: { tot: _dashboardParseNumber(getRowVal(fieldMap.aeTotIdx, 0)), bom: refData.aeBOM > 0 ? refData.aeBOM : _dashboardParseNumber(getRowVal(fieldMap.aeBomIdx, 0)), daily: _dashboardParseNumber(getRowVal(fieldMap.aeDailyIdx, 0)) },
+        fib: { tot: _dashboardParseNumber(getRowVal(fieldMap.fibTotIdx, 0)), bom: refData.fibBOM > 0 ? refData.fibBOM : _dashboardParseNumber(getRowVal(fieldMap.fibBomIdx, 0)), daily: _dashboardParseNumber(getRowVal(fieldMap.fibDailyIdx, 0)) },
+        nap: { tot: _dashboardParseNumber(getRowVal(fieldMap.napTotIdx, 0)), bom: refData.napBOM > 0 ? refData.napBOM : _dashboardParseNumber(getRowVal(fieldMap.napBomIdx, 0)), daily: _dashboardParseNumber(getRowVal(fieldMap.napDailyIdx, 0)) }
+      },
+      rawRow: safeRawRow,
+      rowNum: overlay ? overlay.rowNum : 0
+    });
+  });
+
+  return actionItems;
 }
 
 /**
@@ -460,53 +939,19 @@ function stageExternalFinding(data) {
   return { success: true };
 }
 function getDashboardData() {
-  const CACHE_KEY = 'dashboard_data_cache_v12';
+  const CACHE_KEY = 'dashboard_data_cache_v13';
   const cache = CacheService.getScriptCache();
   const cached = getChunkedCache(cache, CACHE_KEY);
   if (cached) { try { return JSON.parse(cached); } catch(e) {} }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const mirrorSheet = ss.getSheetByName(MIRROR_SHEET);
-  if (!mirrorSheet || mirrorSheet.getLastRow() < 2) return { actionItems: [], totalRows: 0, headers: [] };
   const refDict = getReferenceDictionary();
   const vendorGoals = getVendorDailyGoals();
   const cityCoordinates = getCityCoordinates();
   const fiberStats = getVendorHybridStats();
-
-  const data = mirrorSheet.getDataRange().getValues();
-  const headers = data[0].map(String); // Force strings
-
-  const getIdx = name => headers.indexOf(name);
-  const getIdxByAliases = (aliases) => headers.findIndex(h => aliases.includes(String(h || '').trim().toUpperCase()));
-  const fdhIdx = getIdx("FDH Engineering ID"), flagsIdx = getIdx("Health Flags"), draftIdx = getIdx("Action Required");
-  const vendorIdx = getIdx("Contractor"), statusIdx = getIdx("Status"), cityIdx = getIdx("City"), stageIdx = getIdx("Stage");
-  const ofsIdx = getIdxByAliases(["OFS DATE", "BUDGET OFS"]), benchIdx = getIdx("Historical Milestones"), dateIdx = getIdx("Date");
-  const targetIdx = getIdx("Target Completion Date"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete"), cxInferredIdx = getIdx("CX Inferred");
-  const summaryIdx = getIdx("Field Production");
-  const xingIdx = getIdx("QB Context & Gaps"), bslsIdx = getIdx("BSLs"), lightIdx = getIdx("Light to Cabinets");
-  const cdIntelIdx = getIdx("CD Intelligence"), geminiInsightIdx = getIdx("Gemini Insight"), geminiDateIdx = getIdx("Gemini Insight Date");
-  const specXIdx = getIdx("Special Crossings?");
-  const specXDetIdx = (() => { let i = headers.indexOf("Special Crossing Details"); return i > -1 ? i : headers.indexOf("Sepcial Crossings Details"); })();
-  const vcIdx = getIdx("Vendor Comment") > -1 ? getIdx("Vendor Comment") : getIdx("Construction Comments");
-  const drgIdx = getIdxByAliases(["DRG", "DIRECT VENDOR", "DIRECT VENDOR TRACKING", "DRG TRACKER", "DIRECT VENDOR TRACKER"]);
-  const drgUrlIdx = getIdxByAliases(["DRG TRACKER URL", "DIRECT VENDOR TRACKER URL", "DRG URL", "DIRECT VENDOR URL", "TRACKER URL"]);
-
-  const ugTotIdx = getIdx("Total UG Footage Completed"), ugBomIdx = getIdx("UG BOM Quantity"), ugDailyIdx = getIdx("Daily UG Footage");
-  const aeTotIdx = getIdx("Total Strand Footage Complete?"), aeBomIdx = getIdx("Strand BOM Quantity"), aeDailyIdx = getIdx("Daily Strand Footage");
-  const fibTotIdx = getIdx("Total Fiber Footage Complete"), fibBomIdx = getIdx("Fiber BOM Quantity"), fibDailyIdx = getIdx("Daily Fiber Footage");
-  const napTotIdx = getIdx("Total NAPs Completed"), napBomIdx = getIdx("NAP/Encl. BOM Qty."), napDailyIdx = getIdx("Daily NAPs/Encl. Completed");
-
-  const parseNum = (val) => {
-      if (val == null || val === "") return 0;
-      if (typeof val === 'number') return val;
-      let match = String(val).split('(')[0].replace(/,/g, '').trim().match(/-?\d+(\.\d+)?/);
-      return match ? Number(match[0]) : 0;
-  };
-  const isChecked = (val) => {
-      if (val === true) return true;
-      let normalized = String(val || '').trim().toLowerCase();
-      return ['true', '1', 'yes', 'y', 'checked', 'x', 'drg', 'direct vendor', 'tracked'].includes(normalized);
-  };
+  const data = (mirrorSheet && mirrorSheet.getLastRow() > 0) ? mirrorSheet.getDataRange().getValues() : [];
+  const headers = data.length > 0 ? data[0].map(String) : [];
   const defaultDrgTrackerUrl = VENDOR_TRACKER_ID ? `https://docs.google.com/spreadsheets/d/${VENDOR_TRACKER_ID}/edit` : "";
 
   const logSheet = ss.getSheetByName(CHANGE_LOG_SHEET);
@@ -563,159 +1008,13 @@ function getDashboardData() {
     }
   }
 
-  let actionItems = [];
-
-  for (let i = 1; i < data.length; i++) {
-     let flags = data[i][flagsIdx] ? String(data[i][flagsIdx]) : "";
-     let stageStr = stageIdx > -1 ? String(data[i][stageIdx]).toUpperCase() : "";
-     let statStr = statusIdx > -1 ? String(data[i][statusIdx]).toUpperCase() : "";
-     let fdhKey = fdhIdx > -1 ? String(data[i][fdhIdx] || "").trim().toUpperCase() : "";
-     let refData = refDict[fdhKey] || null;
-
-     // Ignore all permitting projects unless they are Approved.
-     if (stageStr.includes("PERMITTING") && !statStr.includes("APPROVED")) continue;
-
-     if (flags !== "" && !flags.includes("No Anomalies")) {         const parseDate = (val) => {
-             if (!val || val === "" || val === "-") return "";
-             if (val instanceof Date) return Utilities.formatDate(val, "GMT-5", "MM/dd/yy");
-             let s = String(val).trim();
-             // ISO or Sheet-style yyyy-MM-dd
-             let mIso = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-             if (mIso) return `${mIso[2].padStart(2,'0')}/${mIso[3].padStart(2,'0')}/${mIso[1].substring(2)}`;
-             // MM/dd/yyyy or MM/dd/yy
-             let mUs = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
-             if (mUs) {
-                 let yr = mUs[3].length === 4 ? mUs[3].substring(2) : mUs[3];
-                 return `${mUs[1].padStart(2,'0')}/${mUs[2].padStart(2,'0')}/${yr}`;
-             }
-             let d = new Date(s);
-             if (!isNaN(d.getTime())) return Utilities.formatDate(d, "GMT-5", "MM/dd/yy");
-             return s;
-         };
-         const fieldProduction = summaryIdx > -1 ? String(data[i][summaryIdx] || "").trim() : "";
-         const mirrorTrackerLinked = fieldProduction.includes("[📡 Tracker Linked]") || fieldProduction.includes("[Tracker Linked]");
-         const mirrorDrgTracked = drgIdx > -1 ? isChecked(data[i][drgIdx]) : false;
-         const mirrorDrgTrackerUrl = drgUrlIdx > -1 ? String(data[i][drgUrlIdx] || "").trim() : "";
-         const refDrgTracked = refData ? !!refData.isDrgTracked : false;
-         const refDrgTrackerUrl = refData ? String(refData.drgTrackerUrl || "").trim() : "";
-         
-         // 🧠 FIX: Ensure no Date objects make it into the raw row
-         let safeRawRow = data[i]
-             .map((cell, idx) => {
-                 let val = cell;
-                 if (cell instanceof Date) {
-                     val = (!isNaN(cell.getTime())) ? cell.toISOString() : "";
-                 } else {
-                     val = String(cell || "");
-                 }
-                 return { h: headers[idx], v: val };
-             })
-             .filter(({ v }) => v !== '');
-
-         let vendorName = vendorIdx > -1 ? String(data[i][vendorIdx] || "").trim() : "";
-         let vStats = fiberStats[vendorName] || { lifetime: { footage: 0, miles: 0 }, recent30: { footage: 0, miles: 0 }, recent7: { footage: 0, miles: 0 }, today: { footage: 0, miles: 0 }, month: { footage: 0, miles: 0 }, prevMonth: { footage: 0, miles: 0 }, quarter: { footage: 0, miles: 0 }, prevQuarter: { footage: 0, miles: 0 } };
-
-         const rawMirrorOfsDate = parseDate(ofsIdx > -1 ? data[i][ofsIdx] : "");
-         const canonicalOfsDate = refData
-             ? String(refData.canonicalOfsDate || refData.forecastedOFS || "").trim()
-             : "";
-         const normalizedCanonicalOfsDate = (!canonicalOfsDate || canonicalOfsDate === '-' || canonicalOfsDate === 'Unknown')
-             ? ""
-             : canonicalOfsDate;
-
-         const isStaleOfs = _isStaleOfsItem(
-             stageIdx > -1 ? data[i][stageIdx] : "",
-             statusIdx > -1 ? data[i][statusIdx] : "",
-             flags,
-             normalizedCanonicalOfsDate,
-             rawMirrorOfsDate,
-             dateIdx > -1 ? data[i][dateIdx] : ""
-         );
-
-         const referenceMeta = _buildReferenceConfidenceMeta({
-             flags: flags,
-             hasReferencePresence: !!refData,
-             rid: refData ? String(refData.rid || "") : "",
-             hasSOW: refData ? refData.hasSOW : false,
-             hasCDDel: refData ? refData.hasCDDel : false,
-             hasCDDist: refData ? refData.hasCDDist : false,
-             hasBOMDel: refData ? refData.hasBOMDel : false,
-             hasBOMPo: refData ? refData.hasBOMPo : false,
-             cxInferred: cxInferredIdx > -1 ? String(data[i][cxInferredIdx] || "") : ""
-         });
-
-         const qbFinished = refData && (refData.status.toUpperCase().includes("COMPLETE") || refData.stage.toUpperCase().includes("OFS"));
-         const isFinished = qbFinished || stageStr.includes("OFS") || stageStr.includes("COMPLETE") || statStr.includes("OOS") || flags.includes("LIKELY OFS");
-
-         if (isFinished) {
-             const irrelevantRisks = ["CHECK CROSSINGS", "CHECK BOM", "LIGHTING RISK", "STATUS MISMATCH", "PLEASE INPUT BOM", "HIGH UG VARIANCE", "HIGH STRAND VARIANCE", "HIGH FIBER VARIANCE", "MISSING BOM", "MISSING UG BOM", "MISSING STRAND BOM", "MISSING FIBER BOM", "MISSING SPLICING BOM", "POSSIBLE REROUTE", "BOM DISCREPANCY", "ADMIN: REFRESH REF DATA"];
-             flags = flags.split("\n")
-                 .filter(function(line) {
-                     const upLine = line.toUpperCase();
-                     return !irrelevantRisks.some(function(risk) { return upLine.includes(risk); });
-                 })
-                 .join("\n").trim();
-         }
-
-         actionItems.push({
-             fdh: fdhIdx > -1 ? String(data[i][fdhIdx] || "") : "",
-             vendor: vendorName,
-             city: cityIdx > -1 ? String(data[i][cityIdx] || "") : "",
-             stage: stageIdx > -1 ? String(data[i][stageIdx] || "") : "",
-             status: statusIdx > -1 ? String(data[i][statusIdx] || "") : "",
-             bsls: bslsIdx > -1 ? String(data[i][bslsIdx] || "-") : "-",
-             isLight: lightIdx > -1 ? (data[i][lightIdx] === true || String(data[i][lightIdx]).toLowerCase() === 'true') : false,
-             canonicalOfsDate: normalizedCanonicalOfsDate,
-             ofsDate: normalizedCanonicalOfsDate,
-             isStaleOfs: isStaleOfs,
-             rawMirrorOfsDate: rawMirrorOfsDate,
-             reportDate: parseDate(dateIdx > -1 ? data[i][dateIdx] : ""),
-             targetDate: parseDate(targetIdx > -1 ? data[i][targetIdx] : ""),
-             cxStart: parseDate(cxStartIdx > -1 ? data[i][cxStartIdx] : ""),
-             cxEnd: parseDate(cxEndIdx > -1 ? data[i][cxEndIdx] : ""),
-             cxInferred: cxInferredIdx > -1 ? String(data[i][cxInferredIdx] || "") : "",
-             isXing: xingIdx > -1 && String(data[i][xingIdx]).includes("X-ING YES"),
-             gaps: xingIdx > -1 ? String(data[i][xingIdx] || "") : "",
-             flags: flags,
-             draft: draftIdx > -1 ? String(data[i][draftIdx] || "") : "",
-             fieldProduction: fieldProduction,
-             bench: benchIdx > -1 ? String(data[i][benchIdx] || "") : "",
-             vendorComment: vcIdx > -1 ? String(data[i][vcIdx] || "") : "",
-             cdIntel: cdIntelIdx > -1 ? String(data[i][cdIntelIdx] || "").trim() : "",
-             geminiInsight: geminiInsightIdx > -1 ? String(data[i][geminiInsightIdx] || "").trim() : "",
-             geminiDate: geminiDateIdx > -1 ? String(data[i][geminiDateIdx] || "").trim() : "",
-             rawSpecialX:  specXIdx > -1 ? String(data[i][specXIdx] || "").trim() : "",
-             specXDetails: specXDetIdx > -1 ? String(data[i][specXDetIdx] || "").trim() : "",
-             isTrackerLinked: mirrorTrackerLinked,
-             isDrgTracked: mirrorDrgTracked || refDrgTracked,
-             drgTrackerUrl: mirrorDrgTrackerUrl || refDrgTrackerUrl || defaultDrgTrackerUrl,
-             rid: refData ? String(refData.rid || "") : "",
-             hasBOMDel: refData ? refData.hasBOMDel : false,
-             hasSpliceDel: refData ? refData.hasSpliceDel : false,
-             hasStandDel: refData ? refData.hasStandDel : false,
-             hasCDDel: refData ? refData.hasCDDel : false,
-             hasSpliceDist: refData ? refData.hasSpliceDist : false,
-             hasStrandDist: refData ? refData.hasStrandDist : false,
-             hasCDDist: refData ? refData.hasCDDist : false,
-             hasBOMPo: refData ? refData.hasBOMPo : false,
-             hasSOW: refData ? refData.hasSOW : false,
-             rawReferenceOfsDate: refData ? String(refData.canonicalOfsDate || refData.forecastedOFS || "").trim() : "",
-             ofsDateMismatch: !!(rawMirrorOfsDate && normalizedCanonicalOfsDate && rawMirrorOfsDate !== normalizedCanonicalOfsDate),
-             referenceConfidenceScore: referenceMeta.score,
-             referenceConfidenceTier: referenceMeta.tier,
-             qbRef: refData ? (refData.qbRef || {}) : {},
-             fiberTotalMiles: vStats.lifetime.miles,
-             vel: {
-                 ug: { tot: parseNum(data[i][ugTotIdx]), bom: (refData && refData.ugBOM > 0) ? refData.ugBOM : parseNum(data[i][ugBomIdx]), daily: parseNum(data[i][ugDailyIdx]) },
-                 ae: { tot: parseNum(data[i][aeTotIdx]), bom: (refData && refData.aeBOM > 0) ? refData.aeBOM : parseNum(data[i][aeBomIdx]), daily: parseNum(data[i][aeDailyIdx]) },
-                 fib: { tot: parseNum(data[i][fibTotIdx]), bom: (refData && refData.fibBOM > 0) ? refData.fibBOM : parseNum(data[i][fibBomIdx]), daily: parseNum(data[i][fibDailyIdx]) },
-                 nap: { tot: parseNum(data[i][napTotIdx]), bom: (refData && refData.napBOM > 0) ? refData.napBOM : parseNum(data[i][napBomIdx]), daily: parseNum(data[i][napDailyIdx]) }
-             },
-             rawRow: safeRawRow, 
-             rowNum: i + 1
-         });
-     }
-  }
+  let actionItems = _buildPortfolioActionItems({
+    headers: headers,
+    rows: data.length > 1 ? data.slice(1) : [],
+    refDict: refDict,
+    fiberStats: fiberStats,
+    defaultDrgTrackerUrl: defaultDrgTrackerUrl
+  });
 
   let refDataDate = String(PropertiesService.getScriptProperties().getProperty('refDataImportDate') || "");
   let vendorCities = buildVendorCityCoordinateRecords(actionItems, cityCoordinates);
@@ -726,7 +1025,7 @@ function getDashboardData() {
     globalLogs: globalLogs,
     vendorGoals: vendorGoals,
     vendorCities: vendorCities,
-    totalRows: data.length - 1,
+    totalRows: actionItems.length,
     headers: headers,
     refDataDate: refDataDate,
     lastIngestionTime: String(PropertiesService.getScriptProperties().getProperty('LAST_INGESTION_DATETIME') || ""),
@@ -2346,55 +2645,6 @@ function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData, opt
     payloadTimings.vendorHybridStatsMs = Date.now() - fiberStatsStartMs;
     const logSheet = ss.getSheetByName(CHANGE_LOG_SHEET);
     
-    const getIdx = name => headers.indexOf(name);
-    const fdhIdx = getIdx("FDH Engineering ID"), flagsIdx = getIdx("Health Flags"), draftIdx = getIdx("Action Required");
-    const vendorIdx = getIdx("Contractor"), statusIdx = getIdx("Status"), cityIdx = getIdx("City"), stageIdx = getIdx("Stage");
-    const ofsIdx = headers.findIndex(h => ["OFS DATE", "BUDGET OFS"].includes(String(h || '').trim().toUpperCase()));
-    const benchIdx = getIdx("Historical Milestones"), dateIdx = getIdx("Date");
-    const targetIdx = getIdx("Target Completion Date"), cxStartIdx = getIdx("CX Start"), cxEndIdx = getIdx("CX Complete"), cxInferredIdx = getIdx("CX Inferred");
-    const summaryIdx = getIdx("Field Production"), gapsIdx = getIdx("QB Context & Gaps");
-    const bslsIdx = getIdx("BSLs"), lightIdx = getIdx("Light to Cabinets");
-    const cdIntelIdx = getIdx("CD Intelligence"), geminiInsightIdx = getIdx("Gemini Insight"), geminiDateIdx = getIdx("Gemini Insight Date");
-    const specXIdx = getIdx("Special Crossings?"), specXDetIdx = headers.indexOf("Special Crossing Details") > -1 ? headers.indexOf("Special Crossing Details") : headers.indexOf("Sepcial Crossings Details");
-    const vcIdx = getIdx("Vendor Comment") > -1 ? getIdx("Vendor Comment") : getIdx("Construction Comments");
-    const drgIdx = headers.findIndex(h => ["DRG", "DIRECT VENDOR"].includes(String(h || '').trim().toUpperCase()));
-    const drgUrlIdx = headers.findIndex(h => ["DRG TRACKER URL", "TRACKER URL"].includes(String(h || '').trim().toUpperCase()));
-
-    const ugTotIdx = getIdx("Total UG Footage Completed"), ugBomIdx = getIdx("UG BOM Quantity"), ugDailyIdx = getIdx("Daily UG Footage");
-    const aeTotIdx = getIdx("Total Strand Footage Complete?"), aeBomIdx = getIdx("Strand BOM Quantity"), aeDailyIdx = getIdx("Daily Strand Footage");
-    const fibTotIdx = getIdx("Total Fiber Footage Complete"), fibBomIdx = getIdx("Fiber BOM Quantity"), fibDailyIdx = getIdx("Daily Fiber Footage");
-    const napTotIdx = getIdx("Total NAPs Completed"), napBomIdx = getIdx("NAP/Encl. BOM Qty."), napDailyIdx = getIdx("Daily NAPs/Encl. Completed");
-
-    const parseNum = (val) => {
-        if (val == null || val === "") return 0;
-        if (typeof val === 'number') return val;
-        let match = String(val).split('(')[0].replace(/,/g, '').trim().match(/-?\d+(\.\d+)?/);
-        return match ? Number(match[0]) : 0;
-    };
-    const isChecked = (val) => {
-        if (val === true) return true;
-        let normalized = String(val || '').trim().toLowerCase();
-        return ['true', '1', 'yes', 'y', 'checked', 'x', 'drg', 'direct vendor'].includes(normalized);
-    };
-    const parseDate = (val) => {
-        if (!val || val === "" || val === "-") return "";
-        if (val instanceof Date) return Utilities.formatDate(val, "GMT-5", "MM/dd/yy");
-        let s = String(val).trim();
-        // ISO or Sheet-style yyyy-MM-dd
-        let mIso = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-        if (mIso) return `${mIso[2].padStart(2,'0')}/${mIso[3].padStart(2,'0')}/${mIso[1].substring(2)}`;
-        // MM/dd/yyyy or MM/dd/yy
-        let mUs = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
-        if (mUs) {
-            let yr = mUs[3].length === 4 ? mUs[3].substring(2) : mUs[3];
-            return `${mUs[1].padStart(2,'0')}/${mUs[2].padStart(2,'0')}/${yr}`;
-        }
-        let d = new Date(s);
-        if (!isNaN(d.getTime())) return Utilities.formatDate(d, "GMT-5", "MM/dd/yy");
-        // FALLBACK: Return original string instead of empty, preventing "700+ days stale" (Jan 1 1970) logic on frontend
-        return s;
-    };
-
     const changeLogReadStartMs = Date.now();
     let globalLogs = [];
     if (logSheet && logSheet.getLastRow() > 1) {
@@ -2408,110 +2658,13 @@ function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData, opt
     payloadTimings.changeLogReadMs = Date.now() - changeLogReadStartMs;
 
     const actionItemsStartMs = Date.now();
-    let actionItems = [];
-    reviewData.forEach((row, i) => {
-      let hData = highlightsData[i];
-      let fdhKey = String(row[fdhIdx] || "").trim().toUpperCase();
-      let refData = refDict[fdhKey] || null;
-      const rawMirrorOfsDate = parseDate(row[ofsIdx]);
-      const canonicalOfsDate = refData
-        ? String(refData.canonicalOfsDate || refData.forecastedOFS || "").trim()
-        : String(row[ofsIdx] || "").trim();
-      const normalizedCanonicalOfsDate = (!canonicalOfsDate || canonicalOfsDate === '-' || canonicalOfsDate === 'Unknown')
-        ? ""
-        : canonicalOfsDate;
-      const isStaleOfs = _isStaleOfsItem(
-        String(row[stageIdx] || ""),
-        String(row[statusIdx] || ""),
-        String(row[flagsIdx] || ""),
-        normalizedCanonicalOfsDate,
-        rawMirrorOfsDate,
-        row[dateIdx]
-      );
-
-      const referenceMeta = _buildReferenceConfidenceMeta({
-        flags: String(row[flagsIdx] || ""),
-        hasReferencePresence: !!refData,
-        rid: refData ? String(refData.rid || "") : "",
-        hasSOW: refData ? refData.hasSOW : false,
-        hasCDDel: refData ? refData.hasCDDel : false,
-        hasCDDist: refData ? refData.hasCDDist : false,
-        hasBOMDel: refData ? refData.hasBOMDel : false,
-        hasBOMPo: refData ? refData.hasBOMPo : false,
-        cxInferred: cxInferredIdx > -1 ? String(row[cxInferredIdx] || "") : ""
-      });
-
-      let currentFlags = String(row[flagsIdx] || "");
-      const stageStr = String(row[stageIdx] || "").toUpperCase();
-      const statusStr = String(row[statusIdx] || "").toUpperCase();
-      
-      const qbFinished = refData && (refData.status.toUpperCase().includes("COMPLETE") || refData.stage.toUpperCase().includes("OFS"));
-      const isFinished = qbFinished || stageStr.includes("OFS") || stageStr.includes("COMPLETE") || statusStr.includes("OOS") || currentFlags.includes("LIKELY OFS");
-
-      if (isFinished) {
-        const irrelevantRisks = ["CHECK CROSSINGS", "CHECK BOM", "LIGHTING RISK", "STATUS MISMATCH", "PLEASE INPUT BOM", "HIGH UG VARIANCE", "HIGH STRAND VARIANCE", "HIGH FIBER VARIANCE", "MISSING BOM", "MISSING UG BOM", "MISSING STRAND BOM", "MISSING FIBER BOM", "MISSING SPLICING BOM", "POSSIBLE REROUTE", "BOM DISCREPANCY", "ADMIN: REFRESH REF DATA"];
-        currentFlags = currentFlags.split("\n")
-          .filter(function(line) {
-            const upLine = line.toUpperCase();
-            return !irrelevantRisks.some(function(risk) { return upLine.includes(risk); });
-          })
-          .join("\n").trim();
-      }
-
-      actionItems.push({
-        fdh: fdhKey,
-        vendor: String(row[vendorIdx] || ""),
-        city: String(row[cityIdx] || ""),
-        stage: String(row[stageIdx] || ""),
-        status: String(row[statusIdx] || ""),
-        bsls: String(row[bslsIdx] || "-"),
-        isLight: isChecked(row[lightIdx]),
-        canonicalOfsDate: normalizedCanonicalOfsDate,
-        ofsDate: normalizedCanonicalOfsDate,
-        isStaleOfs: isStaleOfs,
-        rawMirrorOfsDate: rawMirrorOfsDate,
-        reportDate: parseDate(row[dateIdx]),
-        targetDate: parseDate(row[targetIdx]),
-        cxStart: parseDate(row[cxStartIdx]),
-        cxEnd: parseDate(row[cxEndIdx]),
-        cxInferred: cxInferredIdx > -1 ? String(row[cxInferredIdx] || "") : "",
-        isXing: String(row[gapsIdx]).includes("X-ING YES"),
-        gaps: String(row[gapsIdx] || ""),
-        flags: currentFlags,
-        draft: String(row[draftIdx] || ""),
-        fieldProduction: String(row[summaryIdx] || ""),
-        bench: String(row[benchIdx] || ""),
-        vendorComment: String(row[vcIdx] || ""),
-        cdIntel: String(row[cdIntelIdx] || "").trim(),
-        geminiInsight: String(row[geminiInsightIdx] || "").trim(),
-        geminiDate: String(row[geminiDateIdx] || "").trim(),
-        rawSpecialX: String(row[specXIdx] || "").trim(),
-        specXDetails: String(row[specXDetIdx] || "").trim(),
-        isTrackerLinked: String(row[summaryIdx]).includes("[📡 Tracker Linked]"),
-        isDrgTracked: isChecked(row[drgIdx]) || (refData ? !!refData.isDrgTracked : false),
-        rid: refData ? String(refData.rid || "") : "",
-        hasBOMDel: refData ? refData.hasBOMDel : false,
-        hasSpliceDel: refData ? refData.hasSpliceDel : false,
-        hasStandDel: refData ? refData.hasStandDel : false,
-        hasCDDel: refData ? refData.hasCDDel : false,
-        hasSpliceDist: refData ? refData.hasSpliceDist : false,
-        hasStrandDist: refData ? refData.hasStrandDist : false,
-        hasCDDist: refData ? refData.hasCDDist : false,
-        hasBOMPo: refData ? refData.hasBOMPo : false,
-        hasSOW: refData ? refData.hasSOW : false,
-        rawReferenceOfsDate: refData ? String(refData.canonicalOfsDate || refData.forecastedOFS || "").trim() : "",
-        ofsDateMismatch: !!(rawMirrorOfsDate && normalizedCanonicalOfsDate && rawMirrorOfsDate !== normalizedCanonicalOfsDate),
-        referenceConfidenceScore: referenceMeta.score,
-        referenceConfidenceTier: referenceMeta.tier,
-        qbRef: refData ? (refData.qbRef || {}) : {},
-        vel: {
-            ug: { tot: parseNum(row[ugTotIdx]), bom: (refData && refData.ugBOM > 0) ? refData.ugBOM : parseNum(row[ugBomIdx]), daily: parseNum(row[ugDailyIdx]) },
-            ae: { tot: parseNum(row[aeTotIdx]), bom: (refData && refData.aeBOM > 0) ? refData.aeBOM : parseNum(row[aeBomIdx]), daily: parseNum(row[aeDailyIdx]) },
-            fib: { tot: parseNum(row[fibTotIdx]), bom: (refData && refData.fibBOM > 0) ? refData.fibBOM : parseNum(row[fibBomIdx]), daily: parseNum(row[fibDailyIdx]) },
-            nap: { tot: parseNum(row[napTotIdx]), bom: (refData && refData.napBOM > 0) ? refData.napBOM : parseNum(row[napBomIdx]), daily: parseNum(row[napDailyIdx]) }
-        },
-        rowNum: i + 2
-      });
+    const defaultDrgTrackerUrl = VENDOR_TRACKER_ID ? `https://docs.google.com/spreadsheets/d/${VENDOR_TRACKER_ID}/edit` : "";
+    let actionItems = _buildPortfolioActionItems({
+      headers: headers,
+      rows: reviewData,
+      refDict: refDict,
+      fiberStats: fiberStats,
+      defaultDrgTrackerUrl: defaultDrgTrackerUrl
     });
     payloadTimings.actionItemsAssemblyMs = Date.now() - actionItemsStartMs;
 
@@ -2523,7 +2676,7 @@ function buildAndSaveDashboardPayloadV2(reviewData, headers, highlightsData, opt
       globalLogs: globalLogs,
       vendorGoals: vendorGoals,
       vendorCities: vendorCityRecords,
-      totalRows: reviewData.length,
+      totalRows: actionItems.length,
       headers: headers,
       refDataDate: String(PropertiesService.getScriptProperties().getProperty('refDataImportDate') || ""),
       allFdhIds: Object.keys(refDict),

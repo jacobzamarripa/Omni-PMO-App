@@ -1258,7 +1258,9 @@ function _fetchReferenceTableSnapshot(token) {
   // 2. Define the absolute critical fields we NEED (FID-based)
   // BOMs: 27(UG), 26(AE), 59(Fiber), 564(NAP)
   // Meta: 13(FDH), 38(City), 743(Phase), 745(Stage), 747(Status), 24(OFS), 227(CXE), 254(CXS), 15(BSL), 87(HHP), 3(RID)
-  const CRITICAL_FIDS = [13, 27, 26, 59, 564, 38, 743, 745, 747, 24, 227, 254, 15, 87, 3];
+  // Vendor: 757 (Construction Vendor)
+  // Special Crossings: 525, 526
+  const CRITICAL_FIDS = [13, 27, 26, 59, 564, 38, 743, 745, 747, 24, 227, 254, 15, 87, 3, 757, 525, 526];
   
   var fidSet = new Set();
   CRITICAL_FIDS.forEach(function(fid) { if (fieldMap[fid]) fidSet.add(fid); });

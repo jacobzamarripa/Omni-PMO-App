@@ -1,5 +1,13 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-22: Active Portfolio inventory decoupled from Daily Review membership
+- **Inventory source corrected:** Refactored `src/02_Utilities.js` so both dashboard payload builders now assemble `actionItems` from the full eligible `Reference_Data` inventory instead of iterating only the current Daily Review / mirror slice.
+- **Reporting overlay preserved:** Added shared payload assembly helpers that overlay mirror/review state when present, while synthesizing inventory-complete fallback rows from reference data when a project has no current review row.
+- **Status metadata added:** Payload items now include `reportingStatus` and `lastReportDate` alongside the existing `portfolioEligibilityReason` / `portfolioGraceUntil` fields, keeping the contract backward-compatible while making reporting freshness explicit.
+- **Grace/upcoming handling normalized:** Approved upcoming projects now force `UPCOMING START WINDOW`, and terminal grace-window items strip reporting-chase flags so visible portfolio membership is no longer confused with missing daily reporting.
+- **Fallback hardened:** `getDashboardData()` now still builds an active portfolio from reference inventory even if the mirror sheet is empty or stale.
+- **Verification:** `node scripts/validate-active-portfolio.js`, `node scripts/validate-active-portfolio-payload.js`, and a direct parse check for `src/02_Utilities.js` passed. `node scripts/validate-stale-report-window.js` is currently failing against an existing repo baseline unrelated to this payload refactor.
+
 > [!success] 2026-04-20: Project Visibility Restoration & Engine Hardening
 - **Visibility Restore:** Expanded `GHOST_ACTIVE_STAGES` in `01_Engine_Archive.js` to include `"CX"` and `"VENDOR ASSIGNMENT"`. This restored ~120 suppressed projects to the dashboard and Daily Review.
 - **Robust Header Aliasing:** Implemented `getIdxByAliases` in `01_Engine_DataDicts.js` for critical reference headers (**FDH ID**, **Vendor**, **City**, **BOMs**, **Dates**). The engine now survives minor Quickbase header shifts (e.g., `"FDH ID"` vs `"FDH Engineering ID"`).

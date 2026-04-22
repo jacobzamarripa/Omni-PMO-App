@@ -2016,6 +2016,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
         else rowObj[h] = row[i];
       });
       
+      rowObj["Contractor"] = refData ? refData.vendor : rowObj["Contractor"];
       rowObj["City"] = refData ? refData.city : "-"; 
       rowObj["Stage"] = refData ? refData.stage : (diag.inferredStage || "-"); 
       rowObj["Status"] = refData ? refData.status : (diag.inferredStatus || "-"); 
@@ -2095,8 +2096,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
 
   logMsg("BENNY ENGINE: Review built with " + reviewData.length + " unique project reports.");
 
-  // GHOST ROW INJECTION — Active projects with no submission today
-  const GHOST_ACTIVE_STAGES = ["FIELD CX", "PERMITTING", "CONSTRUCTION", "ACTIVE", "CX", "VENDOR ASSIGNMENT"];
+  // GHOST ROW INJECTION — portfolio-visible projects with no submission today
   
   // 🧠 TARGET CAP: Ensure we don't calculate staleness against the future
   let rawTargetDate = parseDateToMidnight(normalizedTargets[0] || new Date());
@@ -2115,27 +2115,28 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     const ref = refDict[ghostFdhId];
     if (!ref.vendor) return;
 
-    const stageUp = (ref.stage || "").toUpperCase();
-    const statUp  = (ref.status || "").toUpperCase();
     const hasHistory = latestReportMap.has(ghostFdhId);
-
-    // 1. Terminal states are always skipped for missing report tracking
-    if (statUp.includes("COMPLETE") || statUp.includes("ON HOLD") || stageUp.includes("OFS")) return;
-
-    // 2. Portfolio visibility gate: carry forward the latest known state for any
-    // active project family, not just field-construction rows from the selected date.
-    const isGhostEligibleStage = GHOST_ACTIVE_STAGES.some(function(token) {
-      return stageUp.includes(token) || statUp.includes(token);
-    }) || statUp.includes("IN PROGRESS");
-    if (!isGhostEligibleStage) return;
-
-    // 3. Start Date Gate: A report is NOT missing if the start date hasn't passed
     let cxDates = resolveCxDates(ghostFdhId, ref, lkvDict, histData, HISTORY_HEADERS);
+    const portfolioMeta = _getPortfolioVisibilityMeta({
+      stage: ref.stage,
+      status: ref.status,
+      primaryOfsDate: ref.canonicalOfsDate || ref.forecastedOFS || "",
+      fallbackOfsDate: ref.canonicalOfsDate || ref.forecastedOFS || "",
+      cxStart: cxDates.cxStart,
+      targetDate: ref.canonicalOfsDate || ref.forecastedOFS || "",
+      reportDate: normalizedTargets[0] || new Date(),
+      referenceDate: targetDateObj,
+      hasHistory: hasHistory
+    });
+    if (!portfolioMeta.includeInPortfolio) return;
+
+    // A report is not missing if the start date has not passed yet.
     let startDate = cxDates.cxStart ? new Date(cxDates.cxStart) : null;
+    let isUpcomingWindowOnly = portfolioMeta.reason === 'approved-upcoming-60d';
     if (startDate && !isNaN(startDate.getTime())) {
         let todayAtMid = new Date();
         todayAtMid.setHours(0,0,0,0);
-        if (startDate > todayAtMid) return; // Haven't reached the start date yet
+        if (startDate > todayAtMid) isUpcomingWindowOnly = true;
     }
 
     const latest = latestReportMap.get(ghostFdhId);
@@ -2202,22 +2203,28 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
           }
       }
 
-      ghostRowObj["Health Flags"]    = diag.flags;
-      ghostRowObj["Action Required"] = (diag.draft ? diag.draft + "\n" : "") + staleDraft;
-      ghostRowObj["Vendor Comment"]  = lRow[HISTORY_HEADERS.indexOf("Vendor Comment")] || "No update provided.";
+      if (isUpcomingWindowOnly) {
+        ghostRowObj["Health Flags"] = "UPCOMING START WINDOW";
+        ghostRowObj["Action Required"] = "Action: Monitor schedule. Approved project is inside the rolling 60-day horizon and not expected to report yet.";
+        ghostRowObj["Vendor Comment"] = "Approved upcoming project inside the 60-day planning window.";
+      } else {
+        ghostRowObj["Health Flags"]    = diag.flags;
+        ghostRowObj["Action Required"] = (diag.draft ? diag.draft + "\n" : "") + staleDraft;
+        ghostRowObj["Vendor Comment"]  = lRow[HISTORY_HEADERS.indexOf("Vendor Comment")] || "No update provided.";
+      }
       ghostRowObj["Archive_Row"]     = latest.idx + 1;
 
       // Ensure other fields are synced with Ref Data
+      ghostRowObj["Contractor"]         = ref.vendor;
       ghostRowObj["City"]               = ref.city || "-";
       ghostRowObj["Stage"]              = ref.stage || "-";
       ghostRowObj["Status"]             = ref.status || "-";
       ghostRowObj["BSLs"]               = ref.bsls || "-";
       ghostRowObj["Budget OFS"]         = ref.canonicalOfsDate || ref.forecastedOFS || "-";
 
-      let ghostCx = resolveCxDates(ghostFdhId, ref, lkvDict, histData, HISTORY_HEADERS);
-      ghostRowObj["CX Start"]           = ghostCx.cxStart;
-      ghostRowObj["CX Complete"]        = ghostCx.cxComplete;
-      ghostRowObj["CX Inferred"]        = ghostCx.inferredLabel;
+      ghostRowObj["CX Start"]           = cxDates.cxStart;
+      ghostRowObj["CX Complete"]        = cxDates.cxComplete;
+      ghostRowObj["CX Inferred"]        = cxDates.inferredLabel;
       ghostRowObj["Historical Milestones"] = benchmarkDict[ghostFdhId] || "No history logged.";
       
       let xingString = "X-ING UNCHECKED";
@@ -2234,10 +2241,10 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
         rowState:       "ACTIVE",
         adaePaletteIdx: "GHOST",
         colors:         diag.colors,
-        summary:        `Last Report: ${Utilities.formatDate(reportDate, "GMT-5", "MM/dd/yy")}`,
+        summary:        isUpcomingWindowOnly ? "Upcoming approved project inside 60-day planning window." : `Last Report: ${Utilities.formatDate(reportDate, "GMT-5", "MM/dd/yy")}`,
         gaps:           adminGapsStr,
-        flags:          diag.flags,
-        flagColors:     diag.flagColors,
+        flags:          ghostRowObj["Health Flags"],
+        flagColors:     isUpcomingWindowOnly ? [TEXT_COLORS.GHOST] : diag.flagColors,
         cleanComment:   ghostRowObj["Vendor Comment"],
         draft:          ghostRowObj["Action Required"],
         benchmark:      benchmarkDict[ghostFdhId] || ""
@@ -2252,15 +2259,21 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       ghostRowObj["Status"]             = ref.status || "-";
       ghostRowObj["BSLs"]               = ref.bsls || "-";
       ghostRowObj["Budget OFS"]         = ref.canonicalOfsDate || ref.forecastedOFS || "-";
-      let ghostCx = resolveCxDates(ghostFdhId, ref, lkvDict, histData, HISTORY_HEADERS);
-      ghostRowObj["CX Start"]    = ghostCx.cxStart;
-      ghostRowObj["CX Complete"] = ghostCx.cxComplete;
-      ghostRowObj["CX Inferred"] = ghostCx.inferredLabel;
+      ghostRowObj["CX Start"]    = cxDates.cxStart;
+      ghostRowObj["CX Complete"] = cxDates.cxComplete;
+      ghostRowObj["CX Inferred"] = cxDates.inferredLabel;
       ghostRowObj["Contractor"]         = ref.vendor;
-      ghostRowObj["Health Flags"]       = "MISSING DAILY REPORT";
-      ghostRowObj["Action Required"]    = `Action: Contact Vendor. Active project with no submission history. Verify if Field CX has started.`;
-      ghostRowObj["Field Production"]   = "No daily report history found.";
-      ghostRowObj["Vendor Comment"]     = "Missing daily report.";
+      if (isUpcomingWindowOnly) {
+        ghostRowObj["Health Flags"]       = "UPCOMING START WINDOW";
+        ghostRowObj["Action Required"]    = "Action: Monitor schedule. Approved project is inside the rolling 60-day horizon and has not started reporting yet.";
+        ghostRowObj["Field Production"]   = "No reporting history yet. Upcoming within the 60-day planning window.";
+        ghostRowObj["Vendor Comment"]     = "Approved upcoming project inside the 60-day planning window.";
+      } else {
+        ghostRowObj["Health Flags"]       = "MISSING DAILY REPORT";
+        ghostRowObj["Action Required"]    = `Action: Contact Vendor. Active project with no submission history. Verify if Field CX has started.`;
+        ghostRowObj["Field Production"]   = "No daily report history found.";
+        ghostRowObj["Vendor Comment"]     = "Missing daily report.";
+      }
       ghostRowObj["Historical Milestones"] = benchmarkDict[ghostFdhId] || "No history logged.";
       ghostRowObj["Archive_Row"]        = "";
 
@@ -2269,12 +2282,12 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
         rowState:       "ACTIVE",
         adaePaletteIdx: "GHOST",
         colors:         { warn: [], mismatch: [], ug: [], ae: [], fib: [], nap: [] },
-        summary:        "No daily report history found.",
+        summary:        isUpcomingWindowOnly ? "Upcoming approved project inside 60-day planning window." : "No daily report history found.",
         gaps:           "",
-        flags:          "MISSING DAILY REPORT",
-        flagColors:     [TEXT_COLORS.WARN],
-        cleanComment:   "Missing daily report.",
-        draft:          `Action: Contact Vendor. Active project with no submission history. Verify if Field CX has started.`,
+        flags:          ghostRowObj["Health Flags"],
+        flagColors:     [isUpcomingWindowOnly ? TEXT_COLORS.GHOST : TEXT_COLORS.WARN],
+        cleanComment:   ghostRowObj["Vendor Comment"],
+        draft:          ghostRowObj["Action Required"],
         benchmark:      benchmarkDict[ghostFdhId] || ""
       });
     }

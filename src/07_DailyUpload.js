@@ -633,8 +633,8 @@ function getMissingReportVendors(dateStr) {
     }
   }
 
-  // Build active portfolio from reference dictionary — mirrors the active portfolio panel filter:
-  // active = status does NOT include 'complete' or 'hold'
+  // Build the report-expected portfolio from reference dictionary — mirrors the
+  // shared Active Portfolio rule, but excludes grace-window and upcoming-only items.
   const refDict = typeof getReferenceDictionary === 'function' ? getReferenceDictionary() : {};
 
   const activeByVendor = {};  // vendorKey → { displayName, fdhs[] }
@@ -642,8 +642,20 @@ function getMissingReportVendors(dateStr) {
     var p      = refDict[fdhId];
     var vendor = (p.vendor || '').toString().trim();
     if (!vendor) return;
-    var stat = (p.status || '').toLowerCase();
-    if (stat.includes('complete') || stat.includes('hold')) return;
+    var portfolioMeta = (typeof _getPortfolioVisibilityMeta === 'function')
+      ? _getPortfolioVisibilityMeta({
+          stage: p.stage || '',
+          status: p.status || '',
+          vendor: vendor,
+          primaryOfsDate: p.canonicalOfsDate || p.forecastedOFS || '',
+          fallbackOfsDate: p.canonicalOfsDate || p.forecastedOFS || '',
+          cxStart: p.cxStart || '',
+          targetDate: p.canonicalOfsDate || p.forecastedOFS || '',
+          referenceDate: dateStr,
+          hasHistory: false
+        })
+      : { expectDailyReport: true };
+    if (!portfolioMeta.expectDailyReport) return;
 
     var vk = vendor.toLowerCase();
     if (!activeByVendor[vk]) activeByVendor[vk] = { displayName: vendor, fdhs: [] };

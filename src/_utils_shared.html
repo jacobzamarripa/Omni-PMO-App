@@ -100,6 +100,13 @@
           return String(raw).trim();
       }
 
+      function getPortfolioGraceCutoff(item) {
+          if (!item) return null;
+          let ofsDate = getEffectiveOfsDate(item) || safeDate(item.rawMirrorOfsDate) || safeDate(item.reportDate);
+          if (!ofsDate || isNaN(ofsDate.getTime())) return null;
+          return new Date(Date.UTC(ofsDate.getUTCFullYear(), ofsDate.getUTCMonth() + 1, 7, 23, 59, 59, 999));
+      }
+
       /**
        * Returns true if the item is in a terminal stage or status.
        */
@@ -108,9 +115,14 @@
           const f = (item.flags || "").toUpperCase();
           const s = (item.status || "").toUpperCase();
           const st = (item.stage || "").toUpperCase();
-          return f.includes("COMPLETE") || s.includes("COMPLETE") || 
+          const isTerminal = f.includes("COMPLETE") || s.includes("COMPLETE") ||
                  f.includes("OFS") || f.includes("OPEN FOR SALE") || s.includes("OFS") || s.includes("OPEN FOR SALE") ||
                  st.includes("OFS") || st.includes("COMPLETE");
+          if (!isTerminal) return false;
+
+          const graceCutoff = getPortfolioGraceCutoff(item);
+          if (!graceCutoff) return false;
+          return Date.now() > graceCutoff.getTime();
       }
 
       function getEffectiveOfsRaw(item) {
