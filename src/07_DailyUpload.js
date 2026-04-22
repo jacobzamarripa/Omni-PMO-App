@@ -404,7 +404,7 @@ function _buildStagedUploadRecord(rowValues, rowNumber, mapping, sourceHeaders, 
   if (record['Date'] && record['FDH Engineering ID']) {
     key = record['Date'] + '::' + String(record['FDH Engineering ID']).trim().toUpperCase();
     if (duplicateLookup[key]) warnings.push('Already present in the upload queue');
-    var qbDupe = checkDuplicateDailyRecord(record['Date'], record['FDH Engineering ID']);
+    var qbDupe = checkDuplicateDailyRecord(record['Date'], record['FDH Engineering ID'], record['Contractor']);
     if (qbDupe && qbDupe.isDuplicate) warnings.push('Existing QuickBase record ID ' + (qbDupe.existingRecordId || 'found'));
   }
 
@@ -805,14 +805,17 @@ function getDailyUploadStats() {
 
 /**
  * Queries QB to check if a record for this date + FDH already exists.
- * Returns { isDuplicate, existingRecordId }.
+ * Updated: Now also checks for 'Contractor' to allow multi-vendor reporting
+ * on the same project/date.
+ * @returns {Object} { isDuplicate, existingRecordId }.
  */
-function checkDuplicateDailyRecord(dateStr, fdh) {
+function checkDuplicateDailyRecord(dateStr, fdh, vendor) {
   if (!dateStr || !fdh) return { isDuplicate: false };
 
-  const fidMap = getDailyFidMap();
+  const fidMap  = getDailyFidMap();
   const fdhFid  = _resolveFieldFid('FDH Engineering ID', fidMap); // → FID 22
   const dateFid = _resolveFieldFid('Date', fidMap);               // → FID 6
+  const venFid  = _resolveFieldFid('Contractor', fidMap);         // → FID 38
 
   if (!fdhFid) return { isDuplicate: false, error: 'FDH FID not found in QB_DAILY_LOG_FID_MAP' };
 
@@ -821,9 +824,11 @@ function checkDuplicateDailyRecord(dateStr, fdh) {
   const opts = _qbHeaders(token);
   opts.method      = 'post';
   opts.contentType = 'application/json';
+  
+  // Base query on FDH only to get all potential records for the project
   opts.payload     = JSON.stringify({
     from: QB_DAILY_LOG_TABLE_ID,
-    select: [3, dateFid, fdhFid].filter(Boolean),
+    select: [3, dateFid, fdhFid, venFid].filter(Boolean),
     where: '{' + fdhFid + '.EX.' + JSON.stringify(fdh.toString()) + '}'
   });
 
@@ -840,10 +845,20 @@ function checkDuplicateDailyRecord(dateStr, fdh) {
     if (dateStr instanceof Date) {
       compareDate = Utilities.formatDate(dateStr, Session.getScriptTimeZone(), 'MM/dd/yyyy');
     }
+    
+    const targetVendor = String(vendor || '').trim().toLowerCase();
 
+    // MATCH LOGIC: Date must match AND (if vendor provided) Vendor must match.
+    // If no vendor provided, we fallback to project-level date match.
     const match = records.find(function(r) {
       const qbDate = r[dateFid] ? r[dateFid].value : '';
-      return qbDate && qbDate.toString().replace(/-/g, '/').includes(compareDate.replace(/-/g, '/'));
+      const dateMatch = qbDate && qbDate.toString().replace(/-/g, '/').includes(compareDate.replace(/-/g, '/'));
+      
+      if (!dateMatch) return false;
+      if (!targetVendor) return true; // Date match is enough if no vendor specified
+
+      const qbVendor = String(r[venFid] ? r[venFid].value : '').trim().toLowerCase();
+      return qbVendor === targetVendor;
     });
 
     return match
@@ -954,7 +969,7 @@ function uploadDailyRecordsToQB(rowIndices, options) {
     // Duplicate detection (skip in dry-run to avoid slow API calls per row)
     var isDupe = false, existingRid = null;
     if (!dryRun) {
-      const dupeResult = checkDuplicateDailyRecord(dateVal, fdhVal);
+      const dupeResult = checkDuplicateDailyRecord(dateVal, fdhVal, vendor);
       isDupe      = dupeResult.isDuplicate;
       existingRid = dupeResult.existingRecordId;
     }

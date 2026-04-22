@@ -1055,6 +1055,7 @@ function exportQuickBaseCSVCore(isSilent = false, contextType = "ROUTINE") {
 function buildInferenceHistoryContext(histData, histHeaders) {
   const fdhIdx = histHeaders.indexOf("FDH Engineering ID");
   const dateIdx = histHeaders.indexOf("Date");
+  const contractorIdx = histHeaders.indexOf("Contractor");
   const commentIdx = histHeaders.indexOf("Vendor Comment");
   const dailyUGIdx = histHeaders.indexOf("Daily UG Footage");
   const dailyAEIdx = histHeaders.indexOf("Daily Strand Footage");
@@ -1078,6 +1079,7 @@ function buildInferenceHistoryContext(histData, histHeaders) {
     context[fdh].push({
       date: dateKey,
       ts: dateKey.getTime(),
+      vendor: row[contractorIdx] ? _normalizeVendor(row[contractorIdx].toString().trim()) : "",
       comment: commentIdx > -1 ? String(row[commentIdx] || "").trim().toLowerCase() : "",
       dailyUG: dailyUGIdx > -1 ? (Number(row[dailyUGIdx]) || 0) : 0,
       dailyAE: dailyAEIdx > -1 ? (Number(row[dailyAEIdx]) || 0) : 0,
@@ -1964,6 +1966,7 @@ function resolveCxDates(fdh, refData, lkvDict, histData, histHeaders) {
 }
 
 function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent = false) {
+  _mergeDynamicAliases();
   const engineStartMs = Date.now();
   const rebuildTimings = {};
   const markTiming = function(label, startMs) {
@@ -2064,25 +2067,86 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
   if (currentMirrorHeaders.includes("FDH Engineering ID")) {
     let missingHeaders = defaultHeaders.filter(h => !currentMirrorHeaders.includes(h));
     finalMirrorHeaders = [...currentMirrorHeaders, ...missingHeaders]; 
+    
+    // 🧠 SYNC HEADERS: If we have new columns (like AllVendors), write them to the sheet immediately
+    if (missingHeaders.length > 0) {
+        mirrorSheet.getRange(1, 1, 1, finalMirrorHeaders.length).setValues([finalMirrorHeaders]);
+        logMsg("BENNY ENGINE: Synchronized Mirror headers. Added: " + missingHeaders.join(", "));
+    }
   }
   
   let reviewMap = new Map();
   let submittedFdhs = new Set();
   let latestReportMap = new Map(); // 🧠 LATEST STATE TRACKER: FDH -> {row, idx, dateObj}
 
+  // 🧠 DYNAMIC COLUMN DISCOVERY: Ensure we use the actual indices of the Archive sheet
+  const histHeadersRow = histData[0] || [];
+  const fdhIdIdx = histHeadersRow.indexOf("FDH Engineering ID");
+  const contractorIdx = histHeadersRow.indexOf("Contractor");
+  const commentIdx = histHeadersRow.indexOf("Vendor Comment");
+
+  if (fdhIdIdx === -1 || contractorIdx === -1) {
+      logMsg("ERROR", "BENNY ENGINE", "Required columns missing in Master Archive. Multi-vendor discovery aborted.");
+  }
+
+  // 🧠 MULTI-VENDOR DISCOVERY: Map every vendor that ever touched a project.
+  let projectVendorMap = new Map(); // FDH -> Set of Normalized Vendor Names
+  
+  // 1. Initialize with currently assigned vendor from Quickbase (Reference Data)
+  Object.keys(refDict).forEach(rawId => {
+      let ref = refDict[rawId];
+      let fdhId = _normalizeFdhId(rawId);
+      if (ref && ref.vendor) {
+          if (!projectVendorMap.has(fdhId)) projectVendorMap.set(fdhId, new Set());
+          projectVendorMap.get(fdhId).add(_normalizeVendor(ref.vendor));
+      }
+  });
+
+  // 2. Supplement with historical contractors from the Master Archive
+  if (fdhIdIdx > -1) {
+      histData.forEach((row, idx) => {
+        if (idx === 0) return;
+        let fdhId = row[fdhIdIdx] ? _normalizeFdhId(row[fdhIdIdx]) : "";
+        let vendor = row[contractorIdx] ? _normalizeVendor(row[contractorIdx].toString().trim()) : "";
+        if (fdhId && vendor) {
+          if (!projectVendorMap.has(fdhId)) projectVendorMap.set(fdhId, new Set());
+          projectVendorMap.get(fdhId).add(vendor);
+        }
+      });
+  }
+
+  // 🧠 CHRONOLOGICAL HANDOFF DETECTION: Scan sorted history contexts for vendor transitions
+  Object.keys(inferenceHistoryContext).forEach(rawId => {
+      let fdhId = _normalizeFdhId(rawId);
+      let history = inferenceHistoryContext[rawId];
+      if (!history || history.length < 2) return;
+      
+      let lastV = null;
+      history.forEach(entry => {
+          let currentV = entry.vendor ? _normalizeVendor(entry.vendor) : null;
+          if (lastV && currentV && lastV !== currentV) {
+              let dateStr = Utilities.formatDate(entry.date, "GMT-5", "MM/dd/yy");
+              let handoffLabel = `HANDOFF: ${lastV} -> ${currentV}`;
+              if (!benchmarkDict[fdhId]) benchmarkDict[fdhId] = `${dateStr}: ${handoffLabel}`;
+              else if (!benchmarkDict[fdhId].includes(handoffLabel)) benchmarkDict[fdhId] += `\n${dateStr}: ${handoffLabel}`;
+          }
+          if (currentV) lastV = currentV;
+      });
+  });
+
   logMsg("BENNY ENGINE: Processing " + histData.length + " archive rows for " + normalizedTargets.length + " target dates.");
 
   timerStartMs = Date.now();
-  const fdhIdIdx = HISTORY_HEADERS.indexOf("FDH Engineering ID");
+  
+  // 🧠 DAILY MERGE STAGING: Key = DateStr + "_" + FDH
+  let dailyMergeMap = new Map(); 
+
   histData.forEach((row, idx) => {
     if (idx === 0) return; 
     
-    let fdhId = row[fdhIdIdx].toString().toUpperCase().trim();
+    let fdhId = row[fdhIdIdx] ? _normalizeFdhId(row[fdhIdIdx]) : "";
     if (!fdhId) return;
 
-    // 🧠 UPGRADE: Chronological tracking instead of row-index tracking
-    // This ensures that even if the archive is sorted newest-to-top, or has random old rows at the bottom,
-    // we always identify the true latest report date for each project.
     let rowDateObj = parseDateToMidnight(row[0]);
     let existing = latestReportMap.get(fdhId);
     if (!existing || rowDateObj > existing.dateObj) {
@@ -2093,124 +2157,191 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     
     if (normalizedTargets.includes(rowDate)) {
       submittedFdhs.add(fdhId);
-      let diag = runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, lkvDict);
       
-      if (diag.flags.includes("POSSIBLE REROUTE (NAP)")) {
-          diag.flags = diag.flags.replace(/POSSIBLE REROUTE \(NAP\)/g, "SCOPE DEVIATION (NAP)");
-          diag.draft = diag.draft.replace(/QB shows 0 BOM for NAP, but vendor reported activity\. Verify if a reroute occurred\./g, "Vendor reported Splicing activity, but BOM shows 0 NAPs. Verify if scope was expanded.");
-      }
-      
-      if (benchmarkDict[fdhId] && benchmarkDict[fdhId].includes("Possible Reroute")) {
-          benchmarkDict[fdhId] = benchmarkDict[fdhId].replace(/NAP: Pending \[Possible Reroute\]/g, "NAP: Pending [Scope Deviation]");
-      }
-
-      let cdIntelText = "";
-      if (xingsDict[fdhId]) {
-          let cdData = xingsDict[fdhId];
-          if (cdData.summary !== "") {
-              cdIntelText = cdData.summary;
-          }
-          if (cdData.hasFindings) {
-              if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nCD: MAJOR CROSSING RISK";
-              else diag.flags = "CD: MAJOR CROSSING RISK";
-              diag.flagColors.push("#b45309");
-          }
-      }
-      let refData = null;
-
-      if (diag.healedId) { fdhId = diag.healedId; refData = refDict[fdhId]; }
-      else refData = refDict[fdhId];
-      
-      let rowObj = {};
-      const BOM_HEADERS = ["UG BOM Quantity", "Strand BOM Quantity", "Fiber BOM Quantity", "NAP/Encl. BOM Qty."];
-      const BOM_MAP = {
-          "UG BOM Quantity": "ugBOM",
-          "Strand BOM Quantity": "aeBOM",
-          "Fiber BOM Quantity": "fibBOM",
-          "NAP/Encl. BOM Qty.": "napBOM"
-      };
-
-      HISTORY_HEADERS.forEach((h, i) => {
-        if (h === "Vendor Comment") rowObj[h] = diag.cleanComment;
-        else if (h === "FDH Engineering ID") rowObj[h] = fdhId;
-        else if (diag.overrides && diag.overrides[h]) rowObj[h] = diag.overrides[h];
-        else if (refData && BOM_HEADERS.includes(h)) {
-            // Prioritize live reference data (QB) for BOM columns to ensure progress bars have targets
-            let qbVal = refData[BOM_MAP[h]];
-            rowObj[h] = (qbVal !== undefined && qbVal !== 0) ? qbVal : (row[i] || 0);
-        }
-        else rowObj[h] = row[i];
-      });
-      
-      rowObj["Contractor"] = refData ? refData.vendor : rowObj["Contractor"];
-      rowObj["City"] = refData ? refData.city : "-"; 
-      rowObj["Stage"] = refData ? refData.stage : (diag.inferredStage || "-"); 
-      rowObj["Status"] = refData ? refData.status : (diag.inferredStatus || "-"); 
-      
-      // 🧠 MIRROR BACKUP PROTOCOL: Prioritize Live Reference Data, fallback to Archive values if missing
-      rowObj["BSLs"] = (refData && refData.bsls && refData.bsls !== "-") ? refData.bsls : (rowObj["BSLs"] || "-");
-      rowObj["Budget OFS"] = (refData && (refData.canonicalOfsDate || refData.forecastedOFS) && (refData.canonicalOfsDate || refData.forecastedOFS) !== "-") 
-        ? (refData.canonicalOfsDate || refData.forecastedOFS) 
-        : (rowObj["Budget OFS"] || "-");
-
-      let cxResolved = resolveCxDates(fdhId, refData, lkvDict, histData, HISTORY_HEADERS);
-      rowObj["CX Start"]    = cxResolved.cxStart;
-      rowObj["CX Complete"] = cxResolved.cxComplete;
-      rowObj["CX Inferred"] = cxResolved.inferredLabel;
-      rowObj["CD Intelligence"] = cdIntelText; 
-      rowObj["Gemini Insight"] = refData ? refData.geminiInsight : "";
-      rowObj["Gemini Insight Date"] = refData ? refData.geminiDate : "";
-
-      let adminGapsStr = diag.gaps; 
-      if (refData) {
-          const xingVal = (refData.rawSpecialX || "").toString().trim().toLowerCase();
-          let xingString = "X-ING UNCHECKED"; 
-          if (xingVal === "yes" || xingVal === "true") xingString = "X-ING YES";
-          else if (xingVal === "no" || xingVal === "false") xingString = "X-ING CLEAR";
+      let mergeKey = rowDate + "_" + fdhId;
+      if (!dailyMergeMap.has(mergeKey)) {
+          // Initialize with a clone of the row to avoid mutating source histData
+          dailyMergeMap.set(mergeKey, { 
+              row: [...row], 
+              archiveIdx: idx,
+              vendors: new Set([_normalizeVendor(row[contractorIdx] || "")])
+          });
+      } else {
+          // 🧠 MERGE LOGIC: Sum production columns and join comments
+          let existingData = dailyMergeMap.get(mergeKey);
+          let baseRow = existingData.row;
+          let currentVendor = _normalizeVendor(row[contractorIdx] || "");
           
-          let hasBeenChecked = refData.adminDate && refData.adminDate !== "";
-          let adminDateStr = hasBeenChecked ? `[Chk: ${refData.adminDate}]` : `[Chk: NEVER]`;
-          adminGapsStr = `${adminDateStr}  |  ${refData.hasSOW ? "SOW" : "SOW"}  ${refData.hasCD ? "CD" : "CD"}  ${refData.hasBOM ? "BOM" : "BOM"}  |  ${xingString}`;
-
-          // 🧠 DEPENDENCY CHECK: Flag if any hard predecessor (from QB) is not yet complete/active.
-          if (refData.qbRef && refData.qbRef.predecessors && refData.qbRef.predecessors.length > 0) {
-              let blockers = refData.qbRef.predecessors.filter(function(bId) {
-                  let bRef = refDict[bId.toUpperCase().trim()];
-                  if (!bRef) return false; 
-                  let bStage = (bRef.stage || "").toUpperCase();
-                  let bStatus = (bRef.status || "").toUpperCase();
-                  let isBComplete = bStage.includes("OFS") || bStatus.includes("COMPLETE") || bStatus.includes("ACTIVE");
-                  return !isBComplete;
-              });
-
-              if (blockers.length > 0) {
-                  if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nBLOCKED BY PREDECESSOR";
-                  else diag.flags = "BLOCKED BY PREDECESSOR";
-                  diag.flagColors.push("#991b1b"); 
-                  let bList = blockers.join(", ");
-                  diag.draft = (diag.draft ? diag.draft + " " : "") + `Blocked by predecessor(s): ${bList}.`;
-              }
+          if (currentVendor && !existingData.vendors.has(currentVendor)) {
+              existingData.vendors.add(currentVendor);
+              // Prepend vendor name to comment if not already merged
+              let baseComment = String(baseRow[commentIdx] || "").trim();
+              let newComment = String(row[commentIdx] || "").trim();
+              
+              let baseContr = String(baseRow[contractorIdx] || "").trim();
+              let mergedComment = `[${baseContr}]: ${baseComment} | [${currentVendor}]: ${newComment}`;
+              baseRow[commentIdx] = mergedComment;
+              
+              // Update contractor field to show both (temporarily for diag)
+              baseRow[contractorIdx] = Array.from(existingData.vendors).join(" / ");
           }
-      }
-      
-      rowObj["Health Flags"] = diag.flags; 
-      rowObj["Action Required"] = diag.draft;
-      rowObj["CD Intelligence"] = cdIntelText; 
-      rowObj["Field Production"] = diag.summary; 
-      rowObj["QB Context & Gaps"] = adminGapsStr; 
-      rowObj["Historical Milestones"] = benchmarkDict[fdhId] || "No history logged.";
-      rowObj["Archive_Row"] = idx + 1;
-      
-      let mappedRow = finalMirrorHeaders.map(h => rowObj[h] !== undefined ? rowObj[h] : "");
-      
-      // DEDUPLICATION: Only keep the latest report for this FDH within the range
-      // Archive is usually processed oldest to newest, so later reports overwrite earlier ones.
-      reviewMap.set(fdhId, {
-        mappedRow: mappedRow,
-        highlights: { rowState: diag.rowState, adaePaletteIdx: diag.adaePaletteIdx, colors: diag.colors, summary: diag.summary, gaps: adminGapsStr, flags: diag.flags, flagColors: diag.flagColors, cleanComment: diag.cleanComment, draft: diag.draft, benchmark: benchmarkDict[fdhId] || ""}
-      });
 
+          // Sum production values
+          const sumCols = ["Daily UG Footage", "Daily Strand Footage", "Daily Fiber Footage", "Daily NAPs/Encl. Completed", "Drills", "Missles", "AE Crews", "Fiber Pulling Crews", "Splicing Crews"];
+          sumCols.forEach(col => {
+              let cIdx = histHeadersRow.indexOf(col);
+              if (cIdx > -1) {
+                  baseRow[cIdx] = (Number(baseRow[cIdx]) || 0) + (Number(row[cIdx]) || 0);
+              }
+          });
+      }
     }
+  });
+
+  // 🧠 PROCESS MERGED REPORTS
+  dailyMergeMap.forEach((mergeData, mergeKey) => {
+    let row = mergeData.row;
+    let idx = mergeData.archiveIdx;
+    let fdhId = _normalizeFdhId(row[fdhIdIdx]);
+    let diag = runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, lkvDict);
+    
+    if (mergeData.vendors.size > 1 || (benchmarkDict[fdhId] && benchmarkDict[fdhId].includes("HANDOFF"))) {
+        if (diag.flags !== "No Anomalies" && diag.flags !== "") {
+            if (!diag.flags.includes("HANDOFF")) diag.flags += "\nHANDOFF";
+        } else {
+            diag.flags = "HANDOFF";
+        }
+        if (!diag.flags.includes("HANDOFF")) diag.flagColors.push("#64748b"); // Slate Gray
+        
+        if (mergeData.vendors.size > 1) {
+            diag.draft = (diag.draft ? diag.draft + " " : "") + `Multi-vendor activity detected (${Array.from(mergeData.vendors).join(", ")}). Possible project handoff in progress.`;
+            
+            // Add handoff milestone
+            let handoffLabel = `HANDOFF: ${Array.from(mergeData.vendors).join(" & ")}`;
+            let datePrefix = Utilities.formatDate(new Date(row[0]), "GMT-5", "MM/dd/yy");
+            if (!benchmarkDict[fdhId]) benchmarkDict[fdhId] = `${datePrefix}: ${handoffLabel}`;
+            else if (!benchmarkDict[fdhId].includes(handoffLabel)) benchmarkDict[fdhId] += `\n${datePrefix}: ${handoffLabel}`;
+        }
+    }
+
+    if (diag.flags.includes("POSSIBLE REROUTE (NAP)")) {
+        diag.flags = diag.flags.replace(/POSSIBLE REROUTE \(NAP\)/g, "SCOPE DEVIATION (NAP)");
+        diag.draft = diag.draft.replace(/QB shows 0 BOM for NAP, but vendor reported activity\. Verify if a reroute occurred\./g, "Vendor reported Splicing activity, but BOM shows 0 NAPs. Verify if scope was expanded.");
+    }
+    
+    if (benchmarkDict[fdhId] && benchmarkDict[fdhId].includes("Possible Reroute")) {
+        benchmarkDict[fdhId] = benchmarkDict[fdhId].replace(/NAP: Pending \[Possible Reroute\]/g, "NAP: Pending [Scope Deviation]");
+    }
+
+    let cdIntelText = "";
+    if (xingsDict[fdhId]) {
+        let cdData = xingsDict[fdhId];
+        if (cdData.summary !== "") {
+            cdIntelText = cdData.summary;
+        }
+        if (cdData.hasFindings) {
+            if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nCD: MAJOR CROSSING RISK";
+            else diag.flags = "CD: MAJOR CROSSING RISK";
+            diag.flagColors.push("#b45309");
+        }
+    }
+    let refData = null;
+
+    if (diag.healedId) { fdhId = diag.healedId; refData = refDict[fdhId]; }
+    else refData = refDict[fdhId];
+    
+    let rowObj = {};
+    const BOM_HEADERS = ["UG BOM Quantity", "Strand BOM Quantity", "Fiber BOM Quantity", "NAP/Encl. BOM Qty."];
+    const BOM_MAP = {
+        "UG BOM Quantity": "ugBOM",
+        "Strand BOM Quantity": "aeBOM",
+        "Fiber BOM Quantity": "fibBOM",
+        "NAP/Encl. BOM Qty.": "napBOM"
+    };
+
+    HISTORY_HEADERS.forEach((h, i) => {
+      if (h === "Vendor Comment") rowObj[h] = diag.cleanComment;
+      else if (h === "FDH Engineering ID") rowObj[h] = fdhId;
+      else if (diag.overrides && diag.overrides[h]) rowObj[h] = diag.overrides[h];
+      else if (refData && BOM_HEADERS.includes(h)) {
+          // Prioritize live reference data (QB) for BOM columns to ensure progress bars have targets
+          let qbVal = refData[BOM_MAP[h]];
+          rowObj[h] = (qbVal !== undefined && qbVal !== 0) ? qbVal : (row[i] || 0);
+      }
+      else rowObj[h] = row[i];
+    });
+    
+    // 🧠 MULTI-VENDOR OVERRIDE: Prioritize live reference data, but append all discovered vendors
+    let discoveredVendors = Array.from(projectVendorMap.get(fdhId) || []);
+    rowObj["Contractor"] = refData ? refData.vendor : rowObj["Contractor"];
+    rowObj["AllVendors"] = discoveredVendors.join(", ");
+    
+    rowObj["City"] = refData ? refData.city : "-"; 
+    rowObj["Stage"] = refData ? refData.stage : (diag.inferredStage || "-"); 
+    rowObj["Status"] = refData ? refData.status : (diag.inferredStatus || "-"); 
+    
+    // 🧠 MIRROR BACKUP PROTOCOL: Prioritize Live Reference Data, fallback to Archive values if missing
+    rowObj["BSLs"] = (refData && refData.bsls && refData.bsls !== "-") ? refData.bsls : (rowObj["BSLs"] || "-");
+    rowObj["Budget OFS"] = (refData && (refData.canonicalOfsDate || refData.forecastedOFS) && (refData.canonicalOfsDate || refData.forecastedOFS) !== "-") 
+      ? (refData.canonicalOfsDate || refData.forecastedOFS) 
+      : (rowObj["Budget OFS"] || "-");
+
+    let cxResolved = resolveCxDates(fdhId, refData, lkvDict, histData, HISTORY_HEADERS);
+    rowObj["CX Start"]    = cxResolved.cxStart;
+    rowObj["CX Complete"] = cxResolved.cxComplete;
+    rowObj["CX Inferred"] = cxResolved.inferredLabel;
+    rowObj["CD Intelligence"] = cdIntelText; 
+    rowObj["Gemini Insight"] = refData ? refData.geminiInsight : "";
+    rowObj["Gemini Insight Date"] = refData ? refData.geminiDate : "";
+
+    let adminGapsStr = diag.gaps; 
+    if (refData) {
+        const xingVal = (refData.rawSpecialX || "").toString().trim().toLowerCase();
+        let xingString = "X-ING UNCHECKED"; 
+        if (xingVal === "yes" || xingVal === "true") xingString = "X-ING YES";
+        else if (xingVal === "no" || xingVal === "false") xingString = "X-ING CLEAR";
+        
+        let hasBeenChecked = refData.adminDate && refData.adminDate !== "";
+        let adminDateStr = hasBeenChecked ? `[Chk: ${refData.adminDate}]` : `[Chk: NEVER]`;
+        adminGapsStr = `${adminDateStr}  |  ${refData.hasSOW ? "SOW" : "SOW"}  ${refData.hasCD ? "CD" : "CD"}  ${refData.hasBOM ? "BOM" : "BOM"}  |  ${xingString}`;
+
+        // 🧠 DEPENDENCY CHECK: Flag if any hard predecessor (from QB) is not yet complete/active.
+        if (refData.qbRef && refData.qbRef.predecessors && refData.qbRef.predecessors.length > 0) {
+            let blockers = refData.qbRef.predecessors.filter(function(bId) {
+                let bRef = refDict[bId.toUpperCase().trim()];
+                if (!bRef) return false; 
+                let bStage = (bRef.stage || "").toUpperCase();
+                let bStatus = (bRef.status || "").toUpperCase();
+                let isBComplete = bStage.includes("OFS") || bStatus.includes("COMPLETE") || bStatus.includes("ACTIVE");
+                return !isBComplete;
+            });
+
+            if (blockers.length > 0) {
+                if (diag.flags !== "No Anomalies" && diag.flags !== "") diag.flags += "\nBLOCKED BY PREDECESSOR";
+                else diag.flags = "BLOCKED BY PREDECESSOR";
+                diag.flagColors.push("#991b1b"); 
+                let bList = blockers.join(", ");
+                diag.draft = (diag.draft ? diag.draft + " " : "") + `Blocked by predecessor(s): ${bList}.`;
+            }
+        }
+    }
+    
+    rowObj["Health Flags"] = diag.flags; 
+    rowObj["Action Required"] = diag.draft;
+    rowObj["CD Intelligence"] = cdIntelText; 
+    rowObj["Field Production"] = diag.summary; 
+    rowObj["QB Context & Gaps"] = adminGapsStr; 
+    rowObj["Historical Milestones"] = benchmarkDict[fdhId] || "No history logged.";
+    rowObj["Archive_Row"] = idx + 1;
+    
+    let mappedRow = finalMirrorHeaders.map(h => rowObj[h] !== undefined ? rowObj[h] : "");
+    
+    // DEDUPLICATION: Only keep the latest report for this FDH within the range
+    // Archive is usually processed oldest to newest, so later reports overwrite earlier ones.
+    reviewMap.set(fdhId, {
+      mappedRow: mappedRow,
+      highlights: { rowState: diag.rowState, adaePaletteIdx: diag.adaePaletteIdx, colors: diag.colors, summary: diag.summary, gaps: adminGapsStr, flags: diag.flags, flagColors: diag.flagColors, cleanComment: diag.cleanComment, draft: diag.draft, benchmark: benchmarkDict[fdhId] || ""}
+    });
   });
   markTiming("reviewAssemblyMs", timerStartMs);
 
@@ -2241,7 +2372,9 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     const ref = refDict[ghostFdhId];
     if (!ref.vendor) return;
 
-    const hasHistory = latestReportMap.has(ghostFdhId);
+    const hasHistory = latestReportMap.get(ghostFdhId);
+    const hasHandoff = benchmarkDict[ghostFdhId] && benchmarkDict[ghostFdhId].includes("HANDOFF");
+
     let cxDates = resolveCxDates(ghostFdhId, ref, lkvDict, histData, HISTORY_HEADERS);
     const portfolioMeta = _getPortfolioVisibilityMeta({
       stage: ref.stage,
@@ -2252,9 +2385,12 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       targetDate: ref.canonicalOfsDate || ref.forecastedOFS || "",
       reportDate: normalizedTargets[0] || new Date(),
       referenceDate: targetDateObj,
-      hasHistory: hasHistory
+      hasHistory: !!hasHistory
     });
-    if (!portfolioMeta.includeInPortfolio) return;
+
+    // 🧠 VISIBILITY OVERRIDE: If a handoff is detected, force the project into the portfolio 
+    // regardless of stage, so the historical vendor sections remain populated.
+    if (!portfolioMeta.includeInPortfolio && !hasHandoff) return;
 
     // A report is not missing if the start date has not passed yet.
     let startDate = cxDates.cxStart ? new Date(cxDates.cxStart) : null;
@@ -2347,6 +2483,10 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       ghostRowObj["Status"]             = ref.status || "-";
       ghostRowObj["BSLs"]               = ref.bsls || "-";
       ghostRowObj["Budget OFS"]         = ref.canonicalOfsDate || ref.forecastedOFS || "-";
+      
+      // 🧠 MULTI-VENDOR DISCOVERY: Include all discovered vendors for Ghost rows
+      let discoveredVendors = Array.from(projectVendorMap.get(ghostFdhId) || []);
+      ghostRowObj["AllVendors"] = discoveredVendors.join(", ");
 
       ghostRowObj["CX Start"]           = cxDates.cxStart;
       ghostRowObj["CX Complete"]        = cxDates.cxComplete;

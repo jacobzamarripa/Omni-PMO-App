@@ -232,6 +232,7 @@ function discoverAllQBFields() {
 // --- 3. WEB APP SYNC (returns JSON result, no UI alerts) ---
 
 function syncFromQBWebApp() {
+  _mergeDynamicAliases();
   CacheService.getScriptCache().removeAll(['dashboard_data_cache_v12_meta', 'dashboard_data_cache_v12', 'SIGNAL_FAST_current', 'vendor_daily_goals_v1', 'city_coords_v1', 'dashboard_data_cache_v2_blob']);
   try {
     const syncStartMs = Date.now();
@@ -1359,20 +1360,52 @@ function _fetchTableFields(token, tableId) {
 // Canonical vendor name map — add aliases here as you discover new variants.
 // Keys must be lowercase. Values are the display name written to the sheet.
 var VENDOR_ALIASES = {
-  "lecom":         "LeCom",
-  "le com":        "LeCom",
-  "drg":           "DRG",
-  "mastec":        "MasTec",
-  "mas tec":       "MasTec",
-  "dycom":         "Dycom",
-  "black box":     "Black Box",
-  "blackbox":      "Black Box"
+  "lecom":            "LeCom",
+  "le com":           "LeCom",
+  "drg":              "DRG",
+  "mastec":           "MasTec",
+  "mas tec":          "MasTec",
+  "dycom":            "Dycom",
+  "black box":        "Black Box",
+  "blackbox":         "Black Box",
+  "g&a utilities":    "G&A",
+  "g&a":              "G&A",
+  "utilus":           "Utilus",
+  "utilis":           "Utilus",
+  "utilus group":     "Utilus",
+  "custom cable":     "Custom Utilicom"
 };
+
+var _aliasesLoaded = false;
+function _mergeDynamicAliases() {
+  if (_aliasesLoaded) return;
+  _aliasesLoaded = true;
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(ALIAS_SHEET);
+    if (!sheet || sheet.getLastRow() < 2) return;
+    var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+    rows.forEach(function(row) {
+      var raw = row[0] ? row[0].toString().trim().toLowerCase() : "";
+      var canonical = row[1] ? row[1].toString().trim() : "";
+      if (raw && canonical) VENDOR_ALIASES[raw] = canonical;
+    });
+  } catch(e) { logMsg("WARN [_mergeDynamicAliases]: " + e.message); }
+}
 
 function _normalizeVendor(name) {
   if (!name) return "";
-  var key = name.toString().toLowerCase().trim();
-  return VENDOR_ALIASES[key] || name.toString().trim();
+  var raw = name.toString().trim();
+  // Strip common suffixes for initial key matching
+  var key = raw.toLowerCase()
+               .replace(/ utilities$/i, '')
+               .replace(/ group$/i, '')
+               .replace(/ llc$/i, '')
+               .replace(/ inc$/i, '')
+               .replace(/ corp$/i, '')
+               .trim();
+
+  return VENDOR_ALIASES[key] || raw;
 }
 
 /**

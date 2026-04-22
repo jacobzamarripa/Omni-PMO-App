@@ -86,6 +86,7 @@ const UPLOAD_LOG_SHEET         = "11-Upload_Log";
 const ENABLE_AUTO_DAILY_UPLOAD = false;          // Automation gate — off until explicitly flipped
 const DAILY_UPLOAD_SOURCE_FOLDER_ID = COMPILED_FOLDER_ID;
 const DAILY_UPLOAD_STAGE_SHEET      = "12-Upload_Staging";
+const ALIAS_SHEET                   = "13-Vendor_Aliases";
 
 // Hardcoded FID map for bvay4aqkz — keyed by QB_HEADERS column name.
 // "FDH Engineering ID" → FID 22 ("FDH Project Engineering ID" in QB)
@@ -133,7 +134,7 @@ const DECK_HEADERS = [
 ];
 
 // 🧠 ADDED: CX Start and CX Complete
-const REVIEW_EXTRA_HEADERS = ["City", "Stage", "Status", "BSLs", "Budget OFS", "CX Start", "CX Complete", "CX Inferred", "CD Intelligence", "Gemini Insight", "Gemini Insight Date"];
+const REVIEW_EXTRA_HEADERS = ["City", "Stage", "Status", "BSLs", "Budget OFS", "CX Start", "CX Complete", "CX Inferred", "CD Intelligence", "Gemini Insight", "Gemini Insight Date", "AllVendors"];
 
 const ANALYTICS_QUADRANT = ["Historical Milestones", "Health Flags", "Action Required", "Field Production", "QB Context & Gaps"];
 

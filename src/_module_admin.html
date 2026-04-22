@@ -21,6 +21,105 @@
 /**
  * Navigates to a project and automatically opens the Special Xings popover.
  */
+// ─── Vendor Alias Manager ────────────────────────────────────────────────────
+
+let _aliasTab = 'custom'; // 'custom' | 'builtin'
+let _aliasData = null;    // { builtin: [], custom: [] } — null until loaded
+
+function _loadAliasData() {
+    let el = getEl('alias-manager-body');
+    if (el) el.innerHTML = '<div style="padding:12px 0; color:var(--text-muted); font-size:11px;">Loading...</div>';
+    google.script.run
+        .withSuccessHandler(function(data) {
+            _aliasData = data;
+            _renderAliasManager();
+        })
+        .withFailureHandler(function(err) {
+            let el2 = getEl('alias-manager-body');
+            if (el2) el2.innerHTML = '<div style="color:#ef4444; font-size:11px; padding:8px 0;">Failed to load aliases.</div>';
+        })
+        .getVendorAliasData();
+}
+
+function _renderAliasManager() {
+    let el = getEl('alias-manager-body');
+    if (!el || !_aliasData) return;
+    let list = _aliasTab === 'custom' ? _aliasData.custom : _aliasData.builtin;
+    let tabStyle = function(t) {
+        let active = _aliasTab === t;
+        return 'cursor:pointer; padding:4px 10px; border-radius:6px; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; border:none; background:' +
+               (active ? 'var(--accent,#6366f1)' : 'transparent') + '; color:' + (active ? '#fff' : 'var(--text-muted)') + ';';
+    };
+    let rows = list.map(function(a) {
+        let del = _aliasTab === 'custom'
+            ? `<button onclick="_deleteAlias('${a.raw.replace(/'/g,"\\'")}', this)" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:13px; line-height:1; padding:0 4px;" title="Remove">×</button>`
+            : '';
+        return `<div style="display:flex; align-items:center; gap:6px; padding:5px 0; border-bottom:1px solid var(--border);">
+            <span style="flex:1; font-size:11px; color:var(--text-muted); font-family:monospace;">${a.raw}</span>
+            <span style="color:var(--text-muted); font-size:10px;">→</span>
+            <span style="flex:1; font-size:11px; font-weight:700; color:var(--text-main);">${a.canonical}</span>
+            ${del}
+        </div>`;
+    }).join('');
+    let addForm = _aliasTab === 'custom' ? `
+        <div style="display:flex; gap:6px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+            <input id="alias-input-raw" placeholder="Raw name (as reported)" style="flex:1; min-width:120px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); color:var(--text-main); font-size:11px;" />
+            <span style="color:var(--text-muted); font-size:10px;">→</span>
+            <input id="alias-input-canonical" placeholder="Canonical name" style="flex:1; min-width:120px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); color:var(--text-main); font-size:11px;" />
+            <button onclick="_saveAlias(this)" style="padding:5px 12px; border-radius:6px; background:var(--accent,#6366f1); color:#fff; border:none; font-size:10px; font-weight:900; cursor:pointer; white-space:nowrap;">+ Add</button>
+        </div>` : '';
+    el.innerHTML = `
+        <div style="display:flex; gap:4px; margin-bottom:8px;">
+            <button onclick="_switchAliasTab('custom')" style="${tabStyle('custom')}">Custom (${_aliasData.custom.length})</button>
+            <button onclick="_switchAliasTab('builtin')" style="${tabStyle('builtin')}">Built-in (${_aliasData.builtin.length})</button>
+        </div>
+        <div>${rows || '<div style="color:var(--text-muted);font-size:11px;padding:6px 0;">No aliases yet.</div>'}</div>
+        ${addForm}`;
+}
+
+function _switchAliasTab(tab) {
+    _aliasTab = tab;
+    _renderAliasManager();
+}
+
+function _saveAlias(btn) {
+    let rawEl = getEl('alias-input-raw');
+    let canEl = getEl('alias-input-canonical');
+    let raw = rawEl ? rawEl.value.trim() : '';
+    let canonical = canEl ? canEl.value.trim() : '';
+    if (!raw || !canonical) { showToast('Enter both fields.', 'warn'); return; }
+    if (btn) { btn.disabled = true; btn.innerText = 'Saving...'; }
+    google.script.run
+        .withSuccessHandler(function() {
+            _aliasData = null;
+            _loadAliasData();
+            showToast('Alias saved. Takes effect on next engine run.', 'success');
+        })
+        .withFailureHandler(function(err) {
+            if (btn) { btn.disabled = false; btn.innerText = '+ Add'; }
+            showToast('Save failed: ' + err.message, 'error');
+        })
+        .saveVendorAlias(raw, canonical);
+}
+
+function _deleteAlias(raw, btn) {
+    if (!confirm('Remove alias for "' + raw + '"?')) return;
+    if (btn) btn.style.opacity = '0.4';
+    google.script.run
+        .withSuccessHandler(function() {
+            _aliasData = null;
+            _loadAliasData();
+            showToast('Alias removed.', 'success');
+        })
+        .withFailureHandler(function(err) {
+            if (btn) btn.style.opacity = '1';
+            showToast('Delete failed: ' + err.message, 'error');
+        })
+        .deleteVendorAlias(raw);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function navToXings(fdh) {
     if (typeof selectItemForNav === 'function') {
         selectItemForNav(fdh);
@@ -322,8 +421,19 @@ function renderAdminPane(items) {
     }
 
     if (html === '') html = '<div class="empty-msg" style="padding:40px 20px;">No items in this category.</div>';
+
+    html += `<div style="margin-top:16px; border:1px solid var(--border); border-radius:10px; overflow:hidden;">
+        <div style="padding:9px 14px; background:var(--surface-2); display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:10px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-main);">Vendor Aliases</span>
+            <span style="font-size:9px; color:var(--text-muted);">Takes effect on next engine run</span>
+        </div>
+        <div id="alias-manager-body" style="padding:10px 14px;"></div>
+    </div>`;
+
     pane.innerHTML = html;
-    
+    _aliasData = null;
+    _loadAliasData();
+
     // Trigger the writeback list refresh
     if (typeof refreshCDIngestionInfo === 'function') refreshCDIngestionInfo();
 }

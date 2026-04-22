@@ -72,7 +72,9 @@ function isQueueGroupCollapsed(groupKey) {
 function getGroupMetaForItem(item, groupBy) {
     let mode = GROUP_BY_OPTIONS.includes(groupBy) ? groupBy : 'none';
     if (mode === 'vendor') {
-        let label = String(item.vendor || 'Unknown Vendor').trim() || 'Unknown Vendor';
+        let raw = String(item.vendor || 'Unknown Vendor').trim() || 'Unknown Vendor';
+        // Enforce the same suffix-stripping normalization as the engine
+        let label = raw.replace(/ Utilities$/i, '').replace(/ Group$/i, '').replace(/ LLC$/i, '').replace(/ Inc$/i, '').replace(/ Corp$/i, '').trim();
         return { key: 'vendor:' + label.toLowerCase(), label: label, sortKey: label.toLowerCase() };
     }
     if (mode === 'city') {
@@ -104,11 +106,28 @@ function getGroupedQueueSections(items) {
     if (currentGroupBy === 'none') return [];
     let groups = new Map();
     (items || []).forEach(function(item) {
-        let meta = getGroupMetaForItem(item, currentGroupBy);
-        if (!groups.has(meta.key)) {
-            groups.set(meta.key, { key: meta.key, label: meta.label, sortKey: meta.sortKey, items: [] });
+        // 🧠 MULTI-VENDOR GROUPING: If grouping by vendor, allow an item to appear in multiple buckets
+        if (currentGroupBy === 'vendor' && item.allVendors && item.allVendors.length > 0) {
+            let uniqueSections = new Set();
+            item.allVendors.forEach(function(vName) {
+                let raw = String(vName || 'Unknown Vendor').trim() || 'Unknown Vendor';
+                let label = raw.replace(/ Utilities$/i, '').replace(/ Group$/i, '').replace(/ LLC$/i, '').replace(/ Inc$/i, '').replace(/ Corp$/i, '').trim();
+                let key = 'vendor:' + label.toLowerCase();
+                if (!uniqueSections.has(key)) {
+                    uniqueSections.add(key);
+                    if (!groups.has(key)) {
+                        groups.set(key, { key: key, label: label, sortKey: label.toLowerCase(), items: [] });
+                    }
+                    groups.get(key).items.push(item);
+                }
+            });
+        } else {
+            let meta = getGroupMetaForItem(item, currentGroupBy);
+            if (!groups.has(meta.key)) {
+                groups.set(meta.key, { key: meta.key, label: meta.label, sortKey: meta.sortKey, items: [] });
+            }
+            groups.get(meta.key).items.push(item);
         }
-        groups.get(meta.key).items.push(item);
     });
     let sections = Array.from(groups.values());
     sections.sort(function(a, b) {
@@ -674,6 +693,7 @@ function openPane(item, cardEl, force) {
 
         setTxt('p-fdh', item.fdh || "N/A");
         setTxt('p-meta', item.city || "Unknown City");
+        setTxt('p-vendor-display', (item.allVendors && item.allVendors.length > 0) ? item.allVendors.join(" / ") : (item.vendor || "No Vendor"));
         setTxt('mobile-back-title', item.fdh || "Project");
 
         let pill = getEl('p-status');
@@ -1063,7 +1083,8 @@ function applyFilters() {
         let filterMatch = (item, skipCategory) => {
             let ofsBuckets = getOfsFilterBuckets(item, today);
             let mSev = skipCategory === 'sev' || activeFilters.sev.length === 0 || activeFilters.sev.includes(getSeverity(item.flags));
-            let mVen = skipCategory === 'vendor' || activeFilters.vendor.length === 0 || activeFilters.vendor.includes(item.vendor);
+            let mVen = skipCategory === 'vendor' || activeFilters.vendor.length === 0 || activeFilters.vendor.includes(item.vendor) ||
+                       (item.allVendors && item.allVendors.some(function(v) { return activeFilters.vendor.includes(v); }));
             let mCit = skipCategory === 'city' || activeFilters.city.length === 0 || activeFilters.city.includes(item.city);
             let mOfs = skipCategory === 'ofs' || activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
             let mStatus = skipCategory === 'status' || activeFilters.status.length === 0 || activeFilters.status.includes(item.status || '');
@@ -1071,7 +1092,7 @@ function applyFilters() {
         };
 
         let validSev = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'sev')).map(i => getSeverity(i.flags)))];
-        let validVen = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'vendor')).map(i => i.vendor).filter(Boolean))].sort();
+        let validVen = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'vendor')).flatMap(i => (i.allVendors && i.allVendors.length > 0) ? i.allVendors : [i.vendor]).filter(Boolean))].sort();
         let validCit = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'city')).map(i => i.city).filter(Boolean))].sort();
         let validStatus = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'status')).map(i => i.status).filter(Boolean))].sort();
         let validOfsSet = new Set();
@@ -1118,7 +1139,8 @@ function applyFilters() {
         let baseFiltered = activeQueueItems.filter(i => {
             let ofsBuckets = getOfsFilterBuckets(i, today);
             let mSev = activeFilters.sev.length === 0 || activeFilters.sev.includes(getSeverity(i.flags));
-            let mVen = activeFilters.vendor.length === 0 || activeFilters.vendor.includes(i.vendor);
+            let mVen = activeFilters.vendor.length === 0 || activeFilters.vendor.includes(i.vendor) ||
+                       (i.allVendors && i.allVendors.some(function(v) { return activeFilters.vendor.includes(v); }));
             let mCit = activeFilters.city.length === 0 || activeFilters.city.includes(i.city);
             let mOfs = activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
             let mStatus = activeFilters.status.length === 0 || activeFilters.status.includes(i.status || '');

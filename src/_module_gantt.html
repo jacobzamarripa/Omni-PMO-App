@@ -611,6 +611,17 @@ function renderGantt(items) {
         let litMatch = benchStr.match(/Lit:\s*([\d/]+)/);
         if (litMatch && litMatch[1]) beadHtml += makeBead(litMatch[1], '⚡', `Light Present (${litMatch[1]})`, 'var(--card-bg)', '#eab308', start, end, item.fdh);
 
+        let handoffMatch = benchStr.match(/(\d{2}\/\d{2}\/\d{2}): HANDOFF: (.*)/g);
+        if (handoffMatch) {
+            handoffMatch.forEach(m => {
+                let dateExtract = m.match(/(\d{2}\/\d{2}\/\d{2}):/);
+                let labelExtract = m.match(/HANDOFF: (.*)/);
+                if (dateExtract && dateExtract[1]) {
+                    beadHtml += makeBead(dateExtract[1], '⇄', `Handoff: ${labelExtract ? labelExtract[1] : 'Detected'}`, 'var(--card-bg)', '#64748b', start, end, item.fdh);
+                }
+            });
+        }
+
         let starMatch = benchStr.match(/(UG|AE|FIB|NAP):\s*[\d/]+\s*->\s*([\d/]+)\s*\(100%\)/g);
         if (starMatch) {
             starMatch.forEach(m => {

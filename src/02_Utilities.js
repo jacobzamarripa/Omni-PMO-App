@@ -611,6 +611,7 @@ function _createDashboardPayloadFieldAccessors(headers) {
     vcIdx: getIdx("Vendor Comment") > -1 ? getIdx("Vendor Comment") : getIdx("Construction Comments"),
     drgIdx: getIdxByAliases(["DRG", "DIRECT VENDOR", "DIRECT VENDOR TRACKING", "DRG TRACKER", "DIRECT VENDOR TRACKER"]),
     drgUrlIdx: getIdxByAliases(["DRG TRACKER URL", "DIRECT VENDOR TRACKER URL", "DRG URL", "DIRECT VENDOR URL", "TRACKER URL"]),
+    allVendorsIdx: getIdx("AllVendors"),
     ugTotIdx: getIdx("Total UG Footage Completed"),
     ugBomIdx: getIdx("UG BOM Quantity"),
     ugDailyIdx: getIdx("Daily UG Footage"),
@@ -748,7 +749,9 @@ function _buildPortfolioActionItems(options) {
       reportDate: rawReportDate,
       hasHistory: !!overlay
     });
-    if (!portfolioMeta.includeInPortfolio) return;
+    const milestonesRaw = String(getRowVal(fieldMap.benchIdx, "") || "");
+    const hasHandoff = milestonesRaw.includes("HANDOFF");
+    if (!portfolioMeta.includeInPortfolio && !hasHandoff) return;
 
     const rawMirrorOfsDate = _dashboardParseDate(getRowVal(fieldMap.ofsIdx, ""));
     const canonicalOfsDate = String(refData.canonicalOfsDate || refData.forecastedOFS || getRowVal(fieldMap.ofsIdx, "") || "").trim();
@@ -841,9 +844,16 @@ function _buildPortfolioActionItems(options) {
     const mirrorDrgTrackerUrl = String(getRowVal(fieldMap.drgUrlIdx, "") || "").trim();
     const lastReportDate = _dashboardParseDate(rawReportDate);
 
+    const rawAllVendors = String(getRowVal(fieldMap.allVendorsIdx, "") || "").split(",").map(function(v) { return v.trim(); }).filter(Boolean);
+    let allVendors = (rawAllVendors.length > 0) ? rawAllVendors : [vendorName];
+    
+    // Safety check: ensure current vendor is always in the list
+    if (vendorName && !allVendors.includes(vendorName)) allVendors.unshift(vendorName);
+
     actionItems.push({
       fdh: fdhKey,
       vendor: vendorName,
+      allVendors: allVendors,
       city: String(getRowVal(fieldMap.cityIdx, refData.city || "") || ""),
       stage: rawStage,
       status: rawStatus,
@@ -1036,6 +1046,64 @@ function getDashboardData() {
   try { putChunkedCache(cache, CACHE_KEY, serializedPayload, 1800); } catch(e) {}
   return JSON.parse(serializedPayload);
 }
+
+// ─── Vendor Alias CRUD ────────────────────────────────────────────────────────
+
+function getVendorAliasData() {
+  var builtin = Object.keys(VENDOR_ALIASES).map(function(raw) {
+    return { raw: raw, canonical: VENDOR_ALIASES[raw], source: 'builtin' };
+  });
+  var custom = [];
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(ALIAS_SHEET);
+    if (sheet && sheet.getLastRow() > 1) {
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues().forEach(function(row) {
+        var raw = (row[0] || "").toString().trim();
+        var canonical = (row[1] || "").toString().trim();
+        if (raw && canonical) custom.push({ raw: raw, canonical: canonical, source: 'custom' });
+      });
+    }
+  } catch(e) {}
+  return { builtin: builtin, custom: custom };
+}
+
+function saveVendorAlias(raw, canonical) {
+  raw = raw.toString().trim().toLowerCase();
+  canonical = canonical.toString().trim();
+  if (!raw || !canonical) throw new Error("Both raw and canonical name are required.");
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ALIAS_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(ALIAS_SHEET);
+    sheet.getRange(1, 1, 1, 2).setValues([["Raw Name", "Canonical Name"]]);
+  }
+  var data = sheet.getLastRow() > 1 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues() : [];
+  var found = -1;
+  data.forEach(function(r, i) { if ((r[0] || "").toString().trim().toLowerCase() === raw) found = i; });
+  if (found >= 0) {
+    sheet.getRange(found + 2, 2).setValue(canonical);
+  } else {
+    sheet.appendRow([raw, canonical]);
+  }
+  return { ok: true };
+}
+
+function deleteVendorAlias(raw) {
+  raw = raw.toString().trim().toLowerCase();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ALIAS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return { ok: true };
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = data.length - 1; i >= 0; i--) {
+    if ((data[i][0] || "").toString().trim().toLowerCase() === raw) {
+      sheet.deleteRow(i + 2);
+    }
+  }
+  return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function getVendorDailyGoals() {
   const GOALS_CACHE_KEY = 'vendor_daily_goals_v1';
