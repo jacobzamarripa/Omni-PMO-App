@@ -305,6 +305,19 @@
           font-size: 10px;
           font-weight: 900;
         }
+        .outbox-pane #admin-pane-content > .review-hub-section:last-child::after {
+          content: "Action Center complete";
+          display: block;
+          margin: 18px 14px 4px;
+          padding-top: 16px;
+          border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+          text-align: center;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: color-mix(in srgb, var(--text-muted) 78%, transparent);
+        }
         /* KPI mini chips: dedicated row below tabs on desktop */
         .admin-kpi-mini-wrap {
           display: grid;
@@ -374,15 +387,15 @@
 
         /* Unified Header Padding Adjustment */
         .outbox-pane .inbox-header {
-          padding: 12px 14px !important;
-          height: 52px !important;
-          min-height: 52px !important;
+          padding: 16px 14px 14px !important;
+          height: auto !important;
+          min-height: 62px !important;
         }
         .outbox-pane .inbox-header .panel-tab-close,
         .outbox-pane .inbox-header .review-hub-close-btn {
           position: absolute !important;
           right: 12px !important;
-          top: 8px !important;
+          top: 12px !important;
           flex-shrink: 0;
           z-index: var(--z-sticky);
         }

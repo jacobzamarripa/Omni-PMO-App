@@ -98,24 +98,24 @@
       .inbox-title-stack {
           display: flex;
           flex-direction: column;
-          gap: 0px;
-          line-height: 0.95;
-          letter-spacing: -0.03em;
-          font-size: 13px;
+          gap: 1px;
+          line-height: 0.88;
+          letter-spacing: -0.04em;
+          font-size: 14px;
           font-weight: 900;
           text-transform: uppercase;
           color: var(--text-main);
       }
-      .inbox-title-stack span:first-child { color: var(--text-muted); }
-      .inbox-title-stack span:last-child { color: var(--accent); }
+      .inbox-title-stack span:first-child { color: var(--text-main); }
+      .inbox-title-stack span:last-child { color: color-mix(in srgb, var(--accent) 78%, var(--text-main)); }
       .inbox-count,
       .review-hub-header-count {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-width: 30px;
-          height: 24px;
-          padding: 0 7px;
+          min-width: 32px;
+          height: 26px;
+          padding: 0 8px;
           border-radius: 999px;
           background: color-mix(in srgb, var(--accent) 12%, var(--bg));
           border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
@@ -131,7 +131,8 @@
           flex-direction: column; 
           padding: 0; 
           gap: 0;
-      }      .inbox-list.grid-view { padding: 14px; gap: 12px; }
+      }
+      .inbox-list.grid-view { padding: 14px; gap: 12px; }
 
       .admin-strip { display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--card-bg); flex-shrink: 0; transition: background 0.3s, border-color 0.3s; position: sticky; top: 0; z-index: 10; }
       .admin-kpi { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; text-align: center; transition: all 0.15s; }

@@ -1382,7 +1382,19 @@ body.mobile-gantt-open .gantt-hint-pill { display: flex; }
 }
 
 /* Empty/End States */
-#inbox-list::after { content: "END OF LIVE QUEUE"; display: block; text-align: center; padding: 40px 0 80px; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; color: var(--text-muted); opacity: 0.4; }
+#inbox-list:not(:empty)::after {
+    content: "END OF LIVE QUEUE";
+    display: block;
+    margin: 18px 14px 0;
+    padding: 18px 0 44px;
+    border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    text-align: center;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    opacity: 0.45;
+}
 #inbox-list:empty::before { content: "✓ ALL CLEAR"; display: block; text-align: center; padding: 100px 20px; font-size: 24px; font-weight: 900; letter-spacing: -1px; color: var(--text-muted); opacity: 0.3; }
 
 /* Hero & Hierarchy */
