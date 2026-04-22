@@ -37,6 +37,12 @@
   var currentCalDate = new Date();
   var CALENDAR_MAX_VISIBLE_EVENTS = 3;
   var activeCalendarFilters = { start: true, complete: true, ofs: true };
+  var CALC_THEME_STORAGE_KEY = 'calcTheme';
+  var CALC_THEMES = ['classic', 'field', 'terminal'];
+  var CALC_THEME_LABELS = { classic: 'CLASSIC', field: 'FIELD', terminal: 'TERMINAL' };
+  var CALC_DISPLAY_MEDIUM_THRESHOLD = 13;
+  var CALC_DISPLAY_SMALL_THRESHOLD = 17;
+  var CALC_DISPLAY_TINY_THRESHOLD = 22;
 
   // STATE: calcState
   // READS: calculator render/update
@@ -44,6 +50,7 @@
   // EXTRACT WITH: calcNum, calcOp, updateCalc
   // WORKSTREAM 3 RISK: Low
   var calcState = '';
+  var calcTheme = loadCalcTheme();
 
   function clampToolWidgetPosition(widget, left, top) {
       if (!widget) return { left: 0, top: 0 };
@@ -78,6 +85,20 @@
       } catch (e) {
           return null;
       }
+  }
+
+  function loadCalcTheme() {
+      try {
+          var storedTheme = sessionStorage.getItem(CALC_THEME_STORAGE_KEY);
+          if (CALC_THEMES.indexOf(storedTheme) !== -1) return storedTheme;
+      } catch (e) {}
+      return CALC_THEMES[0];
+  }
+
+  function saveCalcTheme(theme) {
+      try {
+          sessionStorage.setItem(CALC_THEME_STORAGE_KEY, theme);
+      } catch (e) {}
   }
 
   function positionWidgetFromTrigger(widget, triggerEl) {
@@ -387,8 +408,35 @@
       updateCalc();
   }
 
+  function calcBackspace() {
+      if (calcState === 'Err') {
+          calcState = '';
+      } else if (calcState.length > 0) {
+          calcState = calcState.slice(0, -1);
+      }
+      updateCalc();
+  }
+
+  function applyCalcTheme() {
+      var widget = document.getElementById('calc-widget');
+      var themeLabel = document.getElementById('calc-theme-label');
+      if (widget) widget.setAttribute('data-calc-theme', calcTheme);
+      if (themeLabel) themeLabel.textContent = CALC_THEME_LABELS[calcTheme] || calcTheme.toUpperCase();
+  }
+
+  function cycleCalcTheme() {
+      var currentIndex = CALC_THEMES.indexOf(calcTheme);
+      calcTheme = CALC_THEMES[(currentIndex + 1) % CALC_THEMES.length];
+      saveCalcTheme(calcTheme);
+      applyCalcTheme();
+  }
+
   function calcOp(op) {
       if (op === 'clr') { calcState = ''; }
+      else if (op === 'backspace') {
+          calcBackspace();
+          return;
+      }
       else if (op === '=') {
           try {
               var result = new Function('return ' + calcState.replace(/×/g, '*').replace(/÷/g, '/'))();
@@ -413,17 +461,37 @@
 
   function updateCalc() {
       var disp = document.getElementById('calc-display');
-      if (disp) disp.value = calcState || '0';
+      var nextValue = calcState || '0';
+      if (!disp) return;
+
+      disp.value = nextValue;
+      disp.classList.remove('calc-display-medium', 'calc-display-small', 'calc-display-tiny');
+      if (nextValue.length >= CALC_DISPLAY_TINY_THRESHOLD) {
+          disp.classList.add('calc-display-tiny');
+      } else if (nextValue.length >= CALC_DISPLAY_SMALL_THRESHOLD) {
+          disp.classList.add('calc-display-small');
+      } else if (nextValue.length >= CALC_DISPLAY_MEDIUM_THRESHOLD) {
+          disp.classList.add('calc-display-medium');
+      }
+
+      if (typeof disp.setSelectionRange === 'function') {
+          var valueLength = disp.value.length;
+          disp.setSelectionRange(valueLength, valueLength);
+      }
+      disp.scrollLeft = disp.scrollWidth;
   }
 
   window.toggleWidget = toggleWidget;
   window.changeMonth = changeMonth;
   window.calcNum = calcNum;
   window.calcOp = calcOp;
+  window.calcBackspace = calcBackspace;
+  window.cycleCalcTheme = cycleCalcTheme;
   window.openCalendarProject = openCalendarProject;
   window.toggleCalendarFilter = toggleCalendarFilter;
   window.clearCalendarMilestoneFilters = clearCalendarMilestoneFilters;
 
+  applyCalcTheme();
   initCalcWidgetDrag();
 })();
 </script>

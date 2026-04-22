@@ -1459,11 +1459,7 @@
           } else if (key === 'Enter' || key === '=') {
               e.preventDefault(); calcOp('=');
           } else if (key === 'Backspace') {
-              e.preventDefault();
-              if (calcState !== 'Err' && calcState.length > 0) {
-                  calcState = calcState.slice(0, -1);
-                  updateCalc();
-              }
+              e.preventDefault(); calcOp('backspace');
           } else if (key === 'Escape') {
               e.preventDefault(); toggleWidget('calc-widget');
           }

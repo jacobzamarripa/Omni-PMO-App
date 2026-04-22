@@ -484,6 +484,11 @@
             </div>
             <input type="text" id="calc-display" readonly value="0">
         </div>
+        <div class="calc-utility-strip">
+            <button class="calc-utility-btn calc-utility-btn-clear" onclick="calcOp('clr')">AC</button>
+            <button class="calc-utility-btn calc-btn-backspace" onclick="calcOp('backspace')" aria-label="Backspace">&#9003;</button>
+            <button class="calc-utility-btn calc-theme-btn" onclick="cycleCalcTheme()"><span>THEME</span><strong id="calc-theme-label">CLASSIC</strong></button>
+        </div>
         <div class="calc-sub-grid">
             <button class="calc-sub-btn" onclick="calcOp('drill-days')"><span>DRILL</span><small>450 / day</small></button>
             <button class="calc-sub-btn" onclick="calcOp('jet-days')"><span>JET</span><small>5000 / day</small></button>
@@ -491,29 +496,28 @@
             <button class="calc-sub-btn" onclick="calcOp('splice-days')"><span>SPLICE</span><small>5 / day</small></button>
         </div>
         <div class="calc-keys">
-            <button class="calc-btn top-op" onclick="calcOp('clr')">AC</button>
             <button class="calc-btn top-op" onclick="calcOp('(')">(</button>
             <button class="calc-btn top-op" onclick="calcOp(')')">)</button>
             <button class="calc-btn op" onclick="calcOp('/')">&divide;</button>
+            <button class="calc-btn op" onclick="calcOp('*')">&times;</button>
 
             <button class="calc-btn" onclick="calcNum('7')">7</button>
             <button class="calc-btn" onclick="calcNum('8')">8</button>
             <button class="calc-btn" onclick="calcNum('9')">9</button>
-            <button class="calc-btn op" onclick="calcOp('*')">&times;</button>
+            <button class="calc-btn op" onclick="calcOp('-')">&minus;</button>
 
             <button class="calc-btn" onclick="calcNum('4')">4</button>
             <button class="calc-btn" onclick="calcNum('5')">5</button>
             <button class="calc-btn" onclick="calcNum('6')">6</button>
-            <button class="calc-btn op" onclick="calcOp('-')">&minus;</button>
+            <button class="calc-btn op" onclick="calcOp('+')">+</button>
 
             <button class="calc-btn" onclick="calcNum('1')">1</button>
             <button class="calc-btn" onclick="calcNum('2')">2</button>
             <button class="calc-btn" onclick="calcNum('3')">3</button>
-            <button class="calc-btn op" onclick="calcOp('+')">+</button>
+            <button class="calc-btn op calc-btn-equals" onclick="calcOp('=')">=</button>
 
             <button class="calc-btn zero" onclick="calcNum('0')">0</button>
             <button class="calc-btn" onclick="calcNum('.')">.</button>
-            <button class="calc-btn op" onclick="calcOp('=')">=</button>
         </div>
     </div>
 
