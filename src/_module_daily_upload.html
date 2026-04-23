@@ -228,21 +228,34 @@ function _duRenderPipeline() {
           _duIncomingCount + ' file' + (_duIncomingCount === 1 ? '' : 's') + ' pending' +
         '</div>'
       : '<div class="du-incoming-badge du-incoming-badge--clear">Incoming folder is clear</div>';
-    incomingEl.innerHTML = incomingBadge +
-      '<div class="upload-pipeline-stat">' +
-        '<span class="upload-pipeline-stat-label">Archive Status</span>' +
-        '<span class="upload-pipeline-stat-value">' + _duEsc(archStatus) + '</span>' +
-      '</div>' +
-      '<div class="upload-pipeline-meta">Latest: ' + _duEsc(_duPipeline.latestArchiveDate || '—') + '</div>';
+    incomingEl.innerHTML =
+      '<div class="du-step-summary-stack">' +
+        incomingBadge +
+        '<div class="du-step-meta-row">' +
+          '<span class="du-step-meta-label">Archive</span>' +
+          '<span class="du-step-meta-value">' + _duEsc(archStatus) + '</span>' +
+        '</div>' +
+        '<div class="du-step-meta-row">' +
+          '<span class="du-step-meta-label">Latest</span>' +
+          '<span class="du-step-meta-value">' + _duEsc(_duPipeline.latestArchiveDate || '—') + '</span>' +
+        '</div>' +
+      '</div>';
   }
 
   // Step 2 body — show loaded date badge + date-picker toggle
   if (targetEl) {
-    var loadedLabel = _duLoadedQueueDate
-      ? '<span class="du-loaded-chip">Loaded: ' + _duEsc(_duLoadedQueueDate) + '</span>'
-      : '<span class="du-loaded-chip du-loaded-chip--empty">Not loaded</span>';
-    targetEl.innerHTML = loadedLabel +
-      '<div class="upload-pipeline-meta">' + _duQueue.length + ' row(s) loaded into the staging queue</div>';
+    if (_duLoadedQueueDate) {
+      targetEl.innerHTML =
+        '<div class="du-step-inline-status"><span class="du-loaded-chip">Loaded ' + _duEsc(_duLoadedQueueDate) + '</span></div>' +
+        '<div class="du-step-meta-row du-step-meta-row--compact">' +
+          '<span class="du-step-meta-label">Queue Rows</span>' +
+          '<span class="du-step-meta-value">' + _duQueue.length + '</span>' +
+        '</div>';
+    } else {
+      targetEl.innerHTML =
+        '<div class="du-step-inline-status"><span class="upload-step-state-badge is-blocked">Not Loaded</span></div>' +
+        '<div class="upload-pipeline-meta">Load a date to build the review queue.</div>';
+    }
   }
 
   // Step 2 Load Yesterday gate
@@ -266,7 +279,9 @@ function _duRenderPipeline() {
     if (_duQueue.length > 0) {
       queueMeta.innerHTML = _duBuildQueueReviewHtml();
     } else {
-      queueMeta.textContent = _duLoadedQueueDate ? 'Queue empty for ' + _duLoadedQueueDate : 'Queue not loaded yet';
+      queueMeta.innerHTML = _duLoadedQueueDate
+        ? '<div class="du-step-inline-status"><span class="upload-step-state-badge is-warning">Queue Empty</span></div><div class="upload-pipeline-meta">No rows available for ' + _duEsc(_duLoadedQueueDate) + '.</div>'
+        : '<div class="du-step-inline-status"><span class="upload-step-state-badge is-blocked">Not Loaded</span></div><div class="upload-pipeline-meta">Load a date in Step 2 to review the queue.</div>';
     }
   }
 
@@ -332,7 +347,7 @@ function _duHasExportForLoadedDate() {
 }
 
 function _duCanRunFinalizeActions() {
-  return _duQueueApproved && _duHasExportForLoadedDate() && _duDirtyCount() === 0 && !_duIsSaving;
+  return _duQueueApproved && _duDirtyCount() === 0 && !_duIsSaving;
 }
 
 function _duBuildFinalizeHtml() {
@@ -349,8 +364,8 @@ function _duBuildFinalizeHtml() {
         ? '<div class="upload-pipeline-meta"><a href="' + _duEsc(_duExportStatus.fileUrl) + '" target="_blank" rel="noopener">Open export file</a></div>'
         : '');
   }
-  return '<div class="upload-step-state-badge is-current">Export Required</div>' +
-    '<div class="upload-pipeline-meta">No export found for ' + _duEsc(_duLoadedQueueDate || 'this queue') + '. Export a QB CSV first to create the record copy and unlock dry run / upload.</div>';
+  return '<div class="upload-step-state-badge is-warning">Export Recommended</div>' +
+    '<div class="upload-pipeline-meta">No manual export found for ' + _duEsc(_duLoadedQueueDate || 'this queue') + '. A snapshot will be created automatically on upload. You may also export now for an early backup.</div>';
 }
 
 function _duGetStepCardState(stepKey) {
@@ -1238,24 +1253,68 @@ function _duCheckConfirmGate(el) {
   if (btn) btn.disabled = (el.value.trim().toUpperCase() !== 'UPLOAD');
 }
 
+var _duUploadStartTime = 0;
+var _duUploadElapsedTimer = null;
+
 function _duDoUpload(rowIndices, skipDuplicates, forceRows) {
-  showToast('Uploading ' + rowIndices.length + ' row(s) to QuickBase...', 'info');
   var batchId = 'batch-' + Date.now().toString(36);
+  _duUploadStartTime = Date.now();
+  _duShowUploadProgress(rowIndices.length, batchId);
   google.script.run
     .withSuccessHandler(function(result) {
+      _duClearElapsedTimer();
+      result._elapsedMs = Date.now() - _duUploadStartTime;
       _duRenderResultsCard(result);
       _duLoadStats();
       _duLoadHistory();
     })
     .withFailureHandler(function(err) {
+      _duClearElapsedTimer();
       showToast('Upload failed: ' + (err.message || err), 'error');
       _duRefreshAll({ force: true });
     })
     .uploadDailyRecordsToQB(rowIndices, {
       batchId: batchId,
       skipDuplicates: !!skipDuplicates,
-      forceRows: forceRows || []
+      forceRows: forceRows || [],
+      targetDate: _duLoadedQueueDate || ''
     });
+}
+
+function _duClearElapsedTimer() {
+  if (_duUploadElapsedTimer) { clearInterval(_duUploadElapsedTimer); _duUploadElapsedTimer = null; }
+}
+
+function _duShowUploadProgress(rowCount, batchId) {
+  var tableWrap = document.querySelector('#upload-workspace .upload-table-wrap');
+  if (!tableWrap) return;
+  var chunkCount = Math.max(1, Math.ceil(rowCount / 25));
+  var estSecs = Math.round(chunkCount * 1.5 + 1);
+
+  tableWrap.innerHTML =
+    '<div class="upload-in-progress">' +
+      '<div class="uip-header">' +
+        '<div class="uip-spinner"></div>' +
+        '<div>' +
+          '<div class="uip-title">Uploading to QuickBase</div>' +
+          '<div class="uip-meta">' + rowCount + ' rows · ' + chunkCount + ' chunk' + (chunkCount === 1 ? '' : 's') + ' · ~' + estSecs + 's estimated</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="uip-progress-rail"><div class="uip-progress-fill" id="uip-fill"></div></div>' +
+      '<div class="uip-elapsed" id="uip-elapsed">0s elapsed</div>' +
+      '<div class="uip-batch">Batch · ' + _duEsc(batchId) + '</div>' +
+    '</div>';
+
+  // Animate progress bar over estimated duration
+  var startTime = Date.now();
+  var fillEl = document.getElementById('uip-fill');
+  var elapsedEl = document.getElementById('uip-elapsed');
+  _duUploadElapsedTimer = setInterval(function() {
+    var elapsed = (Date.now() - startTime) / 1000;
+    var pct = Math.min(95, (elapsed / estSecs) * 100);
+    if (fillEl) fillEl.style.width = pct.toFixed(1) + '%';
+    if (elapsedEl) elapsedEl.textContent = elapsed.toFixed(0) + 's elapsed';
+  }, 400);
 }
 
 function _duOpenUploadResultModal(result) {
@@ -1725,9 +1784,23 @@ function _duRenderResultsCard(result) {
   if (!tableWrap) { _duOpenUploadResultModal(result); return; }
 
   var failedRows = (result.results || []).filter(function(r) { return r.status === 'failed'; });
-  var succCount = result.success || 0;
-  var failCount = result.failed || 0;
-  var skipCount = result.duplicates || 0;
+  var reconciledRows = (result.results || []).filter(function(r) { return r.reconciled; });
+  var succCount  = result.success    || 0;
+  var failCount  = result.failed     || 0;
+  var dupeCount  = result.duplicates || 0;
+  var skipCount  = result.skipped    || 0;
+  var elapsedSec = result._elapsedMs ? (result._elapsedMs / 1000).toFixed(1) + 's' : '';
+
+  // Icon and title reflect actual outcome
+  var allFailed  = failCount > 0 && succCount === 0;
+  var partFailed = failCount > 0 && succCount > 0;
+  var iconCls    = allFailed ? 'upload-rc-icon icon-failed' : partFailed ? 'upload-rc-icon icon-partial' : 'upload-rc-icon';
+  var iconSvg    = allFailed
+    ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+    : partFailed
+      ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+      : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+  var rcTitle = allFailed ? 'Upload Failed' : partFailed ? 'Upload Partial' : 'Upload Complete';
 
   var failList = failedRows.length > 0
     ? '<div class="upload-rc-failures">' +
@@ -1745,31 +1818,48 @@ function _duRenderResultsCard(result) {
     ? '<button type="button" class="upload-btn btn-danger" onclick="_duCloseResultsCard();_duRetryFailed(' + JSON.stringify(failedRows.map(function(r) { return r.rowIdx; })) + ')">Retry Failed</button>'
     : '';
 
+  var reconciledNote = reconciledRows.length > 0
+    ? '<div class="upload-rc-reconciled">' + reconciledRows.length + ' row' + (reconciledRows.length === 1 ? '' : 's') + ' reconciled from existing QB records</div>'
+    : '';
+
+  var snapshotChip = (result.snapshotFile && result.snapshotFile.fileUrl)
+    ? '<div class="upload-rc-snapshot">Snapshot saved &rarr; <a href="' + _duEsc(result.snapshotFile.fileUrl) + '" target="_blank" rel="noopener">' + _duEsc(result.snapshotFile.fileName) + '</a></div>'
+    : '';
+
+  var elapsedChip = elapsedSec
+    ? '<div class="upload-rc-timing">' + elapsedSec + ' elapsed</div>'
+    : '';
+
   tableWrap.innerHTML =
     '<div class="upload-results-card">' +
       '<div class="upload-rc-header">' +
-        '<div class="upload-rc-icon">' +
-          '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
-        '</div>' +
+        '<div class="' + iconCls + '">' + iconSvg + '</div>' +
         '<div>' +
-          '<div class="upload-rc-title">Upload Complete</div>' +
+          '<div class="upload-rc-title">' + rcTitle + '</div>' +
           '<div class="upload-rc-batch">Batch · ' + _duEsc(result.batchId || '') + '</div>' +
         '</div>' +
+        elapsedChip +
       '</div>' +
       '<div class="upload-rc-stats">' +
         '<div class="upload-rc-stat stat-success">' +
           '<div class="upload-rc-stat-value">' + succCount + '</div>' +
           '<div class="upload-rc-stat-label">Uploaded</div>' +
         '</div>' +
-        '<div class="upload-rc-stat stat-skipped">' +
+        (dupeCount > 0 ? '<div class="upload-rc-stat stat-skipped">' +
+          '<div class="upload-rc-stat-value">' + dupeCount + '</div>' +
+          '<div class="upload-rc-stat-label">Duplicates</div>' +
+        '</div>' : '') +
+        (skipCount > 0 ? '<div class="upload-rc-stat stat-skipped">' +
           '<div class="upload-rc-stat-value">' + skipCount + '</div>' +
           '<div class="upload-rc-stat-label">Skipped</div>' +
-        '</div>' +
+        '</div>' : '') +
         '<div class="upload-rc-stat stat-failed">' +
           '<div class="upload-rc-stat-value">' + failCount + '</div>' +
           '<div class="upload-rc-stat-label">Failed</div>' +
         '</div>' +
       '</div>' +
+      reconciledNote +
+      snapshotChip +
       failList +
       '<div class="upload-rc-footer">' +
         retryBtn +

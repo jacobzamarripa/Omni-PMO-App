@@ -31,9 +31,9 @@
 }
 
 .upload-shell {
-  padding: 10px 28px 0;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 96%, #ffffff);
+  padding: 12px 24px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--bg) 97%, var(--card-bg));
 }
 
 .upload-intake-grid {
@@ -47,14 +47,26 @@
 .upload-stage-preview-shell,
 .upload-queue-shell,
 .upload-history-section {
-  background: color-mix(in srgb, var(--card-bg) 88%, white);
+  background: color-mix(in srgb, var(--card-bg) 94%, var(--bg));
   border: 1px solid var(--border);
   border-radius: 18px;
-  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
 }
 
 .upload-stage-card {
-  padding: 13px 14px;
+  position: relative;
+  min-height: 150px;
+  padding: 12px 12px 10px;
+  overflow: hidden;
+}
+
+.upload-stage-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  opacity: 1;
 }
 
 .upload-intake-grid-secondary {
@@ -66,24 +78,65 @@
 .upload-queue-head {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.upload-card-headcopy,
+.upload-queue-headcopy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding-right: 64px;
+}
+
+.upload-card-stepmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 88%, var(--bg));
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  line-height: 1;
 }
 
 .upload-card-kicker {
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 900;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .upload-card-title {
-  margin-top: 3px;
-  font-size: 15px;
-  line-height: 1.2;
+  margin-top: 0;
+  font-size: 13px;
+  line-height: 1.02;
   font-weight: 800;
   color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+
+.upload-card-subtitle,
+.upload-queue-subtitle,
+.upload-overview-subtitle {
+  font-size: 9px;
+  line-height: 1.28;
+  color: var(--text-muted);
+}
+
+.upload-card-subtitle {
+  max-width: 20ch;
 }
 
 .upload-source-note,
@@ -98,40 +151,75 @@
 }
 
 .upload-pipeline-body {
-  margin-top: 12px;
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
+  min-height: 34px;
 }
 
 .upload-pipeline-actions {
-  margin-top: 12px;
+  margin-top: auto;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  align-items: stretch;
+  padding-top: 8px;
 }
 
-.upload-pipeline-stat {
+.upload-pipeline-actions > .upload-btn {
+  flex: 1 1 calc(50% - 4px);
+}
+
+.upload-pipeline-actions > .upload-btn:only-child {
+  flex-basis: 100%;
+}
+
+#du-step4-card .upload-pipeline-actions > .upload-btn:last-child {
+  flex-basis: 100%;
+}
+
+.du-step-summary-stack {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-  background: color-mix(in srgb, white 82%, var(--bg));
+  gap: 6px;
 }
 
+.du-step-inline-status {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+}
+
+.du-step-meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.du-step-meta-row--compact {
+  justify-content: flex-start;
+  gap: 10px;
+  width: fit-content;
+}
+
+.du-step-meta-label,
 .upload-pipeline-stat-label {
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
+.du-step-meta-value,
 .upload-pipeline-stat-value,
 .upload-pipeline-meta {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-main);
 }
@@ -154,79 +242,105 @@
 /* Single-row pipeline layout */
 .upload-pipeline-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  justify-content: center;
+  grid-template-columns: repeat(4, minmax(0, 238px));
+  gap: 12px;
   padding: 0 0 12px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .upload-pipeline-row .upload-stage-card {
-  padding: 10px 12px;
-}
-.upload-pipeline-row .upload-card-kicker {
-  font-size: 9px;
-}
-.upload-pipeline-row .upload-card-title {
-  font-size: 13px;
-  margin-top: 2px;
+  min-height: 144px;
+  padding: 12px 12px 10px;
 }
 .upload-pipeline-row .upload-pipeline-body {
-  margin-top: 8px;
+  margin-top: 10px;
   gap: 5px;
-  min-height: 48px;
+  min-height: 30px;
 }
 .upload-pipeline-row .upload-pipeline-actions {
-  margin-top: 8px;
-  gap: 5px;
+  margin-top: auto;
+  gap: 6px;
+  padding-top: 8px;
 }
 
 .upload-stage-card.is-current {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.08);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--card-bg) 96%, var(--bg));
+  box-shadow: none;
 }
 
 .upload-stage-card.is-complete {
-  border-color: color-mix(in srgb, #16a34a 35%, var(--border));
-  background: color-mix(in srgb, var(--card-bg) 90%, #f0fdf4);
+  border-color: color-mix(in srgb, #16a34a 20%, var(--border));
+  background: color-mix(in srgb, var(--card-bg) 96%, var(--bg));
 }
 
 .upload-stage-card.is-warning {
-  border-color: color-mix(in srgb, #d97706 38%, var(--border));
-  background: color-mix(in srgb, var(--card-bg) 92%, #fffbeb);
+  border-color: color-mix(in srgb, #d97706 24%, var(--border));
+  background: color-mix(in srgb, var(--card-bg) 96%, var(--bg));
 }
 
 .upload-stage-card.is-blocked:not(.upload-stage-card--locked) {
   border-color: color-mix(in srgb, var(--border) 88%, #cbd5e1);
+  background: color-mix(in srgb, var(--card-bg) 96%, #f8fafc);
+}
+
+.upload-stage-card.is-current::before {
+  background: color-mix(in srgb, var(--accent) 88%, white);
+}
+
+.upload-stage-card.is-complete::before {
+  background: #16a34a;
+}
+
+.upload-stage-card.is-warning::before {
+  background: #d97706;
+}
+
+.upload-stage-card.is-blocked::before {
+  background: #cbd5e1;
 }
 
 /* Step 4 locked state */
 .upload-stage-card--locked {
-  opacity: 0.45;
+  opacity: 0.8;
   pointer-events: none;
   user-select: none;
+  filter: saturate(0.82);
+}
+
+.upload-pipeline-body .upload-step-state-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
 }
 
 .upload-step-state-badge {
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  min-height: 22px;
+  min-height: 20px;
   padding: 0 8px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, white 90%, var(--bg));
+  background: color-mix(in srgb, var(--card-bg) 88%, var(--bg));
   color: var(--text-muted);
 }
 
 .upload-step-state-badge.is-blocked {
-  background: color-mix(in srgb, white 96%, #e2e8f0);
+  background: color-mix(in srgb, var(--card-bg) 90%, #e2e8f0);
   color: #64748b;
 }
 
 .upload-step-state-badge.is-current {
-  background: color-mix(in srgb, white 88%, #dbeafe);
+  background: color-mix(in srgb, var(--card-bg) 88%, #dbeafe);
   border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
   color: var(--accent);
 }
@@ -242,9 +356,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 4px 9px;
+  padding: 4px 8px;
   border-radius: 99px;
 }
 .du-incoming-badge--alert {
@@ -273,9 +387,9 @@
 /* Step 2 loaded date chip */
 .du-loaded-chip {
   display: inline-block;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 3px 9px;
+  padding: 3px 8px;
   border-radius: 99px;
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
@@ -294,7 +408,7 @@
   gap: 6px;
 }
 .du-vendor-summary-total {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-main);
 }
@@ -304,7 +418,7 @@
   gap: 4px;
 }
 .du-vendor-chip {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 99px;
@@ -459,8 +573,8 @@
 .upload-stage-preview-shell,
 .upload-queue-shell,
 .upload-history-section {
-  margin: 12px 28px 0;
-  padding: 14px;
+  margin: 16px 34px 0;
+  padding: 18px;
 }
 
 .upload-stage-view-switch {
@@ -632,15 +746,17 @@
 .upload-overview {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-bottom: 10px;
+  gap: 6px;
+  padding-bottom: 8px;
 }
 
 .upload-overview-head {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
+  align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .upload-overview-titleblock {
@@ -650,57 +766,255 @@
 }
 
 .upload-overview-kicker {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .upload-overview-title {
-  font-size: 17px;
-  line-height: 1.08;
+  font-size: 15px;
+  line-height: 1.02;
   font-weight: 800;
   color: var(--text-main);
   max-width: none;
+  text-transform: uppercase;
+}
+
+.upload-overview-subtitle {
+  max-width: 54ch;
+}
+
+.upload-overview-title span:last-child {
+  color: var(--accent);
 }
 
 .upload-overview-meta {
-  font-size: 10px;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 88%, var(--bg));
+  font-size: 8px;
+  font-weight: 700;
   color: var(--text-muted);
   white-space: nowrap;
+  margin-left: auto;
 }
 
 .upload-kpi-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
+  justify-content: flex-start;
 }
 
 .upload-kpi-chip {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 30px;
-  padding: 0 10px;
+  justify-content: center;
+  flex-direction: row;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 9px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card-bg) 90%, white);
+  background: color-mix(in srgb, var(--card-bg) 90%, var(--bg));
+  box-shadow: none;
 }
 
 .upload-kpi-label {
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .upload-kpi-value {
-  font-size: 15px;
+  font-size: 13px;
+  line-height: 1;
   font-weight: 900;
   color: var(--text-main);
+}
+
+.upload-stage-card--incoming .upload-btn.btn-primary {
+  background: color-mix(in srgb, #059669 90%, white);
+  border-color: transparent;
+  color: #f0fdf4;
+}
+
+.upload-stage-card--load .upload-btn.btn-primary {
+  background: color-mix(in srgb, #2563eb 90%, white);
+  border-color: transparent;
+  color: #eff6ff;
+}
+
+.upload-stage-card--review .upload-btn.btn-primary {
+  background: color-mix(in srgb, #d97706 90%, white);
+  border-color: transparent;
+  color: #fff7ed;
+}
+
+.upload-stage-card--finalize .upload-btn.btn-primary {
+  background: color-mix(in srgb, #16a34a 90%, white);
+  border-color: transparent;
+  color: #f0fdf4;
+}
+
+.upload-btn {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 9px;
+}
+
+body.dark-mode #upload-workspace {
+  background: #0c0d12;
+}
+
+body.dark-mode .upload-shell {
+  border-bottom-color: rgba(255,255,255,0.08);
+  background: #0f1117;
+}
+
+body.dark-mode .upload-pipeline-row {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+body.dark-mode .upload-stage-card {
+  background: #1a1d25;
+  border-color: rgba(255,255,255,0.08);
+  box-shadow: none;
+}
+
+body.dark-mode .upload-stage-card::before {
+  background: rgba(255,255,255,0.12);
+}
+
+body.dark-mode .upload-card-stepmark,
+body.dark-mode .upload-overview-meta,
+body.dark-mode .upload-kpi-chip,
+body.dark-mode .upload-step-state-badge,
+body.dark-mode .upload-select,
+body.dark-mode .upload-search,
+body.dark-mode .upload-btn {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.1);
+}
+
+body.dark-mode .upload-stage-card.is-current {
+  border-color: rgba(59, 130, 246, 0.34);
+  background: #1a1d25;
+  box-shadow: none;
+}
+
+body.dark-mode .upload-stage-card.is-complete {
+  border-color: rgba(34, 197, 94, 0.24);
+  background: #1a1d25;
+}
+
+body.dark-mode .upload-stage-card.is-warning {
+  border-color: rgba(245, 158, 11, 0.24);
+  background: #1a1d25;
+}
+
+body.dark-mode .upload-stage-card.is-blocked:not(.upload-stage-card--locked) {
+  border-color: rgba(148, 163, 184, 0.24);
+  background: #1a1d25;
+}
+
+body.dark-mode .upload-stage-card.is-current::before {
+  background: #3b82f6;
+}
+
+body.dark-mode .upload-stage-card.is-complete::before {
+  background: #22c55e;
+}
+
+body.dark-mode .upload-stage-card.is-warning::before {
+  background: #f59e0b;
+}
+
+body.dark-mode .upload-stage-card.is-blocked::before {
+  background: #64748b;
+}
+
+body.dark-mode .du-incoming-badge--alert {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+body.dark-mode .du-incoming-badge--clear {
+  background: rgba(16, 185, 129, 0.14);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.26);
+}
+
+body.dark-mode .du-loaded-chip,
+body.dark-mode .upload-step-state-badge.is-current {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+body.dark-mode .upload-step-state-badge.is-complete {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.28);
+}
+
+body.dark-mode .upload-step-state-badge.is-blocked,
+body.dark-mode .du-loaded-chip--empty {
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body.dark-mode .upload-btn.btn-primary {
+  background: #1d4ed8;
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #eff6ff;
+}
+
+body.dark-mode .upload-stage-card--incoming .upload-btn.btn-primary {
+  background: #047857;
+  border-color: transparent;
+  color: #ecfdf5;
+}
+
+body.dark-mode .upload-stage-card--review .upload-btn.btn-primary {
+  background: #b45309;
+  border-color: transparent;
+  color: #fffbeb;
+}
+
+body.dark-mode .upload-stage-card--finalize .upload-btn.btn-primary {
+  background: #15803d;
+  border-color: transparent;
+  color: #f0fdf4;
+}
+
+body.dark-mode .upload-btn.btn-ghost {
+  background: rgba(255,255,255,0.01);
+}
+
+body.dark-mode .du-step-meta-row {
+  border-top-color: rgba(255,255,255,0.08);
+}
+
+body.dark-mode .du-incoming-badge--clear {
+  background: rgba(16, 185, 129, 0.12);
+}
+
+body.dark-mode .du-loaded-chip {
+  background: rgba(59, 130, 246, 0.15);
 }
 
 .upload-kpi-chip.kpi-pending .upload-kpi-value { color: #d97706; }
@@ -840,8 +1154,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 0;
+  gap: 12px;
+  padding: 12px 0 14px;
   flex-wrap: wrap;
 }
 
@@ -853,7 +1167,7 @@
 .upload-toolbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -865,11 +1179,11 @@
 .upload-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .upload-field-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -883,15 +1197,15 @@
 
 .upload-select,
 .upload-search {
-  height: 36px;
-  border-radius: 10px;
+  height: 34px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: color-mix(in srgb, white 92%, var(--bg));
   color: var(--text-main);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   font-family: inherit;
-  padding: 0 12px;
+  padding: 0 11px;
   outline: none;
 }
 
@@ -916,13 +1230,13 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 36px;
-  padding: 0 14px;
-  border-radius: 10px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: color-mix(in srgb, white 82%, var(--card-bg));
   color: var(--text-main);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -964,7 +1278,7 @@
 }
 
 .upload-selection-info {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-muted);
 }
@@ -973,7 +1287,11 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  background: color-mix(in srgb, white 96%, var(--bg));
+  margin: 0 -2px -2px;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, white 95%, var(--bg)) 0%, color-mix(in srgb, white 99%, var(--bg)) 100%);
 }
 
 .upload-table {
@@ -981,30 +1299,34 @@
   min-width: 1660px;
   border-collapse: collapse;
   table-layout: auto;
-  font-size: 13px;
+  font-size: 12px;
   background: white;
+  border-radius: 14px;
+  overflow: hidden;
 }
 
 .upload-table thead th {
   position: sticky;
   top: 0;
   z-index: 100;
-  padding: 8px 12px;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-bottom: 2px solid #bdc1c6;
-  font-size: 12px;
-  font-weight: 700;
-  color: #3c4043;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ee;
+  border-bottom: 1px solid #cbd5e1;
+  font-size: 10px;
+  font-weight: 800;
+  color: #475569;
   text-align: left;
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
-  line-height: 1.4;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .upload-table thead th:hover {
-  background: #f1f3f4;
+  background: #f1f5f9;
 }
 
 .upload-table th .sort-arrow {
@@ -1022,19 +1344,21 @@
 }
 
 .upload-table tbody td {
-  padding: 4px 12px;
-  height: 38px;
-  border: 1px solid #dee2e6;
+  padding: 3px 10px;
+  height: 32px;
+  border: 1px solid #e2e8f0;
   background: #fff;
-  color: #202124;
+  color: #1e293b;
+  font-size: 11px;
   font-weight: 700;
   vertical-align: middle;
   overflow: visible;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .upload-table tbody tr:hover td {
-  background: #f8f9fa;
+  background: #f8fafc;
 }
 
 .upload-table tbody tr.row-dirty td {
@@ -1053,8 +1377,8 @@
 }
 
 .upload-table tbody tr.row-uploaded td {
-  color: #70757a;
-  background: #f1f3f4;
+  color: #64748b;
+  background: #f8fafc;
   font-weight: 400;
 }
 
@@ -1068,8 +1392,8 @@
   max-width: 48px;
   text-align: center;
   padding: 0;
-  background: #f8f9fa !important;
-  box-shadow: 2px 0 0 0 #dee2e6;
+  background: #f8fafc !important;
+  box-shadow: 1px 0 0 0 #dbe3ee;
 }
 
 .upload-table td.col-check {
@@ -1083,7 +1407,7 @@
   z-index: 90;
   width: 130px;
   min-width: 130px;
-  background: #f8f9fa !important;
+  background: #f8fafc !important;
 }
 
 .upload-table td:nth-child(2) {
@@ -1097,7 +1421,7 @@
   z-index: 90;
   width: 180px;
   min-width: 180px;
-  background: #f8f9fa !important;
+  background: #f8fafc !important;
 }
 
 .upload-table td:nth-child(3) {
@@ -1111,8 +1435,8 @@
   z-index: 90;
   width: 260px;
   min-width: 260px;
-  box-shadow: 2px 0 0 0 #bdc1c6;
-  background: #f8f9fa !important;
+  box-shadow: 1px 0 0 0 #cbd5e1;
+  background: #f8fafc !important;
 }
 
 .upload-table td:nth-child(4) {
@@ -1128,12 +1452,12 @@
 .upload-table td.col-comments,
 .upload-table th.col-comments {
   width: 99%;
-  min-width: 400px;
+  min-width: 340px;
   white-space: normal;
 }
 
 .upload-table td.col-comments {
-  line-height: 1.4;
+  line-height: 1.28;
 }
 
 .upload-table th.col-lime,
@@ -1154,7 +1478,7 @@
 
 .upload-table th.col-teal,
 .upload-table td.col-status {
-  min-width: 160px;
+  min-width: 144px;
 }
 
 .upload-table th.col-dark-navy:not(.col-fdh),
@@ -1163,15 +1487,15 @@
 }
 
 .upload-row-check {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   cursor: pointer;
 }
 
 .upload-cell-readonly {
   display: block;
-  padding: 6px 0;
-  line-height: 1.4;
+  padding: 4px 0;
+  line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1824,14 +2148,14 @@
 
 @media (max-width: 1024px) {
   .upload-shell {
-    padding: 10px 20px 0;
+    padding: 14px 22px 0;
   }
 
   .upload-stage-preview-shell,
   .upload-queue-shell,
   .upload-history-section {
-    margin-left: 20px;
-    margin-right: 20px;
+    margin-left: 22px;
+    margin-right: 22px;
   }
 
   .upload-overview-head {
@@ -1852,7 +2176,7 @@
 
 @media (max-width: 768px) {
   .upload-shell {
-    padding: 10px 14px 0;
+    padding: 12px 14px 0;
   }
 
   .upload-intake-grid,
@@ -1867,6 +2191,17 @@
   .upload-queue-head {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .upload-stage-card,
+  .upload-pipeline-row .upload-stage-card {
+    min-height: auto;
+  }
+
+  .upload-card-stepmark {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
   }
 
   .upload-toolbar {
@@ -1896,10 +2231,270 @@
   .upload-history-section {
     margin-left: 14px;
     margin-right: 14px;
+    padding: 14px;
   }
 
   .upload-modal-overlay {
     padding: 12px;
   }
+}
+
+/* ── Upload in-progress overlay ──────────────────────────── */
+.upload-in-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 64px 32px;
+  min-height: 320px;
+  background: color-mix(in srgb, white 97%, var(--bg));
+}
+
+.uip-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.uip-spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-top-color: var(--accent);
+  animation: uip-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes uip-spin {
+  to { transform: rotate(360deg); }
+}
+
+.uip-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.uip-meta {
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.uip-progress-rail {
+  width: 100%;
+  max-width: 400px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--border));
+  overflow: hidden;
+}
+
+.uip-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.4s ease-out;
+}
+
+.uip-elapsed {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.uip-batch {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+/* ── Results card icon variants ──────────────────────────── */
+.upload-rc-icon.icon-partial {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.upload-rc-icon.icon-failed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* ── Results card extras ─────────────────────────────────── */
+.upload-rc-timing {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  align-self: flex-start;
+}
+
+.upload-rc-reconciled {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0369a1;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 6px 14px;
+  max-width: 560px;
+  width: 100%;
+  text-align: center;
+}
+.upload-rc-snapshot {
+  font-size: 11px;
+  color: #4b5563;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 6px 14px;
+  max-width: 560px;
+  width: 100%;
+  text-align: center;
+}
+.upload-rc-snapshot a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.upload-rc-snapshot a:hover { text-decoration: underline; }
+
+/* ============================================================
+   PIPELINE ROW — UNIFIED FLOW
+   Overrides the isolated-card grid with a single connected strip.
+   All individual step-card chrome is removed; state coloring lives
+   on the step badge and a subtle cell tint instead of card borders.
+   ============================================================ */
+
+.upload-pipeline-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  justify-content: stretch;
+  gap: 0;
+  padding: 0;
+  margin-bottom: 12px;
+  background: color-mix(in srgb, var(--card-bg) 96%, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+/* Subtle left-to-right gradient track along the top */
+.upload-pipeline-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--accent) 70%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 18%, transparent) 100%
+  );
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Step cards: no individual borders, no radius, transparent bg */
+.upload-pipeline-row .upload-stage-card {
+  border: none;
+  border-right: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  min-height: 170px;
+  padding: 16px 14px 12px;
+  position: relative;
+}
+
+.upload-pipeline-row .upload-stage-card:last-child {
+  border-right: none;
+}
+
+/* Kill per-card top accent bars */
+.upload-pipeline-row .upload-stage-card::before {
+  display: none;
+}
+
+/* Flow connector: chevron arrow centered on each divider */
+.upload-pipeline-row .upload-stage-card:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  width: 8px;
+  height: 8px;
+  background: color-mix(in srgb, var(--card-bg) 96%, var(--bg));
+  border-top: 1.5px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-right: 1.5px solid color-mix(in srgb, var(--border) 75%, transparent);
+  transform: translateY(-50%) rotate(45deg);
+  z-index: 4;
+}
+
+/* State-tinted cells — very subtle, no borders */
+.upload-pipeline-row .upload-stage-card.is-current {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-right-color: color-mix(in srgb, var(--border) 52%, transparent);
+}
+.upload-pipeline-row .upload-stage-card.is-complete {
+  background: color-mix(in srgb, #16a34a 5%, transparent);
+  border-right-color: color-mix(in srgb, var(--border) 52%, transparent);
+}
+.upload-pipeline-row .upload-stage-card.is-warning {
+  background: color-mix(in srgb, #d97706 6%, transparent);
+  border-right-color: color-mix(in srgb, var(--border) 52%, transparent);
+}
+
+/* Step badge → filled circle; color driven by card state */
+.upload-pipeline-row .upload-card-stepmark {
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.upload-pipeline-row .upload-stage-card.is-complete .upload-card-stepmark {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+.upload-pipeline-row .upload-stage-card.is-current .upload-card-stepmark {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.upload-pipeline-row .upload-stage-card.is-warning .upload-card-stepmark {
+  background: #d97706;
+  border-color: #d97706;
+  color: #fff;
+}
+.upload-pipeline-row .upload-stage-card.is-blocked .upload-card-stepmark,
+.upload-pipeline-row .upload-stage-card--locked .upload-card-stepmark {
+  background: color-mix(in srgb, var(--card-bg) 78%, var(--bg));
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  color: var(--text-muted);
+}
+
+/* Keep pipeline body and actions flush with new padding */
+.upload-pipeline-row .upload-pipeline-body {
+  margin-top: 10px;
+  gap: 5px;
+  min-height: 30px;
+}
+.upload-pipeline-row .upload-pipeline-actions {
+  margin-top: auto;
+  gap: 6px;
+  padding-top: 10px;
 }
 </style>

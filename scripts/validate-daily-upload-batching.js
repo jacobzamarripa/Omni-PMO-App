@@ -105,4 +105,31 @@ assert(outcomes[0].ok === true, 'Mixed batch keeps successful rows successful');
 assert(outcomes[1].ok === false, 'Mixed batch keeps failed rows failed');
 assert(/Invalid numeric value/.test(outcomes[1].summary), 'Mixed batch surfaces row-specific line errors');
 
+// lineErrors must force ok=false even when data[idx] carries a real recordId
+outcomes = context._extractQuickBaseBatchInsertOutcomes({
+  data: [{ '3': { value: '8001' } }, { '3': { value: '8002' } }],
+  metadata: {
+    lineErrors: {
+      0: ['Validation failed for row 0']
+    }
+  }
+}, 2);
+assert(outcomes[0].ok === false, 'lineErrors overrides data mapping — row 0 must be failed');
+assertEqual(outcomes[0].recordId, '', 'lineErrors clears stale recordId on failed row');
+assert(outcomes[1].ok === true, 'Non-lineErrors row 1 remains successful');
+assertEqual(outcomes[1].recordId, '8002', 'Row 1 recordId unaffected by lineErrors on row 0');
+
+// createdRecordIds fallback must skip lineErrors-marked indices
+outcomes = context._extractQuickBaseBatchInsertOutcomes({
+  data: [],
+  metadata: {
+    createdRecordIds: ['9001'],
+    lineErrors: {
+      0: ['Row 0 rejected']
+    }
+  }
+}, 2);
+assert(outcomes[0].ok === false, 'createdRecordIds fallback skips lineErrors index 0');
+assert(outcomes[1].ok === false, 'createdRecordIds[0] is not mis-attributed to a non-failed row when count exceeds available IDs');
+
 console.log('\nDaily upload batching validation passed.');

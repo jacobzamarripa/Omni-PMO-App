@@ -997,7 +997,8 @@
           <div class="upload-overview-head">
             <div class="upload-overview-titleblock">
               <div class="upload-overview-kicker">Upload Center</div>
-              <div class="upload-overview-title">Daily Upload</div>
+              <div class="upload-overview-title"><span>Daily</span> <span>Upload</span></div>
+              <div class="upload-overview-subtitle">Process the intake, lock the review date, approve the queue, then finalize the batch to QuickBase.</div>
             </div>
             <div class="upload-overview-meta" id="upload-last-sync" aria-live="polite">Refreshing intake…</div>
           </div>
@@ -1012,10 +1013,14 @@
         <div class="upload-pipeline-row">
 
           <!-- Step 1 -->
-          <section class="upload-stage-card">
+          <section class="upload-stage-card upload-stage-card--incoming">
             <div class="upload-card-head">
-              <div class="upload-card-kicker">Step 1</div>
-              <div class="upload-card-title">Process Incoming</div>
+              <div class="upload-card-stepmark" aria-hidden="true">01</div>
+              <div class="upload-card-headcopy">
+                <div class="upload-card-kicker">Step 1</div>
+                <div class="upload-card-title">Process Incoming</div>
+                <div class="upload-card-subtitle">Ingest new vendor folders and refresh intake status.</div>
+              </div>
             </div>
             <div class="upload-pipeline-body" id="upload-pipeline-incoming" aria-live="polite">
               <div class="du-incoming-badge du-incoming-badge--clear">Checking…</div>
@@ -1027,10 +1032,14 @@
           </section>
 
           <!-- Step 2 -->
-          <section class="upload-stage-card">
+          <section class="upload-stage-card upload-stage-card--load">
             <div class="upload-card-head">
-              <div class="upload-card-kicker">Step 2</div>
-              <div class="upload-card-title">Load Date</div>
+              <div class="upload-card-stepmark" aria-hidden="true">02</div>
+              <div class="upload-card-headcopy">
+                <div class="upload-card-kicker">Step 2</div>
+                <div class="upload-card-title">Load Date</div>
+                <div class="upload-card-subtitle">Load the recommended slice or pick a specific queue date.</div>
+              </div>
             </div>
             <div class="upload-pipeline-body" id="upload-pipeline-target" aria-live="polite">
               <span class="du-loaded-chip du-loaded-chip--empty">Not loaded</span>
@@ -1046,10 +1055,14 @@
           </section>
 
           <!-- Step 3 -->
-          <section class="upload-stage-card">
+          <section class="upload-stage-card upload-stage-card--review">
             <div class="upload-card-head">
-              <div class="upload-card-kicker">Step 3</div>
-              <div class="upload-card-title">Review Queue</div>
+              <div class="upload-card-stepmark" aria-hidden="true">03</div>
+              <div class="upload-card-headcopy">
+                <div class="upload-card-kicker">Step 3</div>
+                <div class="upload-card-title">Review Queue</div>
+                <div class="upload-card-subtitle">Clear issues, confirm the ready rows, then lock the queue.</div>
+              </div>
             </div>
             <div class="upload-pipeline-body" id="upload-queue-meta" aria-live="polite">Queue not loaded yet</div>
             <div class="upload-pipeline-actions">
@@ -1058,10 +1071,14 @@
           </section>
 
           <!-- Step 4 -->
-          <section class="upload-stage-card upload-stage-card--locked" id="du-step4-card">
+          <section class="upload-stage-card upload-stage-card--finalize upload-stage-card--locked" id="du-step4-card">
             <div class="upload-card-head">
-              <div class="upload-card-kicker">Step 4</div>
-              <div class="upload-card-title">Finalize to QB</div>
+              <div class="upload-card-stepmark" aria-hidden="true">04</div>
+              <div class="upload-card-headcopy">
+                <div class="upload-card-kicker">Step 4</div>
+                <div class="upload-card-title">Finalize to QB</div>
+                <div class="upload-card-subtitle">Export the handoff, dry run the batch, then upload the approved rows.</div>
+              </div>
             </div>
             <div class="upload-pipeline-body" id="upload-pipeline-final" aria-live="polite">
               <div class="upload-pipeline-meta">Approve Step 3 to unlock.</div>
@@ -1084,9 +1101,10 @@
 
       <section class="upload-queue-shell">
         <div class="upload-queue-head">
-          <div>
+          <div class="upload-queue-headcopy">
             <div class="upload-card-kicker">Queue Review</div>
             <div class="upload-card-title">Review and finalize the current `1-QuickBase_Upload` contents.</div>
+            <div class="upload-queue-subtitle">Use the queue as the final compact check before export, dry run, and upload.</div>
           </div>
         </div>
 
