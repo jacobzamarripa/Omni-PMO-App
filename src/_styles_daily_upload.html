@@ -1439,7 +1439,6 @@ body.dark-mode .du-loaded-chip {
   background: var(--card-bg);
   border-radius: 14px;
   --du-grid-line: #d4d8e0;
-  overflow: hidden;
 }
 
 .upload-table thead th {
@@ -1559,8 +1558,11 @@ body.dark-mode .du-loaded-chip {
   position: sticky;
   left: 128px;
   z-index: 90;
-  width: 110px;
-  min-width: 110px;
+  width: 80px;
+  min-width: 80px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   background: var(--bg) !important;
 }
 
@@ -1571,10 +1573,13 @@ body.dark-mode .du-loaded-chip {
 .upload-table th:nth-child(4),
 .upload-table td:nth-child(4) {
   position: sticky;
-  left: 238px;
+  left: 208px;
   z-index: 90;
-  width: 160px;
-  min-width: 160px;
+  width: 120px;
+  min-width: 120px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   border-right: 2px solid #9fadc0;
   box-shadow: none;
   background: var(--bg) !important;
@@ -1646,6 +1651,16 @@ body.dark-mode .du-loaded-chip {
   white-space: normal;
   overflow: visible;
   min-width: 380px;
+}
+
+/* Contractor (col 3) and FDH Engineering ID (col-fdh) — allow cell content to wrap */
+.upload-table td:nth-child(3) .upload-cell-readonly,
+.upload-table td.col-fdh .upload-cell-readonly {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .upload-td-editable {
@@ -2061,7 +2076,7 @@ body.dark-mode .du-loaded-chip {
 /* ── Swimlane divider rows ────────────────────────────────── */
 .upload-swimlane-row {
   position: sticky;
-  top: 38px; /* stick just below the thead (~38px tall) */
+  top: 34px; /* stick just below the thead — 10px font + 3px pad top/bottom, 2 lines max for wrapped cols ≈ 34px */
   z-index: 98;
   cursor: pointer;
   user-select: none;
