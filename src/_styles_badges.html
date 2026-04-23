@@ -10,33 +10,24 @@
 -->
 <style>
       /* 🟡 Projects (Amber/Yellow) */
-      .metric-amber { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2); }
-      .metric-amber .kpi-val { color: #b45309; }
-      .metric-amber .kpi-label { color: #d97706; }
-      body.dark-mode .metric-amber { background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3); }
-      body.dark-mode .metric-amber .kpi-val { color: #fde68a; }
-      body.dark-mode .metric-amber .kpi-label { color: #fbbf24; }
+      .metric-amber { background: #f59e0b; border-color: #d97706; }
+      .metric-amber .kpi-val, .metric-amber .kpi-label { color: #ffffff !important; }
+      body.dark-mode .metric-amber { background: #d97706; border-color: #b45309; }
 
       /* 🔵 BSLs (Blue) */
-      .metric-blue { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2); }
-      .metric-blue .kpi-val { color: #1d4ed8; }
-      .metric-blue .kpi-label { color: #2563eb; }
-      body.dark-mode .metric-blue { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); }
-      body.dark-mode .metric-blue .kpi-val { color: #93c5fd; }
-      body.dark-mode .metric-blue .kpi-label { color: #60a5fa; }
+      .metric-blue { background: #3b82f6; border-color: #2563eb; }
+      .metric-blue .kpi-val, .metric-blue .kpi-label { color: #ffffff !important; }
+      body.dark-mode .metric-blue { background: #2563eb; border-color: #1d4ed8; }
 
       /* 🔴 Critical (Red - Hoverable) */
-      .metric-red { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); cursor: pointer; }
-      .metric-red:hover { background: rgba(239, 68, 68, 0.18); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15); }
-      .metric-red .kpi-val { color: #b91c1c; }
-      .metric-red .kpi-label { color: #dc2626; }
-      body.dark-mode .metric-red { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); }
-      body.dark-mode .metric-red:hover { background: rgba(239, 68, 68, 0.22); }
-      body.dark-mode .metric-red .kpi-val { color: #fca5a5; }
-      body.dark-mode .metric-red .kpi-label { color: #f87171; }
+      .metric-red { background: #ef4444; border-color: #dc2626; cursor: pointer; }
+      .metric-red:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25); }
+      .metric-red .kpi-val, .metric-red .kpi-label { color: #ffffff !important; }
+      body.dark-mode .metric-red { background: #dc2626; border-color: #b91c1c; }
 
       /* Ref Age Badge */
-      .ref-age-badge { font-size: 9px; font-weight: 900; padding: 6px 10px; border-radius: 12px; border: 1px solid; white-space: nowrap; background: var(--card-bg); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05); }
+      .ref-age-badge { font-size: 9px; font-weight: 900; padding: 6px 10px; border-radius: 12px; border: 1px solid var(--border); white-space: nowrap; background: var(--card-bg); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05); cursor: pointer; transition: transform 0.2s, background 0.2s; }
+      .ref-age-badge:hover { background: var(--border); transform: translateY(-1px); }
       
       input[type="text"], select { background: color-mix(in srgb, var(--card-bg) 90%, transparent); padding: 7px 12px; font-size: 12px; font-weight: 700; color: var(--text-main); border: 1px solid var(--border); border-radius: 12px; outline: none; transition: background 0.3s, color 0.3s, box-shadow 0.2s; width: 130px; max-width:100%; box-sizing: border-box; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);}
       input[type="text"]:focus { border-color: var(--color-insight); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15); }
@@ -524,7 +515,7 @@
           top: 0 !important;
           height: 100% !important;
           z-index: var(--z-drawer) !important;
-          box-shadow: -15px 0 40px rgba(0,0,0,0.2) !important;
+          box-shadow: -15px 0 40px rgba(15, 23, 42, 0.08) !important;
       }
       .qb-grid {
             display: flex !important;

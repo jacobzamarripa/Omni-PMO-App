@@ -68,7 +68,7 @@
       }
       body.dark-mode .has-tooltip:hover::after { background: #ffffff; color: #0f172a; }
 
-    .nav-brand { display: inline-flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; flex-shrink: 0; padding: 8px 14px; border-radius: var(--desktop-shell-radius); background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08); }
+    .nav-brand { display: inline-flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; flex-shrink: 0; padding: 0 14px; cursor: pointer; }
     .nav-brand-title { display: inline-flex; align-items: baseline; gap: 0; font-size: 22px; font-weight: 900; letter-spacing: -1px; line-height: 1; color: var(--text-main); white-space: nowrap; }
     .nav-brand-title span:last-child { color: var(--accent); }
     .nav-brand-signature { display: none; }
@@ -76,9 +76,9 @@
     .nav-search-trigger {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 7px 12px;
-      border-radius: 10px;
+      gap: 5px;
+      padding: 5px 6px;
+      border-radius: 8px;
       border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
       background: color-mix(in srgb, var(--card-bg) 70%, transparent);
       color: var(--text-muted);
@@ -88,16 +88,12 @@
       white-space: nowrap;
       transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
       flex-shrink: 0;
+      margin-right: 2px;
     }
     .nav-search-trigger:hover {
       background: color-mix(in srgb, var(--accent) 8%, var(--card-bg));
       border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
       color: var(--text-main);
-    }
-    .nav-search-trigger-label {
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.01em;
     }
     .nav-search-trigger-badge {
       display: inline-flex;
@@ -1810,6 +1806,12 @@
           border: 1px solid transparent;
           min-width: 0;
           box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+          position: relative;
+          z-index: 1;
+          background-clip: padding-box;
+      }
+      .kpi-nav-box:hover, .kpi-nav-box.is-locked {
+          z-index: 10;
       }
       .kpi-base {
           display: flex;
@@ -1820,15 +1822,31 @@
       .kpi-val { line-height: 1; }
       .kpi-label { line-height: 1; white-space: nowrap; }
       .kpi-expand-wrap {
+          position: absolute;
+          left: calc(100% - 10px);
+          top: -1px;
+          bottom: -1px;
+          z-index: -1;
+          background: inherit;
+          border: 1px solid;
+          border-color: inherit;
+          border-left: none;
+          border-radius: 0 999px 999px 0;
+          padding-left: 10px;
+          padding-right: 12px;
           max-width: 0;
           opacity: 0;
           overflow: hidden;
-          transition: max-width 0.24s ease, opacity 0.18s ease;
+          transition: max-width 0.24s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease;
+          display: flex;
+          align-items: center;
+          pointer-events: none;
       }
       .kpi-nav-box:hover .kpi-expand-wrap,
       .kpi-nav-box.is-locked .kpi-expand-wrap {
-          max-width: 132px;
+          max-width: 400px;
           opacity: 1;
+          pointer-events: auto;
       }
       .kpi-expand-inner {
           display: flex;
@@ -1838,17 +1856,15 @@
           font-weight: 800;
           letter-spacing: 0.25px;
           white-space: nowrap;
-          color: var(--text-muted);
-          border-left: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
-          padding-left: 6px;
-          margin-left: 6px;
+          color: #ffffff;
+          padding-left: 4px;
       }
       .kpi-expand-token {
-          color: var(--text-main);
+          color: #ffffff;
           font-weight: 900;
       }
       .kpi-expand-sep {
-          color: var(--text-muted);
+          color: rgba(255, 255, 255, 0.6);
       }
       #nav-projects-pill { cursor: pointer; }
       #nav-projects-pill.is-locked { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.4); }
