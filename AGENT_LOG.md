@@ -1,5 +1,21 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-22: Daily Upload bulk preflight + batch QuickBase create
+- **Duplicate preflight collapsed:** Refactored `src/07_DailyUpload.js` so upload preflight now fetches existing QuickBase rows once per canonical upload date, then matches locally on `FDH + Date + Contractor` instead of calling `checkDuplicateDailyRecord()` once per row.
+- **Batch create added:** `uploadDailyRecordsToQB()` now groups non-duplicate rows into QuickBase `/records` payloads of `25` rows at a time, replacing the previous one-request-per-row insert path.
+- **Response mapping hardened:** Added batch outcome parsing with support for per-row IDs in `data`, fallback IDs in `metadata.createdRecordIds`, and row-specific `metadata.lineErrors`, so sheet statuses can still be written accurately after chunked inserts.
+- **Logging pressure reduced:** Replaced per-row payload logs on the success path with chunk-level upload summaries while preserving duplicate skip, reconciliation, and failure logging.
+- **Regression coverage:** Added `scripts/validate-daily-upload-batching.js` to verify duplicate-key composition and batch response parsing for full success, `createdRecordIds` fallback, and mixed success/failure batches.
+- **Verification:** `node scripts/validate-daily-upload-duplicates.js`, `node scripts/validate-daily-upload-batching.js`, `node -e "const fs=require('fs'); new Function(fs.readFileSync('src/07_DailyUpload.js','utf8')); console.log('DailyUpload parse OK');"`, and `git diff --check -- src/07_DailyUpload.js scripts/validate-daily-upload-duplicates.js scripts/validate-daily-upload-batching.js` passed.
+
+> [!success] 2026-04-22: Daily Upload duplicate detection canonicalized
+- **Canonical duplicate key restored:** Updated `src/07_DailyUpload.js` so `checkDuplicateDailyRecord()` normalizes both upload and QuickBase `Date` values to `yyyy-MM-dd` before comparing. This fixes false misses when uploads send API-form dates and QuickBase returns display-form dates.
+- **Vendor matching tightened:** Duplicate checks now normalize `Contractor` with `trim().toLowerCase()` and compare exact normalized values instead of loosely matching string variants.
+- **Deterministic duplicate diagnostics:** The duplicate checker now returns richer diagnostics (`canonicalDate`, `normalizedVendor`, `candidateRowCount`, `matchedCandidate`, `mismatchReason`) so upload/reconciliation paths can trace why a row matched or missed.
+- **System log tracing added:** Duplicate checks now write canonical inputs, candidate counts, first matched candidate details, and explicit `date mismatch` entries into `4-System_Logs` when FDH matches but the canonical date does not.
+- **Regression coverage:** Added `scripts/validate-daily-upload-duplicates.js` to verify cross-format date equivalence (`04/21/2026`, `04-21-2026`, `2026-04-21`), vendor mismatch handling, FDH-only query shape, and date-mismatch logging.
+- **Verification:** `node scripts/validate-daily-upload-duplicates.js`, `node -e "const fs=require('fs'); new Function(fs.readFileSync('src/07_DailyUpload.js','utf8')); console.log('DailyUpload parse OK');"`, and `git diff --check -- src/07_DailyUpload.js scripts/validate-daily-upload-duplicates.js` passed.
+
 > [!success] 2026-04-22: Upload Center polish — scroll ownership, denser step cards, reduced header
 - **Scroll ownership restored:** Updated `src/_styles_daily_upload.html` and `src/_styles_layout.html` so `#upload-workspace` is the vertical scroll container in upload mode instead of clipping the full-screen surface with hidden overflow.
 - **Viewport gutters added:** Increased Upload Center side padding on desktop/tablet/mobile so the workflow surface, queue shell, and history sections no longer press against the shell edges.

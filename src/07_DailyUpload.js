@@ -83,6 +83,8 @@ const DAILY_UPLOAD_EDITABLE_FIELDS = {
   "Construction Comments": true
 };
 
+const DAILY_UPLOAD_QB_BATCH_SIZE = 25;
+
 // --- UTILITIES ---
 
 function _generateBatchId() {
@@ -118,6 +120,63 @@ function _getLatestCompiledUploadFileMeta() {
     fileName: latest.getName(),
     fileUrl: latest.getUrl(),
     modifiedAt: Utilities.formatDate(latest.getLastUpdated(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss')
+  };
+}
+
+function _normalizeDailyUploadTargetDate(dateStr) {
+  var raw = String(dateStr || '').trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+    var parts = raw.split('/');
+    return parts[2] + '-' + parts[0] + '-' + parts[1];
+  }
+  var parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) return '';
+  return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function _formatDailyUploadDatePart(dateStr) {
+  var normalized = _normalizeDailyUploadTargetDate(dateStr);
+  if (!normalized) return '';
+  var parsed = new Date(normalized.replace(/-/g, '/') + ' 00:00:00');
+  if (isNaN(parsed.getTime())) return '';
+  return Utilities.formatDate(parsed, 'GMT-5', 'MM.dd.yy');
+}
+
+function getDailyUploadExportStatus(dateStr) {
+  var normalized = _normalizeDailyUploadTargetDate(dateStr);
+  var datePart = _formatDailyUploadDatePart(normalized);
+  if (!normalized || !datePart) {
+    return {
+      targetDate: normalized || '',
+      exists: false,
+      fileId: '',
+      fileName: '',
+      fileUrl: '',
+      createdAt: ''
+    };
+  }
+
+  var folder = DriveApp.getFolderById(COMPILED_FOLDER_ID);
+  var files = folder.getFilesByType(MimeType.CSV);
+  var latest = null;
+  while (files.hasNext()) {
+    var file = files.next();
+    var name = file.getName();
+    if (name.indexOf('Daily_Production_Report_') !== 0) continue;
+    if (name.indexOf(datePart) === -1) continue;
+    if (!latest || file.getLastUpdated() > latest.getLastUpdated()) latest = file;
+  }
+
+  return {
+    targetDate: normalized,
+    exists: !!latest,
+    fileId: latest ? latest.getId() : '',
+    fileName: latest ? latest.getName() : '',
+    fileUrl: latest ? latest.getUrl() : '',
+    createdAt: latest ? Utilities.formatDate(latest.getDateCreated(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss') : '',
+    modifiedAt: latest ? Utilities.formatDate(latest.getLastUpdated(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss') : ''
   };
 }
 
@@ -824,17 +883,72 @@ function getDailyUploadStats() {
  * Queries QB to check if a record for this date + FDH already exists.
  * Updated: Now also checks for 'Contractor' to allow multi-vendor reporting
  * on the same project/date.
- * @returns {Object} { isDuplicate, existingRecordId }.
+ * @returns {Object} diagnostics including { isDuplicate, existingRecordId, canonicalDate, normalizedVendor, candidateRowCount }.
  */
+function _normalizeDailyUploadDuplicateVendor(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function _buildDailyUploadDuplicateDiagnostics(dateStr, vendor) {
+  return {
+    isDuplicate: false,
+    existingRecordId: null,
+    canonicalDate: _normalizeQuickBaseDateValue(dateStr),
+    normalizedVendor: _normalizeDailyUploadDuplicateVendor(vendor),
+    candidateRowCount: 0,
+    matchedCandidate: null,
+    firstMismatchCandidate: null,
+    mismatchReason: '',
+    dateMismatches: []
+  };
+}
+
+function _summarizeDailyUploadDuplicateCandidate(candidate) {
+  if (!candidate) return '';
+  return 'rid=' + (candidate.recordId || '') +
+    ', date=' + (candidate.date || '') +
+    ', canonicalDate=' + (candidate.canonicalDate || '') +
+    ', vendor=' + (candidate.vendor || '') +
+    ', normalizedVendor=' + (candidate.normalizedVendor || '');
+}
+
+function _logDailyUploadDuplicateCheck(detail, diagnostics) {
+  var parts = [detail];
+  if (diagnostics) {
+    parts.push('canonicalDate=' + (diagnostics.canonicalDate || ''));
+    parts.push('normalizedVendor=' + (diagnostics.normalizedVendor || ''));
+    parts.push('candidateRowCount=' + Number(diagnostics.candidateRowCount || 0));
+    if (diagnostics.matchedCandidate) {
+      parts.push('matched=' + _summarizeDailyUploadDuplicateCandidate(diagnostics.matchedCandidate));
+    }
+    if (diagnostics.firstMismatchCandidate) {
+      parts.push('firstMismatch=' + _summarizeDailyUploadDuplicateCandidate(diagnostics.firstMismatchCandidate));
+    }
+    if (diagnostics.mismatchReason) {
+      parts.push('reason=' + diagnostics.mismatchReason);
+    }
+  }
+  logMsg('[DailyUpload][DuplicateCheck]', parts.join(', '));
+}
+
 function checkDuplicateDailyRecord(dateStr, fdh, vendor) {
-  if (!dateStr || !fdh) return { isDuplicate: false };
+  var diagnostics = _buildDailyUploadDuplicateDiagnostics(dateStr, vendor);
+  var normalizedFdh = String(fdh || '').trim();
+  if (!diagnostics.canonicalDate || !normalizedFdh) {
+    diagnostics.mismatchReason = 'missing canonical duplicate key';
+    return diagnostics;
+  }
 
   const fidMap  = getDailyFidMap();
   const fdhFid  = _resolveFieldFid('FDH Engineering ID', fidMap); // → FID 22
   const dateFid = _resolveFieldFid('Date', fidMap);               // → FID 6
   const venFid  = _resolveFieldFid('Contractor', fidMap);         // → FID 38
 
-  if (!fdhFid) return { isDuplicate: false, error: 'FDH FID not found in QB_DAILY_LOG_FID_MAP' };
+  if (!fdhFid) {
+    diagnostics.error = 'FDH FID not found in QB_DAILY_LOG_FID_MAP';
+    diagnostics.mismatchReason = 'fdh fid missing';
+    return diagnostics;
+  }
 
   const token = _getDailyUploadToken();
   const url = QB_API_BASE + '/records/query';
@@ -842,47 +956,83 @@ function checkDuplicateDailyRecord(dateStr, fdh, vendor) {
   opts.method      = 'post';
   opts.contentType = 'application/json';
   
-  // Base query on FDH only to get all potential records for the project
+  // Query by FDH + canonical Date first, then compare vendor locally.
   opts.payload     = JSON.stringify({
     from: QB_DAILY_LOG_TABLE_ID,
     select: [3, dateFid, fdhFid, venFid].filter(Boolean),
-    where: '{' + fdhFid + '.EX.' + JSON.stringify(fdh.toString()) + '}'
+    where: '{' + fdhFid + '.EX.' + JSON.stringify(normalizedFdh) + "}AND{" + dateFid + '.EX.' + JSON.stringify(diagnostics.canonicalDate) + '}'
   });
 
   try {
+    _logDailyUploadDuplicateCheck(
+      'fdh=' + normalizedFdh + ', vendor=' + String(vendor || ''),
+      diagnostics
+    );
+
     const resp = UrlFetchApp.fetch(url, opts);
-    if (resp.getResponseCode() !== 200) return { isDuplicate: false };
+    if (resp.getResponseCode() !== 200) {
+      diagnostics.mismatchReason = 'qb query http ' + resp.getResponseCode();
+      _logDailyUploadDuplicateCheck('fdh=' + normalizedFdh + ', duplicate query failed', diagnostics);
+      return diagnostics;
+    }
     const result = JSON.parse(resp.getContentText());
     const records = result.data || [];
+    diagnostics.candidateRowCount = records.length;
 
-    if (!dateFid || records.length === 0) return { isDuplicate: false };
-
-    // Normalize the incoming dateStr for comparison
-    let compareDate = dateStr.toString();
-    if (dateStr instanceof Date) {
-      compareDate = Utilities.formatDate(dateStr, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+    if (!dateFid || records.length === 0) {
+      diagnostics.mismatchReason = records.length === 0 ? 'no candidate rows returned' : 'date fid missing';
+      _logDailyUploadDuplicateCheck('fdh=' + normalizedFdh + ', no duplicate match', diagnostics);
+      return diagnostics;
     }
-    
-    const targetVendor = String(vendor || '').trim().toLowerCase();
 
-    // MATCH LOGIC: Date must match AND (if vendor provided) Vendor must match.
-    // If no vendor provided, we fallback to project-level date match.
-    const match = records.find(function(r) {
-      const qbDate = r[dateFid] ? r[dateFid].value : '';
-      const dateMatch = qbDate && qbDate.toString().replace(/-/g, '/').includes(compareDate.replace(/-/g, '/'));
-      
-      if (!dateMatch) return false;
-      if (!targetVendor) return true; // Date match is enough if no vendor specified
+    var match = null;
+    records.some(function(r) {
+      var candidate = {
+        recordId: r[3] ? String(r[3].value || '') : '',
+        date: r[dateFid] ? r[dateFid].value : '',
+        canonicalDate: _normalizeQuickBaseDateValue(r[dateFid] ? r[dateFid].value : ''),
+        vendor: r[venFid] ? r[venFid].value : '',
+        normalizedVendor: _normalizeDailyUploadDuplicateVendor(r[venFid] ? r[venFid].value : ''),
+        fdh: r[fdhFid] ? r[fdhFid].value : normalizedFdh
+      };
 
-      const qbVendor = String(r[venFid] ? r[venFid].value : '').trim().toLowerCase();
-      return qbVendor === targetVendor;
+      if (candidate.canonicalDate !== diagnostics.canonicalDate) {
+        if (!diagnostics.firstMismatchCandidate) diagnostics.firstMismatchCandidate = candidate;
+        diagnostics.dateMismatches.push(_summarizeDailyUploadDuplicateCandidate(candidate));
+        return false;
+      }
+
+      if (diagnostics.normalizedVendor && candidate.normalizedVendor !== diagnostics.normalizedVendor) {
+        if (!diagnostics.firstMismatchCandidate) diagnostics.firstMismatchCandidate = candidate;
+        diagnostics.mismatchReason = 'vendor mismatch on canonical date';
+        return false;
+      }
+
+      match = candidate;
+      return true;
     });
 
-    return match
-      ? { isDuplicate: true, existingRecordId: match[3] ? match[3].value : null }
-      : { isDuplicate: false };
+    if (match) {
+      diagnostics.isDuplicate = true;
+      diagnostics.existingRecordId = match.recordId || null;
+      diagnostics.matchedCandidate = match;
+      diagnostics.mismatchReason = '';
+      _logDailyUploadDuplicateCheck('fdh=' + normalizedFdh + ', duplicate matched', diagnostics);
+      return diagnostics;
+    }
+
+    if (records.length === 0) diagnostics.mismatchReason = diagnostics.mismatchReason || 'no candidate rows returned';
+    else if (diagnostics.dateMismatches.length > 0) diagnostics.mismatchReason = diagnostics.mismatchReason || 'canonical date mismatch';
+    else if (diagnostics.normalizedVendor) diagnostics.mismatchReason = diagnostics.mismatchReason || 'vendor mismatch on canonical date';
+    else diagnostics.mismatchReason = 'canonical date match found but no exact duplicate';
+
+    _logDailyUploadDuplicateCheck('fdh=' + normalizedFdh + ', no duplicate match', diagnostics);
+    return diagnostics;
   } catch(e) {
-    return { isDuplicate: false, error: e.message };
+    diagnostics.error = e.message;
+    diagnostics.mismatchReason = 'duplicate check exception';
+    _logDailyUploadDuplicateCheck('fdh=' + normalizedFdh + ', duplicate check exception=' + _truncateDailyUploadLogValue(e.message, 180), diagnostics);
+    return diagnostics;
   }
 }
 
@@ -912,11 +1062,8 @@ function buildQBRecordPayload(rowData, fidMap) {
       if (isNaN(n)) return;
       val = n;
     } else if (DATE_COLUMNS.indexOf(col) >= 0) {
-      if (val instanceof Date) {
-        val = Utilities.formatDate(val, Session.getScriptTimeZone(), 'MM-DD-YYYY');
-      } else {
-        val = val.toString();
-      }
+      val = _normalizeQuickBaseDateValue(val);
+      if (!val) return;
     } else {
       val = val.toString();
     }
@@ -925,6 +1072,312 @@ function buildQBRecordPayload(rowData, fidMap) {
   });
 
   return record;
+}
+
+function _truncateDailyUploadLogValue(value, limit) {
+  var raw = String(value === null || value === undefined ? '' : value);
+  limit = limit || 240;
+  return raw.length > limit ? raw.substring(0, limit) + '…' : raw;
+}
+
+function _normalizeQuickBaseDateValue(value) {
+  if (value === null || value === undefined || value === '') return '';
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
+  var raw = String(value).trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  var slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    return slashMatch[3] + '-' + slashMatch[1].padStart(2, '0') + '-' + slashMatch[2].padStart(2, '0');
+  }
+
+  var dashMatch = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dashMatch) {
+    return dashMatch[3] + '-' + dashMatch[1].padStart(2, '0') + '-' + dashMatch[2].padStart(2, '0');
+  }
+
+  var isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return raw;
+  }
+
+  var parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) return raw;
+  return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function _extractQuickBaseInsertOutcome(body) {
+  var outcome = {
+    ok: false,
+    recordId: '',
+    lineErrors: [],
+    summary: '',
+    rawSnippet: _truncateDailyUploadLogValue(JSON.stringify(body || {}), 1200),
+    metadataSnippet: '',
+    firstRowSnippet: ''
+  };
+
+  if (!body || typeof body !== 'object') {
+    outcome.summary = 'Empty or invalid QuickBase response body';
+    return outcome;
+  }
+
+  var metadata = body.metadata || {};
+  outcome.metadataSnippet = _truncateDailyUploadLogValue(JSON.stringify(metadata || {}), 500);
+  var lineErrors = [];
+  if (Array.isArray(metadata.lineErrors)) {
+    metadata.lineErrors.forEach(function(err) {
+      if (!err) return;
+      if (typeof err === 'string') lineErrors.push(err);
+      else if (err.message) lineErrors.push(String(err.message));
+      else lineErrors.push(JSON.stringify(err));
+    });
+  } else if (metadata.lineErrors && typeof metadata.lineErrors === 'object') {
+    Object.keys(metadata.lineErrors).forEach(function(key) {
+      var errVal = metadata.lineErrors[key];
+      if (Array.isArray(errVal)) {
+        errVal.forEach(function(msg) {
+          lineErrors.push('Row ' + key + ': ' + String(msg));
+        });
+      } else if (errVal) {
+        lineErrors.push('Row ' + key + ': ' + String(errVal));
+      }
+    });
+  }
+
+  if (Array.isArray(body.data) && body.data.length > 0) {
+    var first = body.data[0] || {};
+    outcome.firstRowSnippet = _truncateDailyUploadLogValue(JSON.stringify(first || {}), 500);
+    if (first['3'] && first['3'].value) {
+      outcome.ok = true;
+      outcome.recordId = String(first['3'].value);
+    } else if (first[3] && first[3].value) {
+      outcome.ok = true;
+      outcome.recordId = String(first[3].value);
+    } else if (first.metadata && first.metadata.createdRecordId) {
+      outcome.ok = true;
+      outcome.recordId = String(first.metadata.createdRecordId);
+    }
+  }
+
+  if (!outcome.ok && Array.isArray(metadata.createdRecordIds) && metadata.createdRecordIds.length > 0) {
+    outcome.ok = true;
+    outcome.recordId = String(metadata.createdRecordIds[0]);
+  }
+
+  outcome.lineErrors = lineErrors;
+  if (outcome.ok) {
+    outcome.summary = 'Created QuickBase record ' + outcome.recordId;
+  } else if (lineErrors.length > 0) {
+    outcome.summary = lineErrors.join(' | ');
+  } else if (metadata.totalNumberOfRecordsProcessed === 0) {
+    outcome.summary = 'QuickBase processed zero records';
+  } else {
+    outcome.summary = 'QuickBase did not return a created record ID';
+  }
+
+  return outcome;
+}
+
+function _logDailyUploadBatchEvent(batchId, message, detail) {
+  logMsg('[DailyUpload][' + batchId + '] ' + message, 'table=' + QB_DAILY_LOG_TABLE_ID, detail || '');
+}
+
+function _logDailyUploadResponseDebug(batchId, rowIdx, fdhVal, vendor, outcome) {
+  _logDailyUploadBatchEvent(
+    batchId,
+    'QB response debug',
+    'row=' + rowIdx + ', fdh=' + fdhVal + ', vendor=' + vendor +
+      ', summary=' + _truncateDailyUploadLogValue(outcome.summary || '', 220) +
+      ', metadata=' + _truncateDailyUploadLogValue(outcome.metadataSnippet || '', 420) +
+      ', firstRow=' + _truncateDailyUploadLogValue(outcome.firstRowSnippet || '', 420) +
+      ', raw=' + _truncateDailyUploadLogValue(outcome.rawSnippet || '', 700)
+  );
+}
+
+function _buildDailyUploadDuplicateKey(dateStr, fdh, vendor) {
+  var canonicalDate = _normalizeQuickBaseDateValue(dateStr);
+  var normalizedFdh = String(fdh || '').trim().toUpperCase();
+  var normalizedVendor = _normalizeDailyUploadDuplicateVendor(vendor);
+  return {
+    canonicalDate: canonicalDate,
+    normalizedFdh: normalizedFdh,
+    normalizedVendor: normalizedVendor,
+    key: canonicalDate && normalizedFdh ? canonicalDate + '::' + normalizedFdh + '::' + normalizedVendor : ''
+  };
+}
+
+function _chunkDailyUploadItems(items, size) {
+  var out = [];
+  var chunkSize = Math.max(1, Number(size || DAILY_UPLOAD_QB_BATCH_SIZE));
+  for (var i = 0; i < items.length; i += chunkSize) {
+    out.push(items.slice(i, i + chunkSize));
+  }
+  return out;
+}
+
+function _fetchDailyUploadDuplicateLookup(items) {
+  var lookup = {};
+  if (!items || !items.length) return lookup;
+
+  var fidMap = getDailyFidMap();
+  var fdhFid = _resolveFieldFid('FDH Engineering ID', fidMap);
+  var dateFid = _resolveFieldFid('Date', fidMap);
+  var venFid = _resolveFieldFid('Contractor', fidMap);
+  if (!fdhFid || !dateFid) return lookup;
+
+  var datesToFdh = {};
+  items.forEach(function(item) {
+    var keyInfo = _buildDailyUploadDuplicateKey(item.dateVal, item.fdhVal, item.vendor);
+    item.duplicateKeyInfo = keyInfo;
+    if (!keyInfo.canonicalDate || !keyInfo.normalizedFdh) return;
+    if (!datesToFdh[keyInfo.canonicalDate]) datesToFdh[keyInfo.canonicalDate] = {};
+    datesToFdh[keyInfo.canonicalDate][keyInfo.normalizedFdh] = true;
+  });
+
+  var dateKeys = Object.keys(datesToFdh);
+  if (!dateKeys.length) return lookup;
+
+  const token = _getDailyUploadToken();
+  const url = QB_API_BASE + '/records/query';
+
+  dateKeys.forEach(function(canonicalDate) {
+    var opts = _qbHeaders(token);
+    opts.method = 'post';
+    opts.contentType = 'application/json';
+    opts.payload = JSON.stringify({
+      from: QB_DAILY_LOG_TABLE_ID,
+      select: [3, dateFid, fdhFid, venFid].filter(Boolean),
+      where: '{' + dateFid + '.EX.' + JSON.stringify(canonicalDate) + '}'
+    });
+
+    var resp = UrlFetchApp.fetch(url, opts);
+    if (resp.getResponseCode() !== 200) {
+      throw new Error('Duplicate preflight query failed for ' + canonicalDate + ' with HTTP ' + resp.getResponseCode());
+    }
+
+    var result = JSON.parse(resp.getContentText());
+    var records = result.data || [];
+    records.forEach(function(r) {
+      var candidate = {
+        recordId: r[3] ? String(r[3].value || '') : '',
+        date: r[dateFid] ? r[dateFid].value : '',
+        canonicalDate: _normalizeQuickBaseDateValue(r[dateFid] ? r[dateFid].value : ''),
+        fdh: r[fdhFid] ? r[fdhFid].value : '',
+        normalizedFdh: String(r[fdhFid] ? r[fdhFid].value : '').trim().toUpperCase(),
+        vendor: r[venFid] ? r[venFid].value : '',
+        normalizedVendor: _normalizeDailyUploadDuplicateVendor(r[venFid] ? r[venFid].value : '')
+      };
+      if (!candidate.canonicalDate || !candidate.normalizedFdh) return;
+      if (!datesToFdh[canonicalDate][candidate.normalizedFdh]) return;
+      var key = candidate.canonicalDate + '::' + candidate.normalizedFdh + '::' + candidate.normalizedVendor;
+      if (!lookup[key]) lookup[key] = candidate;
+    });
+
+    logMsg(
+      '[DailyUpload][DuplicatePreflight]',
+      'date=' + canonicalDate,
+      'candidateRowCount=' + records.length + ', matchedKeys=' + Object.keys(lookup).length
+    );
+  });
+
+  return lookup;
+}
+
+function _extractQuickBaseBatchInsertOutcomes(body, expectedCount) {
+  var count = Math.max(0, Number(expectedCount || 0));
+  var outcomes = [];
+  for (var i = 0; i < count; i++) {
+    outcomes.push({
+      ok: false,
+      recordId: '',
+      summary: '',
+      rawSnippet: _truncateDailyUploadLogValue(JSON.stringify(body || {}), 1200),
+      metadataSnippet: '',
+      firstRowSnippet: '',
+      lineErrors: []
+    });
+  }
+
+  if (!body || typeof body !== 'object') {
+    outcomes.forEach(function(outcome) {
+      outcome.summary = 'Empty or invalid QuickBase response body';
+    });
+    return outcomes;
+  }
+
+  var metadata = body.metadata || {};
+  var metadataSnippet = _truncateDailyUploadLogValue(JSON.stringify(metadata || {}), 500);
+  outcomes.forEach(function(outcome) {
+    outcome.metadataSnippet = metadataSnippet;
+  });
+
+  var dataRows = Array.isArray(body.data) ? body.data : [];
+  dataRows.slice(0, count).forEach(function(row, idx) {
+    outcomes[idx].firstRowSnippet = _truncateDailyUploadLogValue(JSON.stringify(row || {}), 500);
+    if (row && row['3'] && row['3'].value) {
+      outcomes[idx].ok = true;
+      outcomes[idx].recordId = String(row['3'].value);
+      outcomes[idx].summary = 'Created QuickBase record ' + outcomes[idx].recordId;
+    } else if (row && row[3] && row[3].value) {
+      outcomes[idx].ok = true;
+      outcomes[idx].recordId = String(row[3].value);
+      outcomes[idx].summary = 'Created QuickBase record ' + outcomes[idx].recordId;
+    } else if (row && row.metadata && row.metadata.createdRecordId) {
+      outcomes[idx].ok = true;
+      outcomes[idx].recordId = String(row.metadata.createdRecordId);
+      outcomes[idx].summary = 'Created QuickBase record ' + outcomes[idx].recordId;
+    }
+  });
+
+  if (Array.isArray(metadata.createdRecordIds)) {
+    metadata.createdRecordIds.slice(0, count).forEach(function(recordId, idx) {
+      if (!outcomes[idx].ok && recordId) {
+        outcomes[idx].ok = true;
+        outcomes[idx].recordId = String(recordId);
+        outcomes[idx].summary = 'Created QuickBase record ' + outcomes[idx].recordId;
+      }
+    });
+  }
+
+  if (metadata.lineErrors && typeof metadata.lineErrors === 'object' && !Array.isArray(metadata.lineErrors)) {
+    Object.keys(metadata.lineErrors).forEach(function(key) {
+      var idx = Number(key);
+      if (isNaN(idx) || idx < 0 || idx >= outcomes.length) return;
+      var errVal = metadata.lineErrors[key];
+      var msg = Array.isArray(errVal) ? errVal.join(' | ') : String(errVal || '');
+      if (msg) {
+        outcomes[idx].summary = 'Row ' + key + ': ' + msg;
+        outcomes[idx].lineErrors = Array.isArray(errVal) ? errVal.map(String) : [String(errVal)];
+      }
+    });
+  } else if (Array.isArray(metadata.lineErrors) && metadata.lineErrors.length) {
+    var joined = metadata.lineErrors.map(function(err) {
+      if (!err) return '';
+      if (typeof err === 'string') return err;
+      if (err.message) return String(err.message);
+      return JSON.stringify(err);
+    }).filter(Boolean).join(' | ');
+    outcomes.forEach(function(outcome) {
+      if (!outcome.ok && !outcome.summary) {
+        outcome.summary = joined || 'QuickBase batch returned line errors';
+      }
+    });
+  }
+
+  outcomes.forEach(function(outcome) {
+    if (!outcome.summary) {
+      outcome.summary = outcome.ok
+        ? 'Created QuickBase record ' + outcome.recordId
+        : (metadata.totalNumberOfRecordsProcessed === 0 ? 'QuickBase processed zero records' : 'QuickBase did not return a created record ID');
+    }
+  });
+
+  return outcomes;
 }
 
 // --- MAIN UPLOAD ---
@@ -957,6 +1410,15 @@ function uploadDailyRecordsToQB(rowIndices, options) {
 
   const results = [];
   var success = 0, failed = 0, skipped = 0, dupes = 0;
+  var uploadItems = [];
+
+  if (!dryRun) {
+    _logDailyUploadBatchEvent(
+      batchId,
+      'Batch start',
+      'rows=' + rowIndices.length + ', skipDupes=' + skipDupes + ', forceRows=' + forceRows.length + ', user=' + (Session.getActiveUser().getEmail() || 'unknown')
+    );
+  }
 
   for (var i = 0; i < rowIndices.length; i++) {
     const rowIdx = rowIndices[i];
@@ -973,6 +1435,7 @@ function uploadDailyRecordsToQB(rowIndices, options) {
     if (currentStatus === UPLOAD_STATUS.UPLOADED) {
       results.push({ rowIdx: rowIdx, status: 'skipped', reason: 'Already uploaded' });
       skipped++;
+      if (!dryRun) _logDailyUploadBatchEvent(batchId, 'Row skipped', 'row=' + rowIdx + ', reason=already uploaded');
       continue;
     }
 
@@ -982,24 +1445,6 @@ function uploadDailyRecordsToQB(rowIndices, options) {
     const dateVal  = rowObj['Date'];
     const fdhVal   = rowObj['FDH Engineering ID'];
     const vendor   = rowObj['Contractor'];
-
-    // Duplicate detection (skip in dry-run to avoid slow API calls per row)
-    var isDupe = false, existingRid = null;
-    if (!dryRun) {
-      const dupeResult = checkDuplicateDailyRecord(dateVal, fdhVal, vendor);
-      isDupe      = dupeResult.isDuplicate;
-      existingRid = dupeResult.existingRecordId;
-    }
-
-    if (isDupe && forceRows.indexOf(rowIdx) < 0) {
-      dupes++;
-      const errMsg = 'Duplicate — QB Record ID: ' + existingRid;
-      results.push({ rowIdx: rowIdx, status: 'duplicate', fdh: fdhVal, vendor: vendor, existingRecordId: existingRid });
-      if (!dryRun && skipDupes) {
-        _setUploadStatus(sheet, rowIdx, UPLOAD_STATUS.DUPLICATE, null, null, batchId, errMsg);
-        continue;
-      }
-    }
 
     if (dryRun) {
       const record     = buildQBRecordPayload(rowObj, fidMap);
@@ -1013,39 +1458,129 @@ function uploadDailyRecordsToQB(rowIndices, options) {
       });
       continue;
     }
+    uploadItems.push({
+      rowIdx: rowIdx,
+      rowData: rowData,
+      rowObj: rowObj,
+      currentStatus: currentStatus,
+      dateVal: dateVal,
+      fdhVal: fdhVal,
+      vendor: vendor
+    });
+  }
 
-    // POST to QB
-    try {
-      const record  = buildQBRecordPayload(rowObj, fidMap);
-      const url     = QB_API_BASE + '/records';
-      const opts    = _qbHeaders(token);
-      opts.method      = 'post';
-      opts.contentType = 'application/json';
-      opts.payload     = JSON.stringify({ to: QB_DAILY_LOG_TABLE_ID, data: [record] });
+  if (!dryRun && uploadItems.length) {
+    var duplicateLookup = _fetchDailyUploadDuplicateLookup(uploadItems);
+    var pendingUploads = [];
 
-      const resp = UrlFetchApp.fetch(url, opts);
-      const code = resp.getResponseCode();
+    uploadItems.forEach(function(item) {
+      var keyInfo = item.duplicateKeyInfo || _buildDailyUploadDuplicateKey(item.dateVal, item.fdhVal, item.vendor);
+      var dupeCandidate = keyInfo.key ? duplicateLookup[keyInfo.key] : null;
+      var isDupe = !!dupeCandidate;
+      var existingRid = dupeCandidate ? dupeCandidate.recordId : null;
 
-      if (code === 200 || code === 207) {
-        const body      = JSON.parse(resp.getContentText());
-        const newRid    = (body.data && body.data[0] && body.data[0]['3']) ? body.data[0]['3'].value : '';
-        _setUploadStatus(sheet, rowIdx, UPLOAD_STATUS.UPLOADED, new Date(), newRid, batchId, '');
-        results.push({ rowIdx: rowIdx, status: 'success', fdh: fdhVal, vendor: vendor, qbRecordId: newRid });
-        success++;
-      } else {
-        const errText = resp.getContentText().substring(0, 300);
-        _setUploadStatus(sheet, rowIdx, UPLOAD_STATUS.FAILED, new Date(), '', batchId, 'HTTP ' + code + ': ' + errText);
-        results.push({ rowIdx: rowIdx, status: 'failed', fdh: fdhVal, vendor: vendor, error: 'HTTP ' + code, detail: errText });
-        failed++;
+      if (isDupe && forceRows.indexOf(item.rowIdx) < 0) {
+        if (item.currentStatus === UPLOAD_STATUS.FAILED && !String(item.rowData[UPLOAD_COL_RID] || '').trim() && existingRid) {
+          _setUploadStatus(sheet, item.rowIdx, UPLOAD_STATUS.UPLOADED, new Date(), existingRid, batchId, 'Reconciled from existing QuickBase record');
+          results.push({
+            rowIdx: item.rowIdx,
+            status: 'success',
+            fdh: item.fdhVal,
+            vendor: item.vendor,
+            qbRecordId: existingRid,
+            reconciled: true
+          });
+          success++;
+          _logDailyUploadBatchEvent(batchId, 'Row reconciled from duplicate preflight', 'row=' + item.rowIdx + ', fdh=' + item.fdhVal + ', vendor=' + item.vendor + ', rid=' + existingRid);
+          return;
+        }
+        dupes++;
+        results.push({ rowIdx: item.rowIdx, status: 'duplicate', fdh: item.fdhVal, vendor: item.vendor, existingRecordId: existingRid });
+        if (skipDupes) {
+          _setUploadStatus(sheet, item.rowIdx, UPLOAD_STATUS.DUPLICATE, null, null, batchId, 'Duplicate — QB Record ID: ' + existingRid);
+          _logDailyUploadBatchEvent(batchId, 'Row duplicate skipped', 'row=' + item.rowIdx + ', fdh=' + item.fdhVal + ', vendor=' + item.vendor + ', existingRid=' + existingRid);
+          return;
+        }
       }
-    } catch(e) {
-      _setUploadStatus(sheet, rowIdx, UPLOAD_STATUS.FAILED, new Date(), '', batchId, e.message);
-      results.push({ rowIdx: rowIdx, status: 'failed', fdh: fdhVal, vendor: vendor, error: e.message });
-      failed++;
-    }
 
-    // Throttle per QB API rate limits
-    if (i < rowIndices.length - 1) Utilities.sleep(120);
+      item.record = buildQBRecordPayload(item.rowObj, fidMap);
+      pendingUploads.push(item);
+    });
+
+    var url = QB_API_BASE + '/records';
+    var chunks = _chunkDailyUploadItems(pendingUploads, DAILY_UPLOAD_QB_BATCH_SIZE);
+    chunks.forEach(function(chunk, chunkIdx) {
+      if (!chunk.length) return;
+      try {
+        var payloadData = chunk.map(function(item) { return item.record; });
+        var opts = _qbHeaders(token);
+        opts.method = 'post';
+        opts.contentType = 'application/json';
+        opts.payload = JSON.stringify({ to: QB_DAILY_LOG_TABLE_ID, data: payloadData });
+
+        _logDailyUploadBatchEvent(
+          batchId,
+          'QB batch payload debug',
+          'chunk=' + (chunkIdx + 1) + '/' + chunks.length +
+            ', rows=' + chunk.length +
+            ', rowIndices=' + chunk.map(function(item) { return item.rowIdx; }).join('|')
+        );
+
+        var resp = UrlFetchApp.fetch(url, opts);
+        var code = resp.getResponseCode();
+        var respText = resp.getContentText();
+
+        if (code === 200 || code === 207) {
+          var body = JSON.parse(respText);
+          var outcomes = _extractQuickBaseBatchInsertOutcomes(body, chunk.length);
+          chunk.forEach(function(item, idx) {
+            var outcome = outcomes[idx] || { ok: false, summary: 'Missing batch outcome', rawSnippet: '' };
+            if (outcome.ok) {
+              _setUploadStatus(sheet, item.rowIdx, UPLOAD_STATUS.UPLOADED, new Date(), outcome.recordId, batchId, '');
+              results.push({ rowIdx: item.rowIdx, status: 'success', fdh: item.fdhVal, vendor: item.vendor, qbRecordId: outcome.recordId });
+              success++;
+            } else {
+              _setUploadStatus(sheet, item.rowIdx, UPLOAD_STATUS.FAILED, new Date(), '', batchId, outcome.summary);
+              results.push({
+                rowIdx: item.rowIdx,
+                status: 'failed',
+                fdh: item.fdhVal,
+                vendor: item.vendor,
+                error: outcome.summary,
+                detail: outcome.rawSnippet
+              });
+              failed++;
+              _logDailyUploadBatchEvent(batchId, 'Row failed after QB batch response', 'row=' + item.rowIdx + ', fdh=' + item.fdhVal + ', vendor=' + item.vendor + ', detail=' + outcome.summary);
+              _logDailyUploadResponseDebug(batchId, item.rowIdx, item.fdhVal, item.vendor, outcome);
+            }
+          });
+          _logDailyUploadBatchEvent(
+            batchId,
+            'QB batch uploaded',
+            'chunk=' + (chunkIdx + 1) + '/' + chunks.length +
+              ', success=' + outcomes.filter(function(outcome) { return outcome.ok; }).length +
+              ', failed=' + outcomes.filter(function(outcome) { return !outcome.ok; }).length
+          );
+        } else {
+          var errText = _truncateDailyUploadLogValue(respText, 300);
+          chunk.forEach(function(item) {
+            _setUploadStatus(sheet, item.rowIdx, UPLOAD_STATUS.FAILED, new Date(), '', batchId, 'HTTP ' + code + ': ' + errText);
+            results.push({ rowIdx: item.rowIdx, status: 'failed', fdh: item.fdhVal, vendor: item.vendor, error: 'HTTP ' + code, detail: errText });
+            failed++;
+            _logDailyUploadBatchEvent(batchId, 'Row HTTP failure', 'row=' + item.rowIdx + ', fdh=' + item.fdhVal + ', vendor=' + item.vendor + ', http=' + code + ', detail=' + errText);
+          });
+        }
+      } catch(e) {
+        chunk.forEach(function(item) {
+          _setUploadStatus(sheet, item.rowIdx, UPLOAD_STATUS.FAILED, new Date(), '', batchId, e.message);
+          results.push({ rowIdx: item.rowIdx, status: 'failed', fdh: item.fdhVal, vendor: item.vendor, error: e.message });
+          failed++;
+          _logDailyUploadBatchEvent(batchId, 'Row exception', 'row=' + item.rowIdx + ', fdh=' + item.fdhVal + ', vendor=' + item.vendor + ', detail=' + _truncateDailyUploadLogValue(e.message, 300));
+        });
+      }
+
+      if (chunkIdx < chunks.length - 1) Utilities.sleep(150);
+    });
   }
 
   // Audit log
@@ -1056,6 +1591,11 @@ function uploadDailyRecordsToQB(rowIndices, options) {
       failed: failed, skipped: skipped, duplicates: dupes,
       userEmail: Session.getActiveUser().getEmail() || 'unknown'
     });
+    _logDailyUploadBatchEvent(
+      batchId,
+      'Batch complete',
+      'success=' + success + ', failed=' + failed + ', skipped=' + skipped + ', duplicates=' + dupes
+    );
   }
 
   return { batchId: batchId, success: success, failed: failed, skipped: skipped, duplicates: dupes, results: results };
