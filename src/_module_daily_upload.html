@@ -221,7 +221,6 @@ function _duRenderPipeline() {
 
   // Step 1 body
   if (incomingEl) {
-    var archStatus = (_duPipeline.archiveStatus || 'idle').replace(/_/g, ' ');
     var incomingBadge = _duIncomingCount > 0
       ? '<div class="du-incoming-badge du-incoming-badge--alert">' +
           '<span class="du-incoming-pulse"></span>' +
@@ -230,14 +229,12 @@ function _duRenderPipeline() {
       : '<div class="du-incoming-badge du-incoming-badge--clear">Incoming folder is clear</div>';
     incomingEl.innerHTML =
       '<div class="du-step-summary-stack">' +
-        incomingBadge +
-        '<div class="du-step-meta-row">' +
-          '<span class="du-step-meta-label">Archive</span>' +
-          '<span class="du-step-meta-value">' + _duEsc(archStatus) + '</span>' +
-        '</div>' +
-        '<div class="du-step-meta-row">' +
-          '<span class="du-step-meta-label">Latest</span>' +
-          '<span class="du-step-meta-value">' + _duEsc(_duPipeline.latestArchiveDate || '—') + '</span>' +
+        '<div class="du-step-corner-stack">' +
+          incomingBadge +
+          '<div class="du-step-corner-meta">' +
+            '<span class="du-step-meta-label">Latest Update</span>' +
+            '<span class="du-step-meta-value">' + _duEsc(_duPipeline.latestArchiveDate || '—') + '</span>' +
+          '</div>' +
         '</div>' +
       '</div>';
   }
@@ -253,8 +250,7 @@ function _duRenderPipeline() {
         '</div>';
     } else {
       targetEl.innerHTML =
-        '<div class="du-step-inline-status"><span class="upload-step-state-badge is-blocked">Not Loaded</span></div>' +
-        '<div class="upload-pipeline-meta">Load a date to build the review queue.</div>';
+        '<div class="du-step-inline-status"><span class="upload-step-state-badge is-blocked">Not Loaded</span></div>';
     }
   }
 
@@ -851,6 +847,41 @@ function _duRenderTable() {
   _duSyncSortHeaders();
 }
 
+function _duGetCellAnnotation(col, v) {
+  var errors = v.errors || [];
+  var warnings = v.warnings || [];
+
+  // Numeric cols: "[ShortName] is negative" annotation belongs in that col
+  if (_DU_NUMERIC_COLS && _DU_NUMERIC_COLS.has(col)) {
+    var neg = _duShortColName(col) + ' is negative';
+    if (errors.indexOf(neg) >= 0) return { msg: neg, cls: 'upload-inline-error' };
+  }
+
+  // Static column → message ownership
+  var ownedErrors = {
+    'Date': ['Missing Date'],
+    'Contractor': ['Missing Contractor'],
+    'FDH Engineering ID': ['Missing FDH ID', 'Previous upload failed']
+  };
+  var ownedWarnings = {
+    'Target Completion Date': ['No target date']
+  };
+
+  var emsgs = ownedErrors[col];
+  if (emsgs) {
+    for (var i = 0; i < emsgs.length; i++) {
+      if (errors.indexOf(emsgs[i]) >= 0) return { msg: emsgs[i], cls: 'upload-inline-error' };
+    }
+  }
+  var wmsgs = ownedWarnings[col];
+  if (wmsgs) {
+    for (var j = 0; j < wmsgs.length; j++) {
+      if (warnings.indexOf(wmsgs[j]) >= 0) return { msg: wmsgs[j], cls: 'upload-inline-warn' };
+    }
+  }
+  return null;
+}
+
 function _duRenderCell(row, col, rowEditable, v) {
   var val = _duGetCellDisplayValue(row.rowIdx, col, row[col]);
   var tdClass = (_DU_COL_GROUP[col] || '') + (rowEditable && _DU_EDITABLE_COLS.has(col) ? ' upload-td-editable' : '');
@@ -868,17 +899,14 @@ function _duRenderCell(row, col, rowEditable, v) {
     return '<td class="' + tdClass + ' upload-bool-cell"><input type="checkbox" class="du-bool-checkbox is-readonly" ' + (boolVal ? 'checked ' : '') + 'disabled aria-label="' + _duEsc(col) + ' for row ' + row.rowIdx + '"></td>';
   }
 
-  // Inline validation annotation on FDH cell
+  // Inline validation annotation — shown in the column that owns the issue
   var annotation = '';
-  if (col === 'FDH Engineering ID' && v) {
-    var firstMsg = (v.errors && v.errors[0]) || (v.warnings && v.warnings[0]);
-    if (firstMsg) {
-      var annCls = (v.errors && v.errors.length > 0) ? 'upload-inline-error' : 'upload-inline-warn';
-      annotation += '<span class="' + annCls + '">' + _duEsc(firstMsg) + '</span>';
-    }
-    if (row.uploadStatus === 'Duplicate') {
-      annotation += '<button type="button" class="upload-dup-view-btn" onclick="event.stopPropagation();_duOpenDupCompareModal(' + row.rowIdx + ')">View Match</button>';
-    }
+  if (v) {
+    var ann = _duGetCellAnnotation(col, v);
+    if (ann) annotation += '<span class="' + ann.cls + '">' + _duEsc(ann.msg) + '</span>';
+  }
+  if (col === 'FDH Engineering ID' && row.uploadStatus === 'Duplicate') {
+    annotation += '<button type="button" class="upload-dup-view-btn" onclick="event.stopPropagation();_duOpenDupCompareModal(' + row.rowIdx + ')">View Match</button>';
   }
 
   if (rowEditable && _DU_EDITABLE_COLS.has(col)) {

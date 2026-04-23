@@ -1043,14 +1043,14 @@
             </div>
             <div class="upload-pipeline-body" id="upload-pipeline-target" aria-live="polite">
               <span class="du-loaded-chip du-loaded-chip--empty">Not loaded</span>
+              <div id="du-date-picker-wrap" style="display:none;align-items:center;gap:6px;margin-top:6px;padding:0 2px;">
+                <input type="date" class="upload-search" id="upload-target-date" onchange="_duHandleTargetDateInput(this.value)" style="flex:1;min-width:0;">
+                <button class="upload-btn btn-ghost" type="button" onclick="_duLoadQueueForDate(document.getElementById('upload-target-date').value)" title="Load queue for the selected date">Load</button>
+              </div>
             </div>
             <div class="upload-pipeline-actions">
               <button class="upload-btn btn-primary" id="du-btn-load-yesterday" type="button" onclick="_duLoadRecommendedQueueDate()" title="Load data for yesterday (the recommended report date)">Load Yesterday</button>
               <button class="upload-btn btn-ghost" id="du-btn-specific-date" type="button" onclick="_duToggleDatePicker()" title="Choose a specific historical date to load">Load a Specific Date</button>
-            </div>
-            <div id="du-date-picker-wrap" style="display:none;align-items:center;gap:6px;margin-top:6px;padding:0 2px;">
-              <input type="date" class="upload-search" id="upload-target-date" onchange="_duHandleTargetDateInput(this.value)" style="flex:1;min-width:0;">
-              <button class="upload-btn btn-ghost" type="button" onclick="_duLoadQueueForDate(document.getElementById('upload-target-date').value)" title="Load queue for the selected date">Load</button>
             </div>
           </section>
 
