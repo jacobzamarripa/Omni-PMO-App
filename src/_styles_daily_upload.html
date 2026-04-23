@@ -1432,7 +1432,8 @@ body.dark-mode .du-loaded-chip {
 .upload-table {
   width: 100%;
   min-width: 900px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: auto;
   font-size: 12px;
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
@@ -1447,7 +1448,9 @@ body.dark-mode .du-loaded-chip {
   z-index: 100;
   padding: 3px 7px;
   background: var(--bg);
-  border: 1px solid var(--du-grid-line);
+  border-top: 1px solid var(--du-grid-line);
+  border-right: 1px solid var(--du-grid-line);
+  border-bottom: 2px solid var(--border);
   font-size: 10px;
   font-weight: 600;
   color: var(--text-muted);
@@ -1459,6 +1462,15 @@ body.dark-mode .du-loaded-chip {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   vertical-align: middle;
+}
+
+/* Left edge of table */
+.upload-table thead th:first-child {
+  border-left: 1px solid var(--du-grid-line);
+}
+
+.upload-table tbody td:first-child {
+  border-left: 1px solid var(--du-grid-line);
 }
 
 .upload-table thead th:hover {
@@ -1481,7 +1493,8 @@ body.dark-mode .du-loaded-chip {
 
 .upload-table tbody td {
   padding: 4px 8px;
-  border: 1px solid var(--du-grid-line);
+  border-right: 1px solid var(--du-grid-line);
+  border-bottom: 1px solid var(--du-grid-line);
   background: var(--card-bg);
   color: var(--text-main);
   font-size: 12px;
@@ -1522,11 +1535,21 @@ body.dark-mode .du-loaded-chip {
   font-weight: 400;
 }
 
-.upload-table th.col-check,
+.upload-table th.col-check {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 110;
+}
+
 .upload-table td.col-check {
   position: sticky;
   left: 0;
   z-index: 110;
+}
+
+.upload-table th.col-check,
+.upload-table td.col-check {
   width: 48px;
   min-width: 48px;
   max-width: 48px;
@@ -1553,6 +1576,7 @@ body.dark-mode .du-loaded-chip {
   background: var(--card-bg) !important;
 }
 
+/* Contractor column — header single line, data cells wrap */
 .upload-table th:nth-child(3),
 .upload-table td:nth-child(3) {
   position: sticky;
@@ -1560,13 +1584,17 @@ body.dark-mode .du-loaded-chip {
   z-index: 90;
   width: 80px;
   min-width: 80px;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere;
   background: var(--bg) !important;
 }
 
+.upload-table thead th:nth-child(3) {
+  white-space: nowrap;
+}
+
 .upload-table td:nth-child(3) {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   background: var(--card-bg) !important;
 }
 
