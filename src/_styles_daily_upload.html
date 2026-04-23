@@ -32,6 +32,7 @@
 
 .upload-shell {
   padding: 12px 24px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   background: color-mix(in srgb, var(--bg) 97%, var(--card-bg));
 }
 
@@ -271,20 +272,16 @@
   text-decoration: underline;
 }
 
-/* Single-row pipeline layout — always sticky at top of scroll container */
+/* Single-row pipeline layout */
 .upload-pipeline-row {
-  position: sticky;
-  top: 0;
-  z-index: 35;
   display: grid;
   justify-content: center;
   grid-template-columns: repeat(4, minmax(0, 238px));
   gap: 12px;
-  padding: 0 24px 12px;
+  padding: 0 0 12px;
   border: none;
   border-radius: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  background: color-mix(in srgb, var(--bg) 97%, var(--card-bg));
+  background: transparent;
   box-shadow: none;
 }
 .upload-pipeline-row .upload-stage-card {
@@ -614,10 +611,13 @@
 }
 
 .upload-queue-shell {
-  flex: 1;
+  position: sticky;
+  top: var(--du-pipeline-sticky-offset, 62px);
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: calc(100vh - var(--desktop-header-height, 56px) - var(--du-pipeline-sticky-offset, 62px));
+  max-height: calc(100vh - var(--desktop-header-height, 56px) - var(--du-pipeline-sticky-offset, 62px));
   overflow: hidden;
 }
 
@@ -941,11 +941,6 @@ body.dark-mode #upload-workspace {
 body.dark-mode .upload-shell {
   border-bottom-color: rgba(255,255,255,0.08);
   background: #0f1117;
-}
-
-body.dark-mode #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row {
-  background: #0f1117;
-  border-bottom-color: rgba(255,255,255,0.08);
 }
 
 body.dark-mode .upload-pipeline-row {
@@ -2249,11 +2244,9 @@ body.dark-mode .du-loaded-chip {
   }
 
   .upload-queue-shell {
-    /* flex:1 and overflow:hidden already set in base; no height overrides needed */
-  }
-
-  #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row {
-    padding: 8px 22px;
+    top: var(--du-pipeline-sticky-offset, 62px);
+    height: calc(100vh - var(--desktop-header-height, 56px) - var(--du-pipeline-sticky-offset, 62px));
+    max-height: calc(100vh - var(--desktop-header-height, 56px) - var(--du-pipeline-sticky-offset, 62px));
   }
 
   .upload-overview-head {
@@ -2631,10 +2624,10 @@ body.dark-mode .du-loaded-chip {
 }
 
 #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row {
-  background: color-mix(in srgb, var(--bg) 97%, var(--card-bg));
-  padding: 8px 24px;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  border-radius: 0 0 14px 14px;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
@@ -2683,9 +2676,7 @@ body.dark-mode .du-loaded-chip {
 
   #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row {
     position: static;
-    padding: 12px 14px 10px;
     border-radius: 16px;
-    border-bottom: none;
     box-shadow: none;
   }
 

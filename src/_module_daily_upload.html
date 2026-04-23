@@ -109,15 +109,9 @@ function _duSyncStickyState() {
   var workspace = document.getElementById('upload-workspace');
   var pipelineRow = workspace ? workspace.querySelector('.upload-pipeline-row') : null;
   if (!workspace || !pipelineRow) return;
-
-  // Threshold = height of the overview shell (the content above the pipeline-row).
-  // When the workspace has scrolled past it, the pipeline-row should compact.
-  var uploadShell = workspace.querySelector('.upload-shell');
-  var stickyThreshold = uploadShell ? Math.max(0, uploadShell.offsetHeight) : 60;
+  var stickyThreshold = Math.max(0, pipelineRow.offsetTop - 8);
   var isCompact = workspace.scrollTop >= stickyThreshold;
-
   workspace.classList.toggle('upload-workspace--pipeline-stuck', isCompact);
-
   if (_duStickyCompact === isCompact) return;
   _duStickyCompact = isCompact;
 }
