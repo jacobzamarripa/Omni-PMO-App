@@ -141,6 +141,16 @@
   color: var(--text-muted);
 }
 
+.upload-pipeline-meta a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.upload-pipeline-meta a:hover {
+  text-decoration: underline;
+}
+
 /* Single-row pipeline layout */
 .upload-pipeline-row {
   display: grid;
@@ -168,11 +178,63 @@
   gap: 5px;
 }
 
+.upload-stage-card.is-current {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.08);
+}
+
+.upload-stage-card.is-complete {
+  border-color: color-mix(in srgb, #16a34a 35%, var(--border));
+  background: color-mix(in srgb, var(--card-bg) 90%, #f0fdf4);
+}
+
+.upload-stage-card.is-warning {
+  border-color: color-mix(in srgb, #d97706 38%, var(--border));
+  background: color-mix(in srgb, var(--card-bg) 92%, #fffbeb);
+}
+
+.upload-stage-card.is-blocked:not(.upload-stage-card--locked) {
+  border-color: color-mix(in srgb, var(--border) 88%, #cbd5e1);
+}
+
 /* Step 4 locked state */
 .upload-stage-card--locked {
   opacity: 0.45;
   pointer-events: none;
   user-select: none;
+}
+
+.upload-step-state-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, white 90%, var(--bg));
+  color: var(--text-muted);
+}
+
+.upload-step-state-badge.is-blocked {
+  background: color-mix(in srgb, white 96%, #e2e8f0);
+  color: #64748b;
+}
+
+.upload-step-state-badge.is-current {
+  background: color-mix(in srgb, white 88%, #dbeafe);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  color: var(--accent);
+}
+
+.upload-step-state-badge.is-complete {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
 }
 
 /* Step 1 incoming file badge */

@@ -1068,6 +1068,14 @@
             </div>
             <div class="upload-pipeline-actions">
               <button class="upload-btn btn-primary" id="du-btn-export-step4" type="button" disabled onclick="_duPreflightExport()" title="Export current queue to 01_Pending_Upload as a QB CSV">Export QB CSV</button>
+              <button class="upload-btn" id="upload-btn-dryrun" type="button" disabled onclick="_duRunDryRun()" title="Simulate QB upload without writing any records — shows what would succeed or fail">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Dry Run 0 Selected
+              </button>
+              <button class="upload-btn btn-primary" id="upload-btn-upload" type="button" disabled onclick="_duOpenPreview()" title="Upload selected records directly to QuickBase via API">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload 0 Selected
+              </button>
             </div>
           </section>
 
@@ -1092,7 +1100,7 @@
             </label>
             <label class="upload-field upload-field-search">
               <span class="upload-field-label">Search</span>
-              <input type="text" class="upload-search" id="upload-search" aria-label="Search upload rows by FDH, vendor, or date" placeholder="Search approved queue rows" oninput="_duDebouncedSearch(this.value)">
+              <input type="text" class="upload-search" id="upload-search" aria-label="Search upload rows by FDH, vendor, or date" placeholder="Search loaded queue rows" oninput="_duDebouncedSearch(this.value)">
             </label>
             <button class="upload-btn btn-ghost" id="upload-btn-editmode" type="button" aria-pressed="false" onclick="_duToggleEditMode()" title="Toggle inline cell editing for the queue">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
@@ -1103,21 +1111,9 @@
             <span class="upload-selection-info" id="upload-sel-info" aria-live="polite"></span>
             <button class="upload-btn btn-ghost" id="upload-btn-save" type="button" disabled onclick="_duSaveDirtyRows()" title="Save pending inline edits to the staging sheet">Save</button>
             <button class="upload-btn btn-ghost" id="upload-btn-revert" type="button" disabled onclick="_duRevertDirtyRows()" title="Discard all unsaved inline edits">Revert</button>
-            <button class="upload-btn btn-ghost" type="button" onclick="_duExportPipelineCsv()" title="Export current queue to 01_Pending_Upload as a CSV file">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Export QB CSV
-            </button>
             <button class="upload-btn btn-ghost" type="button" onclick="_duOpenMissingReportsModal()" title="Show vendors who have not submitted a report for this date">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               Missing Reports
-            </button>
-            <button class="upload-btn" id="upload-btn-dryrun" type="button" disabled onclick="_duRunDryRun()" title="Simulate QB upload without writing any records — shows what would succeed or fail">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              Dry Run
-            </button>
-            <button class="upload-btn btn-primary" id="upload-btn-upload" type="button" disabled onclick="_duOpenPreview()" title="Upload selected records directly to QuickBase via API">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Upload 0 Records ↑
             </button>
           </div>
         </div>

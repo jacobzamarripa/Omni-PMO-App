@@ -37,6 +37,8 @@ var _duQueueApproved = false;
 var _duIncomingCount = 0;
 var _duIncomingFiles = [];
 var _duShowDatePicker = false;
+var _duExportStatus = null;
+var _duLastApprovalReason = '';
 
 var _DU_COL_GROUP = {
   'Date':                       'col-dark-navy',
@@ -113,8 +115,11 @@ function _duLoadPipelineStatus() {
   google.script.run
     .withSuccessHandler(function(status) {
       _duPipeline = status || {};
-      if (!_duLoadedQueueDate) _duLoadedQueueDate = _duPipeline.recommendedDate || _duTargetDate || '';
-      if (_duPipeline.recommendedDate) _duTargetDate = _duPipeline.recommendedDate;
+      if (_duPipeline.recommendedDate) {
+        _duTargetDate = _duPipeline.recommendedDate;
+      } else if (!_duTargetDate) {
+        _duTargetDate = _duTodayIso(-1);
+      }
       _duLatestExport = _duPipeline.latestExport || null;
       _duIncomingCount = _duPipeline.incomingFileCount || 0;
       _duIncomingFiles = _duPipeline.incomingFiles || [];
@@ -128,6 +133,28 @@ function _duLoadPipelineStatus() {
     .getDailyPipelineStatus();
 }
 
+function _duLoadExportStatus(targetDate) {
+  var dateStr = targetDate || _duLoadedQueueDate || _duTargetDate || '';
+  if (!dateStr) {
+    _duExportStatus = null;
+    _duRenderPipeline();
+    _duRenderToolbar();
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(status) {
+      _duExportStatus = status || null;
+      _duRenderPipeline();
+      _duRenderToolbar();
+    })
+    .withFailureHandler(function() {
+      _duExportStatus = null;
+      _duRenderPipeline();
+      _duRenderToolbar();
+    })
+    .getDailyUploadExportStatus(dateStr);
+}
+
 function _duLoadQueue() {
   google.script.run
     .withSuccessHandler(function(items) {
@@ -137,7 +164,7 @@ function _duLoadQueue() {
       });
       _duDirty = {};
       _duEditMode = false;
-      _duQueueApproved = false;
+      _duResetApproval('', true);
       _duLastLoadedAt = new Date();
       _duPopulateVendorOptions();
       _duApplyFilters();
@@ -145,6 +172,7 @@ function _duLoadQueue() {
       _duRenderToolbar();
       _duRenderLastSync();
       _duRenderStepGates();
+      _duLoadExportStatus(_duLoadedQueueDate);
     })
     .withFailureHandler(function(err) {
       _duSetTableLoading(false);
@@ -214,7 +242,7 @@ function _duRenderPipeline() {
       ? '<span class="du-loaded-chip">Loaded: ' + _duEsc(_duLoadedQueueDate) + '</span>'
       : '<span class="du-loaded-chip du-loaded-chip--empty">Not loaded</span>';
     targetEl.innerHTML = loadedLabel +
-      '<div class="upload-pipeline-meta">' + (_duPipeline.pendingQueueCount || 0) + ' pending row(s)</div>';
+      '<div class="upload-pipeline-meta">' + _duQueue.length + ' row(s) loaded into the staging queue</div>';
   }
 
   // Step 2 Load Yesterday gate
@@ -230,22 +258,20 @@ function _duRenderPipeline() {
 
   // Step 4 body
   if (finalEl) {
-    finalEl.innerHTML = _duLatestExport
-      ? '<div class="upload-pipeline-stat"><span class="upload-pipeline-stat-label">Latest Export</span><span class="upload-pipeline-stat-value">' + _duEsc(_duLatestExport.fileName || '—') + '</span></div>' +
-        '<div class="upload-pipeline-meta"><a href="' + _duEsc(_duLatestExport.fileUrl || '#') + '" target="_blank" rel="noopener">Open file</a></div>'
-      : '<div class="upload-pipeline-meta">No CSV export yet.</div>';
+    finalEl.innerHTML = _duBuildFinalizeHtml();
   }
 
   // Queue meta (Step 3 body)
   if (queueMeta) {
     if (_duQueue.length > 0) {
-      queueMeta.innerHTML = _duBuildVendorSummaryHtml();
+      queueMeta.innerHTML = _duBuildQueueReviewHtml();
     } else {
       queueMeta.textContent = _duLoadedQueueDate ? 'Queue empty for ' + _duLoadedQueueDate : 'Queue not loaded yet';
     }
   }
 
   _duRenderStepGates();
+  _duApplyStepCardStates();
   _duRenderLastSync();
 }
 
@@ -264,6 +290,106 @@ function _duBuildVendorSummaryHtml() {
     '<div class="du-vendor-summary-total">' + vendors.length + ' vendor' + (vendors.length === 1 ? '' : 's') + ' · ' + _duQueue.length + ' total rows</div>' +
     '<div class="du-vendor-chips">' + rows + '</div>' +
   '</div>';
+}
+
+function _duGetQueueHealth() {
+  var summary = {
+    total: 0,
+    flagged: 0,
+    blocking: 0,
+    warnings: 0,
+    ready: 0
+  };
+  _duQueue.forEach(function(row) {
+    if (row.uploadStatus === 'Uploaded' || row.uploadStatus === 'Skipped') return;
+    summary.total++;
+    var v = _duValidation[row.rowIdx] || { errors: [], warnings: [] };
+    if (v.errors.length > 0) {
+      summary.blocking++;
+      summary.flagged++;
+    } else if (v.warnings.length > 0) {
+      summary.warnings++;
+      summary.flagged++;
+    } else {
+      summary.ready++;
+    }
+  });
+  return summary;
+}
+
+function _duBuildQueueReviewHtml() {
+  var health = _duGetQueueHealth();
+  return _duBuildVendorSummaryHtml() +
+    '<div class="upload-pipeline-meta">' +
+      health.ready + ' ready' +
+      ' · ' + health.flagged + ' flagged' +
+      (health.blocking > 0 ? ' · ' + health.blocking + ' blocking' : '') +
+    '</div>';
+}
+
+function _duHasExportForLoadedDate() {
+  return !!(_duExportStatus && _duExportStatus.exists && _duExportStatus.targetDate === _duLoadedQueueDate);
+}
+
+function _duCanRunFinalizeActions() {
+  return _duQueueApproved && _duHasExportForLoadedDate() && _duDirtyCount() === 0 && !_duIsSaving;
+}
+
+function _duBuildFinalizeHtml() {
+  var selectedCount = _duGetEligibleSelected().length;
+  if (!_duQueueApproved) {
+    return '<div class="upload-step-state-badge is-blocked">Blocked</div>' +
+      '<div class="upload-pipeline-meta">Approve the reviewed queue in Step 3 before exporting or uploading.</div>';
+  }
+  if (_duHasExportForLoadedDate()) {
+    return '<div class="upload-step-state-badge is-complete">Export Found</div>' +
+      '<div class="upload-pipeline-stat"><span class="upload-pipeline-stat-label">Existing CSV</span><span class="upload-pipeline-stat-value">' + _duEsc(_duExportStatus.fileName || '—') + '</span></div>' +
+      '<div class="upload-pipeline-meta">Existing export found for ' + _duEsc(_duLoadedQueueDate) + '. Dry run and upload are available for ' + selectedCount + ' selected row(s).</div>' +
+      (_duExportStatus.fileUrl
+        ? '<div class="upload-pipeline-meta"><a href="' + _duEsc(_duExportStatus.fileUrl) + '" target="_blank" rel="noopener">Open export file</a></div>'
+        : '');
+  }
+  return '<div class="upload-step-state-badge is-current">Export Required</div>' +
+    '<div class="upload-pipeline-meta">No export found for ' + _duEsc(_duLoadedQueueDate || 'this queue') + '. Export a QB CSV first to create the record copy and unlock dry run / upload.</div>';
+}
+
+function _duGetStepCardState(stepKey) {
+  var health = _duGetQueueHealth();
+  if (stepKey === 'step1') return _duIncomingCount > 0 ? 'warning' : 'complete';
+  if (stepKey === 'step2') return _duLoadedQueueDate ? 'complete' : 'current';
+  if (stepKey === 'step3') {
+    if (!_duLoadedQueueDate) return 'blocked';
+    if (_duQueueApproved) return 'complete';
+    if (health.flagged > 0) return 'warning';
+    return 'current';
+  }
+  if (stepKey === 'step4') {
+    if (!_duQueueApproved) return 'blocked';
+    return _duHasExportForLoadedDate() ? 'complete' : 'current';
+  }
+  return '';
+}
+
+function _duApplyStepCardStates() {
+  var cards = {
+    step1: document.querySelector('#upload-workspace .upload-pipeline-row .upload-stage-card:nth-child(1)'),
+    step2: document.querySelector('#upload-workspace .upload-pipeline-row .upload-stage-card:nth-child(2)'),
+    step3: document.querySelector('#upload-workspace .upload-pipeline-row .upload-stage-card:nth-child(3)'),
+    step4: document.getElementById('du-step4-card')
+  };
+  Object.keys(cards).forEach(function(key) {
+    var card = cards[key];
+    if (!card) return;
+    card.classList.remove('is-blocked', 'is-current', 'is-complete', 'is-warning');
+    var state = _duGetStepCardState(key);
+    if (state) card.classList.add('is-' + state);
+  });
+}
+
+function _duResetApproval(reason, silent) {
+  _duQueueApproved = false;
+  _duLastApprovalReason = reason || '';
+  if (!silent && reason) showToast(reason, 'info');
 }
 
 function _duRenderStepGates() {
@@ -303,7 +429,20 @@ function _duRenderStepGates() {
     step4Card.classList.toggle('upload-stage-card--locked', !_duQueueApproved);
   }
   var btnExport4 = document.getElementById('du-btn-export-step4');
-  if (btnExport4) btnExport4.disabled = !_duQueueApproved;
+  if (btnExport4) {
+    var hasQueue = _duQueue.length > 0;
+    var hasExport = _duHasExportForLoadedDate();
+    btnExport4.disabled = !_duQueueApproved || !hasQueue || _duDirtyCount() > 0 || _duIsSaving;
+    btnExport4.textContent = hasExport ? 'Re-export QB CSV' : 'Export QB CSV';
+    btnExport4.classList.toggle('btn-ghost', hasExport);
+    btnExport4.classList.toggle('btn-primary', !hasExport);
+    btnExport4.title = !_duQueueApproved
+      ? 'Approve the queue in Step 3 first'
+      : hasExport
+        ? 'A CSV already exists for this date. Re-export only if you need a fresh file.'
+        : 'Export current queue to 01_Pending_Upload as a QB CSV';
+  }
+  _duApplyStepCardStates();
 }
 
 function _duToggleDatePicker() {
@@ -399,6 +538,8 @@ function _duLoadQueueForDate(dateStr) {
     .withSuccessHandler(function(result) {
       _duLoadedQueueDate = result.targetDate || target;
       _duPipeline.queueRowCount = result.rowCount || 0;
+      _duResetApproval('', true);
+      _duExportStatus = null;
       _duLoadQueue();
       _duLoadStats();
       _duRenderPipeline();
@@ -420,7 +561,17 @@ function _duExportPipelineCsv() {
         fileUrl: result.fileUrl,
         modifiedAt: result.createdAt
       };
+      _duExportStatus = {
+        targetDate: _duLoadedQueueDate,
+        exists: true,
+        fileId: result.fileId,
+        fileName: result.fileName,
+        fileUrl: result.fileUrl,
+        createdAt: result.createdAt,
+        modifiedAt: result.createdAt
+      };
       _duRenderPipeline();
+      _duRenderToolbar();
       showToast('CSV exported to 01_Pending_Upload.', 'success');
     })
     .withFailureHandler(function(err) {
@@ -609,8 +760,9 @@ function _duRenderToolbar() {
   var btnSave = document.getElementById('upload-btn-save');
   var btnRevert = document.getElementById('upload-btn-revert');
   var btnEdit = document.getElementById('upload-btn-editmode');
-  if (btnDry) btnDry.disabled = selectedPending.length === 0 || dirtyCount > 0 || _duIsSaving;
-  if (btnUpload) btnUpload.disabled = selectedPending.length === 0 || dirtyCount > 0 || _duIsSaving;
+  var finalizeReady = _duCanRunFinalizeActions();
+  if (btnDry) btnDry.disabled = !finalizeReady || selectedPending.length === 0;
+  if (btnUpload) btnUpload.disabled = !finalizeReady || selectedPending.length === 0;
   if (btnSave) btnSave.disabled = dirtyCount === 0 || _duIsSaving;
   if (btnRevert) btnRevert.disabled = dirtyCount === 0 || _duIsSaving;
   if (btnEdit) {
@@ -620,6 +772,7 @@ function _duRenderToolbar() {
       ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M20 6 9 17l-5-5"/></svg>Edit Mode On'
       : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Edit Mode Off');
   }
+  _duUpdateFinalizeActionLabels(selectedPending.length);
   _duRenderLastSync();
 }
 
@@ -649,7 +802,7 @@ function _duRenderTable() {
     }
   });
 
-  _duUpdateUploadButtonLabel(ready.length);
+  _duUpdateFinalizeActionLabels(_duGetEligibleSelected().length);
 
   var html = '';
 
@@ -764,6 +917,7 @@ function _duToggleRow(rowIdx, checked) {
   if (checked) _duSelected.add(rowIdx);
   else _duSelected.delete(rowIdx);
   _duRenderToolbar();
+  _duRenderPipeline();
 }
 
 function _duSelectAllPending() {
@@ -772,12 +926,14 @@ function _duSelectAllPending() {
   });
   _duRenderTable();
   _duRenderToolbar();
+  _duRenderPipeline();
 }
 
 function _duClearSelection() {
   _duSelected.clear();
   _duRenderTable();
   _duRenderToolbar();
+  _duRenderPipeline();
 }
 
 function _duToggleSelectAll(checked) {
@@ -816,6 +972,7 @@ function _duToggleBool(rowIdx, field) {
 function _duStageCellChange(rowIdx, field, value) {
   var row = _duGetRow(rowIdx);
   if (!row || !_DU_EDITABLE_COLS.has(field)) return;
+  var hadApproval = _duQueueApproved;
   var original = _duNormalizeComparableValue(row[field], field);
   var next = _duNormalizeComparableValue(value, field);
   if (!_duDirty[rowIdx]) _duDirty[rowIdx] = {};
@@ -825,8 +982,13 @@ function _duStageCellChange(rowIdx, field, value) {
   } else {
     _duDirty[rowIdx][field] = value;
   }
+  if (hadApproval && _duDirtyCount() > 0) {
+    _duResetApproval('Queue approval cleared. Save or revert edits, then approve Step 3 again.');
+  }
   _duSyncDirtyRowState(rowIdx);
   _duRenderToolbar();
+  _duRenderPipeline();
+  _duRenderStepGates();
 }
 
 function _duSyncDirtyRowState(rowIdx) {
@@ -869,6 +1031,7 @@ function _duSaveDirtyRows() {
           }
         });
         _duDirty = {};
+        _duResetApproval('Queue approval cleared after saving edits. Re-approve Step 3 before finalizing.');
         _duApplyFilters();
         showToast('Upload edits saved.', 'success');
       } else {
@@ -891,8 +1054,11 @@ function _duRevertDirtyRows() {
   if (_duDirtyCount() === 0) return;
   if (!confirm('Discard all unsaved upload edits?')) return;
   _duDirty = {};
+  _duResetApproval('Queue approval cleared after reverting edits. Re-approve Step 3 before finalizing.');
   _duRenderTable();
   _duRenderToolbar();
+  _duRenderPipeline();
+  _duRenderStepGates();
 }
 
 function _duInitColResizers() {
@@ -950,6 +1116,10 @@ function _duApplyColWidths() {
 
 function _duRunDryRun() {
   var eligible = _duGetEligibleSelected();
+  if (!_duCanRunFinalizeActions()) {
+    showToast('Step 4 requires an approved queue and a CSV export for the loaded date.', 'warn');
+    return;
+  }
   if (_duDirtyCount() > 0) {
     showToast('Save or revert staged edits before running a dry run.', 'warn');
     return;
@@ -994,6 +1164,10 @@ function _duOpenDryRunResultModal(result) {
 
 function _duOpenPreview() {
   var eligible = _duGetEligibleSelected();
+  if (!_duCanRunFinalizeActions()) {
+    showToast('Step 4 requires an approved queue and a CSV export for the loaded date.', 'warn');
+    return;
+  }
   if (_duDirtyCount() > 0) {
     showToast('Save or revert staged edits before previewing an upload.', 'warn');
     return;
@@ -1344,7 +1518,7 @@ function _duFormatRelativeTime(dateObj) {
 // ── Triage: validation ──────────────────────────────────────
 function _duBuildValidation() {
   _duValidation = {};
-  _duFiltered.forEach(function(row) {
+  _duQueue.forEach(function(row) {
     if (row.uploadStatus !== 'Uploaded' && row.uploadStatus !== 'Skipped') {
       _duValidation[row.rowIdx] = _duValidateRow(row);
     }
@@ -1474,14 +1648,22 @@ function _duSelectSwimlane(key) {
   target.forEach(function(row) { if (_duIsSelectableRow(row)) _duSelected.add(row.rowIdx); });
   _duRenderTable();
   _duRenderToolbar();
+  _duRenderPipeline();
 }
 
-function _duUpdateUploadButtonLabel(readyCount) {
-  var btn = document.getElementById('upload-btn-upload');
-  if (!btn) return;
-  var svgEl = btn.querySelector('svg');
-  var svgHtml = svgEl ? svgEl.outerHTML : '';
-  btn.innerHTML = svgHtml + ' Upload ' + readyCount + ' Record' + (readyCount === 1 ? '' : 's') + ' ↑';
+function _duUpdateFinalizeActionLabels(selectedCount) {
+  var btnUpload = document.getElementById('upload-btn-upload');
+  if (btnUpload) {
+    var uploadSvg = btnUpload.querySelector('svg');
+    var uploadSvgHtml = uploadSvg ? uploadSvg.outerHTML : '';
+    btnUpload.innerHTML = uploadSvgHtml + ' Upload ' + selectedCount + ' Selected';
+  }
+  var btnDry = document.getElementById('upload-btn-dryrun');
+  if (btnDry) {
+    var drySvg = btnDry.querySelector('svg');
+    var drySvgHtml = drySvg ? drySvg.outerHTML : '';
+    btnDry.innerHTML = drySvgHtml + ' Dry Run ' + selectedCount + ' Selected';
+  }
 }
 
 // ── Triage: duplicate comparison modal ──────────────────────
