@@ -1005,41 +1005,76 @@ function exportQuickBaseCSVCore(isSilent = false, contextType = "ROUTINE") {
   
   // 🔍 INTELLIGENT TAGGING: Check for existing reports to determine LATE vs CORRECTION
   // Use datePart as the anchor for identifying report runs for this specific slice
-  let existingQuery = `title contains 'Daily_Production_Report_' and title contains '${datePart}' and mimeType = 'text/csv'`;
-  let existingFiles = DriveApp.getFolderById(COMPILED_FOLDER_ID).searchFiles(existingQuery);
-  let reportExists = existingFiles.hasNext();
+  const existingFiles = [];
+  const existingQuery = `title contains 'Daily_Production_Report_' and title contains '${datePart}' and mimeType = 'text/csv' and trashed = false`;
+  const filesIter = DriveApp.getFolderById(COMPILED_FOLDER_ID).searchFiles(existingQuery);
+  
+  while (filesIter.hasNext()) {
+    const f = filesIter.next();
+    existingFiles.push({
+      name: f.getName(),
+      created: f.getDateCreated().getTime(),
+      file: f
+    });
+  }
+  
+  // Sort descending by creation date
+  existingFiles.sort((a, b) => b.created - a.created);
+  const reportExists = existingFiles.length > 0;
 
+  let tag = "";
+  if (reportExists) {
+    let isLate = false;
+    let isCorrection = false;
+    
+    // Scan up to 3 most recent files to see which vendors have already been reported
+    const scanLimit = Math.min(3, existingFiles.length);
+    let combinedBaselineText = "";
+    for (let i = 0; i < scanLimit; i++) {
+      try {
+        combinedBaselineText += " " + existingFiles[i].file.getBlob().getDataAsString();
+      } catch (e) {
+        logMsg("⚠️ Error reading existing file for scan: " + existingFiles[i].name);
+      }
+    }
+    
+    vendors.forEach(v => {
+      if (combinedBaselineText.includes(v)) isCorrection = true;
+      else isLate = true;
+    });
+    
+    if (isCorrection && isLate) tag = "(LATE & CORRECTION)";
+    else if (isCorrection) tag = "(CORRECTION)";
+    else if (isLate) tag = "(LATE)";
+  }
+
+  // 🏷️ COMPUTE BASE FILENAME
   if (contextType === "EMERGENCY") {
-    fileName = `Daily_Production_Report_(CORRECTION)_${datePart}${vendorSuffix}.csv`;
+    tag = tag || "(CORRECTION)"; // Default tag for emergency if not already tagged
+    fileName = `Daily_Production_Report_${tag}_${datePart}${vendorSuffix}.csv`;
   } else if (contextType === "SPECIFIC") {
     fileName = `Daily_Production_Report_${datePart}${vendorSuffix}.csv`;
   } else {
     // ROUTINE or MANUAL
-    if (reportExists) {
-        let isLate = false;
-        let isCorrection = false;
-        let baselineFile = existingFiles.next();
-        let baselineText = "";
-        try { baselineText = baselineFile.getBlob().getDataAsString(); } catch(e) {}
-        
-        vendors.forEach(v => {
-            if (baselineText.includes(v)) isCorrection = true;
-            else isLate = true;
-        });
-        
-        let tag = "";
-        if (isCorrection && isLate) tag = "(LATE & CORRECTION)";
-        else if (isCorrection) tag = "(CORRECTION)";
-        else if (isLate) tag = "(LATE)";
-        
-        fileName = `Daily_Production_Report_${tag}_${datePart}${vendorSuffix}.csv`;
+    if (tag) {
+      fileName = `Daily_Production_Report_${tag}_${datePart}${vendorSuffix}.csv`;
     } else {
-        // Standard baseline naming
-        fileName = `Daily_Production_Report_${datePart}.csv`;
+      fileName = `Daily_Production_Report_${datePart}.csv`;
     }
   }
 
+  // 🔄 COLLISION PREVENTION (Versioning)
   fileName = fileName.replace(/[\\/:*?"<>|]/g, "_");
+  const baseNameNoExt = fileName.replace(".csv", "");
+  let finalFileName = fileName;
+  let version = 1;
+  const existingNames = new Set(existingFiles.map(f => f.name));
+  
+  while (existingNames.has(finalFileName)) {
+    version++;
+    finalFileName = `${baseNameNoExt}_v${version}.csv`;
+  }
+  fileName = finalFileName;
   const file = DriveApp.getFolderById(COMPILED_FOLDER_ID).createFile(fileName, csvContent, MimeType.CSV);
   if (!isSilent) SpreadsheetApp.getUi().alert(`CSV Exported: ${fileName}`);
   return {
