@@ -446,7 +446,7 @@ function renderList(items) {
             </div>`;
     }
 
-    function renderSection(section) {
+    function renderSection(section, themeIndex) {
         let collapsed = isQueueGroupCollapsed(section.key);
         let delay = animationIndex * 35; // Smoother stagger
         animationIndex++;
@@ -455,9 +455,10 @@ function renderList(items) {
         let animStyle = shouldAnimateEntrance ? `style="animation-delay: ${delay}ms;"` : '';
 
         const useVendorTaxonomy = currentGroupBy === 'vendor';
-        const headerStyle = useVendorTaxonomy ? ` style="${getVendorThemeStyle(section.label)}"` : '';
+        const effectiveThemeIndex = (useVendorTaxonomy && !section.isSubGroup) ? themeIndex : undefined;
+        const headerStyle = useVendorTaxonomy ? ` style="${getVendorThemeStyle(section.label, effectiveThemeIndex)}"` : '';
         const headerTitle = useVendorTaxonomy
-            ? renderVendorGroupHeader(section.label, section.items, { compact: !!section.isSubGroup })
+            ? renderVendorGroupHeader(section.label, section.items, { compact: !!section.isSubGroup, themeIndex: effectiveThemeIndex })
             : `<div class="queue-group-title">
                     <span class="queue-group-toggle"></span>
                     <span>${esc(section.label)}</span>
@@ -485,7 +486,7 @@ function renderList(items) {
     }
 
     if (groupedSections.length > 0 && currentViewMode !== 'grid') {
-        html = groupedSections.map(renderSection).join('');
+        html = groupedSections.map((s, i) => renderSection(s, i)).join('');
     } else {
         html = items.map(item => {
             let delay = animationIndex * 25;
