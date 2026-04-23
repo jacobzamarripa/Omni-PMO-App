@@ -228,21 +228,34 @@ function _duRenderPipeline() {
           _duIncomingCount + ' file' + (_duIncomingCount === 1 ? '' : 's') + ' pending' +
         '</div>'
       : '<div class="du-incoming-badge du-incoming-badge--clear">Incoming folder is clear</div>';
-    incomingEl.innerHTML = incomingBadge +
-      '<div class="upload-pipeline-stat">' +
-        '<span class="upload-pipeline-stat-label">Archive Status</span>' +
-        '<span class="upload-pipeline-stat-value">' + _duEsc(archStatus) + '</span>' +
-      '</div>' +
-      '<div class="upload-pipeline-meta">Latest: ' + _duEsc(_duPipeline.latestArchiveDate || '—') + '</div>';
+    incomingEl.innerHTML =
+      '<div class="du-step-summary-stack">' +
+        incomingBadge +
+        '<div class="du-step-meta-row">' +
+          '<span class="du-step-meta-label">Archive</span>' +
+          '<span class="du-step-meta-value">' + _duEsc(archStatus) + '</span>' +
+        '</div>' +
+        '<div class="du-step-meta-row">' +
+          '<span class="du-step-meta-label">Latest</span>' +
+          '<span class="du-step-meta-value">' + _duEsc(_duPipeline.latestArchiveDate || '—') + '</span>' +
+        '</div>' +
+      '</div>';
   }
 
   // Step 2 body — show loaded date badge + date-picker toggle
   if (targetEl) {
-    var loadedLabel = _duLoadedQueueDate
-      ? '<span class="du-loaded-chip">Loaded: ' + _duEsc(_duLoadedQueueDate) + '</span>'
-      : '<span class="du-loaded-chip du-loaded-chip--empty">Not loaded</span>';
-    targetEl.innerHTML = loadedLabel +
-      '<div class="upload-pipeline-meta">' + _duQueue.length + ' row(s) loaded into the staging queue</div>';
+    if (_duLoadedQueueDate) {
+      targetEl.innerHTML =
+        '<div class="du-step-inline-status"><span class="du-loaded-chip">Loaded ' + _duEsc(_duLoadedQueueDate) + '</span></div>' +
+        '<div class="du-step-meta-row du-step-meta-row--compact">' +
+          '<span class="du-step-meta-label">Queue Rows</span>' +
+          '<span class="du-step-meta-value">' + _duQueue.length + '</span>' +
+        '</div>';
+    } else {
+      targetEl.innerHTML =
+        '<div class="du-step-inline-status"><span class="upload-step-state-badge is-blocked">Not Loaded</span></div>' +
+        '<div class="upload-pipeline-meta">Load a date to build the review queue.</div>';
+    }
   }
 
   // Step 2 Load Yesterday gate
@@ -266,7 +279,9 @@ function _duRenderPipeline() {
     if (_duQueue.length > 0) {
       queueMeta.innerHTML = _duBuildQueueReviewHtml();
     } else {
-      queueMeta.textContent = _duLoadedQueueDate ? 'Queue empty for ' + _duLoadedQueueDate : 'Queue not loaded yet';
+      queueMeta.innerHTML = _duLoadedQueueDate
+        ? '<div class="du-step-inline-status"><span class="upload-step-state-badge is-warning">Queue Empty</span></div><div class="upload-pipeline-meta">No rows available for ' + _duEsc(_duLoadedQueueDate) + '.</div>'
+        : '<div class="du-step-inline-status"><span class="upload-step-state-badge is-blocked">Not Loaded</span></div><div class="upload-pipeline-meta">Load a date in Step 2 to review the queue.</div>';
     }
   }
 
