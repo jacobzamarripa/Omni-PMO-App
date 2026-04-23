@@ -938,6 +938,46 @@ body.dark-mode #upload-workspace {
   background: #0c0d12;
 }
 
+/* Dark mode grid variable + column header tints */
+body.dark-mode .upload-table {
+  --du-grid-line: rgba(255,255,255,0.1);
+}
+body.dark-mode .upload-table th.col-dark-navy {
+  background: rgba(99,120,180,0.12);
+  color: #8ba3d4;
+}
+body.dark-mode .upload-table th.col-lime {
+  background: rgba(34,197,94,0.1);
+  color: #6ee7b7;
+}
+body.dark-mode .upload-table th.col-ug-footage {
+  background: rgba(245,158,11,0.1);
+  color: #fbbf24;
+}
+body.dark-mode .upload-table th.col-strand {
+  background: rgba(14,165,233,0.1);
+  color: #7dd3fc;
+}
+body.dark-mode .upload-table th.col-fiber {
+  background: rgba(251,146,60,0.1);
+  color: #fdba74;
+}
+body.dark-mode .upload-table th.col-nap {
+  background: rgba(168,85,247,0.1);
+  color: #d8b4fe;
+}
+body.dark-mode .upload-table th.col-teal {
+  background: transparent;
+  color: var(--text-muted);
+}
+body.dark-mode .upload-table tbody tr.row-even td:not(.col-check) {
+  background: rgba(255,255,255,0.025);
+}
+body.dark-mode .upload-table th:nth-child(4),
+body.dark-mode .upload-table td:nth-child(4) {
+  border-right-color: rgba(255,255,255,0.22);
+}
+
 body.dark-mode .upload-shell {
   border-bottom-color: rgba(255,255,255,0.08);
   background: #0f1117;
@@ -1398,6 +1438,7 @@ body.dark-mode .du-loaded-chip {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   background: var(--card-bg);
   border-radius: 14px;
+  --du-grid-line: #d4d8e0;
   overflow: hidden;
 }
 
@@ -1405,10 +1446,10 @@ body.dark-mode .du-loaded-chip {
   position: sticky;
   top: 0;
   z-index: 100;
-  padding: 4px 8px;
+  padding: 3px 7px;
   background: var(--bg);
-  border: 1px solid var(--border);
-  font-size: 12px;
+  border: 1px solid var(--du-grid-line);
+  font-size: 10px;
   font-weight: 600;
   color: var(--text-muted);
   text-align: left;
@@ -1416,7 +1457,7 @@ body.dark-mode .du-loaded-chip {
   user-select: none;
   white-space: normal;
   line-height: 1.3;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   vertical-align: middle;
 }
@@ -1441,11 +1482,11 @@ body.dark-mode .du-loaded-chip {
 
 .upload-table tbody td {
   padding: 4px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--du-grid-line);
   background: var(--card-bg);
   color: var(--text-main);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
   vertical-align: middle;
   overflow: visible;
   white-space: nowrap;
@@ -1453,27 +1494,32 @@ body.dark-mode .du-loaded-chip {
 }
 
 .upload-table tbody tr:hover td {
-  background: color-mix(in srgb, var(--bg) 60%, var(--card-bg));
+  background: color-mix(in srgb, var(--bg) 60%, var(--card-bg)) !important;
+}
+
+/* Zebra striping — even rows get subtle tint; resets per swimlane section */
+.upload-table tbody tr.row-even td:not(.col-check) {
+  background: color-mix(in srgb, var(--bg) 38%, var(--card-bg));
 }
 
 .upload-table tbody tr.row-dirty td {
-  background: #fff9db;
-  border-color: #fab005;
+  background: #fff9db !important;
+  border-color: #fab005 !important;
 }
 
 .upload-table tbody tr.row-failed td {
-  background: #fff5f5;
-  border-color: #ffc9c9;
+  background: #fff5f5 !important;
+  border-color: #ffc9c9 !important;
 }
 
 .upload-table tbody tr.row-duplicate td {
-  background: #fff9db;
-  border-color: #fab005;
+  background: #fff9db !important;
+  border-color: #fab005 !important;
 }
 
 .upload-table tbody tr.row-uploaded td {
   color: var(--text-muted);
-  background: var(--bg);
+  background: var(--bg) !important;
   font-weight: 400;
 }
 
@@ -1529,7 +1575,8 @@ body.dark-mode .du-loaded-chip {
   z-index: 90;
   width: 160px;
   min-width: 160px;
-  box-shadow: 2px 0 0 0 var(--border), 4px 0 10px rgba(0,0,0,0.05);
+  border-right: 2px solid #9fadc0;
+  box-shadow: none;
   background: var(--bg) !important;
 }
 
@@ -1611,17 +1658,17 @@ body.dark-mode .du-loaded-chip {
   padding: 0 8px;
   border: 1px solid transparent;
   background: transparent;
-  color: #1a73e8;
+  color: var(--text-main);
   font-size: 12px;
   font-family: inherit;
-  font-weight: 700;
+  font-weight: 400;
   outline: none;
   box-sizing: border-box;
 }
 
 .upload-cell-input:focus {
   background: var(--card-bg);
-  border: 2px solid #1a73e8;
+  border: 2px solid var(--accent);
   box-shadow: none;
 }
 
@@ -1659,17 +1706,41 @@ body.dark-mode .du-loaded-chip {
   font-weight: 700;
 }
 
-/* Unify all column-group headers to match raw-table aesthetic */
-.upload-table th.col-dark-navy,
-.upload-table th.col-lime,
-.upload-table th.col-ug-footage,
-.upload-table th.col-strand,
-.upload-table th.col-fiber,
-.upload-table th.col-nap,
+/* Per-group column header tints — group color on header only, cells stay uniform */
+.upload-table th.col-dark-navy {
+  background: #eef1f7;
+  color: #3d5280;
+  border-color: var(--du-grid-line);
+}
+.upload-table th.col-lime {
+  background: #edf7f1;
+  color: #2d6e4e;
+  border-color: var(--du-grid-line);
+}
+.upload-table th.col-ug-footage {
+  background: #fdf9ec;
+  color: #7a5c10;
+  border-color: var(--du-grid-line);
+}
+.upload-table th.col-strand {
+  background: #edf5f9;
+  color: #1a617a;
+  border-color: var(--du-grid-line);
+}
+.upload-table th.col-fiber {
+  background: #fdf3ec;
+  color: #7a3d18;
+  border-color: var(--du-grid-line);
+}
+.upload-table th.col-nap {
+  background: #f5eefb;
+  color: #5e2d82;
+  border-color: var(--du-grid-line);
+}
 .upload-table th.col-teal {
   background: var(--bg);
   color: var(--text-muted);
-  border: 1px solid var(--border);
+  border-color: var(--du-grid-line);
 }
 
 /* Fixed sticky border overlap */
@@ -1678,7 +1749,7 @@ body.dark-mode .du-loaded-chip {
 .upload-table td.col-strand,
 .upload-table td.col-fiber,
 .upload-table td.col-nap,
-.upload-table td.col-comments { border-left: 1px solid var(--border); }
+.upload-table td.col-comments { border-left: 1px solid var(--du-grid-line); }
 
 .col-resizer {
   position: absolute;

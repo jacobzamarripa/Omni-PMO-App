@@ -846,7 +846,7 @@ function _duRenderTable() {
   html += _duBuildSwimlaneDivider('issues', issues.length, colSpan);
   if (_duSwimlaneOpen.issues) {
     if (issues.length > 0) {
-      html += issues.map(function(r) { return _duBuildRowHtml(r); }).join('');
+      html += issues.map(function(r, i) { return _duBuildRowHtml(r, i); }).join('');
     } else {
       html += '<tr class="upload-swimlane-empty-row"><td colspan="' + colSpan + '" class="upload-swimlane-empty-cell upload-swimlane-ok">' +
         '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
@@ -857,7 +857,7 @@ function _duRenderTable() {
   html += _duBuildSwimlaneDivider('ready', ready.length, colSpan);
   if (_duSwimlaneOpen.ready) {
     if (ready.length > 0) {
-      html += ready.map(function(r) { return _duBuildRowHtml(r); }).join('');
+      html += ready.map(function(r, i) { return _duBuildRowHtml(r, i); }).join('');
     } else {
       html += '<tr class="upload-swimlane-empty-row"><td colspan="' + colSpan + '" class="upload-swimlane-empty-cell">No rows ready — fix issues above or adjust filters.</td></tr>';
     }
@@ -865,7 +865,7 @@ function _duRenderTable() {
 
   html += _duBuildSwimlaneDivider('uploaded', uploaded.length, colSpan);
   if (_duSwimlaneOpen.uploaded && uploaded.length > 0) {
-    html += uploaded.map(function(r) { return _duBuildRowHtml(r); }).join('');
+    html += uploaded.map(function(r, i) { return _duBuildRowHtml(r, i); }).join('');
   }
 
   tbody.innerHTML = html;
@@ -1668,7 +1668,7 @@ function _duShortColName(col) {
 }
 
 // ── Triage: row HTML ─────────────────────────────────────────
-function _duBuildRowHtml(row) {
+function _duBuildRowHtml(row, rowIdx) {
   var isFailed = row.uploadStatus === 'Failed';
   var isDupe = row.uploadStatus === 'Duplicate';
   var isDirty = !!_duDirty[row.rowIdx];
@@ -1686,7 +1686,8 @@ function _duBuildRowHtml(row) {
     rowEditable ? 'row-editable' : '',
     _duEditMode ? 'table-edit-mode' : '',
     hasErrors ? 'row-has-error' : '',
-    hasWarnings ? 'row-has-warning' : ''
+    hasWarnings ? 'row-has-warning' : '',
+    (rowIdx !== undefined && rowIdx % 2 === 1) ? 'row-even' : ''
   ].filter(Boolean).join(' ');
 
   var cells = _DU_TABLE_COLS.map(function(col) {
