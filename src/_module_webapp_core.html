@@ -12,13 +12,8 @@
           return style.display !== 'none' && style.visibility !== 'hidden' && !el.classList.contains('collapsed');
       }
 
-      function getVendorTheme(vendorName) {
+      function getVendorTheme(vendorName, index) {
           const clean = String(vendorName || 'Unknown Vendor').trim() || 'Unknown Vendor';
-          let hash = 0;
-          for (let i = 0; i < clean.length; i++) {
-              hash = ((hash << 5) - hash) + clean.charCodeAt(i);
-              hash |= 0;
-          }
           const themes = [
               {
                   accent: '#2563eb',
@@ -45,6 +40,14 @@
                   accentBorder: 'rgba(148, 163, 184, 0.22)'
               }
           ];
+          if (index !== undefined && index !== null) {
+              return themes[((index % themes.length) + themes.length) % themes.length];
+          }
+          let hash = 0;
+          for (let i = 0; i < clean.length; i++) {
+              hash = ((hash << 5) - hash) + clean.charCodeAt(i);
+              hash |= 0;
+          }
           return themes[Math.abs(hash) % themes.length];
       }
 
@@ -80,7 +83,7 @@
 
       function renderVendorGroupHeader(label, items, opts) {
           const vendor = String(label || 'Unknown Vendor').trim() || 'Unknown Vendor';
-          const theme = getVendorTheme(vendor);
+          const theme = getVendorTheme(vendor, opts && opts.themeIndex);
           const monogram = getVendorMonogram(vendor);
           const activeCount = (items || []).length;
           const criticalCount = getVendorCriticalCount(items);
@@ -98,14 +101,14 @@
                   <span class="queue-group-monogram" aria-hidden="true">${esc(monogram)}</span>
                   <span class="queue-group-title-copy">
                       <span class="queue-group-name">${esc(vendor)}</span>
-                      <span class="queue-group-meta${metaClass}">${meta.map(esc).join('<span class="queue-group-meta-sep">•</span>')}</span>
+                      <span class="queue-group-meta${metaClass}">${meta.map(esc).join('<span class="queue-group-meta-sep">|</span>')}</span>
                   </span>
               </div>
           `;
       }
 
-      function getVendorThemeStyle(vendorName) {
-          const theme = getVendorTheme(vendorName);
+      function getVendorThemeStyle(vendorName, index) {
+          const theme = getVendorTheme(vendorName, index);
           return `--vendor-accent:${theme.accent}; --vendor-accent-strong:${theme.accentStrong}; --vendor-accent-text:${theme.accentText}; --vendor-accent-soft:${theme.accentSoft}; --vendor-accent-row:${theme.accentRow}; --vendor-accent-border:${theme.accentBorder};`;
       }
 
@@ -1181,15 +1184,15 @@
 
           // Build group HTML with Active Portfolio animations/behaviors
           let groupsHtml = '';
-          sortedVendors.forEach(vendor => {
+          sortedVendors.forEach((vendor, idx) => {
               const vendorItems = vendorMap[vendor];
               // Use a composite key to keep state stable during the session if needed
               const groupKey = `admin-${type}-${vendor.toLowerCase().replace(/\s+/g, '-')}`;
               
               groupsHtml += `
                   <div class="queue-group collapsed-state" data-key="${groupKey}">
-                      <div class="queue-group-header queue-group-header--admin" style="${getVendorThemeStyle(vendor)}" onclick="toggleAdminGroupSection(this)">
-                          ${renderVendorGroupHeader(vendor, vendorItems, { compact: true })}
+                      <div class="queue-group-header queue-group-header--admin" style="${getVendorThemeStyle(vendor, idx)}" onclick="toggleAdminGroupSection(this)">
+                          ${renderVendorGroupHeader(vendor, vendorItems, { compact: true, themeIndex: idx })}
                           <span class="queue-group-count">${vendorItems.length}</span>
                       </div>
                       <div class="queue-group-body collapsed">

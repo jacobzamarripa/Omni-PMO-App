@@ -11,7 +11,7 @@
 <style>
       .top-nav { background: linear-gradient(to bottom, var(--card-bg) 0%, color-mix(in srgb, var(--card-bg) 20%, transparent) 100%); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); border-top: 1px solid rgba(255,255,255,0.1); min-height: var(--desktop-header-height); height: auto; box-sizing: border-box; padding: 8px 18px; display: flex; justify-content: space-between; align-items: center; z-index: calc(var(--z-max) + 1); position: relative; flex-shrink: 0; transition: background var(--transition-spring), border-color var(--transition-spring); gap: 8px; }
       .top-nav-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: nowrap; justify-self: start; }
-      .top-nav-center { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; position: absolute; left: 50%; transform: translateX(-50%); z-index: 10; }
+      .top-nav-center { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; position: absolute; left: 50%; transform: translateX(-50%); z-index: var(--z-tooltip); }
       .top-nav-search { display: flex; align-items: center; min-width: 0; justify-self: stretch; flex: 1 1 auto; }
       .nav-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; min-width: 0; flex-wrap: nowrap; justify-self: end; }
       .desktop-sync-fab { position: relative; display: flex; align-items: center; }

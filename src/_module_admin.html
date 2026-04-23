@@ -328,12 +328,7 @@ function renderAdminPane(items) {
         }, 'status');
     }
 
-    if (html === '') html = `
-        <div class="empty-msg review-hub-empty review-hub-empty--filtered">
-            <div class="review-hub-empty-kicker">Filtered View</div>
-            <div class="review-hub-empty-title">No items in this category.</div>
-            <div class="review-hub-empty-body">The current filter is quiet. Switch categories or choose another task type to continue reviewing.</div>
-        </div>`;
+    if (html === '') html = `<div style="padding:40px 20px; text-align:center; color:var(--text-muted); font-size:11px; font-weight:700; letter-spacing:0.04em; opacity:0.7;">No items in this category.</div>`;
 
     pane.innerHTML = html;
 
