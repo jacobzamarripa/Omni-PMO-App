@@ -849,7 +849,12 @@ function _duRenderTable() {
 
   var html = '';
 
-  html += _duBuildSwimlaneDivider('issues', issues.length, colSpan);
+  var issuesSelectable = issues.filter(function(r) { return _duIsSelectableRow(r); }).length;
+  var issuesSelected   = issues.filter(function(r) { return _duSelected.has(r.rowIdx); }).length;
+  var readySelectable  = ready.filter(function(r) { return _duIsSelectableRow(r); }).length;
+  var readySelected    = ready.filter(function(r) { return _duSelected.has(r.rowIdx); }).length;
+
+  html += _duBuildSwimlaneDivider('issues', issues.length, colSpan, issuesSelected, issuesSelectable);
   if (_duSwimlaneOpen.issues) {
     if (issues.length > 0) {
       html += issues.map(function(r, i) { return _duBuildRowHtml(r, i); }).join('');
@@ -860,7 +865,7 @@ function _duRenderTable() {
     }
   }
 
-  html += _duBuildSwimlaneDivider('ready', ready.length, colSpan);
+  html += _duBuildSwimlaneDivider('ready', ready.length, colSpan, readySelected, readySelectable);
   if (_duSwimlaneOpen.ready) {
     if (ready.length > 0) {
       html += ready.map(function(r, i) { return _duBuildRowHtml(r, i); }).join('');
@@ -869,12 +874,15 @@ function _duRenderTable() {
     }
   }
 
-  html += _duBuildSwimlaneDivider('uploaded', uploaded.length, colSpan);
+  html += _duBuildSwimlaneDivider('uploaded', uploaded.length, colSpan, 0, 0);
   if (_duSwimlaneOpen.uploaded && uploaded.length > 0) {
     html += uploaded.map(function(r, i) { return _duBuildRowHtml(r, i); }).join('');
   }
 
   tbody.innerHTML = html;
+  tbody.querySelectorAll('.upload-swimlane-group-check[data-indeterminate="true"]').forEach(function(cb) {
+    cb.indeterminate = true;
+  });
   _duApplyColWidths();
   _duSyncSortHeaders();
   _duSyncStickyState();
@@ -1711,43 +1719,78 @@ function _duBuildRowHtml(row, rowIdx) {
 }
 
 // ── Triage: swimlane dividers ────────────────────────────────
-function _duBuildSwimlaneDivider(key, count, colSpan) {
+function _duBuildSwimlaneDivider(key, count, colSpan, selectedCount, selectableCount) {
   var isOpen = _duSwimlaneOpen[key];
   var cfgs = {
     issues: {
       label: 'ISSUES',
       cls: 'swimlane-issues',
-      icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-      action: count > 0 ? '<button type="button" class="upload-swimlane-action" onclick="event.stopPropagation();_duSelectSwimlane(\'issues\')">Select All</button>' : ''
+      icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
     },
     ready: {
       label: 'READY TO UPLOAD',
       cls: 'swimlane-ready',
-      icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-      action: count > 0 ? '<button type="button" class="upload-swimlane-action" onclick="event.stopPropagation();_duSelectSwimlane(\'ready\')">Select All</button>' : ''
+      icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
     },
     uploaded: {
       label: 'UPLOADED TODAY',
       cls: 'swimlane-uploaded',
-      icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
-      action: ''
+      icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
     }
   };
   var cfg = cfgs[key] || cfgs.ready;
   var chevronSvg = '<svg class="upload-swimlane-chevron' + (isOpen ? ' is-open' : '') + '" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
 
+  var checkCell;
+  if (key !== 'uploaded' && selectableCount > 0) {
+    var isChecked       = selectedCount === selectableCount;
+    var isIndeterminate = selectedCount > 0 && selectedCount < selectableCount;
+    checkCell = '<td class="col-check upload-swimlane-check-cell"' +
+      ' onclick="event.stopPropagation();_duToggleSwimlaneSelection(\'' + key + '\')">' +
+      '<input type="checkbox" class="upload-swimlane-group-check upload-row-check"' +
+      ' data-indeterminate="' + isIndeterminate + '"' +
+      (isChecked ? ' checked' : '') +
+      ' onclick="return false"' +
+      ' aria-label="Select all ' + key + ' rows">' +
+      '</td>';
+  } else {
+    checkCell = '<td class="col-check upload-swimlane-check-cell"></td>';
+  }
+
   return '<tr class="upload-swimlane-row ' + cfg.cls + '" onclick="_duToggleSwimlane(\'' + key + '\')">' +
-    '<td colspan="' + colSpan + '" class="upload-swimlane-cell">' +
+    checkCell +
+    '<td colspan="' + (colSpan - 1) + '" class="upload-swimlane-cell">' +
       '<div class="upload-swimlane-header">' +
         '<div class="upload-swimlane-header-left">' +
           chevronSvg + cfg.icon +
           '<span class="upload-swimlane-label">' + cfg.label + '</span>' +
           '<span class="upload-swimlane-count">' + count + '</span>' +
         '</div>' +
-        cfg.action +
       '</div>' +
     '</td>' +
   '</tr>';
+}
+
+function _duToggleSwimlaneSelection(key) {
+  var groups = { issues: [], ready: [] };
+  _duFiltered.forEach(function(row) {
+    var s = row.uploadStatus;
+    if (s !== 'Uploaded' && s !== 'Skipped') {
+      var v = _duValidation[row.rowIdx] || { errors: [], warnings: [] };
+      if (v.errors.length > 0 || v.warnings.length > 0) groups.issues.push(row);
+      else groups.ready.push(row);
+    }
+  });
+  var target = groups[key] || [];
+  var selectable = target.filter(function(r) { return _duIsSelectableRow(r); });
+  var allSelected = selectable.length > 0 && selectable.every(function(r) { return _duSelected.has(r.rowIdx); });
+  selectable.forEach(function(r) {
+    if (allSelected) _duSelected.delete(r.rowIdx);
+    else _duSelected.add(r.rowIdx);
+  });
+  _duRenderTable();
+  _duRenderToolbar();
+  _duRenderPipeline();
 }
 
 function _duToggleSwimlane(key) {
