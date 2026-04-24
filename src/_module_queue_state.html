@@ -132,6 +132,10 @@ function getGroupedQueueSections(items) {
     let sections = Array.from(groups.values());
     sections.sort(function(a, b) {
         if (currentGroupBy === 'health') return Number(a.sortKey) - Number(b.sortKey);
+        const aIsUnknown = (a.sortKey || '').toLowerCase().includes('unknown');
+        const bIsUnknown = (b.sortKey || '').toLowerCase().includes('unknown');
+        if (aIsUnknown && !bIsUnknown) return 1;
+        if (!aIsUnknown && bIsUnknown) return -1;
         return String(a.sortKey || '').localeCompare(String(b.sortKey || ''));
     });
 

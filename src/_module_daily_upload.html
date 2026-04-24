@@ -659,6 +659,14 @@ function _duApplyFilters() {
   _duFiltered.sort(function(a, b) {
     var av = _duSortableValue(a[_duSortCol], _duSortCol);
     var bv = _duSortableValue(b[_duSortCol], _duSortCol);
+
+    if (_duSortCol === 'Contractor') {
+      var aIsUnknown = String(av).toLowerCase().includes('unknown');
+      var bIsUnknown = String(bv).toLowerCase().includes('unknown');
+      if (aIsUnknown && !bIsUnknown) return 1;
+      if (!aIsUnknown && bIsUnknown) return -1;
+    }
+
     if (_duSortDir === 'asc') return av < bv ? -1 : av > bv ? 1 : 0;
     return av > bv ? -1 : av < bv ? 1 : 0;
   });

@@ -14,6 +14,16 @@
 
       function getVendorTheme(vendorName, index) {
           const clean = String(vendorName || 'Unknown Vendor').trim() || 'Unknown Vendor';
+          if (clean.toLowerCase().includes('unknown')) {
+              return {
+                  accent: '#eab308',
+                  accentStrong: '#ca8a04',
+                  accentText: '#854d0e',
+                  accentSoft: 'rgba(250, 204, 21, 0.15)',
+                  accentRow: 'rgba(250, 204, 21, 0.10)',
+                  accentBorder: 'rgba(250, 204, 21, 0.3)'
+              };
+          }
           const themes = [
               {
                   accent: '#2563eb',
@@ -83,6 +93,7 @@
 
       function renderVendorGroupHeader(label, items, opts) {
           const vendor = String(label || 'Unknown Vendor').trim() || 'Unknown Vendor';
+          const isUnknown = vendor.toLowerCase().includes('unknown');
           const theme = getVendorTheme(vendor, opts && opts.themeIndex);
           const monogram = getVendorMonogram(vendor);
           const activeCount = (items || []).length;
@@ -95,10 +106,15 @@
           ];
           const titleClass = opts && opts.compact ? ' queue-group-title--compact' : '';
           const metaClass = opts && opts.compact ? ' queue-group-meta--compact' : '';
+
+          const monogramInner = isUnknown
+              ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-top:-1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`
+              : esc(monogram);
+
           return `
               <div class="queue-group-title${titleClass}">
                   <span class="queue-group-toggle"></span>
-                  <span class="queue-group-monogram" aria-hidden="true">${esc(monogram)}</span>
+                  <span class="queue-group-monogram" aria-hidden="true">${monogramInner}</span>
                   <span class="queue-group-title-copy">
                       <span class="queue-group-name">${esc(vendor)}</span>
                       <span class="queue-group-meta${metaClass}">${meta.map(esc).join('<span class="queue-group-meta-sep">|</span>')}</span>
@@ -1179,8 +1195,14 @@
               vendorMap[vendor].push(item);
           });
 
-          // Sort vendor names alphabetically
-          const sortedVendors = Object.keys(vendorMap).sort((a, b) => a.localeCompare(b));
+          // Sort vendor names alphabetically, pushing Unknown to the bottom
+          const sortedVendors = Object.keys(vendorMap).sort((a, b) => {
+              const aIsUnknown = a.toLowerCase().includes('unknown');
+              const bIsUnknown = b.toLowerCase().includes('unknown');
+              if (aIsUnknown && !bIsUnknown) return 1;
+              if (!aIsUnknown && bIsUnknown) return -1;
+              return a.localeCompare(b);
+          });
 
           // Build group HTML with Active Portfolio animations/behaviors
           let groupsHtml = '';

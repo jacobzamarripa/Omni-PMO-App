@@ -646,7 +646,13 @@ function renderOutbox() {
             if (!vendorMap[vendor]) vendorMap[vendor] = [];
             vendorMap[vendor].push(item);
         });
-        const sortedVendors = Object.keys(vendorMap).sort((a, b) => a.localeCompare(b));
+        const sortedVendors = Object.keys(vendorMap).sort((a, b) => {
+            const aIsUnknown = a.toLowerCase().includes('unknown');
+            const bIsUnknown = b.toLowerCase().includes('unknown');
+            if (aIsUnknown && !bIsUnknown) return 1;
+            if (!aIsUnknown && bIsUnknown) return -1;
+            return a.localeCompare(b);
+        });
 
         sortedVendors.forEach(vendor => {
             const vendorItems = vendorMap[vendor];
