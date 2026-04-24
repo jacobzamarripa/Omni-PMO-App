@@ -14,9 +14,8 @@
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
   border-radius: 16px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 92%, white 8%), var(--card-bg));
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+  background: var(--card-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 .off-summary-label {
   font-size: 9px;
@@ -111,7 +110,6 @@
   gap: 8px 6px;
   margin: 0 0 14px;
   padding: 2px 2px 8px;
-  min-height: 64px;
   overflow: visible;
 }
 .off-filter-chip {
@@ -221,9 +219,7 @@
   padding: 0 16px 14px;
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
   border-radius: 18px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 95%, white 5%), var(--card-bg));
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+  background: var(--card-bg);
   overflow: visible;
 }
 .off-vendor-header {
@@ -231,22 +227,20 @@
   top: -1px;
   z-index: 3;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   cursor: pointer;
   margin: 0 -16px;
-  padding: 14px 16px 12px;
+  padding: 9px 16px 9px;
   border-radius: 18px 18px 14px 14px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 97%, white 3%), color-mix(in srgb, var(--card-bg) 94%, var(--accent) 6%));
+  background: var(--card-bg);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 .off-vendor-title-wrap {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
   flex: 1;
 }
@@ -276,7 +270,7 @@
   min-width: 0;
 }
 .off-vendor-name {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 900;
   color: var(--text-main);
   letter-spacing: -0.3px;
@@ -302,14 +296,14 @@
 .off-vendor-stat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px 10px;
-  border-radius: 12px;
+  gap: 1px;
+  padding: 4px 8px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--accent) 5%, var(--bg));
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
 }
 .off-vendor-stat-value {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
   color: var(--text-main);
   line-height: 1;
@@ -326,8 +320,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 10px;
-  padding-top: 12px;
+  margin-top: 6px;
+  padding-top: 8px;
 }
 .off-vendor-flags {
   display: flex;
@@ -337,7 +331,8 @@
   min-width: 0;
   flex: 1;
 }
-.off-vendor-flags .glass-pill {
+.off-vendor-flags .glass-pill,
+.off-vendor-flags .tag {
   max-width: 100%;
   font-size: clamp(7px, 0.68vw, 10px);
   line-height: 1.15;
@@ -346,12 +341,15 @@
   text-overflow: ellipsis;
 }
 .off-project-list {
-  display: none;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease;
 }
-.off-project-list.open { display: block; }
+.off-project-list.open { grid-template-rows: 1fr; opacity: 1; pointer-events: auto; }
+.off-project-list-inner { min-height: 0; overflow: hidden; padding: 12px 0 0; border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent); }
 .off-project-row {
   display: flex;
   flex-direction: column;
@@ -514,9 +512,10 @@
       if (topFlag) {
         var topFlagVendorCount = Object.keys(vendorMap).filter(function(v) { return vendorMap[v].flagCounts[topFlag]; }).length;
         var topFlagDisplay = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(topFlag) : topFlag;
+        var topFlagCls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(topFlag) : 'chip-warn';
         html += '<div class="off-summary-card">'
           + '<div class="off-summary-label">Top Flag Type</div>'
-          + '<div class="off-summary-title">' + _esc(topFlagDisplay) + '</div>'
+          + '<span class="tag ' + topFlagCls + '" style="align-self:flex-start">' + _esc(topFlagDisplay) + '</span>'
           + '<div class="off-summary-value">' + globalFlagCounts[topFlag] + '</div>'
           + '<div class="off-summary-meta">Seen across ' + topFlagVendorCount + ' vendor' + (topFlagVendorCount !== 1 ? 's' : '') + '.</div>'
           + '</div>';
@@ -579,7 +578,7 @@
 
     // ── Flag filter chips ─────────────────────────────────────────
     var sortedFlags = Object.keys(globalFlagCounts).sort(function(a, b) { return globalFlagCounts[b] - globalFlagCounts[a]; });
-    if (sortedFlags.length > 1) {
+    if (sortedFlags.length > 0 || _offendersActiveFlagFilter) {
       html += '<div class="signal-section-header">Filter by Flag</div>'
         + '<div class="off-filter-bar">';
       var allActive = !_offendersActiveFlagFilter;
@@ -587,9 +586,9 @@
       sortedFlags.forEach(function(flag) {
         var isActive = _offendersActiveFlagFilter === flag;
         var displayFlag = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
-        // Use the same getDiagnosticTagClass used throughout the app
         var cls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(flag) : 'chip-warn';
-        html += '<span class="off-filter-chip glass-pill ' + cls + (isActive ? ' active' : '') + '" onclick="_offendersSetFlagFilter(' + JSON.stringify(flag) + ')">'
+        var flagJs = (typeof escJs === 'function') ? escJs(flag) : String(flag || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        html += '<span class="off-filter-chip tag ' + cls + (isActive ? ' active' : '') + '" onclick="_offendersSetFlagFilter(\'' + flagJs + '\')">'
           + _esc(displayFlag) + ' &times;' + globalFlagCounts[flag]
           + '</span>';
       });
@@ -621,11 +620,13 @@
         var topFlags = _offendersGetTopFlags(vd, 4);
         var rank = _offendersSortBy === 'count' ? (vendors.indexOf(vendor) + 1) : null;
         var leadingFlag = topFlags[0] || null;
+        var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(vendor) : vendor.slice(0, 2).toUpperCase();
+        var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(vendor, rank ? rank - 1 : vendors.indexOf(vendor)) : '';
 
         html += '<div class="off-vendor-card">'
           + '<div class="off-vendor-header" onclick="_offendersToggleExpand(\'' + vendorJs + '\')">'
           + '<div class="off-vendor-title-wrap">'
-          + (rank ? '<div class="off-vendor-rank">#' + rank + '</div>' : '')
+          + '<div class="queue-group-monogram" style="' + themeStyle + '">' + _esc(monogram) + '</div>'
           + '<div class="off-vendor-title-block">'
           + '<div class="off-vendor-title-line">'
           + '<input type="checkbox" class="off-vendor-checkbox"' + (isChecked ? ' checked' : '')
@@ -633,7 +634,6 @@
           + '<div class="off-vendor-name">' + _esc(vendor) + '</div>'
           + '<span class="off-expand-arrow' + (isExpanded ? ' open' : '') + '" id="off-arrow-' + vKey + '">&#9658;</span>'
           + '</div>'
-          + '<div class="off-vendor-subtitle">' + (leadingFlag ? 'Primary pressure: ' + _esc(leadingFlag) : 'No active flag concentration') + '</div>'
           + '</div>'
           + '</div>'
           + '<div class="off-vendor-stats">'
@@ -647,10 +647,10 @@
         topFlags.forEach(function(flag) {
           var cls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(flag) : 'chip-warn';
           var displayFlag = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
-          html += '<span class="glass-pill ' + cls + '" title="' + _esc(displayFlag) + ' ×' + vd.flagCounts[flag] + '">' + _esc(displayFlag) + ' ×' + vd.flagCounts[flag] + '</span>';
+          html += '<span class="tag ' + cls + '" title="' + _esc(displayFlag) + ' ×' + vd.flagCounts[flag] + '">' + _esc(displayFlag) + ' ×' + vd.flagCounts[flag] + '</span>';
         });
         if (Object.keys(vd.flagCounts).length > 4) {
-          html += '<span class="glass-pill chip-muted">+' + (Object.keys(vd.flagCounts).length - 4) + ' more</span>';
+          html += '<span class="tag chip-muted">+' + (Object.keys(vd.flagCounts).length - 4) + ' more</span>';
         }
 
         html += '</div>'
@@ -662,7 +662,8 @@
           + '</div>';
 
         // Collapsible project rows
-        html += '<div class="off-project-list' + (isExpanded ? ' open' : '') + '" id="off-pl-' + vKey + '">';
+        html += '<div class="off-project-list' + (isExpanded ? ' open' : '') + '" id="off-pl-' + vKey + '">'
+          + '<div class="off-project-list-inner">';
         vd.projects.forEach(function(p) {
           var stageStatus = [p.city, p.stage, p.status].filter(Boolean).join(' · ');
           var fdhJs = (typeof escJs === 'function') ? escJs(p.fdh || '') : String(p.fdh || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -680,14 +681,14 @@
             p.flags.forEach(function(flag) {
               var cls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(flag) : 'chip-muted';
               var displayFlag = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
-              rowHtml += '<span class="glass-pill ' + cls + '" style="font-size:8px;padding:2px 7px">' + _esc(displayFlag) + '</span>';
+              rowHtml += '<span class="tag ' + cls + '" style="font-size:8px;padding:2px 6px">' + _esc(displayFlag) + '</span>';
             });
             rowHtml += '</div>';
           }
           rowHtml += '</div>';
           html += rowHtml;
         });
-        html += '</div>';
+        html += '</div></div>';
       });
       html += '</div>';
     }
