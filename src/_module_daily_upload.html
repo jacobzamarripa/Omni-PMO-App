@@ -21,6 +21,7 @@ var _duStats = {};
 var _duHistory = [];
 var _duHistoryOpen = false;
 var _duMissing = [];
+var _duMissingData = null;
 var _duMissingDate = '';
 var _duMissingPanelOpen = false;
 var _duColWidths = {};
@@ -84,7 +85,7 @@ var _DU_TABLE_COLS = [
 
 function initUploadWorkspace() {
   if (!_duInitialized) {
-    _duMissingDate = _duTodayStr();
+    _duMissingDate = _duRecommendedMissingDate();
     _duTargetDate = _duTodayIso(-1);
     window.addEventListener('beforeunload', _duBeforeUnload);
     document.addEventListener('keydown', _duHandleModalKeydown);
@@ -233,7 +234,8 @@ function _duLoadStats() {
 function _duLoadMissing() {
   google.script.run
     .withSuccessHandler(function(items) {
-      _duMissing = items || [];
+      _duMissingData = items || {};
+      _duMissing = _duFlattenMissingEntries(_duMissingData);
       _duRenderMissingPanel();
     })
     .withFailureHandler(function() {})
@@ -733,22 +735,65 @@ function _duOpenMissingReportsModal() {
   _duRenderMissingModal();
 }
 
+function _duFlattenMissingEntries(data) {
+  data = data || {};
+  var whole = Array.isArray(data.wholeMissingVendors) ? data.wholeMissingVendors.map(function(entry) {
+    entry.entryType = 'whole';
+    return entry;
+  }) : [];
+  var partial = Array.isArray(data.partialMissingVendors) ? data.partialMissingVendors.map(function(entry) {
+    entry.entryType = 'partial';
+    return entry;
+  }) : [];
+  return whole.concat(partial);
+}
+
+function _duRenderMissingSection(title, entries) {
+  if (!entries || entries.length === 0) return '';
+  var rows = entries.map(function(m, i) {
+    var draftIdx = _duMissing.indexOf(m);
+    var fdhList = (m.missingFdhs || []).map(function(f) {
+      return _duEsc(f.fdh || '');
+    }).filter(Boolean).join(', ');
+    var coverageMeta = [
+      (m.expectedFdhCount || 0) + ' expected',
+      (m.coveredFdhCount || 0) + ' covered',
+      (m.missingFdhCount || 0) + ' missing',
+      'Last archive report ' + _duEsc(m.lastReportDate || 'Never')
+    ].join(' • ');
+
+    return '<div class="upload-missing-row">' +
+      '<div class="upload-missing-row-main">' +
+        '<span class="upload-missing-vendor">' + _duEsc(m.vendor) + '</span>' +
+        '<span class="upload-missing-meta">' + coverageMeta + '</span>' +
+        '<span class="upload-missing-fdhs">' + _duEsc(fdhList || 'No missing FDHs listed') + '</span>' +
+      '</div>' +
+      '<button class="upload-missing-draft-btn" type="button" onclick="_duOpenEmailDraft(' + draftIdx + ')">Draft Email</button>' +
+    '</div>';
+  }).join('');
+
+  return '<div class="upload-missing-section">' +
+    '<div class="upload-missing-section-title">' + _duEsc(title) + ' <span class="upload-missing-section-count">' + entries.length + '</span></div>' +
+    rows +
+  '</div>';
+}
+
 function _duRenderMissingModal() {
+  var data = _duMissingData || {};
+  var totals = data.totals || {};
+  var bucketLabel = data.reportBucketLabel || _duMissingDate;
   var summary = _duMissing.length === 0
-    ? '<div class="upload-preview-note ok">All vendors reported for ' + _duEsc(_duMissingDate) + '.</div>'
-    : '<div class="upload-preview-note warn">' + _duMissing.length + ' vendor' + (_duMissing.length === 1 ? '' : 's') + ' missing for ' + _duEsc(_duMissingDate) + '.</div>';
+    ? '<div class="upload-preview-note ok">All expected vendors and FDHs are present in the archive for ' + _duEsc(bucketLabel) + '.</div>'
+    : '<div class="upload-preview-note warn">' +
+        _duEsc(totals.wholeMissingVendorCount || 0) + ' whole missing vendor' + ((totals.wholeMissingVendorCount || 0) === 1 ? '' : 's') +
+        ' • ' + _duEsc(totals.partialMissingVendorCount || 0) + ' partial vendor' + ((totals.partialMissingVendorCount || 0) === 1 ? '' : 's') +
+        ' • ' + _duEsc(totals.missingFdhCount || 0) + ' missing FDH' + ((totals.missingFdhCount || 0) === 1 ? '' : 's') +
+      '</div>';
 
   var rows = _duMissing.length === 0
     ? '<div class="upload-missing-empty">No outreach needed for this report date.</div>'
-    : _duMissing.map(function(m, i) {
-        return '<div class="upload-missing-row">' +
-          '<div class="upload-missing-row-main">' +
-            '<span class="upload-missing-vendor">' + _duEsc(m.vendor) + '</span>' +
-            '<span class="upload-missing-meta">' + _duEsc(m.activeFdhCount) + ' active projects • Last reported ' + _duEsc(m.lastReportDate || '—') + '</span>' +
-          '</div>' +
-          '<button class="upload-missing-draft-btn" type="button" onclick="_duOpenEmailDraft(' + i + ')">Draft Email</button>' +
-        '</div>';
-      }).join('');
+    : _duRenderMissingSection('Whole Missing Reports', data.wholeMissingVendors || []) +
+      _duRenderMissingSection('Partial Missing Reports', data.partialMissingVendors || []);
 
   var actions = _duMissing.length > 0
     ? '<div class="upload-missing-draft-all"><button type="button" class="upload-btn" onclick="_duDraftAllEmails()">Copy All Drafts</button></div>'
@@ -758,12 +803,13 @@ function _duRenderMissingModal() {
     '<div class="upload-modal-missing-wrap">' +
       '<div class="upload-missing-header-modal">' +
         '<div class="upload-field">' +
-          '<span class="upload-field-label">Report Date</span>' +
+          '<span class="upload-field-label">Report Bucket</span>' +
           '<div class="upload-missing-header-right">' +
-            '<button type="button" class="upload-missing-today-btn" onclick="_duMissingDate=_duTodayStr(); _duLoadMissing(); setTimeout(_duRenderMissingModal, 100)">Today</button>' +
+            '<button type="button" class="upload-missing-today-btn" onclick="_duMissingDate=_duRecommendedMissingDate(); _duLoadMissing(); setTimeout(_duRenderMissingModal, 100)">Prior Day</button>' +
             '<input type="date" class="upload-missing-date-picker" value="' + _duIsoDate(_duMissingDate) + '" onchange="_duOnMissingDateChange(this.value); setTimeout(_duRenderMissingModal, 100)">' +
           '</div>' +
         '</div>' +
+        '<div class="upload-missing-bucket-label">' + _duEsc(bucketLabel) + '</div>' +
         summary +
       '</div>' +
       '<div class="upload-missing-rows">' + rows + '</div>' +
@@ -1435,7 +1481,7 @@ function _duOpenEmailDraft(idx) {
     .withFailureHandler(function(err) {
       showToast('Draft error: ' + (err.message || err), 'error');
     })
-    .draftMissingReportEmail(m.vendor, _duMissingDate, m.activeFdhs || []);
+    .draftMissingReportEmail(m.vendor, m.reportBucketLabel || _duMissingDate, m.emailFdhs || m.activeFdhs || []);
 }
 
 function _duCopyEmailDraft(idx, draft) {
@@ -1469,7 +1515,7 @@ function _duDraftAllEmails() {
         remaining--;
         if (remaining === 0) _duFinalizeDraftCopy(drafts);
       })
-      .draftMissingReportEmail(m.vendor, _duMissingDate, m.activeFdhs || []);
+      .draftMissingReportEmail(m.vendor, m.reportBucketLabel || _duMissingDate, m.emailFdhs || m.activeFdhs || []);
   });
 }
 
@@ -2005,11 +2051,16 @@ function _duEscJs(str) {
   return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
-function _duTodayStr() {
+function _duTodayStr(offsetDays) {
   var d = new Date();
+  d.setDate(d.getDate() + (offsetDays || 0));
   var mm = String(d.getMonth() + 1).padStart(2, '0');
   var dd = String(d.getDate()).padStart(2, '0');
   return mm + '/' + dd + '/' + d.getFullYear();
+}
+
+function _duRecommendedMissingDate() {
+  return _duTodayStr(-1);
 }
 
 function _duTodayIso(offsetDays) {

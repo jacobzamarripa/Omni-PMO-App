@@ -1776,87 +1776,245 @@ function getDailyUploadHistory(limit) {
 
 // --- MISSING REPORT DETECTION ---
 
+function _getDailyUploadVendorAliasMap() {
+  const map = {};
+
+  if (typeof VENDOR_ALIASES === 'object' && VENDOR_ALIASES) {
+    Object.keys(VENDOR_ALIASES).forEach(function(raw) {
+      const rawKey = String(raw || '').trim().toLowerCase();
+      const canonical = String(VENDOR_ALIASES[raw] || '').trim();
+      if (rawKey && canonical) map[rawKey] = canonical;
+    });
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const aliasSheet = ss.getSheetByName(ALIAS_SHEET);
+    if (aliasSheet && aliasSheet.getLastRow() > 1) {
+      aliasSheet.getRange(2, 1, aliasSheet.getLastRow() - 1, 2).getValues().forEach(function(row) {
+        const rawKey = String(row[0] || '').trim().toLowerCase();
+        const canonical = String(row[1] || '').trim();
+        if (rawKey && canonical) map[rawKey] = canonical;
+      });
+    }
+  } catch (e) {}
+
+  return map;
+}
+
+function _normalizeMissingReportVendor(value, aliasMap) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const lookupKey = raw.toLowerCase();
+  const canonical = aliasMap && aliasMap[lookupKey] ? aliasMap[lookupKey] : raw;
+  return String(canonical || '').trim().toLowerCase();
+}
+
+function _displayMissingReportVendor(value, aliasMap) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const lookupKey = raw.toLowerCase();
+  const canonical = aliasMap && aliasMap[lookupKey] ? aliasMap[lookupKey] : raw;
+  return String(canonical || '').trim();
+}
+
+function _normalizeMissingReportFdh(value) {
+  if (typeof _normalizeFdhId === 'function') return _normalizeFdhId(value);
+  return String(value || '').trim().toUpperCase();
+}
+
+function _parseMissingReportAnchorDate(dateStr) {
+  const normalized = _normalizeDailyUploadTargetDate(dateStr);
+  if (!normalized) return null;
+  const parts = normalized.split('-');
+  const parsed = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 0, 0, 0, 0);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function _formatMissingReportDate(dateLike) {
+  if (!(dateLike instanceof Date) || isNaN(dateLike.getTime())) return '';
+  return Utilities.formatDate(dateLike, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+}
+
+function _buildMissingReportBucket(dateStr) {
+  const anchorDate = _parseMissingReportAnchorDate(dateStr) || _parseMissingReportAnchorDate(_formatMissingReportDate(new Date())) || new Date();
+  const startDate = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate(), 0, 0, 0, 0);
+  const endDate = new Date(startDate.getTime());
+  const isWeekendBundle = anchorDate.getDay() === 0;
+
+  if (isWeekendBundle) startDate.setDate(startDate.getDate() - 2);
+
+  const startLabel = _formatMissingReportDate(startDate);
+  const endLabel = _formatMissingReportDate(endDate);
+
+  return {
+    anchorDate: anchorDate,
+    startDate: startDate,
+    endDate: endDate,
+    startIso: _normalizeDailyUploadTargetDate(startLabel),
+    endIso: _normalizeDailyUploadTargetDate(endLabel),
+    reportDate: endLabel,
+    type: isWeekendBundle ? 'weekend_bundle' : 'daily',
+    label: isWeekendBundle
+      ? startLabel + ' - ' + endLabel + ' (Fri-Sun Weekend Bundle)'
+      : endLabel
+  };
+}
+
+function _buildMissingReportEntry(displayName, expectedFdhs, coveredSet, lastReportDate, bucket) {
+  const missingFdhs = expectedFdhs.filter(function(entry) {
+    return !coveredSet.has(entry.fdh);
+  });
+  if (missingFdhs.length === 0) return null;
+
+  const coveredCount = expectedFdhs.length - missingFdhs.length;
+  const isWholeMissing = coveredCount === 0;
+
+  return {
+    vendor: displayName,
+    activeFdhCount: expectedFdhs.length,
+    expectedFdhCount: expectedFdhs.length,
+    coveredFdhCount: coveredCount,
+    missingFdhCount: missingFdhs.length,
+    activeFdhs: expectedFdhs.slice(),
+    missingFdhs: missingFdhs.slice(),
+    emailFdhs: (isWholeMissing ? expectedFdhs : missingFdhs).slice(),
+    lastReportDate: lastReportDate || 'Never',
+    reportBucketLabel: bucket.label,
+    reportBucketType: bucket.type,
+    reportBucketStart: _formatMissingReportDate(bucket.startDate),
+    reportBucketEnd: _formatMissingReportDate(bucket.endDate)
+  };
+}
+
 /**
- * Returns which vendors in DEFAULT_VENDOR_DAILY_GOALS have NOT submitted
- * a report for the given date.
- * @param {string} dateStr - "MM/dd/yyyy" format
- * @returns {Array<Object>} [{ vendor, activeFdhCount, activeFdhs, lastReportDate }]
+ * Returns missing daily report coverage using the master archive as the source of truth.
+ * Missingness is evaluated at both the whole-vendor and per-FDH level for the selected bucket.
+ * @param {string} dateStr - "MM/dd/yyyy" or "yyyy-MM-dd"
+ * @returns {Object}
  */
 function getMissingReportVendors(dateStr) {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(QB_UPLOAD_SHEET);
+  const bucket = _buildMissingReportBucket(dateStr);
+  const aliasMap = _getDailyUploadVendorAliasMap();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const histSheet = ss.getSheetByName(HISTORY_SHEET);
 
-  const dateColIdx   = QB_HEADERS.indexOf('Date');
-  const vendorColIdx = QB_HEADERS.indexOf('Contractor');
+  const coverageByVendor = {};
+  const lastReportByVendor = {};
 
-  // Track what was actually submitted and the most recent report date per vendor (keyed lowercase)
-  const reportedVendors = {};  // vendorKey → Set of date strings
-  const lastReportDate  = {};  // vendorKey → most recent date string
+  if (histSheet && histSheet.getLastRow() > 1) {
+    const data = histSheet.getDataRange().getValues();
+    const headers = data[0] || HISTORY_HEADERS;
+    const dateColIdx = headers.indexOf('Date');
+    const vendorColIdx = headers.indexOf('Contractor');
+    const fdhColIdx = headers.indexOf('FDH Engineering ID');
+    const lastRow = typeof getTrueLastDataRow === 'function' ? getTrueLastDataRow(histSheet) : histSheet.getLastRow();
 
-  if (sheet && sheet.getLastRow() > 1) {
-    const data = sheet.getDataRange().getValues();
-    for (var i = 1; i < data.length; i++) {
-      var rowDate = data[i][dateColIdx];
-      var rowDateStr = rowDate instanceof Date
-        ? Utilities.formatDate(rowDate, Session.getScriptTimeZone(), 'MM/dd/yyyy')
-        : rowDate.toString();
-      var vendor    = (data[i][vendorColIdx] || '').toString().trim();
-      var vendorKey = vendor.toLowerCase();
-      if (!vendorKey) continue;
+    for (let i = 1; i < lastRow; i++) {
+      const row = data[i];
+      if (!row) continue;
 
-      if (!reportedVendors[vendorKey]) reportedVendors[vendorKey] = new Set();
-      reportedVendors[vendorKey].add(rowDateStr);
+      const fdh = _normalizeMissingReportFdh(row[fdhColIdx]);
+      const rowIso = typeof normalizeDateString === 'function'
+        ? normalizeDateString(row[dateColIdx])
+        : _normalizeDailyUploadTargetDate(row[dateColIdx]);
+      const vendorKey = _normalizeMissingReportVendor(row[vendorColIdx], aliasMap);
 
-      if (!lastReportDate[vendorKey] || rowDateStr > lastReportDate[vendorKey]) {
-        lastReportDate[vendorKey] = rowDateStr;
+      if (!fdh || !rowIso || !vendorKey) continue;
+
+      if (!lastReportByVendor[vendorKey] || rowIso > lastReportByVendor[vendorKey].iso) {
+        lastReportByVendor[vendorKey] = {
+          iso: rowIso,
+          label: _formatMissingReportDate(_parseMissingReportAnchorDate(rowIso))
+        };
       }
+
+      if (rowIso < bucket.startIso || rowIso > bucket.endIso) continue;
+
+      if (!coverageByVendor[vendorKey]) coverageByVendor[vendorKey] = new Set();
+      coverageByVendor[vendorKey].add(fdh);
     }
   }
 
-  // Build the report-expected portfolio from reference dictionary — mirrors the
-  // shared Active Portfolio rule, but excludes grace-window and upcoming-only items.
   const refDict = typeof getReferenceDictionary === 'function' ? getReferenceDictionary() : {};
+  const activeByVendor = {};
 
-  const activeByVendor = {};  // vendorKey → { displayName, fdhs[] }
-  Object.keys(refDict).forEach(function(fdhId) {
-    var p      = refDict[fdhId];
-    var vendor = (p.vendor || '').toString().trim();
-    if (!vendor) return;
-    var portfolioMeta = (typeof _getPortfolioVisibilityMeta === 'function')
+  Object.keys(refDict).forEach(function(rawFdhId) {
+    const p = refDict[rawFdhId] || {};
+    const vendorDisplay = _displayMissingReportVendor(p.vendor || '', aliasMap);
+    const vendorKey = _normalizeMissingReportVendor(p.vendor || '', aliasMap);
+    if (!vendorKey || !vendorDisplay) return;
+
+    const portfolioMeta = (typeof _getPortfolioVisibilityMeta === 'function')
       ? _getPortfolioVisibilityMeta({
           stage: p.stage || '',
           status: p.status || '',
-          vendor: vendor,
+          vendor: vendorDisplay,
           primaryOfsDate: p.canonicalOfsDate || p.forecastedOFS || '',
           fallbackOfsDate: p.canonicalOfsDate || p.forecastedOFS || '',
           cxStart: p.cxStart || '',
           targetDate: p.canonicalOfsDate || p.forecastedOFS || '',
-          referenceDate: dateStr,
+          referenceDate: bucket.endIso,
           hasHistory: false
         })
       : { expectDailyReport: true };
+
     if (!portfolioMeta.expectDailyReport) return;
 
-    var vk = vendor.toLowerCase();
-    if (!activeByVendor[vk]) activeByVendor[vk] = { displayName: vendor, fdhs: [] };
-    activeByVendor[vk].fdhs.push({ fdh: fdhId, city: (p.city || '').toString() });
+    if (!activeByVendor[vendorKey]) {
+      activeByVendor[vendorKey] = {
+        displayName: vendorDisplay,
+        fdhs: []
+      };
+    }
+
+    activeByVendor[vendorKey].fdhs.push({
+      fdh: _normalizeMissingReportFdh(rawFdhId),
+      city: String(p.city || '').trim()
+    });
   });
 
-  // Return vendors with active projects who haven't submitted for dateStr
-  return Object.keys(activeByVendor)
-    .filter(function(vk) {
-      return !reportedVendors[vk] || !reportedVendors[vk].has(dateStr);
-    })
-    .map(function(vk) {
-      var entry = activeByVendor[vk];
-      return {
-        vendor:         entry.displayName,
-        activeFdhCount: entry.fdhs.length,
-        activeFdhs:     entry.fdhs.slice(0, 20),
-        lastReportDate: lastReportDate[vk] || 'Never'
-      };
-    })
-    .sort(function(a, b) { return a.vendor.localeCompare(b.vendor); });
+  const wholeMissingVendors = [];
+  const partialMissingVendors = [];
+  let missingFdhCount = 0;
+
+  Object.keys(activeByVendor).sort(function(a, b) {
+    return activeByVendor[a].displayName.localeCompare(activeByVendor[b].displayName);
+  }).forEach(function(vendorKey) {
+    const vendorEntry = activeByVendor[vendorKey];
+    vendorEntry.fdhs.sort(function(a, b) { return a.fdh.localeCompare(b.fdh); });
+
+    const missingEntry = _buildMissingReportEntry(
+      vendorEntry.displayName,
+      vendorEntry.fdhs,
+      coverageByVendor[vendorKey] || new Set(),
+      lastReportByVendor[vendorKey] ? lastReportByVendor[vendorKey].label : 'Never',
+      bucket
+    );
+
+    if (!missingEntry) return;
+
+    missingFdhCount += missingEntry.missingFdhCount;
+    if (missingEntry.coveredFdhCount === 0) wholeMissingVendors.push(missingEntry);
+    else partialMissingVendors.push(missingEntry);
+  });
+
+  return {
+    reportDate: bucket.reportDate,
+    reportBucketLabel: bucket.label,
+    reportBucketType: bucket.type,
+    reportBucketStart: _formatMissingReportDate(bucket.startDate),
+    reportBucketEnd: _formatMissingReportDate(bucket.endDate),
+    wholeMissingVendors: wholeMissingVendors,
+    partialMissingVendors: partialMissingVendors,
+    totals: {
+      wholeMissingVendorCount: wholeMissingVendors.length,
+      partialMissingVendorCount: partialMissingVendors.length,
+      missingVendorCount: wholeMissingVendors.length + partialMissingVendors.length,
+      missingFdhCount: missingFdhCount,
+      expectedVendorCount: Object.keys(activeByVendor).length
+    }
+  };
 }
 
 /**

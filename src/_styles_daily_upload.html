@@ -1215,6 +1215,12 @@ body.dark-mode .du-loaded-chip {
   font-family: inherit;
 }
 
+.upload-missing-bucket-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
 .upload-missing-body {
   display: none;
   border-top: 1px solid color-mix(in srgb, #8b5cf6 18%, var(--border));
@@ -1253,6 +1259,35 @@ body.dark-mode .du-loaded-chip {
   border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
 }
 
+.upload-missing-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.upload-missing-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 8px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.upload-missing-section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, white 90%, #f5f3ff);
+  color: #7c3aed;
+}
+
 .upload-missing-row-main {
   display: flex;
   flex-direction: column;
@@ -1269,6 +1304,12 @@ body.dark-mode .du-loaded-chip {
 .upload-missing-meta {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.upload-missing-fdhs {
+  font-size: 11px;
+  color: var(--text-main);
+  line-height: 1.45;
 }
 
 .upload-missing-draft-btn,
