@@ -12,8 +12,7 @@
   width: 100%;
   background: color-mix(in srgb, var(--bg) 92%, #f8fafc);
   box-sizing: border-box;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
@@ -60,6 +59,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: min-height 0.3s ease, padding 0.25s ease;
 }
 
 .upload-stage-card::before {
@@ -92,6 +92,10 @@
   min-width: 0;
   flex: 1 1 auto;
   padding-right: 64px;
+  max-height: 80px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.22s ease, padding 0.22s ease;
 }
 
 .upload-stage-card--incoming .upload-card-headcopy {
@@ -169,6 +173,10 @@
   gap: 5px;
   min-height: 34px;
   flex: 1 1 auto;
+  max-height: 250px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.22s ease, margin-top 0.22s ease, min-height 0.22s ease;
 }
 
 .upload-pipeline-actions {
@@ -604,20 +612,23 @@
 }
 
 .upload-stage-preview-shell,
-.upload-queue-shell,
+.upload-queue-shell {
+  margin: 16px 34px 0;
+  padding: 18px;
+}
+
+/* History section gets its own styling when standalone (not inside scroll-region) */
 .upload-history-section {
   margin: 16px 34px 0;
   padding: 18px;
 }
 
+
 .upload-queue-shell {
-  position: sticky;
-  top: var(--du-pipeline-sticky-offset, 62px);
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-height: 0;
-  height: calc(100vh - var(--desktop-header-height, 56px) - var(--du-pipeline-sticky-offset, 62px));
-  max-height: calc(100vh - var(--desktop-header-height, 56px) - var(--du-pipeline-sticky-offset, 62px));
   overflow: hidden;
 }
 
@@ -1481,14 +1492,28 @@ body.dark-mode .du-loaded-chip {
 }
 
 .upload-table-wrap {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  margin: 0 -2px -2px;
+  flex: none;
+  overflow: visible;
+  margin: 0 -2px;
   padding: 8px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   background: var(--card-bg);
+}
+
+/* The single scroll surface: contains table + history, scrolls vertically and horizontally */
+.upload-scroll-region {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+/* History inside scroll region needs no extra outer margin */
+.upload-scroll-region .upload-history-section {
+  margin: 16px 0 0;
 }
 
 .upload-table {
@@ -2413,16 +2438,9 @@ body.dark-mode .du-loaded-chip {
   }
 
   .upload-stage-preview-shell,
-  .upload-queue-shell,
-  .upload-history-section {
+  .upload-queue-shell {
     margin-left: 22px;
     margin-right: 22px;
-  }
-
-  .upload-queue-shell {
-    top: var(--du-pipeline-sticky-offset, 62px);
-    height: calc(100vh - var(--desktop-header-height, 56px) - var(--du-pipeline-sticky-offset, 62px));
-    max-height: calc(100vh - var(--desktop-header-height, 56px) - var(--du-pipeline-sticky-offset, 62px));
   }
 
   .upload-overview-head {
@@ -2814,16 +2832,13 @@ body.dark-mode .du-loaded-chip {
   padding-top: 8px;
 }
 
-#upload-workspace.upload-workspace--pipeline-stuck {
-  --du-pipeline-sticky-offset: 56px;
-}
+/* Pipeline stuck state: compact single row of buttons.
+   No sticky positioning needed — workspace never scrolls.
+   The pipeline shrinks in-place at the top of the flex column. */
 
 #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row {
-  position: sticky;
-  top: 0;
-  z-index: 35;
   border-radius: 0 0 14px 14px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.07);
 }
 
 #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row::before,
@@ -2841,9 +2856,18 @@ body.dark-mode .du-loaded-chip {
   gap: 8px;
 }
 
-#upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row .upload-card-headcopy,
+/* Graceful collapse: use max-height/opacity instead of display:none for smooth animation */
+#upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row .upload-card-headcopy {
+  max-height: 0;
+  opacity: 0;
+  padding-right: 0;
+}
+
 #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row .upload-pipeline-body {
-  display: none;
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  min-height: 0;
 }
 
 #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row .upload-pipeline-actions {
@@ -2865,12 +2889,8 @@ body.dark-mode .du-loaded-chip {
 }
 
 @media (max-width: 768px) {
-  #upload-workspace.upload-workspace--pipeline-stuck {
-    --du-pipeline-sticky-offset: 0px;
-  }
-
+  /* On mobile, never apply the compact pipeline state — keep pipeline fully visible */
   #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row {
-    position: static;
     border-radius: 16px;
     box-shadow: none;
   }
@@ -2880,9 +2900,17 @@ body.dark-mode .du-loaded-chip {
     padding: 12px 12px 10px;
   }
 
-  #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row .upload-card-headcopy,
+  #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row .upload-card-headcopy {
+    max-height: 80px;
+    opacity: 1;
+    padding-right: 64px;
+  }
+
   #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row .upload-pipeline-body {
-    display: flex;
+    max-height: 250px;
+    opacity: 1;
+    margin-top: 10px;
+    min-height: 34px;
   }
 
   #upload-workspace.upload-workspace--pipeline-stuck .upload-pipeline-row .upload-pipeline-actions {

@@ -1139,48 +1139,53 @@
           </div>
         </div>
 
-      <!-- Main Table -->
-      <div class="upload-table-wrap">
-        <table class="upload-table">
-          <thead>
-            <tr>
-              <th class="col-check"><input type="checkbox" class="upload-row-check" aria-label="Select all pending upload rows" onchange="_duToggleSelectAll(this.checked)" title="Select all pending"></th>
-              <th class="col-dark-navy"             onclick="_duSetSort('Date')">Date <span class="sort-arrow">↕</span></th>
-              <th class="col-dark-navy"             onclick="_duSetSort('Contractor')">Contractor <span class="sort-arrow">↕</span></th>
-              <th class="col-dark-navy col-fdh"     onclick="_duSetSort('FDH Engineering ID')">FDH<br>Engineering<br>ID <span class="sort-arrow">↕</span></th>
-              <th class="col-lime"                  onclick="_duSetSort('Locates Called In')">Locates Called In <span class="sort-arrow">↕</span></th>
-              <th class="col-lime"                  onclick="_duSetSort('Cabinets Set')">Cabinets Set <span class="sort-arrow">↕</span></th>
-              <th class="col-lime"                  onclick="_duSetSort('Light to Cabinets')">Light to Cabinets <span class="sort-arrow">↕</span></th>
-              <th class="col-lime"                  onclick="_duSetSort('Target Completion Date')">Target <span class="sort-arrow">↕</span></th>
-              <th class="col-ug-footage"            onclick="_duSetSort('Daily UG Footage')">UG Ft <span class="sort-arrow">↕</span></th>
-              <th class="col-strand"                onclick="_duSetSort('Daily Strand Footage')">Strand Ft <span class="sort-arrow">↕</span></th>
-              <th class="col-fiber"                 onclick="_duSetSort('Daily Fiber Footage')">Fiber Ft <span class="sort-arrow">↕</span></th>
-              <th class="col-nap"                   onclick="_duSetSort('Daily NAPs/Encl. Completed')">NAPs <span class="sort-arrow">↕</span></th>
-              <th class="col-dark-navy"             onclick="_duSetSort('Drills')">Drills</th>
-              <th class="col-dark-navy"             onclick="_duSetSort('Missles')">Missles</th>
-              <th class="col-dark-navy"             onclick="_duSetSort('AE Crews')">AE Crews</th>
-              <th class="col-dark-navy"             onclick="_duSetSort('Fiber Pulling Crews')">Fiber Crews</th>
-              <th class="col-dark-navy"             onclick="_duSetSort('Splicing Crews')">Splice Crews</th>
-              <th class="col-dark-navy col-comments">Comments</th>
-              <th class="col-teal">Status</th>
-            </tr>
-          </thead>
-          <tbody id="upload-table-body">
-            <tr><td colspan="13" style="padding:40px;text-align:center;color:var(--text-muted);font-size:12px;">Loading queue...</td></tr>
-          </tbody>
-        </table>
-      </div>
-      </section>
+      <!-- Scrollable grid region: table rows + history — the only scroll surface -->
+      <div id="upload-scroll-region" class="upload-scroll-region">
 
-      <!-- Batch History -->
-      <div class="upload-history-section">
-        <div class="upload-history-toggle" id="upload-history-toggle" onclick="_duToggleHistory()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          Batch History
+        <!-- Main Table -->
+        <div class="upload-table-wrap">
+          <table class="upload-table">
+            <thead>
+              <tr>
+                <th class="col-check"><input type="checkbox" class="upload-row-check" aria-label="Select all pending upload rows" onchange="_duToggleSelectAll(this.checked)" title="Select all pending"></th>
+                <th class="col-dark-navy"             onclick="_duSetSort('Date')">Date <span class="sort-arrow">↕</span></th>
+                <th class="col-dark-navy"             onclick="_duSetSort('Contractor')">Contractor <span class="sort-arrow">↕</span></th>
+                <th class="col-dark-navy col-fdh"     onclick="_duSetSort('FDH Engineering ID')">FDH<br>Engineering<br>ID <span class="sort-arrow">↕</span></th>
+                <th class="col-lime"                  onclick="_duSetSort('Locates Called In')">Locates Called In <span class="sort-arrow">↕</span></th>
+                <th class="col-lime"                  onclick="_duSetSort('Cabinets Set')">Cabinets Set <span class="sort-arrow">↕</span></th>
+                <th class="col-lime"                  onclick="_duSetSort('Light to Cabinets')">Light to Cabinets <span class="sort-arrow">↕</span></th>
+                <th class="col-lime"                  onclick="_duSetSort('Target Completion Date')">Target <span class="sort-arrow">↕</span></th>
+                <th class="col-ug-footage"            onclick="_duSetSort('Daily UG Footage')">UG Ft <span class="sort-arrow">↕</span></th>
+                <th class="col-strand"                onclick="_duSetSort('Daily Strand Footage')">Strand Ft <span class="sort-arrow">↕</span></th>
+                <th class="col-fiber"                 onclick="_duSetSort('Daily Fiber Footage')">Fiber Ft <span class="sort-arrow">↕</span></th>
+                <th class="col-nap"                   onclick="_duSetSort('Daily NAPs/Encl. Completed')">NAPs <span class="sort-arrow">↕</span></th>
+                <th class="col-dark-navy"             onclick="_duSetSort('Drills')">Drills</th>
+                <th class="col-dark-navy"             onclick="_duSetSort('Missles')">Missles</th>
+                <th class="col-dark-navy"             onclick="_duSetSort('AE Crews')">AE Crews</th>
+                <th class="col-dark-navy"             onclick="_duSetSort('Fiber Pulling Crews')">Fiber Crews</th>
+                <th class="col-dark-navy"             onclick="_duSetSort('Splicing Crews')">Splice Crews</th>
+                <th class="col-dark-navy col-comments">Comments</th>
+                <th class="col-teal">Status</th>
+              </tr>
+            </thead>
+            <tbody id="upload-table-body">
+              <tr><td colspan="13" style="padding:40px;text-align:center;color:var(--text-muted);font-size:12px;">Loading queue...</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="upload-history-list" id="upload-history-list"></div>
-      </div>
-    </div>
+
+        <!-- Batch History (scrolls with the grid) -->
+        <div class="upload-history-section">
+          <div class="upload-history-toggle" id="upload-history-toggle" onclick="_duToggleHistory()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            Batch History
+          </div>
+          <div class="upload-history-list" id="upload-history-list"></div>
+        </div>
+
+      </div><!-- /.upload-scroll-region -->
+      </section><!-- /.upload-queue-shell -->
+    </div><!-- /#upload-workspace -->
 
     <!-- Upload modal -->
     <div class="upload-modal-overlay" id="upload-modal-overlay" onclick="_duCloseModal()"></div>

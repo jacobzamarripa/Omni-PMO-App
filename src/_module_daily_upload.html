@@ -98,19 +98,25 @@ function initUploadWorkspace() {
 
 function _duBindScrollState() {
   if (_duScrollBound) return;
-  var workspace = document.getElementById('upload-workspace');
-  if (!workspace) return;
-  workspace.addEventListener('scroll', _duSyncStickyState, { passive: true });
+  var scrollRegion = document.getElementById('upload-scroll-region');
+  if (!scrollRegion) return;
+  scrollRegion.addEventListener('scroll', _duSyncStickyState, { passive: true });
   window.addEventListener('resize', _duSyncStickyState);
   _duScrollBound = true;
 }
 
 function _duSyncStickyState() {
   var workspace = document.getElementById('upload-workspace');
-  var pipelineRow = workspace ? workspace.querySelector('.upload-pipeline-row') : null;
-  if (!workspace || !pipelineRow) return;
-  var stickyThreshold = Math.max(0, pipelineRow.offsetTop - 8);
-  var isCompact = workspace.scrollTop >= stickyThreshold;
+  if (!workspace) return;
+  // On mobile, never collapse the pipeline — let it stay full height
+  if (window.innerWidth <= 768) {
+    workspace.classList.remove('upload-workspace--pipeline-stuck');
+    _duStickyCompact = false;
+    return;
+  }
+  var scrollRegion = document.getElementById('upload-scroll-region');
+  if (!scrollRegion) return;
+  var isCompact = scrollRegion.scrollTop > 0;
   workspace.classList.toggle('upload-workspace--pipeline-stuck', isCompact);
   if (_duStickyCompact === isCompact) return;
   _duStickyCompact = isCompact;
