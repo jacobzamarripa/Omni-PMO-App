@@ -101,7 +101,7 @@ function _duBindScrollState() {
   var scrollRegion = document.getElementById('upload-scroll-region');
   if (!scrollRegion) return;
   scrollRegion.addEventListener('scroll', _duSyncStickyState, { passive: true });
-  window.addEventListener('resize', _duSyncStickyState);
+  window.addEventListener('resize', function() { _duSyncStickyState(); _duSyncSwimlaneTop(); });
   _duScrollBound = true;
 }
 
@@ -120,6 +120,15 @@ function _duSyncStickyState() {
   workspace.classList.toggle('upload-workspace--pipeline-stuck', isCompact);
   if (_duStickyCompact === isCompact) return;
   _duStickyCompact = isCompact;
+}
+
+function _duSyncSwimlaneTop() {
+  var thead = document.querySelector('#upload-table thead');
+  if (!thead) return;
+  var h = Math.ceil(thead.getBoundingClientRect().height);
+  if (!h) return;
+  var rows = document.querySelectorAll('.upload-swimlane-row');
+  rows.forEach(function(row) { row.style.top = h + 'px'; });
 }
 
 function _duRefreshAll(options) {
@@ -886,6 +895,7 @@ function _duRenderTable() {
   _duApplyColWidths();
   _duSyncSortHeaders();
   _duSyncStickyState();
+  _duSyncSwimlaneTop();
 }
 
 function _duGetCellAnnotation(col, v) {
