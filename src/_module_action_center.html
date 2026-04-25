@@ -1,0 +1,720 @@
+<script>
+/* ============================================================
+   FILE: _module_action_center.html
+   ROLE: Action Center workspace — selection-first bulk action hub
+   READS: allActionItems, getActiveQueueItems(), committedItems,
+          stagedDeckItems, allGlobalLogs, getSeverity(),
+          getQueueCombinedPill(), getQueuePillClass(),
+          cleanDiagnosticFlagText(), getDiagnosticTagClass(),
+          _acLoadNote(), _acSaveNote() [from _module_quick_peek.html]
+   WRITES: #ac-kpi-rail, #ac-tab-queue, #ac-tab-outbox,
+           #ac-tab-changelog, #action-offenders-panel, #ac-tab-reports
+   ============================================================ */
+(function() {
+
+  // ── Module state ──────────────────────────────────────────
+  var _acActiveTab  = 'queue';
+  var _acSortCol    = 'severity';
+  var _acSortDir    = 'asc';
+  var _acSelected   = new Set();
+  var _acSevFilter  = null;
+  var _acChangelogQ = '';
+
+  // ── Escape helper ─────────────────────────────────────────
+  function _e(s) {
+    return typeof esc === 'function'
+      ? esc(String(s == null ? '' : s))
+      : String(s == null ? '' : s)
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+          .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Tab switching ─────────────────────────────────────────
+  function _acSwitchTab(tab) {
+    _acActiveTab = tab;
+    ['queue','outbox','changelog','offenders','reports'].forEach(function(t) {
+      var btn   = document.getElementById('ac-tab-btn-' + t);
+      var panel = document.getElementById('ac-tab-' + t);
+      if (btn)   btn.classList.toggle('active', t === tab);
+      if (panel) panel.style.display = (t === tab) ? 'flex' : 'none';
+    });
+    _acRenderActiveTab();
+  }
+
+  function _acRenderActiveTab() {
+    if      (_acActiveTab === 'queue')     _acRenderQueue();
+    else if (_acActiveTab === 'outbox')    _acRenderOutbox();
+    else if (_acActiveTab === 'changelog') _acRenderChangelog();
+    else if (_acActiveTab === 'offenders') _acRenderOffendersTab();
+    else if (_acActiveTab === 'reports')   _acRenderReports();
+  }
+
+  // ── KPI Rail ─────────────────────────────────────────────
+  function _acRenderKpiRail() {
+    var rail = document.getElementById('ac-kpi-rail');
+    if (!rail) return;
+
+    var items = typeof getActiveQueueItems === 'function' ? getActiveQueueItems() : [];
+    var critCount = 0, warnCount = 0;
+    items.forEach(function(i) {
+      var sev = typeof getSeverity === 'function' ? getSeverity(i.flags) : 'info';
+      if (sev === 'crit') critCount++;
+      else if (sev === 'warn') warnCount++;
+    });
+
+    var staged    = (typeof stagedDeckItems !== 'undefined' && stagedDeckItems) ? stagedDeckItems.length : 0;
+    var committed = (typeof committedItems  !== 'undefined' && committedItems)  ? committedItems.length  : 0;
+    var outboxTotal = staged + committed;
+
+    var vendors = {};
+    items.forEach(function(i) { if (i.vendor) vendors[i.vendor] = true; });
+
+    var logCount = typeof allGlobalLogs !== 'undefined' ? allGlobalLogs.length : 0;
+
+    var qBadge = document.getElementById('ac-badge-queue');
+    var oBadge = document.getElementById('ac-badge-outbox');
+    if (qBadge) { qBadge.textContent = critCount; qBadge.style.display = critCount > 0 ? 'inline-flex' : 'none'; }
+    if (oBadge) { oBadge.textContent = outboxTotal; oBadge.style.display = outboxTotal > 0 ? 'inline-flex' : 'none'; }
+
+    rail.innerHTML =
+      _acKpiChip(critCount,                  'Critical',      'ac-chip-crit',   'crit',      _acSevFilter === 'crit') +
+      _acKpiChip(warnCount,                  'Warnings',      'ac-chip-warn',   'warn',      _acSevFilter === 'warn') +
+      _acKpiChip(items.length,               'In Queue',      'ac-chip-queue',  null,        _acActiveTab === 'queue') +
+      _acKpiChip(outboxTotal,                'Outbox',        'ac-chip-outbox', 'outbox',    _acActiveTab === 'outbox') +
+      _acKpiChip(Object.keys(vendors).length,'Active Vendors','ac-chip-vendor', null,        false) +
+      _acKpiChip(logCount,                   'Log Entries',   'ac-chip-log',    'changelog', _acActiveTab === 'changelog');
+  }
+
+  function _acKpiChip(val, label, cls, action, active) {
+    var clickAttr = '';
+    if (action === 'crit' || action === 'warn') clickAttr = 'onclick="_acChipClick(\'' + action + '\')"';
+    else if (action === 'outbox')    clickAttr = 'onclick="_acSwitchTab(\'outbox\')"';
+    else if (action === 'changelog') clickAttr = 'onclick="_acSwitchTab(\'changelog\')"';
+    return '<div class="ac-kpi-chip ' + cls + (active ? ' ac-chip-active' : '') + '" ' + clickAttr + '>' +
+      '<div class="ac-kpi-val">' + val + '</div>' +
+      '<div class="ac-kpi-label">' + label + '</div>' +
+    '</div>';
+  }
+
+  function _acChipClick(sev) {
+    _acSevFilter = (_acSevFilter === sev) ? null : sev;
+    _acSwitchTab('queue');
+    _acRenderKpiRail();
+  }
+
+  // ── Queue Tab ─────────────────────────────────────────────
+  function _acRenderQueue() {
+    var container = document.getElementById('ac-tab-queue');
+    if (!container) return;
+
+    var items = typeof getActiveQueueItems === 'function' ? getActiveQueueItems() : [];
+    if (_acSevFilter) {
+      items = items.filter(function(i) {
+        return typeof getSeverity === 'function' && getSeverity(i.flags) === _acSevFilter;
+      });
+    }
+
+    var sevOrd = {crit:0, warn:1, info:2, ghost:3};
+    items = items.slice().sort(function(a, b) {
+      var mul = _acSortDir === 'asc' ? 1 : -1;
+      if (_acSortCol === 'severity') {
+        var sa = sevOrd[typeof getSeverity === 'function' ? getSeverity(a.flags) : 'info'] || 2;
+        var sb = sevOrd[typeof getSeverity === 'function' ? getSeverity(b.flags) : 'info'] || 2;
+        return mul * (sa - sb);
+      }
+      if (_acSortCol === 'fdh')    return mul * (a.fdh    || '').localeCompare(b.fdh    || '');
+      if (_acSortCol === 'vendor') return mul * (a.vendor || '').localeCompare(b.vendor || '');
+      if (_acSortCol === 'date') {
+        var da = a.reportDate ? new Date(a.reportDate).getTime() : 0;
+        var db = b.reportDate ? new Date(b.reportDate).getTime() : 0;
+        return mul * (db - da);
+      }
+      return 0;
+    });
+
+    var selCount  = _acSelected.size;
+    var allFdhs   = items.map(function(i){ return i.fdh; });
+    var allChecked = items.length > 0 && items.every(function(i){ return _acSelected.has(i.fdh); });
+
+    var html = '<div class="ac-toolbar">';
+    if (selCount > 0) {
+      html +=
+        '<div class="ac-bulk-bar">' +
+          '<span class="ac-bulk-count">' + selCount + ' selected</span>' +
+          '<button class="ac-bulk-action-btn" onclick="_acBulkComment()">Comment</button>' +
+          '<button class="ac-bulk-action-btn" onclick="_acBulkCrossings()">Verify Crossings</button>' +
+          '<button class="ac-bulk-action-btn" onclick="_acBulkCdUpload()">CD Upload</button>' +
+          '<button class="ac-bulk-action-btn" onclick="_acBulkStage()">Stage for Export</button>' +
+          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportCsv()">Export CSV</button>' +
+          '<button class="ac-bulk-clear" onclick="_acClearSelection()">✕ Clear</button>' +
+        '</div>';
+    } else {
+      html +=
+        '<div class="ac-toolbar-left">' +
+          _acFilterPill(null,   'All')      +
+          _acFilterPill('crit', 'Critical') +
+          _acFilterPill('warn', 'Warning')  +
+          _acFilterPill('info', 'Info')     +
+        '</div>' +
+        '<div class="ac-toolbar-right">' +
+          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportCsv()">Export CSV</button>' +
+        '</div>';
+    }
+    html += '</div>';
+
+    if (items.length === 0) {
+      html += '<div class="ac-empty">' +
+        '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' +
+        '<div>Queue is clear for this filter.</div>' +
+      '</div>';
+    } else {
+      html += '<div class="ac-table-wrap"><table class="ac-table ac-table-workspace">' +
+        '<thead><tr>' +
+          '<th class="ac-th-check"><input type="checkbox" ' + (allChecked ? 'checked' : '') +
+            ' onchange="_acToggleAll(this.checked,' + JSON.stringify(allFdhs) + ')"></th>' +
+          '<th>' + _acSortHeader('fdh',      'FDH')      + '</th>' +
+          '<th>' + _acSortHeader('vendor',   'Vendor')   + '</th>' +
+          '<th>' + _acSortHeader('severity', 'Severity') + '</th>' +
+          '<th>Stage</th>' +
+          '<th>Top Flag</th>' +
+          '<th>' + _acSortHeader('date', 'Date')         + '</th>' +
+          '<th class="ac-th-actions">Actions</th>' +
+        '</tr></thead><tbody>';
+
+      items.forEach(function(item) {
+        var sev     = typeof getSeverity === 'function' ? getSeverity(item.flags) : 'info';
+        var flags   = (item.flags || '').split('\n').map(function(f){return f.trim();}).filter(Boolean);
+        var topFlag = flags[0] || '';
+        var topDisp = typeof cleanDiagnosticFlagText === 'function' ? cleanDiagnosticFlagText(topFlag) : topFlag;
+        var topCls  = typeof getDiagnosticTagClass   === 'function' ? getDiagnosticTagClass(topFlag)   : 'chip-muted';
+        var pill    = typeof getQueueCombinedPill    === 'function' ? getQueueCombinedPill(item)       : (item.stage || item.status || '—');
+        var pillCls = typeof getQueuePillClass       === 'function' ? getQueuePillClass(item.stage, item.status) : '';
+        var isSel   = _acSelected.has(item.fdh);
+        var hasNote = typeof _acLoadNote === 'function' && !!_acLoadNote(item.fdh);
+        var rdStr   = '';
+        if (item.reportDate) {
+          try { var rd = new Date(item.reportDate); rdStr = (rd.getMonth()+1) + '/' + rd.getDate(); } catch(e){}
+        }
+        var extraFlags = flags.length > 1 ? '<span class="ac-flag-more">+' + (flags.length - 1) + '</span>' : '';
+        var fdhSafe = _e(item.fdh);
+
+        html +=
+          '<tr class="ac-row ac-row-' + sev + (isSel ? ' is-selected' : '') + '">' +
+          '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleRow(\'' + fdhSafe + '\')">' +
+            '<input type="checkbox" ' + (isSel ? 'checked' : '') +
+              ' onclick="event.stopPropagation()" onchange="_acToggleRow(\'' + fdhSafe + '\')">' +
+          '</td>' +
+          '<td class="ac-td-fdh" onclick="_acOpenPeek(\'' + fdhSafe + '\')">' +
+            (hasNote ? '<span class="ac-note-dot" title="Has local note" style="margin-right:5px;">●</span>' : '') +
+            '<span class="ac-fdh">' + fdhSafe + '</span>' +
+          '</td>' +
+          '<td onclick="_acOpenPeek(\'' + fdhSafe + '\')">' + _e(item.vendor || '—') + '</td>' +
+          '<td onclick="_acOpenPeek(\'' + fdhSafe + '\')">' +
+            '<span class="ac-sev-dot ac-sev-' + sev + '"></span>' +
+            '<span class="ac-sev-label">' + sev + '</span>' +
+          '</td>' +
+          '<td onclick="_acOpenPeek(\'' + fdhSafe + '\')">' +
+            '<span class="tag ' + pillCls + '">' + _e(pill) + '</span>' +
+          '</td>' +
+          '<td class="ac-td-flag" onclick="_acOpenPeek(\'' + fdhSafe + '\')">' +
+            (topFlag ? '<span class="tag ' + topCls + '">' + _e(topDisp) + '</span>' : '') + extraFlags +
+          '</td>' +
+          '<td class="ac-td-date" onclick="_acOpenPeek(\'' + fdhSafe + '\')">' + rdStr + '</td>' +
+          '<td class="ac-td-actions" onclick="event.stopPropagation()">' +
+            '<div class="ac-row-actions">' +
+              '<button class="ac-row-action-btn" onclick="_acOpenPeek(\'' + fdhSafe + '\')" title="Open detail / add note">✎ Note</button>' +
+              '<button class="ac-row-action-btn ac-btn-xings" onclick="_acOpenPeekAtXings(\'' + fdhSafe + '\')" title="Verify special crossings">✓ X-ings</button>' +
+              '<button class="ac-row-action-btn ac-btn-stage" onclick="_acStageOne(\'' + fdhSafe + '\')" title="Stage for export">→ Stage</button>' +
+            '</div>' +
+          '</td>' +
+          '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+    }
+
+    container.innerHTML = html;
+  }
+
+  // ── Open Quick Peek from a row click ──────────────────────
+  function _acOpenPeek(fdh) {
+    var item = (typeof allActionItems !== 'undefined' ? allActionItems : []).find(function(i){ return i.fdh === fdh; });
+    if (!item) return;
+    if (typeof openQuickPeek === 'function') openQuickPeek(item, true);
+  }
+
+  // ── Open QP scrolled to the crossings section ─────────────
+  function _acOpenPeekAtXings(fdh) {
+    _acOpenPeek(fdh);
+    setTimeout(function() {
+      var panel = document.getElementById('gantt-quick-peek');
+      if (!panel) return;
+      var target = panel.querySelector('.xing-indicator-pill, .schedule-xing-popout-meta');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  }
+
+  // ── Stage a single item inline ────────────────────────────
+  function _acStageOne(fdh) {
+    var item = (typeof allActionItems !== 'undefined' ? allActionItems : []).find(function(i){ return i.fdh === fdh; });
+    if (!item) return;
+    if (typeof addToReviewedTray === 'function') addToReviewedTray(item, { action: 'stage' });
+    else if (typeof stageDeckItem === 'function') stageDeckItem(item);
+    _acRenderQueue();
+    _acRenderKpiRail();
+    if (typeof showToast === 'function') showToast(fdh + ' staged for export.', 'success');
+  }
+
+  // ── Selection helpers ─────────────────────────────────────
+  function _acGetSelectedItems() {
+    var all = typeof allActionItems !== 'undefined' ? allActionItems : [];
+    return all.filter(function(i){ return _acSelected.has(i.fdh); });
+  }
+
+  function _acClearSelection() {
+    _acSelected.clear();
+    _acRenderQueue();
+  }
+
+  // ── Bulk: Comment ─────────────────────────────────────────
+  function _acBulkComment() {
+    var fdhs = Array.from(_acSelected);
+    if (!fdhs.length) return;
+    _acShowModal(
+      'Add Note to ' + fdhs.length + ' Item' + (fdhs.length > 1 ? 's' : ''),
+      '<textarea id="ac-modal-ta" class="chat-bubble" style="min-height:120px;width:100%;box-sizing:border-box;" ' +
+        'placeholder="Enter note — saved locally, private to you…"></textarea>' +
+      '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">Applying to: ' +
+        fdhs.map(function(f){ return '<code>' + _e(f) + '</code>'; }).join(', ') + '</div>',
+      'Save Note (private)',
+      function() {
+        var text = ((document.getElementById('ac-modal-ta') || {}).value || '').trim();
+        if (!text) return false;
+        fdhs.forEach(function(fdh) {
+          if (typeof _acSaveNote === 'function') _acSaveNote(fdh, text);
+        });
+        if (typeof showToast === 'function') showToast('Note saved for ' + fdhs.length + ' item' + (fdhs.length > 1 ? 's' : ''), 'success');
+        _acRenderQueue();
+      }
+    );
+  }
+
+  // ── Bulk: Verify Crossings ────────────────────────────────
+  function _acBulkCrossings() {
+    var fdhs = Array.from(_acSelected);
+    if (!fdhs.length) return;
+    _acShowModal(
+      'Verify Crossings — ' + fdhs.length + ' FDH' + (fdhs.length > 1 ? 's' : ''),
+      '<select id="ac-modal-xing" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-main);font-size:12px;font-weight:700;margin-bottom:10px;">' +
+        '<option value="">— select crossing status —</option>' +
+        '<option value="YES">YES — crossings present</option>' +
+        '<option value="NO">NO — no crossings</option>' +
+        '<option value="N/A">N/A</option>' +
+      '</select>' +
+      '<textarea id="ac-modal-xdet" class="chat-bubble" style="min-height:80px;width:100%;box-sizing:border-box;" ' +
+        'placeholder="Sheet names, crossing types (applies to all selected)…"></textarea>' +
+      '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">Committing for: ' +
+        fdhs.map(function(f){ return '<code>' + _e(f) + '</code>'; }).join(', ') + '</div>',
+      'Commit Crossings',
+      function() {
+        var xing = ((document.getElementById('ac-modal-xing') || {}).value || '');
+        var det  = ((document.getElementById('ac-modal-xdet') || {}).value || '');
+        if (!xing) {
+          if (typeof showToast === 'function') showToast('Select a crossing status first.', 'error');
+          return false;
+        }
+        var date = new Date().toLocaleDateString();
+        fdhs.forEach(function(fdh) {
+          google.script.run
+            .withFailureHandler(function(err){ if (typeof showToast === 'function') showToast('Failed ' + fdh + ': ' + (err.message || err), 'error'); })
+            .stageExternalFinding({ fdh: fdh, xing: xing, xingDetails: det, verifiedDate: date });
+        });
+        if (typeof showToast === 'function') showToast('Crossings committed for ' + fdhs.length + ' FDH' + (fdhs.length > 1 ? 's' : ''), 'success');
+      }
+    );
+  }
+
+  // ── Bulk: CD Upload ───────────────────────────────────────
+  function _acBulkCdUpload() {
+    var fdhs = Array.from(_acSelected);
+    if (!fdhs.length) return;
+    var inputs = fdhs.map(function(fdh) {
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+        '<code style="font-size:11px;min-width:110px;color:var(--text-main);">' + _e(fdh) + '</code>' +
+        '<input type="file" accept="application/pdf" id="ac-cd-' + _e(fdh) + '" style="flex:1;font-size:11px;">' +
+      '</div>';
+    }).join('');
+    _acShowModal(
+      'CD Upload — ' + fdhs.length + ' FDH' + (fdhs.length > 1 ? 's' : ''),
+      '<div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">Assign one PDF per FDH. Files process locally one at a time.</div>' + inputs,
+      'Upload All',
+      function() {
+        var started = 0;
+        fdhs.forEach(function(fdh) {
+          var input = document.getElementById('ac-cd-' + fdh);
+          if (!input || !input.files || !input.files[0]) return;
+          if (typeof handleCdUpload === 'function') { handleCdUpload(input.files[0], input, fdh); started++; }
+        });
+        if (started > 0 && typeof showToast === 'function') showToast('CD upload started for ' + started + ' FDH' + (started > 1 ? 's' : ''), 'success');
+      }
+    );
+  }
+
+  // ── Bulk: Stage for Export ────────────────────────────────
+  function _acBulkStage() {
+    var items = _acGetSelectedItems();
+    if (!items.length) return;
+    items.forEach(function(item) {
+      if (typeof addToReviewedTray === 'function') addToReviewedTray(item, { action: 'stage' });
+      else if (typeof stageDeckItem === 'function') stageDeckItem(item);
+    });
+    _acSelected.clear();
+    _acRenderQueue();
+    _acRenderKpiRail();
+    if (typeof showToast === 'function') showToast(items.length + ' item' + (items.length > 1 ? 's' : '') + ' staged for export.', 'success');
+  }
+
+  // ── Export CSV (queue) ────────────────────────────────────
+  function _acExportCsv() {
+    var items = _acSelected.size > 0
+      ? _acGetSelectedItems()
+      : (typeof getActiveQueueItems === 'function' ? getActiveQueueItems() : []);
+    if (!items.length) return;
+    var cols = ['fdh','vendor','stage','status','targetDate','reportDate','flags'];
+    var csv  = [cols.join(',')];
+    items.forEach(function(item) {
+      csv.push(cols.map(function(c) {
+        return '"' + String(item[c] == null ? '' : item[c]).replace(/"/g,'""').replace(/\n/g,' ') + '"';
+      }).join(','));
+    });
+    _acDownloadBlob(csv.join('\n'), 'queue-export-' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
+  // ── Export CSV (changelog) ────────────────────────────────
+  function _acExportChangelog() {
+    var logs = typeof allGlobalLogs !== 'undefined' ? allGlobalLogs : [];
+    if (_acChangelogQ) {
+      var q = _acChangelogQ.toLowerCase();
+      logs = logs.filter(function(l){ return [(l.fdh||''),(l.type||''),(l.val||''),(l.user||'')].join(' ').toLowerCase().indexOf(q) !== -1; });
+    }
+    var cols = ['fdh','type','val','user','time'];
+    var csv  = [cols.join(',')];
+    logs.forEach(function(log) {
+      csv.push(cols.map(function(c) {
+        return '"' + String(log[c] == null ? '' : log[c]).replace(/"/g,'""').replace(/\n/g,' ') + '"';
+      }).join(','));
+    });
+    _acDownloadBlob(csv.join('\n'), 'changelog-export-' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
+  function _acDownloadBlob(text, filename) {
+    var blob = new Blob([text], { type: 'text/csv' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1000);
+  }
+
+  // ── Modal helper ──────────────────────────────────────────
+  function _acShowModal(title, bodyHtml, confirmLabel, onConfirm) {
+    var existing = document.getElementById('ac-modal-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'ac-modal-overlay';
+    overlay.className = 'ac-modal-overlay';
+    overlay.innerHTML =
+      '<div class="ac-modal" onclick="event.stopPropagation()">' +
+        '<div class="ac-modal-header">' +
+          '<span class="ac-modal-title">' + _e(title) + '</span>' +
+          '<button class="panel-tab-close" onclick="_acCloseModal()" style="flex-shrink:0;">✕</button>' +
+        '</div>' +
+        '<div class="ac-modal-body">' + bodyHtml + '</div>' +
+        '<div class="ac-modal-footer">' +
+          '<button class="btn" style="padding:10px 18px;font-size:11px;" onclick="_acCloseModal()">Cancel</button>' +
+          '<button class="btn btn-primary" style="padding:10px 18px;font-size:11px;" onclick="_acModalConfirm()">' + _e(confirmLabel) + '</button>' +
+        '</div>' +
+      '</div>';
+    overlay.onclick = _acCloseModal;
+
+    var ws = document.getElementById('action-workspace');
+    (ws || document.body).appendChild(overlay);
+    window._acModalOnConfirm = onConfirm;
+  }
+
+  function _acCloseModal() {
+    var el = document.getElementById('ac-modal-overlay');
+    if (el) el.remove();
+    window._acModalOnConfirm = null;
+  }
+
+  function _acModalConfirm() {
+    if (typeof window._acModalOnConfirm === 'function') {
+      var result = window._acModalOnConfirm();
+      if (result !== false) _acCloseModal();
+    }
+  }
+
+  // ── Outbox Tab ────────────────────────────────────────────
+  function _acRenderOutbox() {
+    var container = document.getElementById('ac-tab-outbox');
+    if (!container) return;
+
+    var staged    = typeof getStagedReviewItems === 'function' ? getStagedReviewItems() : [];
+    var committed = (typeof committedItems !== 'undefined' && committedItems) ? committedItems : [];
+
+    var html = '<div class="ac-outbox-shell">';
+
+    html += _acOutboxSection('Staged for Export', staged.length, 'ac-chip-warn',
+      staged.length === 0
+        ? '<div class="ac-empty-sm">Nothing staged. Mark items in Detail or Slide view.</div>'
+        : _acOutboxTable(staged,
+            [{key:'fdh',label:'FDH'},{key:'vendor',label:'Vendor'},{key:'pill',label:'Stage'},{key:'action',label:''}],
+            function(item, col) {
+              if (col.key === 'pill') {
+                var p  = typeof getQueueCombinedPill === 'function' ? getQueueCombinedPill(item) : (item.stage||'');
+                var pc = typeof getQueuePillClass    === 'function' ? getQueuePillClass(item.stage, item.status) : '';
+                return '<span class="tag ' + pc + '">' + _e(p) + '</span>';
+              }
+              if (col.key === 'action') return '<button class="ac-action-btn ac-btn-danger" onclick="event.stopPropagation();_acUnstage(\'' + _e(item.fdh) + '\')">Remove</button>';
+              return _e(item[col.key] || '—');
+            })
+    );
+
+    html += _acOutboxSection('Reviewed', committed.length, 'ac-chip-green',
+      committed.length === 0
+        ? '<div class="ac-empty-sm">No reviewed items yet.</div>'
+        : _acOutboxTable(committed,
+            [{key:'fdh',label:'FDH'},{key:'vendor',label:'Vendor'},{key:'pill',label:'Stage'},{key:'qb',label:'QB Status'}],
+            function(item, col) {
+              if (col.key === 'pill') {
+                var p  = typeof getQueueCombinedPill === 'function' ? getQueueCombinedPill(item) : (item.stage||'');
+                var pc = typeof getQueuePillClass    === 'function' ? getQueuePillClass(item.stage, item.status) : '';
+                return '<span class="tag ' + pc + '">' + _e(p) + '</span>';
+              }
+              if (col.key === 'qb') return '<span class="tag chip-muted">Reviewed</span>';
+              return _e(item[col.key] || '—');
+            })
+    );
+
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  function _acOutboxSection(title, count, chipCls, bodyHtml) {
+    return '<div class="ac-outbox-section">' +
+      '<div class="ac-section-hd">' +
+        '<span class="ac-section-title">' + title + '</span>' +
+        '<span class="ac-section-badge ' + chipCls + '">' + count + '</span>' +
+      '</div>' + bodyHtml + '</div>';
+  }
+
+  function _acOutboxTable(rows, cols, cellFn) {
+    var html = '<div class="ac-table-wrap"><table class="ac-table">' +
+      '<thead><tr>' + cols.map(function(c){ return '<th>' + c.label + '</th>'; }).join('') + '</tr></thead><tbody>';
+    rows.forEach(function(item) {
+      html += '<tr class="ac-row">' + cols.map(function(c){ return '<td>' + cellFn(item, c) + '</td>'; }).join('') + '</tr>';
+    });
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  // ── Changelog Tab ─────────────────────────────────────────
+  function _acRenderChangelog() {
+    var container = document.getElementById('ac-tab-changelog');
+    if (!container) return;
+
+    var logs = (typeof allGlobalLogs !== 'undefined' ? allGlobalLogs : []).filter(function(log) {
+      return typeof _isChangelogMilestone === 'function'
+        ? _isChangelogMilestone(String(log.type || ''), String(log.val || ''))
+        : true;
+    });
+
+    if (_acChangelogQ) {
+      var q = _acChangelogQ.toLowerCase();
+      logs = logs.filter(function(log) {
+        return [(log.fdh||''),(log.type||''),(log.val||''),(log.user||'')].join(' ').toLowerCase().indexOf(q) !== -1;
+      });
+    }
+
+    var html =
+      '<div class="ac-cl-toolbar">' +
+        '<div class="ac-search-wrap">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+          '<input class="ac-search-input" type="text" placeholder="Filter by FDH, type, value, or user…" value="' + _e(_acChangelogQ) + '" oninput="_acOnChangelogSearch(this.value)">' +
+        '</div>' +
+        '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportChangelog()">Export CSV</button>' +
+        '<span class="ac-result-count">' + logs.length + ' entries</span>' +
+      '</div>' +
+      '<div class="ac-table-wrap"><table class="ac-table ac-table-changelog ac-table-workspace">' +
+      '<thead><tr><th>When</th><th>FDH</th><th>Change Type</th><th>New Value</th><th>By</th><th class="ac-th-actions"></th></tr></thead><tbody>';
+
+    if (logs.length === 0) {
+      html += '<tr><td colspan="6" class="ac-empty-cell">No entries match this filter.</td></tr>';
+    } else {
+      logs.slice(0, 300).forEach(function(log) {
+        var ts = typeof _getChangelogTimestamp === 'function' ? _getChangelogTimestamp(log) : 0;
+        var timeStr = log.time || '—';
+        if (ts) {
+          try { var d = new Date(ts); timeStr = (d.getMonth()+1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0'); } catch(e){}
+        }
+        var val     = typeof _formatChangelogValue === 'function' ? _formatChangelogValue(log.type, log.val) : (log.val || '—');
+        var pillCls = typeof _getQBPillClass       === 'function' ? _getQBPillClass(log.type, log.val)       : 'chip-muted';
+        var fdhSafe = _e(log.fdh || '');
+        html +=
+          '<tr class="ac-row ac-log-row">' +
+          '<td class="ac-td-time">' + _e(timeStr) + '</td>' +
+          '<td class="ac-td-fdh"><span class="ac-fdh">' + fdhSafe + '</span></td>' +
+          '<td class="ac-td-type">' + _e(log.type || '—') + '</td>' +
+          '<td><span class="tag ' + pillCls + '">' + _e(val) + '</span></td>' +
+          '<td class="ac-td-user">' + _e(log.user || '—') + '</td>' +
+          '<td class="ac-td-actions" onclick="event.stopPropagation()">' +
+            (fdhSafe ? '<button class="ac-row-action-btn" onclick="_acOpenPeek(\'' + fdhSafe + '\')" title="Open project detail">↗ Open</button>' : '') +
+          '</td>' +
+          '</tr>';
+      });
+      if (logs.length > 300) {
+        html += '<tr><td colspan="6" class="ac-more-row">Showing 300 of ' + logs.length + '. Filter to narrow.</td></tr>';
+      }
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+
+  // ── Top Offenders Tab ─────────────────────────────────────
+  function _acRenderOffendersTab() {
+    if (typeof _renderSignalOffenders === 'function') _renderSignalOffenders();
+  }
+
+  // ── Reports Tab ───────────────────────────────────────────
+  var _acReportPresets = [
+    { id:'critical',  label:'All Critical',       source:'queue',     filter:function(i){ return typeof getSeverity==='function' && getSeverity(i.flags)==='crit'; }, cols:['fdh','vendor','stage','status','targetDate','flags'] },
+    { id:'warnings',  label:'All Warnings',       source:'queue',     filter:function(i){ return typeof getSeverity==='function' && getSeverity(i.flags)==='warn'; }, cols:['fdh','vendor','stage','status','targetDate','flags'] },
+    { id:'queue',     label:'Full Queue',          source:'queue',     filter:null, cols:['fdh','vendor','stage','status','targetDate','reportDate','flags'] },
+    { id:'staged',    label:'Staged for Export',  source:'staged',    filter:null, cols:['fdh','vendor','stage','status'] },
+    { id:'changelog', label:'Changelog (all)',     source:'changelog', filter:null, cols:['fdh','type','val','user','time'] },
+  ];
+
+  function _acRenderReports() {
+    var container = document.getElementById('ac-tab-reports');
+    if (!container) return;
+
+    var html =
+      '<div class="ac-reports-shell">' +
+        '<div class="ac-reports-header">Export Reports</div>' +
+        '<div class="ac-reports-subhead">One-click CSV exports from live data. No round-trip to server.</div>' +
+        '<div class="ac-reports-grid">' +
+        _acReportPresets.map(function(p) {
+          return '<div class="ac-report-card">' +
+            '<div class="ac-report-label">' + _e(p.label) + '</div>' +
+            '<div class="ac-report-cols">Cols: ' + p.cols.join(' · ') + '</div>' +
+            '<button class="btn btn-primary" style="width:100%;padding:10px;font-size:11px;margin-top:12px;" ' +
+              'onclick="_acDownloadPreset(\'' + p.id + '\')">Download CSV</button>' +
+          '</div>';
+        }).join('') +
+        '</div>' +
+      '</div>';
+
+    container.innerHTML = html;
+  }
+
+  function _acDownloadPreset(id) {
+    var p = _acReportPresets.find(function(x){ return x.id === id; });
+    if (!p) return;
+
+    var rows;
+    if      (p.source === 'queue')     { rows = typeof getActiveQueueItems    === 'function' ? getActiveQueueItems()    : []; if (p.filter) rows = rows.filter(p.filter); }
+    else if (p.source === 'staged')    { rows = typeof getStagedReviewItems   === 'function' ? getStagedReviewItems()   : []; }
+    else if (p.source === 'changelog') { rows = typeof allGlobalLogs          !== 'undefined' ? allGlobalLogs           : []; }
+    else                               { rows = []; }
+
+    var csv = [p.cols.join(',')];
+    rows.forEach(function(row) {
+      csv.push(p.cols.map(function(c) {
+        return '"' + String(row[c] == null ? '' : row[c]).replace(/"/g,'""').replace(/\n/g,' ') + '"';
+      }).join(','));
+    });
+    _acDownloadBlob(csv.join('\n'), p.id + '-' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
+  // ── Interaction handlers ──────────────────────────────────
+  function _acSetSort(col) {
+    if (_acSortCol === col) { _acSortDir = _acSortDir === 'asc' ? 'desc' : 'asc'; }
+    else { _acSortCol = col; _acSortDir = 'asc'; }
+    _acRenderQueue();
+  }
+
+  function _acSetSevFilter(sev) {
+    _acSevFilter = sev;
+    _acRenderQueue();
+    _acRenderKpiRail();
+  }
+
+  function _acToggleRow(fdh) {
+    if (_acSelected.has(fdh)) _acSelected.delete(fdh);
+    else _acSelected.add(fdh);
+    _acRenderQueue();
+  }
+
+  function _acToggleAll(checked, fdhs) {
+    _acSelected.clear();
+    if (checked && fdhs) fdhs.forEach(function(f){ _acSelected.add(f); });
+    _acRenderQueue();
+  }
+
+  function _acUnstage(fdh) {
+    if (typeof removeFromStagedDeck === 'function') removeFromStagedDeck(fdh);
+    _acRenderOutbox();
+    _acRenderKpiRail();
+  }
+
+  function _acOnChangelogSearch(query) {
+    _acChangelogQ = query;
+    _acRenderChangelog();
+  }
+
+  function _acFilterPill(sev, label) {
+    var active = _acSevFilter === sev;
+    return '<button class="ac-filter-pill' + (active ? ' active' : '') +
+      '" onclick="_acSetSevFilter(' + (sev ? '\'' + sev + '\'' : 'null') + ')">' + label + '</button>';
+  }
+
+  function _acSortHeader(col, label) {
+    var active = _acSortCol === col;
+    var arrow  = active ? (_acSortDir === 'asc' ? ' ↑' : ' ↓') : '';
+    return '<button class="ac-sort-hd' + (active ? ' active' : '') + '" onclick="_acSetSort(\'' + col + '\')">' + label + arrow + '</button>';
+  }
+
+  // ── Master entry point ────────────────────────────────────
+  function _renderActionCenter() {
+    _acRenderKpiRail();
+    _acSwitchTab(_acActiveTab);
+  }
+
+  // ── Global exports ────────────────────────────────────────
+  window._renderActionCenter  = _renderActionCenter;
+  window._acSwitchTab         = _acSwitchTab;
+  window._acSetSort           = _acSetSort;
+  window._acSetSevFilter      = _acSetSevFilter;
+  window._acToggleRow         = _acToggleRow;
+  window._acToggleAll         = _acToggleAll;
+  window._acOpenPeek          = _acOpenPeek;
+  window._acOpenPeekAtXings   = _acOpenPeekAtXings;
+  window._acStageOne          = _acStageOne;
+  window._acBulkComment       = _acBulkComment;
+  window._acBulkCrossings     = _acBulkCrossings;
+  window._acBulkCdUpload      = _acBulkCdUpload;
+  window._acBulkStage         = _acBulkStage;
+  window._acExportCsv         = _acExportCsv;
+  window._acExportChangelog   = _acExportChangelog;
+  window._acDownloadPreset    = _acDownloadPreset;
+  window._acClearSelection    = _acClearSelection;
+  window._acUnstage           = _acUnstage;
+  window._acOnChangelogSearch = _acOnChangelogSearch;
+  window._acChipClick         = _acChipClick;
+  window._acCloseModal        = _acCloseModal;
+  window._acModalConfirm      = _acModalConfirm;
+
+})();
+</script>

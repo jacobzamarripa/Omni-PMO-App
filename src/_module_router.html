@@ -111,16 +111,17 @@ function syncWorkspaceModeState() {
     isGridMode = (currentWorkspaceView === 'grid');
     isDeckMode = isSlideFaceActive();
 
-    document.body.classList.remove('grid-mode-active', 'deck-mode-active', 'gantt-view-active', 'digest-mode-active', 'dashboard-active', 'upload-view-active');
+    document.body.classList.remove('grid-mode-active', 'deck-mode-active', 'gantt-view-active', 'digest-mode-active', 'dashboard-active', 'upload-view-active', 'action-view-active');
     if (isGridMode) document.body.classList.add('grid-mode-active');
     if (isDeckMode) document.body.classList.add('deck-mode-active');
     if (currentWorkspaceView === 'gantt')  document.body.classList.add('gantt-view-active');
     if (currentWorkspaceView === 'upload') document.body.classList.add('upload-view-active');
+    if (currentWorkspaceView === 'action') document.body.classList.add('action-view-active');
 }
 
 function syncWorkspaceChrome() {
     if (currentWorkspaceView === 'dashboard') return;
-    ['detail', 'grid', 'gantt'].forEach(v => {
+    ['detail', 'grid', 'gantt', 'action'].forEach(v => {
         const btn = getEl(`view-btn-${v}`);
         if (btn) btn.classList.toggle('active', v === currentWorkspaceView);
     });
@@ -288,6 +289,7 @@ function switchWorkspaceView(mode) {
     const deckStage = getEl('deck-stage');
     const ganttPanel = getEl('gantt-panel');
     const uploadWs = getEl('upload-workspace');
+    const actionWs = getEl('action-workspace');
     if (grid) {
         grid.style.display = 'none';
         grid.style.flex = '';
@@ -311,7 +313,9 @@ function switchWorkspaceView(mode) {
         ganttPanel.style.height = '';
     }
     if (uploadWs) uploadWs.classList.remove('ws-active');
+    if (actionWs) actionWs.classList.remove('ws-active');
     if (grid) grid.classList.toggle('active', isGridMode);
+    if (typeof closeQuickPeek === 'function') closeQuickPeek();
 
     // Sync Upload nav button active state
     const uploadBtn = getEl('view-btn-upload');
@@ -346,6 +350,13 @@ function switchWorkspaceView(mode) {
             if (deckStage) deckStage.style.display = 'none';
             if (uploadWs) uploadWs.classList.add('ws-active');
             if (typeof initUploadWorkspace === 'function') initUploadWorkspace();
+        } else if (normalizedMode === 'action') {
+            setAdminPanelOpen(false);
+            if (welcome) welcome.style.display = 'none';
+            if (paneContent) paneContent.style.display = 'none';
+            if (deckStage) deckStage.style.display = 'none';
+            if (actionWs) actionWs.classList.add('ws-active');
+            if (typeof _renderActionCenter === 'function') _renderActionCenter();
         }
 
         syncGanttIslandState();
@@ -370,7 +381,7 @@ function syncOutboxPanelMode() {
     let isDeckView = isSlideFaceActive();
 
     if (title) {
-        title.innerHTML = '<span>Action</span><span>Center</span>';
+        title.innerHTML = '<span>Action</span><span>Panel</span>';
     }
     if (hubHeader) {
         hubHeader.classList.toggle('is-admin-tab', currentPanelTab === 'admin');

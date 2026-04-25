@@ -466,7 +466,10 @@
   }
 
   function _renderSignalOffenders() {
-    var el = document.getElementById('signal-panel-offenders');
+    var signalOpen = (function() { var o = document.getElementById('signal-overlay'); return o && o.classList.contains('visible'); })();
+    var actionWsActive = (function() { var w = document.getElementById('action-workspace'); return w && w.classList.contains('ws-active'); })();
+    var targetId = (!signalOpen && actionWsActive) ? 'action-offenders-panel' : 'signal-panel-offenders';
+    var el = document.getElementById(targetId);
     if (!el) return;
 
     var data = _buildOffendersData();

@@ -1,12 +1,55 @@
 <script>
 // ============================================================
-// FILE: _module_quick_peek.html | ROLE: Gantt quick-peek panel, tracker pill, and deliverable chip rendering
+// FILE: _module_quick_peek.html | ROLE: Universal quick-peek panel, tracker pill, and deliverable chip rendering
 // DEPENDS ON: _state_queue.html, _state_session.html, _utils_shared.html,
 //   _utils_notifications.html, _module_queue_state.html
-// DEPENDED ON BY: _module_gantt.html, _module_grid.html, _module_webapp_core.html
-// MOBILE/AGENT NOTES: renderQuickPeek and renderTrackerPill are used inline by gantt
-//   and grid surfaces. Do not add DOM dependencies beyond gantt-quick-peek panel.
+// DEPENDED ON BY: _module_gantt.html, _module_grid.html, _module_webapp_core.html, _module_action_center.html
 // ============================================================
+
+let _qpAcContext = false;
+let _qpActiveFdh = null;
+
+function _acLoadNote(fdh) {
+    try { return JSON.parse(localStorage.getItem('ac_notes') || '{}')[fdh] || null; } catch(e) { return null; }
+}
+
+function _acSaveNote(fdh, text) {
+    try {
+        const notes = JSON.parse(localStorage.getItem('ac_notes') || '{}');
+        notes[fdh] = { text: text, ts: new Date().toISOString() };
+        localStorage.setItem('ac_notes', JSON.stringify(notes));
+    } catch(e) {}
+}
+
+function openQuickPeek(item, acContext) {
+    _qpAcContext = !!acContext;
+    _qpActiveFdh = item ? item.fdh : null;
+    currentActiveItem = item;
+    renderQuickPeek(item);
+    const panel = getEl('gantt-quick-peek');
+    if (panel) panel.classList.add('open');
+}
+
+function saveQuickPeekNoteLocal(btn) {
+    const ta = getEl('qp-note-textarea');
+    const fdh = _qpActiveFdh;
+    if (!ta || !fdh) return;
+    _acSaveNote(fdh, ta.value);
+    const orig = btn.innerHTML;
+    btn.innerHTML = 'SAVED ✓'; btn.disabled = true;
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 1500);
+}
+
+function commitXingsFromPeek(fdh) {
+    const sel = getEl('qp-xing-sel-' + fdh);
+    const det = getEl('qp-xing-details-' + fdh);
+    if (!sel || !sel.value) { showToast('Select a crossing status first.', 'error'); return; }
+    const payload = { fdh: fdh, xing: sel.value, xingDetails: (det || {}).value || '', verifiedDate: new Date().toLocaleDateString() };
+    google.script.run
+        .withSuccessHandler(() => showToast('Crossings committed for ' + fdh, 'success'))
+        .withFailureHandler(err => showToast('Commit failed: ' + (err.message || err), 'error'))
+        .stageExternalFinding(payload);
+}
 
 function renderQuickPeek(item) {
     const panel = getEl('gantt-quick-peek');
@@ -18,6 +61,25 @@ function renderQuickPeek(item) {
     const vComment = item.vendorComment ? item.vendorComment.trim() : 'No update.';
     const targetDateVal = item.targetDate || item.cxEnd || '';
     const targetDateLabel = targetDateVal ? formatDate(targetDateVal) : 'TBD';
+    _qpActiveFdh = item.fdh;
+    const localNote = _qpAcContext ? _acLoadNote(item.fdh) : null;
+    const noteVal = localNote ? localNote.text : (item.comment || item.draft || '');
+
+    // Crossings — pre-populate from QB ref and CD intel, matching renderSpecialXingsSection logic
+    const _qpQb = item.qbRef || {};
+    const _qpQbDetails = _qpQb['526'] || '';
+    let _qpCurrentXing = _qpQb.xingExist || item.rawSpecialX || '';
+    if (!_qpCurrentXing || _qpCurrentXing === '—') {
+        const _cdText = (item.cdIntel || '').trim().toLowerCase();
+        _qpCurrentXing = (_cdText && _cdText !== 'none' && !_cdText.includes('no special crossings found')) ? 'YES' : 'NO';
+    }
+    let _qpCurrentDetails = item.specXDetails || item.cdIntel || '';
+    if (_qpQbDetails.trim()) {
+        _qpCurrentDetails = !_qpCurrentDetails.includes('[QUICKBASE]')
+            ? `[QUICKBASE]: ${_qpQbDetails.trim()}\n\n${_qpCurrentDetails}`.trim()
+            : `[QUICKBASE]: ${_qpQbDetails.trim()}\n\n` + _qpCurrentDetails.split(/\[QUICKBASE\]:.*?\n\n/i).pop();
+    }
+    const _qpXCls = _qpCurrentXing === 'YES' ? 'val-yes' : (_qpCurrentXing === 'NO' ? 'val-no' : '');
 
     let cxEnd = safeDate(item.cxEnd || item.targetDate);
     let ofsDate = getEffectiveOfsDate(item);
@@ -120,18 +182,47 @@ function renderQuickPeek(item) {
                 </div>
             </div>
 
+            <div class="qb-module">
+                <div class="schedule-xing-popout-meta" style="margin-bottom:12px;">
+                    <div class="xing-indicator-pill">SPECIAL X-INGS</div>
+                    <div class="xing-field">
+                        <label class="xing-label" style="font-size:8px; margin:0;">X-ING?</label>
+                        <select class="xing-select ${_qpXCls}" id="qp-xing-sel-${item.fdh}" onchange="handleXingSelectChange(this)" style="height:28px; padding:3px 8px; font-size:11px;">
+                            ${['','YES','NO'].map(opt => `<option value="${opt}" ${_qpCurrentXing === opt ? 'selected' : ''}>${opt || '—'}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="xing-bubble cd-dropzone" id="qp-cd-dropzone-${item.fdh}"
+                     ondragover="handleCdDragOver(event, this)"
+                     ondragleave="handleCdDragLeave(event, this)"
+                     ondrop="handleCdDrop(event, this, '${item.fdh}')">
+                    <div class="cd-overlay-trigger" onclick="triggerCdSelect('${item.fdh}')" title="Analyze CD PDF">${icon('upload', 14)}</div>
+                    <div class="cd-drop-hint">DROP CD PDF TO ANALYZE</div>
+                    <textarea class="xing-details-textarea" id="qp-xing-details-${item.fdh}"
+                              oninput="this.style.height=''; this.style.height=this.scrollHeight+'px'"
+                              placeholder="Sheet names, crossing types...">${_qpCurrentDetails}</textarea>
+                </div>
+                <div class="schedule-xing-popout-actions" style="margin-top:10px;">
+                    <button class="schedule-xing-secondary" type="button" onclick="openGanttForCurrentProjectFromCrossings()">${icon('calendar', 12)} Open Schedule</button>
+                    <button class="xing-commit-btn" id="qp-xing-commit-${item.fdh}" onclick="commitXingsFromPeek('${item.fdh}')">${icon('shield', 12)} Commit X-ings</button>
+                </div>
+            </div>
+
             <div class="qb-module" style="background:rgba(168, 85, 247, 0.03); border-color:rgba(168, 85, 247, 0.2);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <div class="section-label" style="color:var(--color-insight); margin:0;">PM NOTE</div>
+                    <div class="section-label" style="color:var(--color-insight); margin:0;">PM NOTE${_qpAcContext ? ' <span style="font-size:8px; opacity:0.6; font-weight:400;">(local)</span>' : ''}</div>
                     ${item.geminiDate ? `<span style="font-size:8px; font-style:italic; color:var(--color-insight);">Drafted: ${formatDate(item.geminiDate)}</span>` : ''}
                 </div>
-                <textarea id="qp-note-textarea" class="chat-bubble" oninput="syncQuickPeekNote()" placeholder="Enter decision...">${item.comment || item.draft || ''}</textarea>
+                <textarea id="qp-note-textarea" class="chat-bubble" oninput="syncQuickPeekNote()" placeholder="Enter decision...">${noteVal}</textarea>
             </div>
         </div>
 
         <div style="padding:16px 20px; border-top:1px solid var(--border); background:var(--bg); display:flex; gap:10px; flex-shrink:0;">
             <button class="btn-ai" onclick="askGeminiForQuickPeek(this)" style="flex:1; padding:14px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:6px;">${icon('sparkle')} DRAFT W/ GEMINI</button>
-            <button class="btn btn-primary" onclick="saveQuickPeek(this)" style="flex:1; padding:14px; font-size:11px; background:#3b82f6; border-color:#2563eb;">SAVE TO SHEET</button>
+            ${_qpAcContext
+                ? `<button class="btn btn-primary" onclick="saveQuickPeekNoteLocal(this)" style="flex:1; padding:14px; font-size:11px;">SAVE NOTE ▸ private</button>`
+                : `<button class="btn btn-primary" onclick="saveQuickPeek(this)" style="flex:1; padding:14px; font-size:11px; background:#3b82f6; border-color:#2563eb;">SAVE TO SHEET</button>`
+            }
         </div>
     `;
 }
@@ -139,6 +230,8 @@ function renderQuickPeek(item) {
 function closeQuickPeek() {
     const panel = getEl('gantt-quick-peek');
     if (panel) panel.classList.remove('open');
+    _qpAcContext = false;
+    _qpActiveFdh = null;
 }
 
 function syncQuickPeekNote() {
