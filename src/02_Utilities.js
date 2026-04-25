@@ -852,22 +852,7 @@ function _buildPortfolioActionItems(options) {
     if (!visibleInPortfolio && !includeSuppressed) return;
 
     const rawMirrorOfsDate = _dashboardParseDate(getRowVal(fieldMap.ofsIdx, ""));
-    const canonicalOfsDate = String(refData.canonicalOfsDate || refData.forecastedOFS || getRowVal(fieldMap.ofsIdx, "") || "").trim();
-    const normalizedCanonicalOfsDate = (!canonicalOfsDate || canonicalOfsDate === '-' || canonicalOfsDate === 'Unknown')
-      ? ""
-      : canonicalOfsDate;
-
-    const referenceMeta = _buildReferenceConfidenceMeta({
-      flags: rawFlags,
-      hasReferencePresence: true,
-      rid: String(refData.rid || ""),
-      hasSOW: refData.hasSOW,
-      hasCDDel: refData.hasCDDel,
-      hasCDDist: refData.hasCDDist,
-      hasBOMDel: refData.hasBOMDel,
-      hasBOMPo: refData.hasBOMPo,
-      cxInferred: String(getRowVal(fieldMap.cxInferredIdx, "") || "")
-    });
+    // ... rest of confidence meta block ...
 
     let currentFlags = rawFlags;
     let draft = String(getRowVal(fieldMap.draftIdx, "") || "");
@@ -907,6 +892,32 @@ function _buildPortfolioActionItems(options) {
       fieldProduction = "No daily report history found.";
       vendorComment = "Missing daily report.";
       reportingStatus = "missing";
+    }
+
+    // 🧠 HANDOFF PERSISTENCE: Ensure dated flags and diagnostic notes survive the overrides above
+    if (hasHandoff) {
+        let handoffMatch = milestonesRaw.match(/(\d{2}\/\d{2}\/\d{2}): HANDOFF: (.*)/);
+        if (handoffMatch) {
+            let fullDate = handoffMatch[1];
+            let dateParts = fullDate.split('/');
+            let mmDd = (dateParts.length >= 2) ? (dateParts[0] + '/' + dateParts[1]) : fullDate;
+            let handoffDetail = handoffMatch[2];
+            let handoffFlag = `HANDOFF (${mmDd})`;
+            let handoffNote = `Project handoff detected on ${mmDd} (${handoffDetail}).`;
+
+            // Ensure flag is in currentFlags and has the date
+            if (!currentFlags.includes("HANDOFF")) {
+                currentFlags = (currentFlags && currentFlags !== "No Anomalies") ? (currentFlags + "\n" + handoffFlag) : handoffFlag;
+            } else if (!currentFlags.includes("(")) {
+                // If generic HANDOFF exists, swap it for the dated one
+                currentFlags = currentFlags.split("\n").map(function(f) { return f.trim() === "HANDOFF" ? handoffFlag : f; }).join("\n");
+            }
+            
+            // Ensure note is in draft
+            if (!draft.includes("handoff detected")) {
+                draft = (draft ? draft + "\n" : "") + handoffNote;
+            }
+        }
     }
 
     const stageStr = rawStage.toUpperCase();

@@ -2241,17 +2241,31 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     let diag = runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, lkvDict);
     
     if (mergeData.vendors.size > 1 || (benchmarkDict[fdhId] && benchmarkDict[fdhId].includes("HANDOFF"))) {
-        if (diag.flags !== "No Anomalies" && diag.flags !== "") {
-            if (!diag.flags.includes("HANDOFF")) diag.flags += "\nHANDOFF";
+        let handoffMatch = benchmarkDict[fdhId] ? benchmarkDict[fdhId].match(/(\d{2}\/\d{2}\/\d{2}): HANDOFF: (.*)/) : null;
+        let fullDate = handoffMatch ? handoffMatch[1] : Utilities.formatDate(new Date(row[0]), "GMT-5", "MM/dd/yy");
+        let dateParts = fullDate.split('/');
+        let mmDd = dateParts[0] + '/' + dateParts[1];
+        let handoffDetail = handoffMatch ? handoffMatch[2] : Array.from(mergeData.vendors).join(" & ");
+        let handoffFlag = `HANDOFF (${mmDd})`;
+
+        // Deduplicate: replace generic HANDOFF if it exists, otherwise append
+        if (diag.flags.includes("HANDOFF")) {
+            diag.flags = diag.flags.split("\n").map(function(f) { return f.trim() === "HANDOFF" ? handoffFlag : f; }).join("\n");
+        } else if (diag.flags !== "No Anomalies" && diag.flags !== "") {
+            diag.flags += "\n" + handoffFlag;
         } else {
-            diag.flags = "HANDOFF";
+            diag.flags = handoffFlag;
         }
-        if (!diag.flags.includes("HANDOFF")) diag.flagColors.push("#64748b"); // Slate Gray
         
+        if (!diag.flagColors.includes("#64748b")) diag.flagColors.push("#64748b"); // Slate Gray
+        
+        const handoffNote = `Project handoff detected on ${mmDd} (${handoffDetail}).`;
+        if (!diag.draft.includes("handoff detected")) {
+            diag.draft = (diag.draft ? diag.draft + " " : "") + handoffNote;
+        }
+
         if (mergeData.vendors.size > 1) {
-            diag.draft = (diag.draft ? diag.draft + " " : "") + `Multi-vendor activity detected (${Array.from(mergeData.vendors).join(", ")}). Possible project handoff in progress.`;
-            
-            // Add handoff milestone
+            // Add handoff milestone if multi-vendor on same day
             let handoffLabel = `HANDOFF: ${Array.from(mergeData.vendors).join(" & ")}`;
             let datePrefix = Utilities.formatDate(new Date(row[0]), "GMT-5", "MM/dd/yy");
             if (!benchmarkDict[fdhId]) benchmarkDict[fdhId] = `${datePrefix}: ${handoffLabel}`;
@@ -2513,6 +2527,32 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
         ghostRowObj["Health Flags"]    = diag.flags;
         ghostRowObj["Action Required"] = (diag.draft ? diag.draft + "\n" : "") + staleDraft;
         ghostRowObj["Vendor Comment"]  = lRow[HISTORY_HEADERS.indexOf("Vendor Comment")] || "No update provided.";
+      }
+
+      // 🧠 HANDOFF PERSISTENCE: Ensure handoff flags/notes survive grace window and missing report overrides
+      if (hasHandoff) {
+          let handoffMatch = benchmarkDict[ghostFdhId].match(/(\d{2}\/\d{2}\/\d{2}): HANDOFF: (.*)/);
+          let fullDate = handoffMatch ? handoffMatch[1] : Utilities.formatDate(targetDateObj, "GMT-5", "MM/dd/yy");
+          let dateParts = fullDate.split('/');
+          let mmDd = (dateParts.length >= 2) ? (dateParts[0] + '/' + dateParts[1]) : fullDate;
+          let handoffDetail = handoffMatch ? handoffMatch[2] : "Multi-vendor detected";
+          let handoffFlag = `HANDOFF (${mmDd})`;
+
+          let currentFlags = ghostRowObj["Health Flags"] || "";
+          if (currentFlags.includes("HANDOFF")) {
+              currentFlags = currentFlags.split("\n").map(function(f) { return f.trim() === "HANDOFF" ? handoffFlag : f; }).join("\n");
+          } else if (currentFlags !== "" && currentFlags !== "No Anomalies") {
+              currentFlags += "\n" + handoffFlag;
+          } else {
+              currentFlags = handoffFlag;
+          }
+          ghostRowObj["Health Flags"] = currentFlags;
+          
+          const handoffNote = `Project handoff detected on ${mmDd} (${handoffDetail}).`;
+          let currentDraft = ghostRowObj["Action Required"] || "";
+          if (!currentDraft.includes("handoff detected")) {
+              ghostRowObj["Action Required"] = (currentDraft ? currentDraft + "\n" : "") + handoffNote;
+          }
       }
       ghostRowObj["Archive_Row"]     = latest.idx + 1;
 

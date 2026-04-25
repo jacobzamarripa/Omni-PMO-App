@@ -118,7 +118,10 @@ function getGroupedQueueSections(items) {
                     if (!groups.has(key)) {
                         groups.set(key, { key: key, label: label, sortKey: label.toLowerCase(), items: [] });
                     }
-                    groups.get(key).items.push(item);
+                    let groupItems = groups.get(key).items;
+                    if (!groupItems.some(function(i) { return i.fdh === item.fdh; })) {
+                        groupItems.push(item);
+                    }
                 }
             });
         } else {
@@ -126,7 +129,10 @@ function getGroupedQueueSections(items) {
             if (!groups.has(meta.key)) {
                 groups.set(meta.key, { key: meta.key, label: meta.label, sortKey: meta.sortKey, items: [] });
             }
-            groups.get(meta.key).items.push(item);
+            let groupItems = groups.get(meta.key).items;
+            if (!groupItems.some(function(i) { return i.fdh === item.fdh; })) {
+                groupItems.push(item);
+            }
         }
     });
     let sections = Array.from(groups.values());
