@@ -28,6 +28,9 @@ function openQuickPeek(item, acContext) {
     renderQuickPeek(item);
     const panel = getEl('gantt-quick-peek');
     if (panel) panel.classList.add('open');
+    const ws = document.getElementById('action-workspace');
+    if (ws && acContext) ws.classList.add('ac-peek-open');
+    if (typeof window._acOnPeekOpen === 'function') window._acOnPeekOpen(item ? item.fdh : null);
 }
 
 function saveQuickPeekNoteLocal(btn) {
@@ -232,6 +235,9 @@ function renderQuickPeek(item) {
 function closeQuickPeek() {
     const panel = getEl('gantt-quick-peek');
     if (panel) panel.classList.remove('open');
+    const ws = document.getElementById('action-workspace');
+    if (ws) ws.classList.remove('ac-peek-open');
+    if (typeof window._acOnPeekClose === 'function') window._acOnPeekClose();
     _qpAcContext = false;
     _qpActiveFdh = null;
 }
