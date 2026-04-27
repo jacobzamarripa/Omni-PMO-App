@@ -768,14 +768,72 @@ body.action-view-active #admin-fab {
 .ac-table-changelog .ac-td-type { text-transform: capitalize; }
 
 /* ── Top Offenders tab ───────────────────────────────────── */
-.ac-offenders-wrap,
-.ac-xing-card-wrap {
+.ac-offenders-wrap {
   padding: 20px 32px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   flex: 1;
   min-height: 0;
 }
+.ac-xing-card-wrap {
+  padding: 12px 40px 24px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Vendor filter chips row ─────────────────────────────── */
+.ac-xing-vendor-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 40px 4px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+/* ── KPI rail: smooth collapse on scroll ────────────────── */
+.ac-tab-kpi-rail {
+  transition: max-height 0.22s ease, opacity 0.18s ease, padding-top 0.22s ease, padding-bottom 0.22s ease, border-bottom-color 0.18s ease;
+  max-height: 160px;
+  overflow: hidden;
+}
+#ac-tab-crossings.ac-kpi-stuck .ac-tab-kpi-rail {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-bottom-color: transparent !important;
+}
+
+/* ── Inline compact KPI (visible when KPI rail is collapsed) */
+.ac-toolbar-kpi-inline {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 1;
+  overflow: hidden;
+  margin-right: 8px;
+}
+#ac-tab-crossings.ac-kpi-stuck .ac-toolbar-kpi-inline {
+  display: flex;
+}
+.ac-tki-chip {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-muted);
+}
+.ac-tki-pend { border-color: color-mix(in srgb, #ef4444 22%, var(--border)); color: #ef4444; background: color-mix(in srgb, #ef4444 5%, var(--card-bg)); }
+.ac-tki-yes  { border-color: color-mix(in srgb, #22c55e 22%, var(--border)); color: #16a34a; background: color-mix(in srgb, #22c55e 5%, var(--card-bg)); }
+.ac-tki-no   { border-color: color-mix(in srgb, #ef4444 22%, var(--border)); color: #b91c1c; background: color-mix(in srgb, #ef4444 5%, var(--card-bg)); }
 
 /* ── Tab bar spacer + Bulk Status utility button ─────────── */
 .ac-tab-spacer {
@@ -1268,6 +1326,7 @@ body.action-view-active .gantt-quick-peek .qp-xing-module .xing-details-textarea
   font-size: 12px;
   line-height: 1.45;
   background: transparent;
+  min-height: 32px;
 }
 .ac-xing-card-wrap .xing-details-textarea::placeholder,
 body.action-view-active .gantt-quick-peek .qp-xing-module .xing-details-textarea::placeholder {

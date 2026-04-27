@@ -15,6 +15,8 @@
   var _acXingsSearchQuery= '';
   var _acXingsSelected   = new Set();
   var _acXingGroupCollapsed = {};
+  var _acXingVendorFilter   = null;    // null or vendor string
+  var _acXingCityFilter     = null;    // null or city string
   var _acVisibleXingFdhs = [];
   var _acCrossingsEdits  = {};        // {fdh: {xing, details}}
   var _acCommentsEdits   = {};        // {fdh: text}
@@ -412,8 +414,35 @@
   }
 
   function _acToggleXingGroup(key) {
-    _acXingGroupCollapsed[key] = !_acXingGroupCollapsed[key];
+    // Default (undefined) = collapsed; false = explicitly opened
+    var isCurrentlyCollapsed = _acXingGroupCollapsed[key] !== false;
+    _acXingGroupCollapsed[key] = !isCurrentlyCollapsed;
     _acRenderCrossingsTab();
+  }
+
+  function _acSetXingVendorFilter(v) {
+    _acXingVendorFilter = (_acXingVendorFilter === v) ? null : v;
+    _acXingCityFilter = null;
+    _acRenderCrossingsTab();
+  }
+
+  function _acSetXingCityFilter(c) {
+    _acXingCityFilter = (_acXingCityFilter === c) ? null : c;
+    _acRenderCrossingsTab();
+  }
+
+  function _acOnXingScroll() {
+    var tab = document.getElementById('ac-tab-crossings');
+    if (!tab) return;
+    var wrap = tab.querySelector('.ac-xing-card-wrap');
+    tab.classList.toggle('ac-kpi-stuck', !!(wrap && wrap.scrollTop > 0));
+  }
+
+  function _acBindXingScroll() {
+    var wrap = document.querySelector('#ac-tab-crossings .ac-xing-card-wrap');
+    if (!wrap || wrap._xingScrollBound) return;
+    wrap._xingScrollBound = true;
+    wrap.addEventListener('scroll', _acOnXingScroll, { passive: true });
   }
 
   function _acBuildXingGroups(items) {
@@ -495,45 +524,72 @@
     var container = document.getElementById('ac-tab-crossings');
     if (!container) return;
 
-    var items = _acGetFilteredCrossingItems();
+    var allItems = _acGetFilteredCrossingItems();
+
+    // Build vendor list for filter chips (from unfiltered set)
+    var vendorSet = {}, vendorList = [];
+    allItems.forEach(function(i) {
+      var v = i.vendor || 'Unassigned';
+      if (!vendorSet[v]) { vendorSet[v] = true; vendorList.push(v); }
+    });
+    vendorList.sort();
+
+    // Apply vendor + city filters
+    var items = allItems;
+    if (_acXingVendorFilter) items = items.filter(function(i) { return (i.vendor || '') === _acXingVendorFilter; });
+    if (_acXingCityFilter)   items = items.filter(function(i) { return (i.city   || '') === _acXingCityFilter;   });
 
     _acVisibleXingFdhs = items.map(function(i){ return i.fdh; });
-    var allChecked = items.length > 0 && items.every(function(i){ return _acXingsSelected.has(i.fdh); });
     var selCount = _acXingsSelected.size;
 
+    // KPI values for inline-compact chips (based on full allItems, not filtered)
+    var kpiPend = allItems.filter(function(i){ return _acResolveCrossing(i).pending; }).length;
+    var kpiYes  = allItems.filter(function(i){ return (_acResolveCrossing(i).xing || '').toUpperCase() === 'YES'; }).length;
+    var kpiNo   = allItems.filter(function(i){ return (_acResolveCrossing(i).xing || '').toUpperCase() === 'NO';  }).length;
+
     var html =
-      // Hidden file input for CSV import
-      '<input type="file" id="ac-csv-import-input" accept=".csv,.xlsx" style="display:none" onchange="_acOnCsvFileSelected(this)">' +
+      '<input type="file" id="ac-csv-import-input" accept=".csv,.xlsx" style="display:none" onchange="_acOnCsvFileSelected(this)">'
+      + _acRenderTabKpi('crossings')
+      + '<div class="ac-toolbar">'
+      +   '<div class="ac-toolbar-left">'
+      +     '<div class="ac-toolbar-kpi-inline">'
+      +       '<span class="ac-tki-chip ac-tki-pend">' + kpiPend + ' Pending</span>'
+      +       '<span class="ac-tki-chip ac-tki-yes">'  + kpiYes  + ' YES</span>'
+      +       '<span class="ac-tki-chip ac-tki-no">'   + kpiNo   + ' NO</span>'
+      +     '</div>'
+      +     (selCount > 0
+              ? '<span class="ac-bulk-count">' + selCount + ' selected</span>'
+                + '<button class="ac-bulk-action-btn" onclick="_acCommitSelectedCrossings()">Commit Selected</button>'
+              : '')
+      +   '</div>'
+      +   '<div class="ac-toolbar-right">'
+      +     '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportCrossingsCSV()">Export CSV</button>'
+      +     '<button class="ac-bulk-action-btn ac-import-btn" onclick="_acTriggerCsvImport()">Import CSV</button>'
+      +   '</div>'
+      + '</div>';
 
-      // Per-tab KPI strip
-      _acRenderTabKpi('crossings') +
-
-      // Action-only toolbar
-      '<div class="ac-toolbar">' +
-        '<div class="ac-toolbar-left">' +
-          (selCount > 0
-            ? '<span class="ac-bulk-count">' + selCount + ' selected</span>' +
-              '<button class="ac-bulk-action-btn" onclick="_acCommitSelectedCrossings()">Commit Selected</button>'
-            : '') +
-        '</div>' +
-        '<div class="ac-toolbar-right">' +
-          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportCrossingsCSV()">Export CSV</button>' +
-          '<button class="ac-bulk-action-btn ac-import-btn" onclick="_acTriggerCsvImport()">Import CSV</button>' +
-        '</div>' +
-      '</div>';
+    // Vendor filter chips (only when multiple vendors present)
+    if (vendorList.length > 1) {
+      html += '<div class="ac-xing-vendor-chips">'
+        + '<button class="ac-filter-pill' + (!_acXingVendorFilter ? ' active' : '') + '" onclick="_acSetXingVendorFilter(null)">All</button>';
+      vendorList.forEach(function(v) {
+        html += '<button class="ac-filter-pill' + (_acXingVendorFilter === v ? ' active' : '') + '" onclick="_acSetXingVendorFilter(\'' + _acJs(v) + '\')">' + _e(v) + '</button>';
+      });
+      html += '</div>';
+    }
 
     if (items.length === 0) {
-      html += '<div class="ac-empty">' +
-        '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
-        '<div>No items match this filter.</div>' +
-      '</div>';
+      html += '<div class="ac-xing-card-wrap"><div class="ac-empty">'
+        + '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+        + '<div>No items match this filter.</div>'
+        + '</div></div>';
     } else {
       var groups = _acBuildXingGroups(items);
       html += '<div class="ac-xing-card-wrap"><div class="off-vendor-stack">';
 
       groups.forEach(function(group) {
         var vendorKey = _acXingGroupKey(group.vendor, '');
-        var vendorCollapsed = !!_acXingGroupCollapsed[vendorKey];
+        var vendorCollapsed = _acXingGroupCollapsed[vendorKey] !== false;  // default: collapsed
         var vKey = group.vendor.replace(/[^a-z0-9]/gi, '_');
         var monogram = (group.vendor || '?').charAt(0).toUpperCase();
 
@@ -561,22 +617,27 @@
           +   '</div>'
           +   '<div class="off-vendor-stats">'
           +     '<div class="off-vendor-stat"><span class="off-vendor-stat-value">' + pendCount + '</span><span class="off-vendor-stat-label">Pending</span></div>'
-          +     '<div class="off-vendor-stat"><span class="off-vendor-stat-value">' + yesCount + '</span><span class="off-vendor-stat-label">YES</span></div>'
-          +     '<div class="off-vendor-stat"><span class="off-vendor-stat-value">' + noCount + '</span><span class="off-vendor-stat-label">NO</span></div>'
+          +     '<div class="off-vendor-stat"><span class="off-vendor-stat-value">' + yesCount  + '</span><span class="off-vendor-stat-label">YES</span></div>'
+          +     '<div class="off-vendor-stat"><span class="off-vendor-stat-value">' + noCount   + '</span><span class="off-vendor-stat-label">NO</span></div>'
           +   '</div>'
           + '</div>'
           + '<div class="off-vendor-footer">'
           +   '<div class="off-vendor-flags">';
 
+        // City chips as interactive filter buttons
         group.cityNames.slice(0, 5).forEach(function(city) {
-          html += '<span class="tag chip-muted">' + _e(city) + ' &times;' + group.cities[city].length + '</span>';
+          var isCityActive = _acXingCityFilter === city;
+          html += '<button class="ac-filter-pill' + (isCityActive ? ' active' : '') + '" '
+            + 'onclick="event.stopPropagation();_acSetXingCityFilter(\'' + _acJs(city) + '\')">'
+            + _e(city) + ' &times;' + group.cities[city].length
+            + '</button>';
         });
         if (group.cityNames.length > 5) {
           html += '<span class="tag chip-muted">+' + (group.cityNames.length - 5) + ' more</span>';
         }
 
-        html += '</div>'   // off-vendor-flags
-          + '</div>';      // off-vendor-footer
+        html += '</div>'  // off-vendor-flags
+          + '</div>';     // off-vendor-footer
 
         // Collapsible project list (inside card so sticky header constrains correctly)
         html += '<div class="off-project-list' + (vendorCollapsed ? '' : ' open') + '" id="ac-xpl-' + vKey + '">'
@@ -604,6 +665,7 @@
 
     container.innerHTML = html;
     _acSyncTabBadges();
+    _acBindXingScroll();
   }
 
   // Shims for backward compatibility (inline handlers in Quick Peek may call these)
@@ -1409,6 +1471,8 @@
   window._acSetXingsFilter             = _acSetXingsFilter;
   window._acSetXingsSearch             = _acSetXingsSearch;
   window._acToggleXingGroup       = _acToggleXingGroup;
+  window._acSetXingVendorFilter   = _acSetXingVendorFilter;
+  window._acSetXingCityFilter     = _acSetXingCityFilter;
   window._acToggleXingRow         = _acToggleXingRow;
   window._acToggleAllXings        = _acToggleAllXings;
   window._acToggleVisibleXings    = _acToggleVisibleXings;
