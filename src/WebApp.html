@@ -1201,35 +1201,49 @@
 
     <!-- Action Center Workspace -->
     <div id="action-workspace">
-      <!-- KPI Rail -->
-      <div class="ac-kpi-rail" id="ac-kpi-rail"></div>
       <!-- Tab Bar -->
       <div class="ac-tab-bar">
-        <button class="ac-tab-btn active" id="ac-tab-btn-queue" onclick="_acSwitchTab('queue')">
-          Tasks <span class="ac-tab-badge" id="ac-badge-queue" style="display:none"></span>
+        <button class="ac-tab-btn active" id="ac-tab-btn-crossings" onclick="_acSwitchTab('crossings')">
+          <span class="ac-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16"/><path d="M4 16h16"/><path d="M8 4v16"/><path d="M16 4v16"/></svg></span>
+          <span class="ac-tab-label">CROSSINGS</span>
+          <span class="ac-tab-badge" data-ac-tab-badge="crossings" hidden>0</span>
         </button>
-        <button class="ac-tab-btn" id="ac-tab-btn-outbox" onclick="_acSwitchTab('outbox')">
-          Outbox <span class="ac-tab-badge ac-tab-badge-green" id="ac-badge-outbox" style="display:none"></span>
+        <button class="ac-tab-btn" id="ac-tab-btn-boms" onclick="_acSwitchTab('boms')">
+          <span class="ac-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+          <span class="ac-tab-label">BOMS</span>
+          <span class="ac-tab-badge" data-ac-tab-badge="boms" hidden>0</span>
         </button>
-        <button class="ac-tab-btn" id="ac-tab-btn-changelog" onclick="_acSwitchTab('changelog')">
-          Changelog
+        <button class="ac-tab-btn" id="ac-tab-btn-comments" onclick="_acSwitchTab('comments')">
+          <span class="ac-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span>
+          <span class="ac-tab-label">COMMENTS</span>
+          <span class="ac-tab-badge" data-ac-tab-badge="comments" hidden>0</span>
         </button>
         <button class="ac-tab-btn" id="ac-tab-btn-offenders" onclick="_acSwitchTab('offenders')">
-          Top Offenders
+          <span class="ac-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.8 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+          <span class="ac-tab-label">TOP OFFENDERS</span>
+          <span class="ac-tab-badge" data-ac-tab-badge="offenders" hidden>0</span>
         </button>
         <button class="ac-tab-btn" id="ac-tab-btn-reports" onclick="_acSwitchTab('reports')">
-          Reports
+          <span class="ac-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg></span>
+          <span class="ac-tab-label">REPORTS</span>
+          <span class="ac-tab-badge ac-tab-badge-green" data-ac-tab-badge="reports" hidden>0</span>
+        </button>
+        <div class="ac-tab-spacer"></div>
+        <button class="ac-header-util-btn" onclick="_acOpenBulkStatusModal()" title="Bulk status change with milestone suggestions">
+          Bulk Status
         </button>
       </div>
+      <!-- Universal Filter Bar — rebuilt on every tab switch -->
+      <div class="ac-universal-filter-bar" id="ac-universal-filter-bar"></div>
       <!-- Tab Content Areas -->
       <div class="ac-tab-content">
-        <div id="ac-tab-queue"     class="ac-tab-panel"></div>
-        <div id="ac-tab-outbox"    class="ac-tab-panel" style="display:none"></div>
-        <div id="ac-tab-changelog" class="ac-tab-panel" style="display:none"></div>
-        <div id="ac-tab-offenders" class="ac-tab-panel" style="display:none">
+        <div id="ac-tab-crossings"  class="ac-tab-panel"></div>
+        <div id="ac-tab-boms"       class="ac-tab-panel" style="display:none"></div>
+        <div id="ac-tab-comments"   class="ac-tab-panel" style="display:none"></div>
+        <div id="ac-tab-offenders"  class="ac-tab-panel" style="display:none">
           <div id="action-offenders-panel" class="ac-offenders-wrap"></div>
         </div>
-        <div id="ac-tab-reports"   class="ac-tab-panel" style="display:none"></div>
+        <div id="ac-tab-reports"    class="ac-tab-panel" style="display:none"></div>
       </div>
     </div>
 

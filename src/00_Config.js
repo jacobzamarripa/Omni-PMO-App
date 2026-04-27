@@ -16,6 +16,12 @@ const CDS_PERMITS_FOLDER_ID = "1BxKhfNAXo32TPEvrTBsGi69lVo9njDU8";
 const VENDOR_TRACKER_ID   = "1O9PiwSxkoI6md8XEIUfohV3yY4ot5uqqO9VKU8HfEl0"; 
 const PAYLOAD_FOLDER_ID     = "11wQaLNWF4xgBL_nkU8kYKXsaU8zowME9"; // App_Datastore
 const PAYLOAD_FILENAME      = "dashboard_payload_v2.json";
+
+// Bulk Action Report folders — create subfolders in Drive and paste IDs here.
+// Until populated, all bulk exports fall back to COMPILED_FOLDER_ID.
+const CROSSINGS_REPORTS_FOLDER_ID = ""; // Bulk_Reports/Crossings
+const BOM_REPORTS_FOLDER_ID       = ""; // Bulk_Reports/BOMs
+const COMMENTS_REPORTS_FOLDER_ID  = ""; // Bulk_Reports/Comments
 const DEFAULT_VENDOR_DAILY_GOALS = {
   "Bucyrus": 18000,
   "Dycom": 22000,

@@ -676,12 +676,15 @@
           var stageStatus = [p.city, p.stage, p.status].filter(Boolean).join(' · ');
           var fdhJs = (typeof escJs === 'function') ? escJs(p.fdh || '') : String(p.fdh || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
           // Top row: FDH + meta + Open button
+          var openAction = targetId === 'action-offenders-panel'
+            ? '_acOpenPeek(\'' + fdhJs + '\')'
+            : '_signalNavigateToItem(\'' + fdhJs + '\')';
           var rowHtml = '<div class="off-project-row">'
             + '<div class="off-project-row-top">'
             + '<span class="off-project-fdh">' + _esc(p.fdh || '—') + '</span>'
             + '<span class="off-project-meta">' + _esc(stageStatus) + '</span>'
             + '<button class="signal-qb-open-btn" style="font-size:9px;padding:4px 8px;flex-shrink:0"'
-            + ' onclick="event.stopPropagation();_signalNavigateToItem(\'' + fdhJs + '\')">Open Detail</button>'
+            + ' onclick="event.stopPropagation();' + openAction + '">Open Detail</button>'
             + '</div>';
           // Flag chips row — each project's specific offences
           if (p.flags && p.flags.length) {

@@ -28,6 +28,9 @@ function openQuickPeek(item, acContext) {
     renderQuickPeek(item);
     const panel = getEl('gantt-quick-peek');
     if (panel) panel.classList.add('open');
+    const ws = document.getElementById('action-workspace');
+    if (ws && acContext) ws.classList.add('ac-peek-open');
+    if (typeof window._acOnPeekOpen === 'function') window._acOnPeekOpen(item ? item.fdh : null);
 }
 
 function saveQuickPeekNoteLocal(btn) {
@@ -215,6 +218,8 @@ function renderQuickPeek(item) {
                 </div>
                 <textarea id="qp-note-textarea" class="chat-bubble" oninput="syncQuickPeekNote()" placeholder="Enter decision...">${noteVal}</textarea>
             </div>
+
+            ${_qpRenderChangeLog(item.fdh)}
         </div>
 
         <div style="padding:16px 20px; border-top:1px solid var(--border); background:var(--bg); display:flex; gap:10px; flex-shrink:0;">
@@ -230,8 +235,75 @@ function renderQuickPeek(item) {
 function closeQuickPeek() {
     const panel = getEl('gantt-quick-peek');
     if (panel) panel.classList.remove('open');
+    const ws = document.getElementById('action-workspace');
+    if (ws) ws.classList.remove('ac-peek-open');
+    if (typeof window._acOnPeekClose === 'function') window._acOnPeekClose();
     _qpAcContext = false;
     _qpActiveFdh = null;
+}
+
+// ── Change Log section in quick peek panel ────────────────
+let _qpChangeLogExtended = {}; // {fdh: extraRows[]}
+
+function _qpRenderChangeLog(fdh) {
+    const logs = (typeof allGlobalLogs !== 'undefined' ? allGlobalLogs : [])
+        .filter(l => (l.fdh || '').trim().toLowerCase() === (fdh || '').trim().toLowerCase());
+    const extra = _qpChangeLogExtended[fdh] || [];
+    const combined = logs.concat(extra.filter(e => !logs.find(l => l.time === e.time && l.type === e.type)));
+
+    if (!combined.length && !extra.length) {
+        return `
+        <div class="qb-module" style="border-color:color-mix(in srgb, var(--border) 60%, transparent);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div class="section-label" style="margin:0;">CHANGE LOG</div>
+                <button class="schedule-xing-secondary" style="font-size:9px;padding:3px 8px;" onclick="_qpLoadMoreLog('${fdh}')">Load History</button>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);">No changes in current sync window.</div>
+        </div>`;
+    }
+
+    const rows = combined.slice(0, 12).map(l => {
+        const tStr = l.time || '—';
+        return `<div class="qp-log-row">
+            <span class="qp-log-type">${esc ? esc(l.type||'—') : (l.type||'—')}</span>
+            <span class="qp-log-val">${esc ? esc(l.val||'—') : (l.val||'—')}</span>
+            <span class="qp-log-time">${esc ? esc(tStr) : tStr}</span>
+        </div>`;
+    }).join('');
+
+    const moreCount = combined.length > 12 ? combined.length - 12 : 0;
+    return `
+    <div class="qb-module" style="border-color:color-mix(in srgb, var(--border) 60%, transparent);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="section-label" style="margin:0;">CHANGE LOG</div>
+            <button class="schedule-xing-secondary" style="font-size:9px;padding:3px 8px;" onclick="_qpLoadMoreLog('${fdh}')">Load 30 More Days</button>
+        </div>
+        <div class="qp-log-feed">
+            ${rows}
+            ${moreCount ? `<div style="font-size:10px;color:var(--text-muted);padding:4px 0;">+${moreCount} more entries</div>` : ''}
+        </div>
+    </div>`;
+}
+
+function _qpLoadMoreLog(fdh) {
+    const btn = event && event.target;
+    if (btn) { btn.textContent = 'Loading…'; btn.disabled = true; }
+    google.script.run
+        .withSuccessHandler(function(rows) {
+            _qpChangeLogExtended[fdh] = rows || [];
+            const panel = getEl('gantt-quick-peek');
+            if (!panel) return;
+            const logSection = panel.querySelector('.qp-log-section-placeholder');
+            // Re-render the log section in place
+            const container = panel.querySelector('[data-qp-log="' + fdh + '"]');
+            if (container) container.outerHTML = _qpRenderChangeLog(fdh);
+            else renderQuickPeek(typeof currentActiveItem !== 'undefined' ? currentActiveItem : { fdh: fdh });
+        })
+        .withFailureHandler(function(err) {
+            if (typeof showToast === 'function') showToast('Log load failed: ' + ((err||{}).message||err), 'error');
+            if (btn) { btn.textContent = 'Load 30 More Days'; btn.disabled = false; }
+        })
+        .extendChangeLogForFdh(fdh, 30);
 }
 
 function syncQuickPeekNote() {

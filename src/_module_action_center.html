@@ -1,24 +1,40 @@
 <script>
 /* ============================================================
    FILE: _module_action_center.html
-   ROLE: Action Center workspace — selection-first bulk action hub
-   READS: allActionItems, getActiveQueueItems(), committedItems,
-          stagedDeckItems, allGlobalLogs, getSeverity(),
-          getQueueCombinedPill(), getQueuePillClass(),
-          cleanDiagnosticFlagText(), getDiagnosticTagClass(),
-          _acLoadNote(), _acSaveNote() [from _module_quick_peek.html]
-   WRITES: #ac-kpi-rail, #ac-tab-queue, #ac-tab-outbox,
-           #ac-tab-changelog, #action-offenders-panel, #ac-tab-reports
+   ROLE: Action Center — 5-tab bulk PMO work surface
+   TABS: Crossings | BOMs | Comments | Top Offenders | Reports
+   READS: allActionItems, openQuickPeek(), stageExternalFinding()
+   WRITES: #ac-universal-filter-bar, #ac-tab-crossings, #ac-tab-boms,
+           #ac-tab-comments, #action-offenders-panel, #ac-tab-reports
    ============================================================ */
 (function() {
 
   // ── Module state ──────────────────────────────────────────
-  var _acActiveTab  = 'queue';
-  var _acSortCol    = 'severity';
-  var _acSortDir    = 'asc';
-  var _acSelected   = new Set();
-  var _acSevFilter  = null;
-  var _acChangelogQ = '';
+  var _acActiveTab       = 'crossings';
+  var _acXingsFilter     = 'all';     // 'all' | 'pending' | 'YES' | 'NO'
+  var _acXingsSearchQuery= '';
+  var _acXingsSelected   = new Set();
+  var _acXingGroupCollapsed = {};
+  var _acVisibleXingFdhs = [];
+  var _acCrossingsEdits  = {};        // {fdh: {xing, details}}
+  var _acCommentsEdits   = {};        // {fdh: text}
+  var _acCommentsSelected= new Set();
+  var _acBomData         = null;      // loaded from backend
+  var _acBomLoading      = false;
+  var _acOpenPeekFdh     = null;      // FDH whose peek panel is currently open
+  var _acReportsView     = 'crossings'; // which report is staged in Reports tab
+
+  // ── Universal filter bar state ────────────────────────────
+  var _acUniversalSearchQuery = '';
+  window._acUniversalSearchQuery = '';
+  var _acUniversalFilters = {
+    crossings: 'all',   // 'all' | 'pending' | 'YES' | 'NO'
+    boms:      'all',   // 'all' | 'diffs'
+    comments:  'all',   // 'all' | 'edited'
+    offenders: null,    // null = All, string = flag key
+    reports:   null
+  };
+  var _acUniversalSearchTimer = null;
 
   // ── Escape helper ─────────────────────────────────────────
   function _e(s) {
@@ -29,203 +45,931 @@
           .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  function _acJs(s) {
+    return typeof escJs === 'function'
+      ? escJs(String(s == null ? '' : s))
+      : String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+
+  // ── Active project filter ─────────────────────────────────
+  function _acIsActive(item) {
+    var stat = (item.status || '').toLowerCase();
+    if (stat.includes('complete') || stat.includes('cancelled')) return false;
+    var rd = item.reportDate ? new Date(item.reportDate) : null;
+    var hasRecent = rd && (Date.now() - rd.getTime()) <= 21 * 24 * 60 * 60 * 1000;
+    var st = (item.stage || '').toLowerCase();
+    var inProgress = !st.includes('vendor assign');
+    return inProgress || hasRecent;
+  }
+
+  function _acCleanVal(val) {
+    return String(val == null ? '' : val).trim();
+  }
+
+  function _acNormalizeXing(val) {
+    var clean = _acCleanVal(val);
+    if (!clean || clean === '—') return '';
+    var upper = clean.toUpperCase();
+    if (upper === 'TRUE' || upper === 'Y' || upper === 'YES' || upper.indexOf('X-ING YES') !== -1) return 'YES';
+    if (upper === 'FALSE' || upper === 'N' || upper === 'NO' || upper === 'NONE') return 'NO';
+    if (upper === 'N/A' || upper === 'NA') return 'N/A';
+    return clean;
+  }
+
+  function _acInferCdXing(item) {
+    var txt = _acCleanVal(item && item.cdIntel).toLowerCase();
+    if (!txt) return '';
+    if (txt === 'none' || txt.indexOf('no special crossings found') !== -1 || txt.indexOf('no crossings found') !== -1) return 'NO';
+    return 'YES';
+  }
+
+  function _acResolveCrossing(item) {
+    item = item || {};
+    var edit = _acCrossingsEdits[item.fdh] || {};
+    var qbRef = item.qbRef || {};
+    var rawX = _acNormalizeXing(item.rawSpecialX);
+    var xing = '';
+    var source = 'pending';
+
+    if (edit.xing !== undefined) {
+      xing = _acNormalizeXing(edit.xing);
+      source = 'edit';
+    } else if (_acNormalizeXing(qbRef.xingExist)) {
+      xing = _acNormalizeXing(qbRef.xingExist);
+      source = 'quickbase';
+    } else if (rawX) {
+      xing = rawX;
+      source = 'reference';
+    } else if (item.isXing === true || item.isXing === 'true') {
+      xing = 'YES';
+      source = 'item';
+    } else {
+      xing = _acInferCdXing(item);
+      if (xing) source = 'cd';
+    }
+
+    return {
+      xing: xing,
+      details: edit.details !== undefined
+        ? edit.details
+        : (_acCleanVal(qbRef['526']) || _acCleanVal(item.specXDetails) || _acCleanVal(item.cdIntel)),
+      pending: !xing,
+      source: source
+    };
+  }
+
+  function _acGetActiveItems() {
+    return (typeof allActionItems !== 'undefined' ? allActionItems : []).filter(_acIsActive);
+  }
+
+  function _acGetBomRows() {
+    return Array.isArray(_acBomData) ? _acBomData : [];
+  }
+
+  function _acIsOffenderProjectActive(item) {
+    var stat = (item.status || '').toLowerCase();
+    var st = (item.stage || '').toLowerCase();
+    if (stat.includes('complete') || stat.includes('hold')) return false;
+    var inConstruction = !st.includes('ofs') && !st.includes('permit')
+      && !st.includes('pre-con') && !st.includes('vendor assign');
+    var rd = (typeof safeDate === 'function') ? safeDate(item.reportDate) : null;
+    var hasRecentReport = rd && (Date.now() - rd.getTime()) <= 14 * 24 * 60 * 60 * 1000;
+    return inConstruction || hasRecentReport;
+  }
+
+  function _acGetOffenderCount() {
+    var vendors = {};
+    (typeof allActionItems !== 'undefined' ? allActionItems : []).forEach(function(item) {
+      if (!item.vendor || !item.flags) return;
+      if (!_acIsOffenderProjectActive(item)) return;
+      var flags = String(item.flags).split('\n').map(function(f){ return f.trim(); }).filter(Boolean);
+      if (flags.length) vendors[item.vendor] = true;
+    });
+    return Object.keys(vendors).length;
+  }
+
+  function _acGetReportRowAvailability() {
+    var activeCount = _acGetActiveItems().length;
+    return activeCount + _acGetBomRows().length + activeCount;
+  }
+
+  function _acSyncTabBadges() {
+    var activeItems = _acGetActiveItems();
+    var pendingCrossings = activeItems.filter(function(i){ return _acResolveCrossing(i).pending; }).length;
+    var bomRows = _acGetBomRows();
+    var badgeVals = {
+      crossings: pendingCrossings,
+      boms: _acBomData ? bomRows.filter(function(r){ return r.hasDiff; }).length : (_acBomLoading ? 0 : 'Load'),
+      comments: Object.keys(_acCommentsEdits).length,
+      offenders: _acGetOffenderCount(),
+      reports: _acGetReportRowAvailability()
+    };
+
+    Object.keys(badgeVals).forEach(function(key) {
+      var el = document.querySelector('[data-ac-tab-badge="' + key + '"]');
+      if (!el) return;
+      var val = badgeVals[key];
+      var show = val === 'Load' || Number(val) > 0;
+      el.hidden = !show;
+      el.textContent = val === 'Load' ? 'Load' : String(val);
+      el.classList.toggle('ac-tab-badge-green', key === 'reports' && show);
+      el.classList.toggle('ac-tab-badge-warn', key === 'boms' && val === 'Load');
+    });
+  }
+
   // ── Tab switching ─────────────────────────────────────────
   function _acSwitchTab(tab) {
     _acActiveTab = tab;
-    ['queue','outbox','changelog','offenders','reports'].forEach(function(t) {
+    ['crossings','boms','comments','offenders','reports'].forEach(function(t) {
       var btn   = document.getElementById('ac-tab-btn-' + t);
       var panel = document.getElementById('ac-tab-' + t);
       if (btn)   btn.classList.toggle('active', t === tab);
       if (panel) panel.style.display = (t === tab) ? 'flex' : 'none';
     });
+    _acRenderUniversalFilterBar(tab);
     _acRenderActiveTab();
+    _acSyncTabBadges();
   }
 
   function _acRenderActiveTab() {
-    if      (_acActiveTab === 'queue')     _acRenderQueue();
-    else if (_acActiveTab === 'outbox')    _acRenderOutbox();
-    else if (_acActiveTab === 'changelog') _acRenderChangelog();
+    if      (_acActiveTab === 'crossings') _acRenderCrossingsTab();
+    else if (_acActiveTab === 'boms')      _acRenderBOMsTab();
+    else if (_acActiveTab === 'comments')  _acRenderCommentsTab();
     else if (_acActiveTab === 'offenders') _acRenderOffendersTab();
-    else if (_acActiveTab === 'reports')   _acRenderReports();
+    else if (_acActiveTab === 'reports')   _acRenderReportsTab();
+    _acEnsurePermanentPeek();
   }
 
-  // ── KPI Rail ─────────────────────────────────────────────
-  function _acRenderKpiRail() {
-    var rail = document.getElementById('ac-kpi-rail');
-    if (!rail) return;
-
-    var items = typeof getActiveQueueItems === 'function' ? getActiveQueueItems() : [];
-    var critCount = 0, warnCount = 0;
-    items.forEach(function(i) {
-      var sev = typeof getSeverity === 'function' ? getSeverity(i.flags) : 'info';
-      if (sev === 'crit') critCount++;
-      else if (sev === 'warn') warnCount++;
-    });
-
-    var staged    = (typeof stagedDeckItems !== 'undefined' && stagedDeckItems) ? stagedDeckItems.length : 0;
-    var committed = (typeof committedItems  !== 'undefined' && committedItems)  ? committedItems.length  : 0;
-    var outboxTotal = staged + committed;
-
-    var vendors = {};
-    items.forEach(function(i) { if (i.vendor) vendors[i.vendor] = true; });
-
-    var logCount = typeof allGlobalLogs !== 'undefined' ? allGlobalLogs.length : 0;
-
-    var qBadge = document.getElementById('ac-badge-queue');
-    var oBadge = document.getElementById('ac-badge-outbox');
-    if (qBadge) { qBadge.textContent = critCount; qBadge.style.display = critCount > 0 ? 'inline-flex' : 'none'; }
-    if (oBadge) { oBadge.textContent = outboxTotal; oBadge.style.display = outboxTotal > 0 ? 'inline-flex' : 'none'; }
-
-    rail.innerHTML =
-      _acKpiChip(critCount,                  'Critical',      'ac-chip-crit',   'crit',      _acSevFilter === 'crit') +
-      _acKpiChip(warnCount,                  'Warnings',      'ac-chip-warn',   'warn',      _acSevFilter === 'warn') +
-      _acKpiChip(items.length,               'In Queue',      'ac-chip-queue',  null,        _acActiveTab === 'queue') +
-      _acKpiChip(outboxTotal,                'Outbox',        'ac-chip-outbox', 'outbox',    _acActiveTab === 'outbox') +
-      _acKpiChip(Object.keys(vendors).length,'Active Vendors','ac-chip-vendor', null,        false) +
-      _acKpiChip(logCount,                   'Log Entries',   'ac-chip-log',    'changelog', _acActiveTab === 'changelog');
+  function _acGetPeekSeedItems() {
+    if (_acActiveTab === 'boms')      return _acGetFilteredBomItems();
+    if (_acActiveTab === 'crossings') return _acGetFilteredCrossingItems();
+    if (_acActiveTab === 'comments')  return _acGetFilteredCommentItems();
+    return [];
   }
 
-  function _acKpiChip(val, label, cls, action, active) {
-    var clickAttr = '';
-    if (action === 'crit' || action === 'warn') clickAttr = 'onclick="_acChipClick(\'' + action + '\')"';
-    else if (action === 'outbox')    clickAttr = 'onclick="_acSwitchTab(\'outbox\')"';
-    else if (action === 'changelog') clickAttr = 'onclick="_acSwitchTab(\'changelog\')"';
-    return '<div class="ac-kpi-chip ' + cls + (active ? ' ac-chip-active' : '') + '" ' + clickAttr + '>' +
+  function _acEnsurePermanentPeek() {
+    if (!['crossings','boms','comments'].includes(_acActiveTab)) return;
+    var ws = document.getElementById('action-workspace');
+    if (!ws || !ws.classList.contains('ws-active')) return;
+    var items = _acGetPeekSeedItems().filter(function(i){ return i && i.fdh; });
+    if (!items.length) return;
+    var target = items.find(function(i){ return i.fdh === _acOpenPeekFdh; }) || items[0];
+    if (target && target.fdh && typeof openQuickPeek === 'function') {
+      _acOpenPeek(target.fdh);
+    }
+  }
+
+  // ── Per-tab contextual KPI strip ─────────────────────────
+  function _acKpiChip(val, label, cls, onclick) {
+    var clickAttr = onclick ? 'onclick="' + onclick + '"' : '';
+    return '<div class="ac-kpi-chip ' + (cls || '') + '" ' + clickAttr + '>' +
       '<div class="ac-kpi-val">' + val + '</div>' +
       '<div class="ac-kpi-label">' + label + '</div>' +
     '</div>';
   }
 
-  function _acChipClick(sev) {
-    _acSevFilter = (_acSevFilter === sev) ? null : sev;
-    _acSwitchTab('queue');
-    _acRenderKpiRail();
-  }
+  function _acRenderTabKpi(tab) {
+    var items = _acGetActiveItems();
+    var html = '<div class="ac-kpi-rail ac-tab-kpi-rail">';
 
-  // ── Queue Tab ─────────────────────────────────────────────
-  function _acRenderQueue() {
-    var container = document.getElementById('ac-tab-queue');
-    if (!container) return;
+    if (tab === 'crossings') {
+      var xings   = _acGetFilteredCrossingItems();
+      var pending = xings.filter(function(i){ return _acResolveCrossing(i).pending; }).length;
+      var yes     = xings.filter(function(i){ return _acResolveCrossing(i).xing.toUpperCase() === 'YES'; }).length;
+      var no      = xings.filter(function(i){ return _acResolveCrossing(i).xing.toUpperCase() === 'NO'; }).length;
+      html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue');
+      html += _acKpiChip(pending,      'Pending',         pending > 0 ? 'ac-chip-crit' : 'ac-chip-queue');
+      html += _acKpiChip(yes,          'YES',             'ac-chip-yes');
+      html += _acKpiChip(no,           'NO',              no > 0 ? 'ac-chip-no' : 'ac-chip-queue');
 
-    var items = typeof getActiveQueueItems === 'function' ? getActiveQueueItems() : [];
-    if (_acSevFilter) {
-      items = items.filter(function(i) {
-        return typeof getSeverity === 'function' && getSeverity(i.flags) === _acSevFilter;
+    } else if (tab === 'boms') {
+      var bomRows = _acGetBomRows();
+      var diffs   = bomRows.filter(function(r){ return r.hasDiff; }).length;
+      var clean   = bomRows.length - diffs;
+      html += _acKpiChip(_acBomData ? bomRows.length : '—', 'Total Projects', 'ac-chip-queue');
+      html += _acKpiChip(_acBomData ? diffs : '—',          'With Diffs',     diffs > 0 ? 'ac-chip-no' : 'ac-chip-queue');
+      html += _acKpiChip(_acBomData ? clean : '—',          'Clean',          'ac-chip-yes');
+
+    } else if (tab === 'comments') {
+      var edited = Object.keys(_acCommentsEdits).length;
+      var saved  = items.length - edited;
+      html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue');
+      html += _acKpiChip(edited,       'Edited',          edited > 0 ? 'ac-chip-warn' : 'ac-chip-queue');
+      html += _acKpiChip(saved > 0 ? saved : 0, 'Saved',  'ac-chip-yes');
+
+    } else if (tab === 'reports') {
+      _AC_REPORT_DEFS.forEach(function(d) {
+        var isActive = _acReportsView === d.key;
+        var rows = d.load();
+        var count = rows ? rows.length : '—';
+        html += '<div class="ac-kpi-chip' + (isActive ? ' ac-chip-active' : '') + '" ' +
+          'onclick="_acReportsSwitchView(\'' + d.key + '\')" style="cursor:pointer">' +
+          '<div class="ac-kpi-val" style="color:' + d.dot + '">' + count + '</div>' +
+          '<div class="ac-kpi-label">' + _e(d.label) + '</div>' +
+          '</div>';
       });
     }
 
-    var sevOrd = {crit:0, warn:1, info:2, ghost:3};
-    items = items.slice().sort(function(a, b) {
-      var mul = _acSortDir === 'asc' ? 1 : -1;
-      if (_acSortCol === 'severity') {
-        var sa = sevOrd[typeof getSeverity === 'function' ? getSeverity(a.flags) : 'info'] || 2;
-        var sb = sevOrd[typeof getSeverity === 'function' ? getSeverity(b.flags) : 'info'] || 2;
-        return mul * (sa - sb);
-      }
-      if (_acSortCol === 'fdh')    return mul * (a.fdh    || '').localeCompare(b.fdh    || '');
-      if (_acSortCol === 'vendor') return mul * (a.vendor || '').localeCompare(b.vendor || '');
-      if (_acSortCol === 'date') {
-        var da = a.reportDate ? new Date(a.reportDate).getTime() : 0;
-        var db = b.reportDate ? new Date(b.reportDate).getTime() : 0;
-        return mul * (db - da);
-      }
-      return 0;
+    html += '</div>';
+    return html;
+  }
+
+  // ── Universal filter bar ─────────────────────────────────
+  function _acRenderUniversalFilterBar(tab) {
+    var el = document.getElementById('ac-universal-filter-bar');
+    if (!el) return;
+    el.setAttribute('data-tab', tab);
+
+    var qSafe = _e(_acUniversalSearchQuery);
+    var html = '<input type="text" class="ac-ufb-search" id="ac-ufb-search" value="' + qSafe + '" ' +
+      'placeholder="Search ' + (tab === 'crossings' ? 'FDH, vendor, city, details' :
+                                tab === 'boms'      ? 'FDH, vendor' :
+                                tab === 'comments'  ? 'FDH, vendor, city' :
+                                tab === 'offenders' ? 'vendor, FDH, flag' : '') + '…" ' +
+      'oninput="_acOnUniversalSearch(this.value)">';
+
+    if (tab === 'crossings') {
+      html += '<div class="ac-ufb-sep"></div>';
+      ['all','pending','YES','NO'].forEach(function(val) {
+        var label = val === 'all' ? 'All' : val.charAt(0).toUpperCase() + val.slice(1);
+        var active = _acUniversalFilters.crossings === val;
+        html += '<button class="ac-filter-pill' + (active ? ' active' : '') +
+          '" onclick="_acSetUniversalFilter(\'crossings\',\'' + val + '\')">' + label + '</button>';
+      });
+    } else if (tab === 'boms' && _acBomData) {
+      html += '<div class="ac-ufb-sep"></div>';
+      ['all','diffs'].forEach(function(val) {
+        var label = val === 'all' ? 'All' : 'Has Diffs';
+        var active = _acUniversalFilters.boms === val;
+        html += '<button class="ac-filter-pill' + (active ? ' active' : '') +
+          '" onclick="_acSetUniversalFilter(\'boms\',\'' + val + '\')">' + label + '</button>';
+      });
+    } else if (tab === 'comments') {
+      html += '<div class="ac-ufb-sep"></div>';
+      ['all','edited'].forEach(function(val) {
+        var label = val === 'all' ? 'All' : 'Edited';
+        var active = _acUniversalFilters.comments === val;
+        html += '<button class="ac-filter-pill' + (active ? ' active' : '') +
+          '" onclick="_acSetUniversalFilter(\'comments\',\'' + val + '\')">' + label + '</button>';
+      });
+    } else if (tab === 'offenders') {
+      // Top Offenders manages its own toolbar and filter chrome — universal bar is intentionally empty here
+      el.innerHTML = '';
+      return;
+    } else if (tab === 'reports') {
+      html += '<div class="ac-ufb-sep"></div>';
+      _AC_REPORT_DEFS.forEach(function(d) {
+        var active = _acReportsView === d.key;
+        html += '<button class="ac-filter-pill' + (active ? ' active' : '') +
+          '" onclick="_acReportsSwitchView(\'' + d.key + '\')" style="--ac-tab-accent:' + d.dot + '">' + _e(d.label) + '</button>';
+      });
+    }
+
+    // Count badge
+    var count = '';
+    if      (tab === 'crossings') count = _acGetFilteredCrossingItems().length + ' projects';
+    else if (tab === 'boms')      count = _acBomData ? (_acGetFilteredBomItems().length + ' projects') : '—';
+    else if (tab === 'comments')  count = _acGetFilteredCommentItems().length + ' projects';
+
+    if (count) html += '<span class="ac-ufb-count">' + count + '</span>';
+
+    el.innerHTML = html;
+  }
+
+  function _acOnUniversalSearch(val) {
+    _acUniversalSearchQuery = val || '';
+    window._acUniversalSearchQuery = _acUniversalSearchQuery;
+    clearTimeout(_acUniversalSearchTimer);
+    _acUniversalSearchTimer = setTimeout(function() {
+      _acRenderUniversalFilterBar(_acActiveTab);
+      _acRenderActiveTab();
+      _acSyncTabBadges();
+      var input = document.getElementById('ac-ufb-search');
+      if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+    }, 120);
+  }
+
+  function _acSetUniversalFilter(tab, val) {
+    _acUniversalFilters[tab] = val;
+    _acRenderUniversalFilterBar(tab);
+    _acRenderActiveTab();
+    _acSyncTabBadges();
+    _acEnsurePermanentPeek();
+  }
+
+  function _acGetFilteredBomItems() {
+    var rows = _acGetBomRows();
+    if (_acUniversalFilters.boms === 'diffs') rows = rows.filter(function(r){ return r.hasDiff; });
+    var q = _acUniversalSearchQuery.trim().toLowerCase();
+    if (q) rows = rows.filter(function(r){
+      return [r.fdh, r.vendor || ''].join(' ').toLowerCase().indexOf(q) !== -1;
     });
+    return rows;
+  }
 
-    var selCount  = _acSelected.size;
-    var allFdhs   = items.map(function(i){ return i.fdh; });
-    var allChecked = items.length > 0 && items.every(function(i){ return _acSelected.has(i.fdh); });
+  function _acGetFilteredCommentItems() {
+    var items = _acGetActiveItems();
+    if (_acUniversalFilters.comments === 'edited') {
+      items = items.filter(function(i){ return _acCommentsEdits[i.fdh] !== undefined; });
+    }
+    var q = _acUniversalSearchQuery.trim().toLowerCase();
+    if (q) items = items.filter(function(i){
+      var edited = _acCommentsEdits[i.fdh] || '';
+      return [i.fdh, i.vendor || '', i.city || '', edited].join(' ').toLowerCase().indexOf(q) !== -1;
+    });
+    return items;
+  }
 
-    var html = '<div class="ac-toolbar">';
-    if (selCount > 0) {
-      html +=
-        '<div class="ac-bulk-bar">' +
-          '<span class="ac-bulk-count">' + selCount + ' selected</span>' +
-          '<button class="ac-bulk-action-btn" onclick="_acBulkComment()">Comment</button>' +
-          '<button class="ac-bulk-action-btn" onclick="_acBulkCrossings()">Verify Crossings</button>' +
-          '<button class="ac-bulk-action-btn" onclick="_acBulkCdUpload()">CD Upload</button>' +
-          '<button class="ac-bulk-action-btn" onclick="_acBulkStage()">Stage for Export</button>' +
-          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportCsv()">Export CSV</button>' +
-          '<button class="ac-bulk-clear" onclick="_acClearSelection()">✕ Clear</button>' +
-        '</div>';
-    } else {
-      html +=
+  // ════════════════════════════════════════════════════════════
+  // TAB 1 — CROSSINGS
+  // ════════════════════════════════════════════════════════════
+  function _acGetFilteredCrossingItems() {
+    var items = _acGetActiveItems();
+    var filter = _acUniversalFilters.crossings;
+    if (filter !== 'all') {
+      items = items.filter(function(i) {
+        var resolved = _acResolveCrossing(i);
+        var x = resolved.xing.toUpperCase();
+        if (filter === 'pending') return resolved.pending;
+        return x === filter.toUpperCase();
+      });
+    }
+    var q = _acUniversalSearchQuery.trim().toLowerCase();
+    if (q) {
+      items = items.filter(function(i) {
+        var resolved = _acResolveCrossing(i);
+        return [
+          i.fdh, i.vendor, i.city, i.stage, i.status,
+          resolved.xing, resolved.details
+        ].join(' ').toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    return items;
+  }
+
+  function _acXingGroupKey(vendor, city) {
+    return String(vendor || 'Unassigned Vendor') + '::' + String(city || 'No City');
+  }
+
+  function _acToggleXingGroup(key) {
+    _acXingGroupCollapsed[key] = !_acXingGroupCollapsed[key];
+    _acRenderCrossingsTab();
+  }
+
+  function _acBuildXingGroups(items) {
+    var groups = {};
+    items.forEach(function(item) {
+      var vendor = item.vendor || 'Unassigned Vendor';
+      var city = item.city || 'No City';
+      if (!groups[vendor]) groups[vendor] = { vendor: vendor, count: 0, cities: {} };
+      if (!groups[vendor].cities[city]) groups[vendor].cities[city] = [];
+      groups[vendor].cities[city].push(item);
+      groups[vendor].count++;
+    });
+    return Object.keys(groups).sort().map(function(vendor) {
+      var group = groups[vendor];
+      group.cityNames = Object.keys(group.cities).sort();
+      return group;
+    });
+  }
+
+  function _acRenderXingGroupHeader(label, count, key, depth) {
+    var collapsed = !!_acXingGroupCollapsed[key];
+    return '<div class="ac-xing-group-header ac-xing-group-header-depth-' + depth + (collapsed ? ' is-collapsed' : '') + '" ' +
+      'onclick="_acToggleXingGroup(\'' + _acJs(key) + '\')">' +
+        '<span class="ac-xing-group-toggle"></span>' +
+        '<span class="ac-xing-group-label">' + _e(label) + '</span>' +
+        '<span class="ac-xing-group-count">' + count + '</span>' +
+      '</div>';
+  }
+
+  function _acRenderXingRow(item) {
+    var isSel  = _acXingsSelected.has(item.fdh);
+    var edit   = _acCrossingsEdits[item.fdh] || {};
+    var resolved = _acResolveCrossing(item);
+    var curX   = resolved.xing;
+    var curDet = resolved.details;
+    var isDirty = edit.xing !== undefined || edit.details !== undefined;
+    var xPillCls = curX === 'YES' ? 'ac-xpill-yes' : (curX === 'NO' ? 'ac-xpill-no' : 'ac-xpill-none');
+    var fdhSafe = _e(item.fdh);
+    var fdhJs = _acJs(item.fdh);
+    var xSelCls = 'xing-select' + (curX === 'YES' ? ' val-yes' : curX === 'NO' ? ' val-no' : '');
+    var isPeekOpen = _acOpenPeekFdh === item.fdh;
+
+    return '<tr class="ac-row ac-xing-row' + (isSel ? ' is-selected' : '') + (isDirty ? ' is-dirty' : '') + '">' +
+      '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleXingRow(\'' + fdhJs + '\')">' +
+        '<input type="checkbox" ' + (isSel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="_acToggleXingRow(\'' + fdhJs + '\')">' +
+      '</td>' +
+      '<td class="ac-td-fdh" onclick="event.stopPropagation()">' +
+        '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + fdhJs + '\')" title="Open detail panel">Details</button>' +
+        '<span class="ac-fdh">' + fdhSafe + '</span>' +
+      '</td>' +
+      '<td class="ac-td-vendor">' + _e(item.vendor || '—') + '</td>' +
+      '<td class="ac-td-qb-status"><span class="ac-xpill ' + xPillCls + '">' + _e(curX || '—') + '</span></td>' +
+      '<td class="ac-td-xing-sel" onclick="event.stopPropagation()">' +
+        '<select class="' + xSelCls + '" onchange="_acOnXingChange(\'' + fdhJs + '\',this.value)">' +
+          '<option value=""' + (!curX ? ' selected' : '') + '>—</option>' +
+          '<option value="YES"' + (curX === 'YES' ? ' selected' : '') + '>YES</option>' +
+          '<option value="NO"'  + (curX === 'NO'  ? ' selected' : '') + '>NO</option>' +
+          '<option value="N/A"' + (curX === 'N/A' ? ' selected' : '') + '>N/A</option>' +
+        '</select>' +
+      '</td>' +
+      '<td class="ac-td-xing-det" onclick="event.stopPropagation()">' +
+        '<div class="ac-xing-stripe-shell cd-dropzone" id="ac-cd-dropzone-' + fdhSafe + '" ' +
+          'ondragover="handleCdDragOver(event,this)" ondragleave="handleCdDragLeave(event,this)" ondrop="handleCdDrop(event,this,\'' + fdhJs + '\')">' +
+          '<div class="xing-bubble ac-xing-entry">' +
+            '<div class="cd-overlay-trigger" onclick="event.stopPropagation();triggerCdSelect(\'' + fdhJs + '\',\'ac-cd-dropzone-' + fdhJs + '\')" title="Analyze CD PDF">' + icon('upload', 14) + '</div>' +
+            '<div class="cd-drop-hint">DROP CD PDF TO ANALYZE</div>' +
+            '<textarea class="xing-details-textarea" ' +
+              'oninput="_acOnXingDetailChange(\'' + fdhJs + '\',this.value);this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
+              'onfocus="this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
+              'placeholder="Sheet names, crossing types…">' + _e(curDet) + '</textarea>' +
+          '</div>' +
+        '</div>' +
+      '</td>' +
+    '</tr>';
+  }
+
+  function _acRenderCrossingsTab() {
+    var container = document.getElementById('ac-tab-crossings');
+    if (!container) return;
+
+    var items = _acGetFilteredCrossingItems();
+
+    _acVisibleXingFdhs = items.map(function(i){ return i.fdh; });
+    var allChecked = items.length > 0 && items.every(function(i){ return _acXingsSelected.has(i.fdh); });
+    var selCount = _acXingsSelected.size;
+
+    var html =
+      // Hidden file input for CSV import
+      '<input type="file" id="ac-csv-import-input" accept=".csv,.xlsx" style="display:none" onchange="_acOnCsvFileSelected(this)">' +
+
+      // Per-tab KPI strip
+      _acRenderTabKpi('crossings') +
+
+      // Action-only toolbar
+      '<div class="ac-toolbar">' +
         '<div class="ac-toolbar-left">' +
-          _acFilterPill(null,   'All')      +
-          _acFilterPill('crit', 'Critical') +
-          _acFilterPill('warn', 'Warning')  +
-          _acFilterPill('info', 'Info')     +
+          (selCount > 0
+            ? '<span class="ac-bulk-count">' + selCount + ' selected</span>' +
+              '<button class="ac-bulk-action-btn" onclick="_acCommitSelectedCrossings()">Commit Selected</button>'
+            : '') +
         '</div>' +
         '<div class="ac-toolbar-right">' +
-          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportCsv()">Export CSV</button>' +
-        '</div>';
-    }
-    html += '</div>';
+          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportCrossingsCSV()">Export CSV</button>' +
+          '<button class="ac-bulk-action-btn ac-import-btn" onclick="_acTriggerCsvImport()">Import CSV</button>' +
+        '</div>' +
+      '</div>';
 
     if (items.length === 0) {
       html += '<div class="ac-empty">' +
-        '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' +
-        '<div>Queue is clear for this filter.</div>' +
+        '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+        '<div>No items match this filter.</div>' +
       '</div>';
     } else {
-      html += '<div class="ac-table-wrap"><table class="ac-table ac-table-workspace">' +
+      var groups = _acBuildXingGroups(items);
+      html += '<div class="ac-table-wrap ac-xing-grouped-wrap"><table class="ac-table ac-table-crossings ac-table-workspace">' +
         '<thead><tr>' +
           '<th class="ac-th-check"><input type="checkbox" ' + (allChecked ? 'checked' : '') +
-            ' onchange="_acToggleAll(this.checked,' + JSON.stringify(allFdhs) + ')"></th>' +
-          '<th>' + _acSortHeader('fdh',      'FDH')      + '</th>' +
-          '<th>' + _acSortHeader('vendor',   'Vendor')   + '</th>' +
-          '<th>' + _acSortHeader('severity', 'Severity') + '</th>' +
-          '<th>Stage</th>' +
-          '<th>Top Flag</th>' +
-          '<th>' + _acSortHeader('date', 'Date')         + '</th>' +
-          '<th class="ac-th-actions">Actions</th>' +
+            ' onchange="_acToggleVisibleXings(this.checked)"></th>' +
+          '<th>FDH</th>' +
+          '<th>Vendor</th>' +
+          '<th>QB Status</th>' +
+          '<th class="ac-th-xing-sel">Crossing?</th>' +
+          '<th class="ac-th-xing-det">Details / Sheet Names</th>' +
+        '</tr></thead><tbody>';
+
+      groups.forEach(function(group) {
+        var vendorKey = _acXingGroupKey(group.vendor, '');
+        var vendorCollapsed = !!_acXingGroupCollapsed[vendorKey];
+        html += '<tr class="ac-xing-group-row"><td colspan="6">' +
+          _acRenderXingGroupHeader(group.vendor, group.count, vendorKey, 0) +
+        '</td></tr>';
+        if (vendorCollapsed) return;
+        group.cityNames.forEach(function(city) {
+          var cityItems = group.cities[city];
+          var cityKey = _acXingGroupKey(group.vendor, city);
+          var cityCollapsed = !!_acXingGroupCollapsed[cityKey];
+          html += '<tr class="ac-xing-group-row ac-xing-city-row"><td colspan="6">' +
+            _acRenderXingGroupHeader(city, cityItems.length, cityKey, 1) +
+          '</td></tr>';
+          if (cityCollapsed) return;
+          cityItems.forEach(function(item) {
+            html += _acRenderXingRow(item);
+          });
+        });
+      });
+
+      html += '</tbody></table></div>';
+    }
+
+    container.innerHTML = html;
+    _acSyncTabBadges();
+  }
+
+  // Shims for backward compatibility (inline handlers in Quick Peek may call these)
+  function _acSetXingsFilter(val) {
+    _acSetUniversalFilter('crossings', val);
+  }
+
+  function _acSetXingsSearch(val) {
+    _acOnUniversalSearch(val);
+  }
+
+  function _acToggleXingRow(fdh) {
+    if (_acXingsSelected.has(fdh)) _acXingsSelected.delete(fdh);
+    else _acXingsSelected.add(fdh);
+    _acRenderCrossingsTab();
+    _acSyncTabBadges();
+  }
+
+  function _acToggleAllXings(checked, fdhs) {
+    _acXingsSelected.clear();
+    if (checked && fdhs) fdhs.forEach(function(f){ _acXingsSelected.add(f); });
+    _acRenderCrossingsTab();
+    _acSyncTabBadges();
+  }
+
+  function _acToggleVisibleXings(checked) {
+    (_acVisibleXingFdhs || []).forEach(function(fdh) {
+      if (checked) _acXingsSelected.add(fdh);
+      else _acXingsSelected.delete(fdh);
+    });
+    _acRenderCrossingsTab();
+    _acSyncTabBadges();
+  }
+
+  function _acOnXingChange(fdh, val) {
+    if (!_acCrossingsEdits[fdh]) _acCrossingsEdits[fdh] = {};
+    _acCrossingsEdits[fdh].xing = val;
+    // Update select color class live
+    var selEl = event && event.target;
+    if (selEl && selEl.classList.contains('xing-select')) {
+      selEl.classList.remove('val-yes', 'val-no');
+      if (val === 'YES') selEl.classList.add('val-yes');
+      else if (val === 'NO') selEl.classList.add('val-no');
+    }
+    _acSyncTabBadges();
+  }
+
+  function _acOnXingDetailChange(fdh, val) {
+    if (!_acCrossingsEdits[fdh]) _acCrossingsEdits[fdh] = {};
+    _acCrossingsEdits[fdh].details = val;
+    _acSyncTabBadges();
+  }
+
+  function _acCommitSelectedCrossings() {
+    var toCommit = [];
+    _acXingsSelected.forEach(function(fdh) {
+      var edit = _acCrossingsEdits[fdh] || {};
+      var item = (typeof allActionItems !== 'undefined' ? allActionItems : []).find(function(i){ return i.fdh === fdh; });
+      if (!item) return;
+      var resolved = _acResolveCrossing(item);
+      var xing  = edit.xing !== undefined ? _acNormalizeXing(edit.xing) : resolved.xing;
+      var det   = edit.details !== undefined ? edit.details : resolved.details;
+      if (!xing) return; // skip if no crossing choice set
+      toCommit.push({ fdh: fdh, xing: xing, xingDetails: det });
+    });
+
+    if (!toCommit.length) {
+      if (typeof showToast === 'function') showToast('Set a crossing status on selected rows first.', 'error');
+      return;
+    }
+
+    var date = new Date().toLocaleDateString();
+    var successCount = 0;
+    toCommit.forEach(function(item) {
+      google.script.run
+        .withSuccessHandler(function() {
+          successCount++;
+          delete _acCrossingsEdits[item.fdh];
+          _acXingsSelected.delete(item.fdh);
+          if (successCount === toCommit.length) {
+            if (typeof showToast === 'function') showToast('Committed crossings for ' + successCount + ' FDH' + (successCount > 1 ? 's' : ''), 'success');
+            _acRenderCrossingsTab();
+            _acSyncTabBadges();
+          }
+        })
+        .withFailureHandler(function(err) {
+          if (typeof showToast === 'function') showToast('Failed ' + item.fdh + ': ' + (err.message || err), 'error');
+        })
+        .stageExternalFinding({ fdh: item.fdh, xing: item.xing, xingDetails: item.xingDetails, verifiedDate: date });
+    });
+  }
+
+  // ── CSV Import ────────────────────────────────────────────
+  function _acTriggerCsvImport() {
+    var el = document.getElementById('ac-csv-import-input');
+    if (el) el.click();
+  }
+
+  function _acOnCsvFileSelected(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    input.value = '';
+    if (typeof showToast === 'function') showToast('Parsing ' + file.name + '…', 'info');
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var base64 = btoa(e.target.result);
+      google.script.run
+        .withSuccessHandler(_acOnCsvParsed)
+        .withFailureHandler(function(err) {
+          if (typeof showToast === 'function') showToast('Parse failed: ' + (err.message || err), 'error');
+        })
+        .parseCrossingsCSV(base64);
+    };
+    reader.readAsBinaryString(file);
+  }
+
+  function _acOnCsvParsed(result) {
+    var valid   = result.valid   || [];
+    var skipped = result.skipped || [];
+    var errors  = result.errors  || [];
+
+    var summaryHtml =
+      '<div class="ac-import-summary">' +
+        '<div class="ac-import-stat ac-import-stat-good"><span class="ac-import-num">' + valid.length + '</span><span>rows will be staged</span></div>' +
+        (skipped.length ? '<div class="ac-import-stat ac-import-stat-warn"><span class="ac-import-num">' + skipped.length + '</span><span>FDHs not recognized</span></div>' : '') +
+        (errors.length  ? '<div class="ac-import-stat ac-import-stat-bad"><span class="ac-import-num">' + errors.length  + '</span><span>rows flagged invalid</span></div>' : '') +
+      '</div>';
+
+    var previewRows = valid.slice(0, 8).map(function(r) {
+      return '<tr><td class="ac-td-fdh"><span class="ac-fdh">' + _e(r.fdh) + '</span></td>' +
+        '<td><span class="ac-xpill ' + (r.xing === 'YES' ? 'ac-xpill-yes' : (r.xing === 'NO' ? 'ac-xpill-no' : 'ac-xpill-none')) + '">' + _e(r.xing||'—') + '</span></td>' +
+        '<td class="ac-td-ellipsis">' + _e(r.details||'') + '</td></tr>';
+    }).join('');
+
+    var bodyHtml = summaryHtml +
+      (valid.length > 0
+        ? '<div class="ac-table-wrap" style="max-height:260px;overflow-y:auto;margin-top:14px;">' +
+            '<table class="ac-table"><thead><tr><th>FDH</th><th>X-ing</th><th>Details</th></tr></thead><tbody>' +
+            previewRows +
+            (valid.length > 8 ? '<tr><td colspan="3" class="ac-more-row">…and ' + (valid.length - 8) + ' more</td></tr>' : '') +
+          '</tbody></table></div>'
+        : '<div class="ac-empty-sm" style="margin-top:14px;">No valid rows to stage.</div>') +
+      (skipped.length ? '<div style="margin-top:10px;font-size:10px;color:var(--text-muted);">Unrecognized FDHs: ' + skipped.map(function(s){ return '<code>' + _e(s) + '</code>'; }).join(', ') + '</div>' : '') +
+      (errors.length  ? '<div style="margin-top:6px;font-size:10px;color:#ef4444;">Errors: ' + errors.map(function(s){ return _e(s); }).join('; ') + '</div>' : '');
+
+    _acShowModal(
+      'Import Preview — ' + valid.length + ' row' + (valid.length !== 1 ? 's' : '') + ' to stage',
+      bodyHtml,
+      'Stage ' + valid.length + ' Row' + (valid.length !== 1 ? 's' : ''),
+      function() {
+        if (!valid.length) return false;
+        google.script.run
+          .withSuccessHandler(function(r) {
+            if (typeof showToast === 'function') showToast('Staged ' + (r.staged||0) + ' crossings. Run QB sync to commit.', 'success');
+            _acRenderCrossingsTab();
+            _acSyncTabBadges();
+          })
+          .withFailureHandler(function(err) {
+            if (typeof showToast === 'function') showToast('Stage failed: ' + (err.message||err), 'error');
+          })
+          .stageParsedCrossings(valid);
+      }
+    );
+  }
+
+  // ── Crossings CSV Export ──────────────────────────────────
+  function _acExportCrossingsCSV() {
+    var selected = Array.from(_acXingsSelected);
+    var activeFdhs = _acGetActiveItems().map(function(i){ return i.fdh; }).filter(Boolean);
+    var currentFdhs = (_acVisibleXingFdhs && _acVisibleXingFdhs.length) ? _acVisibleXingFdhs.slice() : activeFdhs.slice();
+    var exportFdhs = selected.length ? selected : currentFdhs;
+    var scopeLabel = selected.length ? 'selected rows' : 'current search/filter';
+
+    if (!selected.length) {
+      if (currentFdhs.length !== activeFdhs.length) {
+        var useCurrent = window.confirm('No rows are checked. Export the current search/filter result? Press Cancel to export all active Action Center rows.');
+        exportFdhs = useCurrent ? currentFdhs : activeFdhs;
+        scopeLabel = useCurrent ? 'current search/filter' : 'all active rows';
+      } else if (!window.confirm('No rows are checked. Export all active Action Center rows?')) {
+        return;
+      }
+    }
+
+    exportFdhs = exportFdhs.filter(Boolean);
+    if (!exportFdhs.length) {
+      if (typeof showToast === 'function') showToast('No rows available to export.', 'error');
+      return;
+    }
+
+    if (typeof showToast === 'function') showToast('Generating crossings export for ' + exportFdhs.length + ' ' + scopeLabel + '…', 'info');
+    google.script.run
+      .withSuccessHandler(function(url) {
+        if (typeof showToast === 'function') showToast('Crossings CSV saved to Drive.', 'success');
+        if (url && typeof window !== 'undefined') window.open(url, '_blank');
+      })
+      .withFailureHandler(function(err) {
+        if (typeof showToast === 'function') showToast('Export failed: ' + (err.message||err), 'error');
+      })
+      .exportCrossingsCSVForFdhs(exportFdhs);
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // TAB 2 — BOMs
+  // ════════════════════════════════════════════════════════════
+  function _acRenderBOMsTab() {
+    var container = document.getElementById('ac-tab-boms');
+    if (!container) return;
+
+    if (!_acBomData && !_acBomLoading) {
+      // Show load trigger
+      container.innerHTML =
+        '<div class="ac-bom-load-shell">' +
+          '<div class="ac-bom-load-icon">' +
+            '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' +
+          '</div>' +
+          '<div class="ac-bom-load-title">BOM Comparison</div>' +
+          '<div class="ac-bom-load-sub">Compare QuickBase BOM quantities against vendor-reported archive values. Differences are flagged for correction.</div>' +
+          '<button class="btn btn-primary" style="margin-top:18px;padding:12px 28px;font-size:11px;" onclick="_acLoadBomData()">Load BOM Data</button>' +
+        '</div>';
+      _acSyncTabBadges();
+      return;
+    }
+
+    if (_acBomLoading) {
+      container.innerHTML =
+        '<div class="ac-bom-load-shell">' +
+          '<div class="ac-bom-load-title">Loading BOM data…</div>' +
+          '<div class="ac-bom-load-sub">Comparing QuickBase vs archive quantities.</div>' +
+        '</div>';
+      _acSyncTabBadges();
+      return;
+    }
+
+    var rows = _acGetFilteredBomItems();
+    var diffCount = rows.filter(function(r) { return r.hasDiff; }).length;
+
+    var html =
+      _acRenderTabKpi('boms') +
+      '<div class="ac-toolbar">' +
+        '<div class="ac-toolbar-left">' +
+          '<span class="ac-result-count">' + rows.length + ' projects' +
+            (diffCount > 0 ? ' · <span style="color:#ef4444">' + diffCount + ' with diffs</span>' : '') +
+          '</span>' +
+        '</div>' +
+        '<div class="ac-toolbar-right">' +
+          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportBOMCSV()">Export Comparison</button>' +
+          '<button class="ac-bulk-action-btn" onclick="_acLoadBomData()" style="opacity:0.6;">Refresh</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ac-table-wrap"><table class="ac-table ac-table-bom ac-table-workspace">' +
+      '<thead><tr>' +
+        '<th>FDH</th><th>Vendor</th>' +
+        '<th class="ac-bom-pair-hd" colspan="2">UG (ft)</th>' +
+        '<th class="ac-bom-pair-hd" colspan="2">AE (ft)</th>' +
+        '<th class="ac-bom-pair-hd" colspan="2">Fiber (ft)</th>' +
+        '<th class="ac-bom-pair-hd" colspan="2">NAPs</th>' +
+      '</tr>' +
+      '<tr class="ac-bom-sub-hd">' +
+        '<th></th><th></th>' +
+        '<th>QB</th><th>Vendor</th>' +
+        '<th>QB</th><th>Vendor</th>' +
+        '<th>QB</th><th>Vendor</th>' +
+        '<th>QB</th><th>Vendor</th>' +
+      '</tr></thead><tbody>';
+
+    if (rows.length === 0) {
+      html += '<tr><td colspan="10" class="ac-empty-cell">No BOM data available.</td></tr>';
+    } else {
+      rows.forEach(function(r) {
+        var fdhSafe = _e(r.fdh);
+        var isPeekOpen = _acOpenPeekFdh === r.fdh;
+        html += '<tr class="ac-row' + (r.hasDiff ? ' ac-bom-diff-row' : '') + '">' +
+          '<td class="ac-td-fdh" onclick="event.stopPropagation()">' +
+            '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + fdhSafe + '\')" title="Open detail panel">Details</button>' +
+            '<span class="ac-fdh">' + fdhSafe + '</span>' +
+          '</td>' +
+          '<td>' + _e(r.vendor || '—') + '</td>' +
+          _acBomCell(r.qbUG,  r.vendorUG)  +
+          _acBomCell(r.qbAE,  r.vendorAE)  +
+          _acBomCell(r.qbFib, r.vendorFib) +
+          _acBomCell(r.qbNAP, r.vendorNAP) +
+        '</tr>';
+      });
+    }
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+    _acSyncTabBadges();
+  }
+
+  function _acBomCell(qbVal, vendorVal) {
+    var isDiff = qbVal > 0 && vendorVal > 0 && Math.abs(qbVal - vendorVal) > 0;
+    var cls = isDiff ? ' ac-bom-diff' : '';
+    return '<td class="ac-bom-val' + cls + '">' + (qbVal     > 0 ? qbVal.toLocaleString()     : '—') + '</td>' +
+           '<td class="ac-bom-val ac-bom-vendor' + cls + '">' + (vendorVal > 0 ? vendorVal.toLocaleString() : '—') + '</td>';
+  }
+
+  function _acLoadBomData() {
+    _acBomLoading = true;
+    _acRenderBOMsTab();
+    _acSyncTabBadges();
+    google.script.run
+      .withSuccessHandler(function(data) {
+        _acBomData    = data;
+        _acBomLoading = false;
+        _acRenderBOMsTab();
+        _acSyncTabBadges();
+        _acEnsurePermanentPeek();
+      })
+      .withFailureHandler(function(err) {
+        _acBomLoading = false;
+        if (typeof showToast === 'function') showToast('BOM load failed: ' + (err.message||err), 'error');
+        _acRenderBOMsTab();
+        _acSyncTabBadges();
+      })
+      .getBOMComparisonData();
+  }
+
+  function _acExportBOMCSV() {
+    if (!_acBomData || !_acBomData.length) {
+      if (typeof showToast === 'function') showToast('Load BOM data first.', 'error');
+      return;
+    }
+    if (typeof showToast === 'function') showToast('Generating BOM comparison CSV…', 'info');
+    google.script.run
+      .withSuccessHandler(function(url) {
+        if (typeof showToast === 'function') showToast('BOM comparison saved to Drive.', 'success');
+        if (url) window.open(url, '_blank');
+      })
+      .withFailureHandler(function(err) {
+        if (typeof showToast === 'function') showToast('Export failed: ' + (err.message||err), 'error');
+      })
+      .exportBOMComparisonCSV(_acBomData);
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // TAB 3 — COMMENTS
+  // ════════════════════════════════════════════════════════════
+  function _acRenderCommentsTab() {
+    var container = document.getElementById('ac-tab-comments');
+    if (!container) return;
+
+    var items = _acGetFilteredCommentItems();
+    var selCount = _acCommentsSelected.size;
+    var editCount = Object.keys(_acCommentsEdits).length;
+    var allFdhs = items.map(function(i){ return i.fdh; });
+    var allChecked = items.length > 0 && items.every(function(i){ return _acCommentsSelected.has(i.fdh); });
+
+    var html =
+      _acRenderTabKpi('comments') +
+      '<div class="ac-toolbar">' +
+        '<div class="ac-toolbar-left">' +
+          '<span class="ac-result-count">' + items.length + ' projects' +
+            (editCount > 0 ? ' · <span style="color:#f59e0b">' + editCount + ' edited</span>' : '') +
+          '</span>' +
+        '</div>' +
+        '<div class="ac-toolbar-right">' +
+          (selCount > 0
+            ? '<button class="ac-bulk-action-btn" onclick="_acAuditSelectedComments()">Audit History (' + selCount + ')</button>'
+            : '') +
+          (editCount > 0
+            ? '<button class="ac-bulk-action-btn btn-primary" onclick="_acSaveAllComments()">Save Edited (' + editCount + ')</button>'
+            : '') +
+          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportLatestComments()">Export Latest</button>' +
+        '</div>' +
+      '</div>';
+
+    if (items.length === 0) {
+      html += '<div class="ac-empty"><div>No active projects found.</div></div>';
+    } else {
+      html += '<div class="ac-table-wrap"><table class="ac-table ac-table-comments ac-table-workspace">' +
+        '<thead><tr>' +
+          '<th class="ac-th-check"><input type="checkbox" ' + (allChecked ? 'checked' : '') +
+            ' onchange="_acToggleAllComments(this.checked,' + JSON.stringify(allFdhs) + ')"></th>' +
+          '<th>FDH</th>' +
+          '<th>Vendor</th>' +
+          '<th>Current Note</th>' +
+          '<th class="ac-th-comment">New Omni Comment</th>' +
         '</tr></thead><tbody>';
 
       items.forEach(function(item) {
-        var sev     = typeof getSeverity === 'function' ? getSeverity(item.flags) : 'info';
-        var flags   = (item.flags || '').split('\n').map(function(f){return f.trim();}).filter(Boolean);
-        var topFlag = flags[0] || '';
-        var topDisp = typeof cleanDiagnosticFlagText === 'function' ? cleanDiagnosticFlagText(topFlag) : topFlag;
-        var topCls  = typeof getDiagnosticTagClass   === 'function' ? getDiagnosticTagClass(topFlag)   : 'chip-muted';
-        var pill    = typeof getQueueCombinedPill    === 'function' ? getQueueCombinedPill(item)       : (item.stage || item.status || '—');
-        var pillCls = typeof getQueuePillClass       === 'function' ? getQueuePillClass(item.stage, item.status) : '';
-        var isSel   = _acSelected.has(item.fdh);
-        var hasNote = typeof _acLoadNote === 'function' && !!_acLoadNote(item.fdh);
-        var rdStr   = '';
-        if (item.reportDate) {
-          try { var rd = new Date(item.reportDate); rdStr = (rd.getMonth()+1) + '/' + rd.getDate(); } catch(e){}
-        }
-        var extraFlags = flags.length > 1 ? '<span class="ac-flag-more">+' + (flags.length - 1) + '</span>' : '';
+        var isSel  = _acCommentsSelected.has(item.fdh);
+        var edited = _acCommentsEdits[item.fdh];
+        var isDirty = edited !== undefined;
+        var localNote = (typeof _acLoadNote === 'function') ? _acLoadNote(item.fdh) : null;
+        var currentText = localNote ? localNote.text : '—';
         var fdhSafe = _e(item.fdh);
 
+        var isPeekOpen = _acOpenPeekFdh === item.fdh;
         html +=
-          '<tr class="ac-row ac-row-' + sev + (isSel ? ' is-selected' : '') + '">' +
-          '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleRow(\'' + fdhSafe + '\')">' +
-            '<input type="checkbox" ' + (isSel ? 'checked' : '') +
-              ' onclick="event.stopPropagation()" onchange="_acToggleRow(\'' + fdhSafe + '\')">' +
+          '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (isDirty ? ' is-dirty' : '') + '">' +
+          '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleCommentRow(\'' + fdhSafe + '\')">' +
+            '<input type="checkbox" ' + (isSel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="_acToggleCommentRow(\'' + fdhSafe + '\')">' +
           '</td>' +
-          '<td class="ac-td-fdh" onclick="_acOpenPeek(\'' + fdhSafe + '\')">' +
-            (hasNote ? '<span class="ac-note-dot" title="Has local note" style="margin-right:5px;">●</span>' : '') +
+          '<td class="ac-td-fdh" onclick="event.stopPropagation()">' +
+            '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + fdhSafe + '\')" title="Open detail panel">Details</button>' +
             '<span class="ac-fdh">' + fdhSafe + '</span>' +
           '</td>' +
-          '<td onclick="_acOpenPeek(\'' + fdhSafe + '\')">' + _e(item.vendor || '—') + '</td>' +
-          '<td onclick="_acOpenPeek(\'' + fdhSafe + '\')">' +
-            '<span class="ac-sev-dot ac-sev-' + sev + '"></span>' +
-            '<span class="ac-sev-label">' + sev + '</span>' +
-          '</td>' +
-          '<td onclick="_acOpenPeek(\'' + fdhSafe + '\')">' +
-            '<span class="tag ' + pillCls + '">' + _e(pill) + '</span>' +
-          '</td>' +
-          '<td class="ac-td-flag" onclick="_acOpenPeek(\'' + fdhSafe + '\')">' +
-            (topFlag ? '<span class="tag ' + topCls + '">' + _e(topDisp) + '</span>' : '') + extraFlags +
-          '</td>' +
-          '<td class="ac-td-date" onclick="_acOpenPeek(\'' + fdhSafe + '\')">' + rdStr + '</td>' +
-          '<td class="ac-td-actions" onclick="event.stopPropagation()">' +
-            '<div class="ac-row-actions">' +
-              '<button class="ac-row-action-btn" onclick="_acOpenPeek(\'' + fdhSafe + '\')" title="Open detail / add note">✎ Note</button>' +
-              '<button class="ac-row-action-btn ac-btn-xings" onclick="_acOpenPeekAtXings(\'' + fdhSafe + '\')" title="Verify special crossings">✓ X-ings</button>' +
-              '<button class="ac-row-action-btn ac-btn-stage" onclick="_acStageOne(\'' + fdhSafe + '\')" title="Stage for export">→ Stage</button>' +
-            '</div>' +
+          '<td>' + _e(item.vendor || '—') + '</td>' +
+          '<td class="ac-td-current-note">' + _e(currentText.length > 60 ? currentText.slice(0, 60) + '…' : currentText) + '</td>' +
+          '<td class="ac-td-comment" onclick="event.stopPropagation()">' +
+            '<textarea class="chat-bubble" ' +
+              'oninput="_acOnCommentChange(\'' + fdhSafe + '\',this.value);this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
+              'onfocus="this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
+              'placeholder="Enter Omni/Manager comment…">' + _e(edited || '') + '</textarea>' +
           '</td>' +
           '</tr>';
       });
@@ -234,16 +978,196 @@
     }
 
     container.innerHTML = html;
+    _acSyncTabBadges();
   }
 
-  // ── Open Quick Peek from a row click ──────────────────────
+  function _acToggleCommentRow(fdh) {
+    if (_acCommentsSelected.has(fdh)) _acCommentsSelected.delete(fdh);
+    else _acCommentsSelected.add(fdh);
+    _acRenderCommentsTab();
+    _acSyncTabBadges();
+  }
+
+  function _acToggleAllComments(checked, fdhs) {
+    _acCommentsSelected.clear();
+    if (checked && fdhs) fdhs.forEach(function(f){ _acCommentsSelected.add(f); });
+    _acRenderCommentsTab();
+    _acSyncTabBadges();
+  }
+
+  function _acOnCommentChange(fdh, val) {
+    if (val.trim()) _acCommentsEdits[fdh] = val;
+    else delete _acCommentsEdits[fdh];
+    _acSyncTabBadges();
+  }
+
+  function _acSaveAllComments() {
+    var payload = [];
+    var all = typeof allActionItems !== 'undefined' ? allActionItems : [];
+    Object.keys(_acCommentsEdits).forEach(function(fdh) {
+      var item = all.find(function(i){ return i.fdh === fdh; });
+      if (!item) return;
+      payload.push({ fdh: fdh, rid: (item.qbRef && item.qbRef.pmRid) || '', comment: _acCommentsEdits[fdh] });
+    });
+    if (!payload.length) return;
+    if (typeof showToast === 'function') showToast('Saving ' + payload.length + ' comment' + (payload.length > 1 ? 's' : '') + '…', 'info');
+    google.script.run
+      .withSuccessHandler(function() {
+        if (typeof showToast === 'function') showToast('Comments saved to QuickBase.', 'success');
+        _acCommentsEdits = {};
+        _acRenderCommentsTab();
+        _acSyncTabBadges();
+      })
+      .withFailureHandler(function(err) {
+        if (typeof showToast === 'function') showToast('Save failed: ' + (err.message||err), 'error');
+      })
+      .bulkWriteManagerComments(payload);
+  }
+
+  function _acExportLatestComments() {
+    if (typeof showToast === 'function') showToast('Generating comments export…', 'info');
+    google.script.run
+      .withSuccessHandler(function(url) {
+        if (typeof showToast === 'function') showToast('Latest comments saved to Drive.', 'success');
+        if (url) window.open(url, '_blank');
+      })
+      .withFailureHandler(function(err) {
+        if (typeof showToast === 'function') showToast('Export failed: ' + (err.message||err), 'error');
+      })
+      .exportLatestCommentsCSV();
+  }
+
+  function _acAuditSelectedComments() {
+    var fdhs = Array.from(_acCommentsSelected);
+    if (!fdhs.length) return;
+    if (typeof showToast === 'function') showToast('Loading comment history…', 'info');
+    google.script.run
+      .withSuccessHandler(_acShowCommentAuditModal)
+      .withFailureHandler(function(err) {
+        if (typeof showToast === 'function') showToast('History load failed: ' + (err.message||err), 'error');
+      })
+      .getCommentHistoryForFdhs(fdhs, null, null);
+  }
+
+  function _acShowCommentAuditModal(rows) {
+    if (!rows || !rows.length) {
+      _acShowModal('Comment History', '<div class="ac-empty-sm">No comment history found for selected FDHs.</div>', 'Close', function(){});
+      return;
+    }
+    var bodyHtml =
+      '<div class="ac-table-wrap" style="max-height:380px;overflow-y:auto;">' +
+      '<table class="ac-table"><thead><tr>' +
+        '<th>FDH</th><th>Comment</th><th>By</th><th>Date</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(function(r) {
+        return '<tr><td class="ac-td-fdh"><span class="ac-fdh">' + _e(r.fdh||'') + '</span></td>' +
+          '<td class="ac-td-ellipsis">' + _e(r.val||r.comment||'') + '</td>' +
+          '<td>' + _e(r.user||'') + '</td>' +
+          '<td class="ac-td-time">' + _e(r.time||'') + '</td></tr>';
+      }).join('') +
+      '</tbody></table></div>';
+    _acShowModal('Comment History (' + rows.length + ' entries)', bodyHtml, 'Close', function(){});
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // TAB 4 — TOP OFFENDERS (unchanged)
+  // ════════════════════════════════════════════════════════════
+  function _acRenderOffendersTab() {
+    if (typeof _renderSignalOffenders === 'function') _renderSignalOffenders();
+    _acSyncTabBadges();
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // BULK STATUS MODAL (header utility)
+  // ════════════════════════════════════════════════════════════
+  function _acOpenBulkStatusModal() {
+    var items = (typeof allActionItems !== 'undefined' ? allActionItems : []).filter(_acIsActive);
+    if (!items.length) {
+      if (typeof showToast === 'function') showToast('No active projects found.', 'error');
+      return;
+    }
+
+    // Collect unique statuses from live data
+    var statusSet = {};
+    items.forEach(function(i){ if (i.status) statusSet[i.status] = true; });
+    var statuses = Object.keys(statusSet).sort();
+
+    // Compute milestone suggestions
+    var today = new Date();
+    today.setHours(0,0,0,0);
+    var suggestions = {};
+    items.forEach(function(item) {
+      var st   = (item.stage  || '').toLowerCase();
+      var stat = (item.status || '').toLowerCase();
+      if (stat.includes('hold')) { suggestions[item.fdh] = null; return; }
+      var cxEnd = item.cxEnd ? new Date(item.cxEnd) : null;
+      if (cxEnd && today > cxEnd) { suggestions[item.fdh] = 'Complete'; return; }
+      if (st.includes('ofs'))     { suggestions[item.fdh] = 'OFS';      return; }
+      if (st.includes('pre-con')) { suggestions[item.fdh] = 'Pre-Construction'; return; }
+      suggestions[item.fdh] = 'Active';
+    });
+
+    // Build suggestion summary chips
+    var suggestMap = {};
+    items.forEach(function(i) { var s = suggestions[i.fdh]; if (s) { suggestMap[s] = (suggestMap[s]||0)+1; } });
+    var suggestHtml = Object.keys(suggestMap).map(function(s) {
+      return '<button class="ac-filter-pill" style="font-size:10px;" onclick="_acApplySuggestion(\'' + _e(s) + '\')">' +
+        _e(s) + ' <span style="opacity:0.6;">(' + suggestMap[s] + ')</span></button>';
+    }).join('');
+
+    var optHtml = statuses.map(function(s){ return '<option value="' + _e(s) + '">' + _e(s) + '</option>'; }).join('');
+
+    var bodyHtml =
+      '<div style="margin-bottom:14px;">' +
+        '<div class="section-label" style="margin-bottom:8px;">MILESTONE SUGGESTIONS</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + suggestHtml + '</div>' +
+        '<div style="font-size:10px;color:var(--text-muted);margin-top:6px;">Click to auto-fill status based on milestone data.</div>' +
+      '</div>' +
+      '<div>' +
+        '<label class="section-label" style="margin-bottom:6px;display:block;">APPLY STATUS TO ALL ACTIVE PROJECTS</label>' +
+        '<select id="ac-bulk-status-sel" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-main);font-size:12px;font-weight:700;">' +
+          '<option value="">— select status —</option>' + optHtml +
+        '</select>' +
+        '<div style="font-size:10px;color:var(--text-muted);margin-top:8px;">Applies to all ' + items.length + ' active projects via QuickBase PATCH.</div>' +
+      '</div>';
+
+    window._acBulkStatusItems = items;
+    window._acBulkStatusSuggestions = suggestions;
+
+    _acShowModal('Bulk Status Change', bodyHtml, 'Apply to All Active', function() {
+      var sel = document.getElementById('ac-bulk-status-sel');
+      var status = sel ? sel.value : '';
+      if (!status) {
+        if (typeof showToast === 'function') showToast('Select a status first.', 'error');
+        return false;
+      }
+      var payload = (window._acBulkStatusItems || []).map(function(i) {
+        return { fdh: i.fdh, rid: (i.qbRef && i.qbRef.pmRid) || '', status: status };
+      });
+      if (typeof showToast === 'function') showToast('Applying status to ' + payload.length + ' projects…', 'info');
+      google.script.run
+        .withSuccessHandler(function() {
+          if (typeof showToast === 'function') showToast('Status updated for ' + payload.length + ' projects.', 'success');
+        })
+        .withFailureHandler(function(err) {
+          if (typeof showToast === 'function') showToast('Update failed: ' + (err.message||err), 'error');
+        })
+        .bulkWriteStatus(payload);
+    });
+  }
+
+  function _acApplySuggestion(status) {
+    var sel = document.getElementById('ac-bulk-status-sel');
+    if (sel) sel.value = status;
+  }
+
+  // ── Open Quick Peek ───────────────────────────────────────
   function _acOpenPeek(fdh) {
     var item = (typeof allActionItems !== 'undefined' ? allActionItems : []).find(function(i){ return i.fdh === fdh; });
     if (!item) return;
     if (typeof openQuickPeek === 'function') openQuickPeek(item, true);
   }
 
-  // ── Open QP scrolled to the crossings section ─────────────
   function _acOpenPeekAtXings(fdh) {
     _acOpenPeek(fdh);
     setTimeout(function() {
@@ -254,173 +1178,133 @@
     }, 120);
   }
 
-  // ── Stage a single item inline ────────────────────────────
-  function _acStageOne(fdh) {
-    var item = (typeof allActionItems !== 'undefined' ? allActionItems : []).find(function(i){ return i.fdh === fdh; });
-    if (!item) return;
-    if (typeof addToReviewedTray === 'function') addToReviewedTray(item, { action: 'stage' });
-    else if (typeof stageDeckItem === 'function') stageDeckItem(item);
-    _acRenderQueue();
-    _acRenderKpiRail();
-    if (typeof showToast === 'function') showToast(fdh + ' staged for export.', 'success');
+  function _acTogglePeek(fdh) {
+    _acOpenPeek(fdh);
   }
 
-  // ── Selection helpers ─────────────────────────────────────
-  function _acGetSelectedItems() {
-    var all = typeof allActionItems !== 'undefined' ? allActionItems : [];
-    return all.filter(function(i){ return _acSelected.has(i.fdh); });
-  }
-
-  function _acClearSelection() {
-    _acSelected.clear();
-    _acRenderQueue();
-  }
-
-  // ── Bulk: Comment ─────────────────────────────────────────
-  function _acBulkComment() {
-    var fdhs = Array.from(_acSelected);
-    if (!fdhs.length) return;
-    _acShowModal(
-      'Add Note to ' + fdhs.length + ' Item' + (fdhs.length > 1 ? 's' : ''),
-      '<textarea id="ac-modal-ta" class="chat-bubble" style="min-height:120px;width:100%;box-sizing:border-box;" ' +
-        'placeholder="Enter note — saved locally, private to you…"></textarea>' +
-      '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">Applying to: ' +
-        fdhs.map(function(f){ return '<code>' + _e(f) + '</code>'; }).join(', ') + '</div>',
-      'Save Note (private)',
-      function() {
-        var text = ((document.getElementById('ac-modal-ta') || {}).value || '').trim();
-        if (!text) return false;
-        fdhs.forEach(function(fdh) {
-          if (typeof _acSaveNote === 'function') _acSaveNote(fdh, text);
-        });
-        if (typeof showToast === 'function') showToast('Note saved for ' + fdhs.length + ' item' + (fdhs.length > 1 ? 's' : ''), 'success');
-        _acRenderQueue();
-      }
-    );
-  }
-
-  // ── Bulk: Verify Crossings ────────────────────────────────
-  function _acBulkCrossings() {
-    var fdhs = Array.from(_acSelected);
-    if (!fdhs.length) return;
-    _acShowModal(
-      'Verify Crossings — ' + fdhs.length + ' FDH' + (fdhs.length > 1 ? 's' : ''),
-      '<select id="ac-modal-xing" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-main);font-size:12px;font-weight:700;margin-bottom:10px;">' +
-        '<option value="">— select crossing status —</option>' +
-        '<option value="YES">YES — crossings present</option>' +
-        '<option value="NO">NO — no crossings</option>' +
-        '<option value="N/A">N/A</option>' +
-      '</select>' +
-      '<textarea id="ac-modal-xdet" class="chat-bubble" style="min-height:80px;width:100%;box-sizing:border-box;" ' +
-        'placeholder="Sheet names, crossing types (applies to all selected)…"></textarea>' +
-      '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">Committing for: ' +
-        fdhs.map(function(f){ return '<code>' + _e(f) + '</code>'; }).join(', ') + '</div>',
-      'Commit Crossings',
-      function() {
-        var xing = ((document.getElementById('ac-modal-xing') || {}).value || '');
-        var det  = ((document.getElementById('ac-modal-xdet') || {}).value || '');
-        if (!xing) {
-          if (typeof showToast === 'function') showToast('Select a crossing status first.', 'error');
-          return false;
-        }
-        var date = new Date().toLocaleDateString();
-        fdhs.forEach(function(fdh) {
-          google.script.run
-            .withFailureHandler(function(err){ if (typeof showToast === 'function') showToast('Failed ' + fdh + ': ' + (err.message || err), 'error'); })
-            .stageExternalFinding({ fdh: fdh, xing: xing, xingDetails: det, verifiedDate: date });
-        });
-        if (typeof showToast === 'function') showToast('Crossings committed for ' + fdhs.length + ' FDH' + (fdhs.length > 1 ? 's' : ''), 'success');
-      }
-    );
-  }
-
-  // ── Bulk: CD Upload ───────────────────────────────────────
-  function _acBulkCdUpload() {
-    var fdhs = Array.from(_acSelected);
-    if (!fdhs.length) return;
-    var inputs = fdhs.map(function(fdh) {
-      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
-        '<code style="font-size:11px;min-width:110px;color:var(--text-main);">' + _e(fdh) + '</code>' +
-        '<input type="file" accept="application/pdf" id="ac-cd-' + _e(fdh) + '" style="flex:1;font-size:11px;">' +
-      '</div>';
-    }).join('');
-    _acShowModal(
-      'CD Upload — ' + fdhs.length + ' FDH' + (fdhs.length > 1 ? 's' : ''),
-      '<div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">Assign one PDF per FDH. Files process locally one at a time.</div>' + inputs,
-      'Upload All',
-      function() {
-        var started = 0;
-        fdhs.forEach(function(fdh) {
-          var input = document.getElementById('ac-cd-' + fdh);
-          if (!input || !input.files || !input.files[0]) return;
-          if (typeof handleCdUpload === 'function') { handleCdUpload(input.files[0], input, fdh); started++; }
-        });
-        if (started > 0 && typeof showToast === 'function') showToast('CD upload started for ' + started + ' FDH' + (started > 1 ? 's' : ''), 'success');
-      }
-    );
-  }
-
-  // ── Bulk: Stage for Export ────────────────────────────────
-  function _acBulkStage() {
-    var items = _acGetSelectedItems();
-    if (!items.length) return;
-    items.forEach(function(item) {
-      if (typeof addToReviewedTray === 'function') addToReviewedTray(item, { action: 'stage' });
-      else if (typeof stageDeckItem === 'function') stageDeckItem(item);
+  function _acUpdateDetailBtns() {
+    document.querySelectorAll('.ac-detail-btn[data-fdh]').forEach(function(btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-fdh') === _acOpenPeekFdh);
     });
-    _acSelected.clear();
-    _acRenderQueue();
-    _acRenderKpiRail();
-    if (typeof showToast === 'function') showToast(items.length + ' item' + (items.length > 1 ? 's' : '') + ' staged for export.', 'success');
   }
 
-  // ── Export CSV (queue) ────────────────────────────────────
-  function _acExportCsv() {
-    var items = _acSelected.size > 0
-      ? _acGetSelectedItems()
-      : (typeof getActiveQueueItems === 'function' ? getActiveQueueItems() : []);
-    if (!items.length) return;
-    var cols = ['fdh','vendor','stage','status','targetDate','reportDate','flags'];
-    var csv  = [cols.join(',')];
-    items.forEach(function(item) {
-      csv.push(cols.map(function(c) {
-        return '"' + String(item[c] == null ? '' : item[c]).replace(/"/g,'""').replace(/\n/g,' ') + '"';
-      }).join(','));
-    });
-    _acDownloadBlob(csv.join('\n'), 'queue-export-' + new Date().toISOString().slice(0,10) + '.csv');
-  }
+  window._acOnPeekOpen = function(fdh) {
+    _acOpenPeekFdh = fdh;
+    _acUpdateDetailBtns();
+  };
 
-  // ── Export CSV (changelog) ────────────────────────────────
-  function _acExportChangelog() {
-    var logs = typeof allGlobalLogs !== 'undefined' ? allGlobalLogs : [];
-    if (_acChangelogQ) {
-      var q = _acChangelogQ.toLowerCase();
-      logs = logs.filter(function(l){ return [(l.fdh||''),(l.type||''),(l.val||''),(l.user||'')].join(' ').toLowerCase().indexOf(q) !== -1; });
+  window._acOnPeekClose = function() {
+    _acOpenPeekFdh = null;
+    _acUpdateDetailBtns();
+  };
+
+  // ── Reports staging tab ───────────────────────────────────
+  var _AC_REPORT_DEFS = [
+    { key: 'crossings', label: 'Crossings',   dot: '#f59e0b',
+      cols: ['FDH','Vendor','QB X-ing Status','Details'],
+      load: function() {
+        var items = _acGetActiveItems();
+        return items.map(function(i) {
+          var resolved = _acResolveCrossing(i);
+          return [i.fdh, i.vendor || '', resolved.xing || '—', resolved.details || ''];
+        });
+      }
+    },
+    { key: 'boms', label: 'BOM Comparison', dot: '#3b82f6',
+      cols: ['FDH','Vendor','UG QB','UG Vendor','AE QB','AE Vendor','Fiber QB','Fiber Vendor','NAP QB','NAP Vendor','Has Diff'],
+      load: function() {
+        if (!_acBomData) return null;
+        return _acGetBomRows().map(function(r) {
+          return [r.fdh, r.vendor||'', r.qbUG||'', r.vendorUG||'', r.qbAE||'', r.vendorAE||'',
+                  r.qbFib||'', r.vendorFib||'', r.qbNAP||'', r.vendorNAP||'', r.hasDiff ? 'YES' : ''];
+        });
+      }
+    },
+    { key: 'comments', label: 'Manager Notes', dot: '#a855f7',
+      cols: ['FDH','Vendor','Current Note'],
+      load: function() {
+        var items = _acGetActiveItems();
+        return items.map(function(i) {
+          var note = (typeof _acLoadNote === 'function') ? _acLoadNote(i.fdh) : null;
+          return [i.fdh, i.vendor || '', note ? note.text : ''];
+        });
+      }
     }
-    var cols = ['fdh','type','val','user','time'];
-    var csv  = [cols.join(',')];
-    logs.forEach(function(log) {
-      csv.push(cols.map(function(c) {
-        return '"' + String(log[c] == null ? '' : log[c]).replace(/"/g,'""').replace(/\n/g,' ') + '"';
-      }).join(','));
-    });
-    _acDownloadBlob(csv.join('\n'), 'changelog-export-' + new Date().toISOString().slice(0,10) + '.csv');
+  ];
+
+  function _acRenderReportsTab() {
+    var container = document.getElementById('ac-tab-reports');
+    if (!container) return;
+
+    var def = _AC_REPORT_DEFS.find(function(d){ return d.key === _acReportsView; }) || _AC_REPORT_DEFS[0];
+    var rows = def.load();
+    var isLoading = rows === null;
+
+    var navHtml = _AC_REPORT_DEFS.map(function(d) {
+      return '<button class="ac-reports-nav-btn' + (d.key === _acReportsView ? ' active' : '') + '" ' +
+             'onclick="_acReportsSwitchView(\'' + d.key + '\')">' +
+             '<span class="ac-reports-nav-dot" style="background:' + d.dot + '"></span>' +
+             d.label + '</button>';
+    }).join('');
+
+    var previewHtml;
+    if (isLoading) {
+      previewHtml = '<div class="ac-reports-loading"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><span>Load BOM data first from the BOMs tab</span></div>';
+    } else if (!rows || rows.length === 0) {
+      previewHtml = '<div class="ac-reports-loading"><span>No data to preview</span></div>';
+    } else {
+      var thHtml = def.cols.map(function(c){ return '<th>' + _e(c) + '</th>'; }).join('');
+      var tbodyHtml = rows.slice(0, 200).map(function(row) {
+        return '<tr class="ac-row">' + row.map(function(v){ return '<td>' + _e(v == null ? '' : String(v)) + '</td>'; }).join('') + '</tr>';
+      }).join('');
+      var moreRow = rows.length > 200 ? '<tr><td colspan="' + def.cols.length + '" class="ac-more-row">Showing 200 of ' + rows.length + ' rows — export for full dataset</td></tr>' : '';
+      previewHtml = '<div class="ac-reports-preview-table-wrap"><table class="ac-table"><thead><tr>' + thHtml + '</tr></thead><tbody>' + tbodyHtml + moreRow + '</tbody></table></div>';
+    }
+
+    var rowCount = (rows && !isLoading) ? rows.length : 0;
+    var exportBtns =
+      '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acReportsExport(\'' + def.key + '\')">Export to Drive</button>' +
+      (def.key === 'crossings' ? '<button class="ac-bulk-action-btn" onclick="_acSwitchTab(\'crossings\')">Open Crossings Tab</button>' : '') +
+      (def.key === 'boms' && !_acBomData ? '<button class="ac-bulk-action-btn" onclick="_acSwitchTab(\'boms\')">Load BOM Data</button>' : '') +
+      (def.key === 'comments' ? '<button class="ac-bulk-action-btn" onclick="_acSwitchTab(\'comments\')">Open Comments Tab</button>' : '');
+
+    container.innerHTML =
+      _acRenderTabKpi('reports') +
+      '<div class="ac-reports-staging-shell">' +
+        '<div class="ac-reports-staging-body">' +
+          '<nav class="ac-reports-nav">' + navHtml + '</nav>' +
+          '<div class="ac-reports-preview">' +
+            '<div class="ac-reports-preview-toolbar">' +
+              '<div>' +
+                '<div class="ac-reports-preview-title">' + _e(def.label) + '</div>' +
+                '<div class="ac-reports-preview-meta">' + (isLoading ? 'Awaiting data load' : rowCount + ' rows') + '</div>' +
+              '</div>' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + exportBtns + '</div>' +
+            '</div>' +
+            previewHtml +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    _acSyncTabBadges();
   }
 
-  function _acDownloadBlob(text, filename) {
-    var blob = new Blob([text], { type: 'text/csv' });
-    var url  = URL.createObjectURL(blob);
-    var a    = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click();
-    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1000);
+  function _acReportsSwitchView(key) {
+    _acReportsView = key;
+    _acRenderUniversalFilterBar('reports');
+    _acRenderReportsTab();
+    _acSyncTabBadges();
+  }
+
+  function _acReportsExport(key) {
+    if (key === 'crossings') _acExportCrossingsCSV();
+    else if (key === 'boms') _acExportBOMCSV();
+    else if (key === 'comments') _acExportLatestComments();
   }
 
   // ── Modal helper ──────────────────────────────────────────
   function _acShowModal(title, bodyHtml, confirmLabel, onConfirm) {
     var existing = document.getElementById('ac-modal-overlay');
     if (existing) existing.remove();
-
     var overlay = document.createElement('div');
     overlay.id = 'ac-modal-overlay';
     overlay.className = 'ac-modal-overlay';
@@ -433,11 +1317,10 @@
         '<div class="ac-modal-body">' + bodyHtml + '</div>' +
         '<div class="ac-modal-footer">' +
           '<button class="btn" style="padding:10px 18px;font-size:11px;" onclick="_acCloseModal()">Cancel</button>' +
-          '<button class="btn btn-primary" style="padding:10px 18px;font-size:11px;" onclick="_acModalConfirm()">' + _e(confirmLabel) + '</button>' +
+          '<button class="btn btn-primary" id="ac-modal-confirm-btn" style="padding:10px 18px;font-size:11px;" onclick="_acModalConfirm()">' + _e(confirmLabel) + '</button>' +
         '</div>' +
       '</div>';
     overlay.onclick = _acCloseModal;
-
     var ws = document.getElementById('action-workspace');
     (ws || document.body).appendChild(overlay);
     window._acModalOnConfirm = onConfirm;
@@ -456,265 +1339,62 @@
     }
   }
 
-  // ── Outbox Tab ────────────────────────────────────────────
-  function _acRenderOutbox() {
-    var container = document.getElementById('ac-tab-outbox');
-    if (!container) return;
-
-    var staged    = typeof getStagedReviewItems === 'function' ? getStagedReviewItems() : [];
-    var committed = (typeof committedItems !== 'undefined' && committedItems) ? committedItems : [];
-
-    var html = '<div class="ac-outbox-shell">';
-
-    html += _acOutboxSection('Staged for Export', staged.length, 'ac-chip-warn',
-      staged.length === 0
-        ? '<div class="ac-empty-sm">Nothing staged. Mark items in Detail or Slide view.</div>'
-        : _acOutboxTable(staged,
-            [{key:'fdh',label:'FDH'},{key:'vendor',label:'Vendor'},{key:'pill',label:'Stage'},{key:'action',label:''}],
-            function(item, col) {
-              if (col.key === 'pill') {
-                var p  = typeof getQueueCombinedPill === 'function' ? getQueueCombinedPill(item) : (item.stage||'');
-                var pc = typeof getQueuePillClass    === 'function' ? getQueuePillClass(item.stage, item.status) : '';
-                return '<span class="tag ' + pc + '">' + _e(p) + '</span>';
-              }
-              if (col.key === 'action') return '<button class="ac-action-btn ac-btn-danger" onclick="event.stopPropagation();_acUnstage(\'' + _e(item.fdh) + '\')">Remove</button>';
-              return _e(item[col.key] || '—');
-            })
-    );
-
-    html += _acOutboxSection('Reviewed', committed.length, 'ac-chip-green',
-      committed.length === 0
-        ? '<div class="ac-empty-sm">No reviewed items yet.</div>'
-        : _acOutboxTable(committed,
-            [{key:'fdh',label:'FDH'},{key:'vendor',label:'Vendor'},{key:'pill',label:'Stage'},{key:'qb',label:'QB Status'}],
-            function(item, col) {
-              if (col.key === 'pill') {
-                var p  = typeof getQueueCombinedPill === 'function' ? getQueueCombinedPill(item) : (item.stage||'');
-                var pc = typeof getQueuePillClass    === 'function' ? getQueuePillClass(item.stage, item.status) : '';
-                return '<span class="tag ' + pc + '">' + _e(p) + '</span>';
-              }
-              if (col.key === 'qb') return '<span class="tag chip-muted">Reviewed</span>';
-              return _e(item[col.key] || '—');
-            })
-    );
-
-    html += '</div>';
-    container.innerHTML = html;
-  }
-
-  function _acOutboxSection(title, count, chipCls, bodyHtml) {
-    return '<div class="ac-outbox-section">' +
-      '<div class="ac-section-hd">' +
-        '<span class="ac-section-title">' + title + '</span>' +
-        '<span class="ac-section-badge ' + chipCls + '">' + count + '</span>' +
-      '</div>' + bodyHtml + '</div>';
-  }
-
-  function _acOutboxTable(rows, cols, cellFn) {
-    var html = '<div class="ac-table-wrap"><table class="ac-table">' +
-      '<thead><tr>' + cols.map(function(c){ return '<th>' + c.label + '</th>'; }).join('') + '</tr></thead><tbody>';
-    rows.forEach(function(item) {
-      html += '<tr class="ac-row">' + cols.map(function(c){ return '<td>' + cellFn(item, c) + '</td>'; }).join('') + '</tr>';
-    });
-    html += '</tbody></table></div>';
-    return html;
-  }
-
-  // ── Changelog Tab ─────────────────────────────────────────
-  function _acRenderChangelog() {
-    var container = document.getElementById('ac-tab-changelog');
-    if (!container) return;
-
-    var logs = (typeof allGlobalLogs !== 'undefined' ? allGlobalLogs : []).filter(function(log) {
-      return typeof _isChangelogMilestone === 'function'
-        ? _isChangelogMilestone(String(log.type || ''), String(log.val || ''))
-        : true;
-    });
-
-    if (_acChangelogQ) {
-      var q = _acChangelogQ.toLowerCase();
-      logs = logs.filter(function(log) {
-        return [(log.fdh||''),(log.type||''),(log.val||''),(log.user||'')].join(' ').toLowerCase().indexOf(q) !== -1;
-      });
-    }
-
-    var html =
-      '<div class="ac-cl-toolbar">' +
-        '<div class="ac-search-wrap">' +
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
-          '<input class="ac-search-input" type="text" placeholder="Filter by FDH, type, value, or user…" value="' + _e(_acChangelogQ) + '" oninput="_acOnChangelogSearch(this.value)">' +
-        '</div>' +
-        '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportChangelog()">Export CSV</button>' +
-        '<span class="ac-result-count">' + logs.length + ' entries</span>' +
-      '</div>' +
-      '<div class="ac-table-wrap"><table class="ac-table ac-table-changelog ac-table-workspace">' +
-      '<thead><tr><th>When</th><th>FDH</th><th>Change Type</th><th>New Value</th><th>By</th><th class="ac-th-actions"></th></tr></thead><tbody>';
-
-    if (logs.length === 0) {
-      html += '<tr><td colspan="6" class="ac-empty-cell">No entries match this filter.</td></tr>';
-    } else {
-      logs.slice(0, 300).forEach(function(log) {
-        var ts = typeof _getChangelogTimestamp === 'function' ? _getChangelogTimestamp(log) : 0;
-        var timeStr = log.time || '—';
-        if (ts) {
-          try { var d = new Date(ts); timeStr = (d.getMonth()+1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0'); } catch(e){}
-        }
-        var val     = typeof _formatChangelogValue === 'function' ? _formatChangelogValue(log.type, log.val) : (log.val || '—');
-        var pillCls = typeof _getQBPillClass       === 'function' ? _getQBPillClass(log.type, log.val)       : 'chip-muted';
-        var fdhSafe = _e(log.fdh || '');
-        html +=
-          '<tr class="ac-row ac-log-row">' +
-          '<td class="ac-td-time">' + _e(timeStr) + '</td>' +
-          '<td class="ac-td-fdh"><span class="ac-fdh">' + fdhSafe + '</span></td>' +
-          '<td class="ac-td-type">' + _e(log.type || '—') + '</td>' +
-          '<td><span class="tag ' + pillCls + '">' + _e(val) + '</span></td>' +
-          '<td class="ac-td-user">' + _e(log.user || '—') + '</td>' +
-          '<td class="ac-td-actions" onclick="event.stopPropagation()">' +
-            (fdhSafe ? '<button class="ac-row-action-btn" onclick="_acOpenPeek(\'' + fdhSafe + '\')" title="Open project detail">↗ Open</button>' : '') +
-          '</td>' +
-          '</tr>';
-      });
-      if (logs.length > 300) {
-        html += '<tr><td colspan="6" class="ac-more-row">Showing 300 of ' + logs.length + '. Filter to narrow.</td></tr>';
-      }
-    }
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
-  }
-
-  // ── Top Offenders Tab ─────────────────────────────────────
-  function _acRenderOffendersTab() {
-    if (typeof _renderSignalOffenders === 'function') _renderSignalOffenders();
-  }
-
-  // ── Reports Tab ───────────────────────────────────────────
-  var _acReportPresets = [
-    { id:'critical',  label:'All Critical',       source:'queue',     filter:function(i){ return typeof getSeverity==='function' && getSeverity(i.flags)==='crit'; }, cols:['fdh','vendor','stage','status','targetDate','flags'] },
-    { id:'warnings',  label:'All Warnings',       source:'queue',     filter:function(i){ return typeof getSeverity==='function' && getSeverity(i.flags)==='warn'; }, cols:['fdh','vendor','stage','status','targetDate','flags'] },
-    { id:'queue',     label:'Full Queue',          source:'queue',     filter:null, cols:['fdh','vendor','stage','status','targetDate','reportDate','flags'] },
-    { id:'staged',    label:'Staged for Export',  source:'staged',    filter:null, cols:['fdh','vendor','stage','status'] },
-    { id:'changelog', label:'Changelog (all)',     source:'changelog', filter:null, cols:['fdh','type','val','user','time'] },
-  ];
-
-  function _acRenderReports() {
-    var container = document.getElementById('ac-tab-reports');
-    if (!container) return;
-
-    var html =
-      '<div class="ac-reports-shell">' +
-        '<div class="ac-reports-header">Export Reports</div>' +
-        '<div class="ac-reports-subhead">One-click CSV exports from live data. No round-trip to server.</div>' +
-        '<div class="ac-reports-grid">' +
-        _acReportPresets.map(function(p) {
-          return '<div class="ac-report-card">' +
-            '<div class="ac-report-label">' + _e(p.label) + '</div>' +
-            '<div class="ac-report-cols">Cols: ' + p.cols.join(' · ') + '</div>' +
-            '<button class="btn btn-primary" style="width:100%;padding:10px;font-size:11px;margin-top:12px;" ' +
-              'onclick="_acDownloadPreset(\'' + p.id + '\')">Download CSV</button>' +
-          '</div>';
-        }).join('') +
-        '</div>' +
-      '</div>';
-
-    container.innerHTML = html;
-  }
-
-  function _acDownloadPreset(id) {
-    var p = _acReportPresets.find(function(x){ return x.id === id; });
-    if (!p) return;
-
-    var rows;
-    if      (p.source === 'queue')     { rows = typeof getActiveQueueItems    === 'function' ? getActiveQueueItems()    : []; if (p.filter) rows = rows.filter(p.filter); }
-    else if (p.source === 'staged')    { rows = typeof getStagedReviewItems   === 'function' ? getStagedReviewItems()   : []; }
-    else if (p.source === 'changelog') { rows = typeof allGlobalLogs          !== 'undefined' ? allGlobalLogs           : []; }
-    else                               { rows = []; }
-
-    var csv = [p.cols.join(',')];
-    rows.forEach(function(row) {
-      csv.push(p.cols.map(function(c) {
-        return '"' + String(row[c] == null ? '' : row[c]).replace(/"/g,'""').replace(/\n/g,' ') + '"';
-      }).join(','));
-    });
-    _acDownloadBlob(csv.join('\n'), p.id + '-' + new Date().toISOString().slice(0,10) + '.csv');
-  }
-
-  // ── Interaction handlers ──────────────────────────────────
-  function _acSetSort(col) {
-    if (_acSortCol === col) { _acSortDir = _acSortDir === 'asc' ? 'desc' : 'asc'; }
-    else { _acSortCol = col; _acSortDir = 'asc'; }
-    _acRenderQueue();
-  }
-
-  function _acSetSevFilter(sev) {
-    _acSevFilter = sev;
-    _acRenderQueue();
-    _acRenderKpiRail();
-  }
-
-  function _acToggleRow(fdh) {
-    if (_acSelected.has(fdh)) _acSelected.delete(fdh);
-    else _acSelected.add(fdh);
-    _acRenderQueue();
-  }
-
-  function _acToggleAll(checked, fdhs) {
-    _acSelected.clear();
-    if (checked && fdhs) fdhs.forEach(function(f){ _acSelected.add(f); });
-    _acRenderQueue();
-  }
-
-  function _acUnstage(fdh) {
-    if (typeof removeFromStagedDeck === 'function') removeFromStagedDeck(fdh);
-    _acRenderOutbox();
-    _acRenderKpiRail();
-  }
-
-  function _acOnChangelogSearch(query) {
-    _acChangelogQ = query;
-    _acRenderChangelog();
-  }
-
-  function _acFilterPill(sev, label) {
-    var active = _acSevFilter === sev;
-    return '<button class="ac-filter-pill' + (active ? ' active' : '') +
-      '" onclick="_acSetSevFilter(' + (sev ? '\'' + sev + '\'' : 'null') + ')">' + label + '</button>';
-  }
-
-  function _acSortHeader(col, label) {
-    var active = _acSortCol === col;
-    var arrow  = active ? (_acSortDir === 'asc' ? ' ↑' : ' ↓') : '';
-    return '<button class="ac-sort-hd' + (active ? ' active' : '') + '" onclick="_acSetSort(\'' + col + '\')">' + label + arrow + '</button>';
+  // ── Download blob (client-side CSV fallback) ──────────────
+  function _acDownloadBlob(text, filename) {
+    var blob = new Blob([text], { type: 'text/csv' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1000);
   }
 
   // ── Master entry point ────────────────────────────────────
   function _renderActionCenter() {
-    _acRenderKpiRail();
+    _acRenderUniversalFilterBar(_acActiveTab);
     _acSwitchTab(_acActiveTab);
+    _acSyncTabBadges();
   }
 
   // ── Global exports ────────────────────────────────────────
-  window._renderActionCenter  = _renderActionCenter;
-  window._acSwitchTab         = _acSwitchTab;
-  window._acSetSort           = _acSetSort;
-  window._acSetSevFilter      = _acSetSevFilter;
-  window._acToggleRow         = _acToggleRow;
-  window._acToggleAll         = _acToggleAll;
-  window._acOpenPeek          = _acOpenPeek;
-  window._acOpenPeekAtXings   = _acOpenPeekAtXings;
-  window._acStageOne          = _acStageOne;
-  window._acBulkComment       = _acBulkComment;
-  window._acBulkCrossings     = _acBulkCrossings;
-  window._acBulkCdUpload      = _acBulkCdUpload;
-  window._acBulkStage         = _acBulkStage;
-  window._acExportCsv         = _acExportCsv;
-  window._acExportChangelog   = _acExportChangelog;
-  window._acDownloadPreset    = _acDownloadPreset;
-  window._acClearSelection    = _acClearSelection;
-  window._acUnstage           = _acUnstage;
-  window._acOnChangelogSearch = _acOnChangelogSearch;
-  window._acChipClick         = _acChipClick;
-  window._acCloseModal        = _acCloseModal;
-  window._acModalConfirm      = _acModalConfirm;
+  window._renderActionCenter           = _renderActionCenter;
+  window._acSwitchTab                  = _acSwitchTab;
+  window._acOpenPeek                   = _acOpenPeek;
+  window._acOpenPeekAtXings            = _acOpenPeekAtXings;
+  window._acRenderUniversalFilterBar   = _acRenderUniversalFilterBar;
+  window._acOnUniversalSearch          = _acOnUniversalSearch;
+  window._acSetUniversalFilter         = _acSetUniversalFilter;
+  window._acGetFilteredBomItems        = _acGetFilteredBomItems;
+  window._acGetFilteredCommentItems    = _acGetFilteredCommentItems;
+  window._acRenderTabKpi               = _acRenderTabKpi;
+  window._acSetXingsFilter             = _acSetXingsFilter;
+  window._acSetXingsSearch             = _acSetXingsSearch;
+  window._acToggleXingGroup       = _acToggleXingGroup;
+  window._acToggleXingRow         = _acToggleXingRow;
+  window._acToggleAllXings        = _acToggleAllXings;
+  window._acToggleVisibleXings    = _acToggleVisibleXings;
+  window._acOnXingChange          = _acOnXingChange;
+  window._acOnXingDetailChange    = _acOnXingDetailChange;
+  window._acCommitSelectedCrossings = _acCommitSelectedCrossings;
+  window._acTriggerCsvImport      = _acTriggerCsvImport;
+  window._acOnCsvFileSelected     = _acOnCsvFileSelected;
+  window._acExportCrossingsCSV    = _acExportCrossingsCSV;
+  window._acLoadBomData           = _acLoadBomData;
+  window._acExportBOMCSV          = _acExportBOMCSV;
+  window._acToggleCommentRow      = _acToggleCommentRow;
+  window._acToggleAllComments     = _acToggleAllComments;
+  window._acOnCommentChange       = _acOnCommentChange;
+  window._acSaveAllComments       = _acSaveAllComments;
+  window._acExportLatestComments  = _acExportLatestComments;
+  window._acAuditSelectedComments = _acAuditSelectedComments;
+  window._acOpenBulkStatusModal   = _acOpenBulkStatusModal;
+  window._acApplySuggestion       = _acApplySuggestion;
+  window._acCloseModal            = _acCloseModal;
+  window._acModalConfirm          = _acModalConfirm;
+  window._acTogglePeek            = _acTogglePeek;
+  window._acRenderReportsTab      = _acRenderReportsTab;
+  window._acReportsSwitchView     = _acReportsSwitchView;
+  window._acReportsExport         = _acReportsExport;
 
 })();
 </script>
