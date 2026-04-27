@@ -193,7 +193,7 @@ function promptBatchDeckExport() {
             combinedText += `  * Approval distributed: ${mem['q_cross_dist'] || '\u2014'}\n`;
         }
         combinedText += `- Active set: ${boolLabel(mem['q_active_set'])}\n`;
-        combinedText += `- Active has power: ${boolLabel(mem['q_active_pwr'])}\n`;
+        combinedText += `- Light to Cabinets: ${boolLabel(mem['q_active_pwr'])}\n`;
         combinedText += `- Transport available: ${boolLabel(mem['q_transport'])}\n`;
         combinedText += `- OFS date changed: ${boolLabel(mem['q_ofs_change'])}\n`;
         combinedText += `- OFS change reason: ${mem['q_ofs_reason'] || '\u2014'}\n\n`;
@@ -599,6 +599,7 @@ function renderDeckStage() {
                                 ${pptRow('Stage', getVal('q_stage', item.qbRef?.stage, 'text'))}
                                 ${pptRow('Status', getVal('q_status', item.qbRef?.status, 'text'))}
                                 ${pptRow('Has the active been set?', getVal('q_active_set', item.qbRef?.activeSet, 'bool'))}
+                                ${pptRow('Light to Cabinets?', getVal('q_active_pwr', item.qbRef?.activePwr, 'bool'))}
                                 ${pptRow('What leg is this FDH on?', getVal('q_leg', item.qbRef?.leg, 'text'))}
                                 ${pptRow('How is this FDH being fed?', getVal('q_how_fed', item.qbRef?.howFed, 'text'))}
                                 ${pptRow('Did the OFS date change?', getVal('q_ofs_change', isOfsChangeActive, 'bool'))}
@@ -671,7 +672,7 @@ function renderDeckStage() {
                                 </div>
                                 <div class="grid-density-check">
                                     ${mc('q_active_set', 'Active Set?', item.qbRef?.activeSet)}
-                                    ${mc('q_active_pwr', 'Active has power?', item.qbRef?.activePwr)}
+                                    ${mc('q_active_pwr', 'Light to Cabinets?', item.qbRef?.activePwr)}
                                     ${mc('q_transport', 'Transport available?', item.qbRef?.transport)}
                                 </div>
                                 <div class="grid-density-date">

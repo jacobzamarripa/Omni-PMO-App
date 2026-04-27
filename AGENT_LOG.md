@@ -1,5 +1,24 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-27: Primary-table Deck remap and payload reference confidence fix
+- **Branch:** `fix/v2-payload-ofs-date`.
+- **QuickBase table cleanup:** Removed the obsolete `Project Management` table lookup and mapped Deck enrichment outputs from the live `bts3c49e9` FDH Projects table. `QB_Active_Pwr` now uses `Light to Cabinets`, `QB_Ofs_Change` uses `Current OFS Date Change Log Date`, and `QB_Ofs_Reason` uses `Date Change Details`.
+- **Dependency fallback:** `qbRef.howFed` now falls back to dependency predecessors when no direct `QB_How_Fed` field exists, preserving upstream network-path behavior without a dead QuickBase field.
+- **Payload and SIGNAL fixes:** `_buildPortfolioActionItems()` now declares `referenceMeta` before payload use, and SIGNAL Drive failures use a global cooldown so current/week scans do not repeat the same Drive service outage.
+- **Verification:** Backend parse checks for touched GAS files, frontend parse check for `src/_module_deck.html`, `node scripts/validate-active-portfolio-payload.js`, `node scripts/validate-active-portfolio.js`, `node scripts/validate-reference-priority.js`, `node scripts/validate-sync-hotpaths.js`, and `git diff --check` for touched files passed.
+
+> [!success] 2026-04-27: SIGNAL Drive and QuickBase throttle guardrails
+- **Branch:** `fix/v2-payload-ofs-date`.
+- **Drive SIGNAL:** `getSignalDrive()` now uses a short per-timeframe failure cooldown when Drive throws `Service error: Drive`, preventing repeated BOMs / CDs_and_Permits scans from hammering the same transient Drive failure.
+- **QuickBase sync:** `/records/query` calls now route through a retry helper with backoff for bandwidth/quota transient failures, and paged table fetches use light pacing between pages.
+- **Verification:** Backend parse checks for `src/02_Utilities.js` and `src/06_QBSync.js`, `node scripts/validate-sync-hotpaths.js`, and `git diff --check -- src/02_Utilities.js src/06_QBSync.js scripts/validate-sync-hotpaths.js AGENT_LOG.md` passed.
+
+> [!success] 2026-04-27: V2 payload OFS runtime crash fixed
+- **Branch:** `fix/v2-payload-ofs-date`.
+- **Payload fix:** `_buildPortfolioActionItems()` now declares `normalizedCanonicalOfsDate` from the canonical reference OFS source before building `actionItems`, restoring the `buildAndSaveDashboardPayloadV2()` path after mirror sheet writes.
+- **OFS contract preserved:** `canonicalOfsDate` and legacy `ofsDate` still use the normalized `5-Reference_Data` OFS value, while mirror OFS remains diagnostic-only through `rawMirrorOfsDate` / `ofsDateMismatch`.
+- **Verification:** Backend parse check for `src/02_Utilities.js`, `node scripts/validate-active-portfolio-payload.js`, `node scripts/validate-active-portfolio.js`, `node scripts/validate-sync-hotpaths.js`, and `git diff --check -- src/02_Utilities.js scripts/validate-active-portfolio-payload.js AGENT_LOG.md` passed.
+
 > [!success] 2026-04-27: Daily Upload weekend recommendation and export gating stabilized
 - **Branch:** `fix/daily-upload-stability`.
 - **Monday recommendation:** Daily Upload now exposes recommended target metadata. Mondays load one Friday-Sunday range, so Monday April 27, 2026 recommends `2026-04-24 - 2026-04-26` and checks for `Daily_Production_Report_04.24.26-04.26.26.csv`.

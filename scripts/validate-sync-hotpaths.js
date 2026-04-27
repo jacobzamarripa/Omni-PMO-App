@@ -62,6 +62,15 @@ assert(/sheet\.getRange\(1, 1, 1, sheet\.getLastColumn\(\)\)\.getValues\(\)\[0\]
 assert(/sheet\.getRange\(2, idx \+ 1, Math\.max\(sheet\.getLastRow\(\) - 1, 1\), 1\)\.getValues\(\)/.test(qbSource), 'FDH set helper reads only the FDH column');
 assert(/logMsg\("WARN", "syncFromQBWebApp\.deckEnrichment", deckErr\.message\);/.test(qbSource), 'Deck enrichment warnings use structured logMsg formatting');
 assert(/logMsg\("WARN", "_fetchTableAllFids", "QB query HTTP " \+ resp\.getResponseCode\(\) \+ " for table " \+ tableId\);/.test(qbSource), 'QB query warnings use structured logMsg formatting');
+assert(!/bvieaendx/.test(qbSource), 'Obsolete Project Management table is not queried');
+assert(/const QB_PRIMARY_DECK_FIDS = \[517, 459, 527, 528, 529, 192, 927, 274, 518, 520, 521, 588, 589, 439, 513, 436, 733, 524\];/.test(qbSource), 'Primary FDH Projects deck FIDs are force-selected');
+assert(/QB_PRIMARY_DECK_FIDS\.forEach\(function\(fid\) \{ if \(fieldMap\[fid\]\) fidSet\.add\(fid\); \}\);/.test(qbSource), 'Primary deck FIDs feed reference snapshot selection');
+assert(/"QB_Active_Pwr": "Light to Cabinets"/.test(qbSource), 'Active power output maps to Light to Cabinets');
+assert(/"QB_Ofs_Change": "Current OFS Date Change Log Date"/.test(qbSource), 'OFS change output maps to current OFS change-log date');
+assert(/function _qbFetchWithRetry\(url, opts, contextLabel\)/.test(qbSource), 'QB records query retry helper exists');
+assert(/var resp = _qbFetchWithRetry\(url, opts, "_fetchTableAllFids:" \+ tableId\);/.test(qbSource), 'QB table fetches use retry helper');
+assert(/const response = _qbFetchWithRetry\(url, options, "syncChangeLogs"\);/.test(qbSource), 'QB change log fetch uses retry helper');
+assert(/if \(skip < total\) Utilities\.sleep\(150\);/.test(qbSource), 'QB paged fetches use light pacing');
 assert(/function syncAndRebuildDashboard\(\)/.test(qbSource), 'Direct manual QB sync entrypoint exists');
 assert(/payload\._syncMeta = \{ count: syncResult\.count, timestamp: syncResult\.timestamp, date: latestDate, timings: timings \};/.test(qbSource), 'Direct manual QB sync returns payload metadata for the frontend');
 assert(/'QB_SYNC_PHASE2_QUEUED_AT': String\(phase2QueuedAt\)/.test(qbSource), 'Async sync records when Phase 2 was queued');
@@ -84,6 +93,9 @@ assert(/\.syncAndRebuildDashboard\(\);/.test(read('src/_module_webapp_core.html'
 assert(!/\.kickoffQBSync\(\);/.test(read('src/_module_webapp_core.html')), 'Frontend manual sync no longer kicks off the async trigger chain');
 assert(!/\.getQBSyncStatus\(\);/.test(read('src/_module_webapp_core.html')), 'Frontend manual sync no longer polls async QB sync status');
 assert(/V2 PAYLOAD timings: /.test(utilSource), 'Payload builder logs step timings');
+assert(/const failureKey = 'SIGNAL_DRIVE_FAIL_GLOBAL';/.test(utilSource), 'SIGNAL Drive scan has a global failure cooldown key');
+assert(/if \(cache\.get\(failureKey\)\) return \[\];/.test(utilSource), 'SIGNAL Drive scan honors failure cooldown');
+assert(/cache\.put\(failureKey, '1', 120\)/.test(utilSource), 'SIGNAL Drive scan stores short failure cooldown');
 assert(/function _deleteProjectTriggersByHandler_\(handlerName\)/.test(utilSource), 'Automation utilities expose family-scoped trigger deletion');
 assert(/const deletedTriggerCount = _deleteProjectTriggersByHandler_\('runMiddayAutomation'\);/.test(utilSource), 'Daily automation trigger install only deletes its own trigger family');
 assert(/function getAutomationHealth\(\)/.test(utilSource), 'Automation utilities expose a consolidated health snapshot');

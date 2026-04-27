@@ -241,7 +241,6 @@ function getReferenceDictionary() {
     let qbCrossApprIdx  = getIdx("QB_Cross_Appr");
     let qbCrossDistIdx  = getIdx("QB_Cross_Dist");
     let qbXingExistIdx  = getIdx("QB_Xing_Exist");
-    let qbPmRidIdx      = getIdx("QB_PM_RID");
     let qbActiveSetIdx  = getIdx("QB_Active_Set");
     let qbActivePwrIdx  = getIdx("QB_Active_Pwr");
     let qbLegIdx        = getIdx("QB_Leg");
@@ -325,12 +324,12 @@ function getReferenceDictionary() {
              crossSub:   qbCrossSubIdx   > -1 ? String(r[qbCrossSubIdx]   || "") : "",
              crossAppr:  qbCrossApprIdx  > -1 ? String(r[qbCrossApprIdx]  || "") : "",
              crossDist:  qbCrossDistIdx  > -1 ? String(r[qbCrossDistIdx]  || "") : "",
-             pmRid:      qbPmRidIdx      > -1 ? String(r[qbPmRidIdx]      || "") : "",
+             pmRid:      "",
              activeSet:  qbActiveSetIdx  > -1 ? String(r[qbActiveSetIdx]  || "") : "",
              activePwr:  qbActivePwrIdx  > -1 ? String(r[qbActivePwrIdx]  || "") : "",
              leg:        qbLegIdx        > -1 ? String(r[qbLegIdx]        || "") : "",
              transport:  qbTransportIdx  > -1 ? String(r[qbTransportIdx]  || "") : "",
-             howFed:     qbHowFedIdx     > -1 ? String(r[qbHowFedIdx]     || "") : "",
+             howFed:     qbHowFedIdx     > -1 ? String(r[qbHowFedIdx]     || "") : (qbPredecessorsIdx > -1 ? String(r[qbPredecessorsIdx] || "") : ""),
              whatFeeds:  qbWhatFeedsIdx  > -1 ? String(r[qbWhatFeedsIdx]  || "") : "",
              island:     qbIslandIdx     > -1 ? String(r[qbIslandIdx]     || "") : "",
              ofsChange:  qbOfsChangeIdx  > -1 ? String(r[qbOfsChangeIdx]  || "") : "",
@@ -453,6 +452,12 @@ function getVendorLiveDictionary(refDict) {
   let vendorDict = {};
   let officialFDHs = refDict ? Object.keys(refDict) : [];
   let fuzzyCorrectionCount = 0;
+
+  // 🧠 PERSISTENT ALIAS CACHE: Load previously resolved fuzzy matches to skip expensive matching logic.
+  const props = PropertiesService.getScriptProperties();
+  const aliasCache = JSON.parse(props.getProperty("VENDOR_PROJECT_ALIASES") || "{}");
+  let cacheUpdated = false;
+
   try {
     let vSS = SpreadsheetApp.openById(VENDOR_TRACKER_ID);
     let sheets = vSS.getSheets(); 
@@ -508,11 +513,21 @@ function getVendorLiveDictionary(refDict) {
          if (!rawFdh) continue;
          let finalFdh = rawFdh;
          
-         // 🧠 NEW: Advanced Triangulation Matching
-         let matched = attemptFuzzyMatch(rawFdh, officialFDHs, sheetName, refDict);
-         if (matched) {
-             finalFdh = matched;
-             if (matched !== rawFdh) fuzzyCorrectionCount++;
+         // 🧠 PERSISTENT ALIAS CHECK: Fast path O(1) lookup
+         const cacheKey = rawFdh + "_" + sheetName;
+         if (aliasCache[cacheKey]) {
+           finalFdh = aliasCache[cacheKey];
+         } else {
+           // 🧠 NEW: Advanced Triangulation Matching
+           let matched = attemptFuzzyMatch(rawFdh, officialFDHs, sheetName, refDict);
+           if (matched) {
+               finalFdh = matched;
+               if (matched !== rawFdh) {
+                 fuzzyCorrectionCount++;
+                 aliasCache[cacheKey] = matched; // Save for next time
+                 cacheUpdated = true;
+               }
+           }
          }
          
          let combinedNotes = noteIndices
@@ -553,6 +568,16 @@ function getVendorLiveDictionary(refDict) {
       }
     }
     logMsg(`📉 Vendor Tracker Coverage: Successfully matched ${Object.keys(vendorDict).length} projects. Same-market fuzzy corrections: ${fuzzyCorrectionCount}.`);
+
+    // 🧠 PERSISTENT ALIAS SAVE: Commit new resolutions back to script storage
+    if (cacheUpdated) {
+      try {
+        props.setProperty("VENDOR_PROJECT_ALIASES", JSON.stringify(aliasCache));
+      } catch (e) {
+        logMsg("WARN", "aliasCache.save", e.message);
+      }
+    }
+
   } catch (e) { logMsg(`⚠️ Vendor Tracker Error: ${e.toString()}`); }
   try {
     putChunkedCache(cache, cacheKey, JSON.stringify(vendorDict), 180);

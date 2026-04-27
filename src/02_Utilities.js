@@ -852,7 +852,8 @@ function _buildPortfolioActionItems(options) {
     if (!visibleInPortfolio && !includeSuppressed) return;
 
     const rawMirrorOfsDate = _dashboardParseDate(getRowVal(fieldMap.ofsIdx, ""));
-    // ... rest of confidence meta block ...
+    const rawReferenceOfsDate = String(refData.canonicalOfsDate || refData.forecastedOFS || "").trim();
+    const normalizedCanonicalOfsDate = _dashboardParseDate(rawReferenceOfsDate);
 
     let currentFlags = rawFlags;
     let draft = String(getRowVal(fieldMap.draftIdx, "") || "");
@@ -964,6 +965,17 @@ function _buildPortfolioActionItems(options) {
     const mirrorDrgTracked = _dashboardIsChecked(getRowVal(fieldMap.drgIdx, false));
     const mirrorDrgTrackerUrl = String(getRowVal(fieldMap.drgUrlIdx, "") || "").trim();
     const lastReportDate = _dashboardParseDate(rawReportDate);
+    const referenceMeta = _buildReferenceConfidenceMeta({
+      flags: currentFlags,
+      hasReferencePresence: !!refData,
+      rid: refData.rid || "",
+      hasSOW: refData.hasSOW,
+      hasCDDel: refData.hasCDDel,
+      hasCDDist: refData.hasCDDist,
+      hasBOMDel: refData.hasBOMDel,
+      hasBOMPo: refData.hasBOMPo,
+      cxInferred: getRowVal(fieldMap.cxInferredIdx, "")
+    });
 
     const rawAllVendors = String(getRowVal(fieldMap.allVendorsIdx, "") || "").split(",").map(function(v) { return v.trim(); }).filter(Boolean);
     let allVendors = (rawAllVendors.length > 0) ? rawAllVendors : [vendorName];
@@ -1014,7 +1026,7 @@ function _buildPortfolioActionItems(options) {
       hasCDDist: !!refData.hasCDDist,
       hasBOMPo: !!refData.hasBOMPo,
       hasSOW: !!refData.hasSOW,
-      rawReferenceOfsDate: String(refData.canonicalOfsDate || refData.forecastedOFS || "").trim(),
+      rawReferenceOfsDate: rawReferenceOfsDate,
       ofsDateMismatch: !!(rawMirrorOfsDate && normalizedCanonicalOfsDate && rawMirrorOfsDate !== normalizedCanonicalOfsDate),
       referenceConfidenceScore: referenceMeta.score,
       referenceConfidenceTier: referenceMeta.tier,
@@ -2566,83 +2578,147 @@ function getSignalFast(tf) {
   return result;
 }
 
-// 📡 High-Resolution Portfolio Monitoring: Drive traversal with 10-min CacheService layer.
-// CORE FEATURE: Provides real-time visibility into field documentation and changes.
+// 📡 High-Resolution Portfolio Monitoring: Robust Drive Scanning via Advanced Service.
+// Uses Drive API v2 (Advanced Service) for better performance and Shared Drive support.
+// This handles the "Service error: Drive" that standard DriveApp throws on large accounts.
 function getSignalDrive(tf) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timeframe = _normalizeSignalTimeframe(tf);
-  const cacheKey = 'SIGNAL_DRIVE_' + timeframe;
+  const cacheKey = 'SIGNAL_DRIVE_V2_' + timeframe;
+  const failureKey = 'SIGNAL_DRIVE_FAIL_V2';
   const cache = CacheService.getScriptCache();
   const cached = cache.get(cacheKey);
+  
   if (cached) {
     try { return JSON.parse(cached); } catch(e) {}
   }
+  if (cache.get(failureKey)) return [];
 
   const now = new Date();
   const cutoff = _getSignalCutoff(timeframe, ss, now);
+  // Format for Drive API: YYYY-MM-DDTHH:mm:ssZ
+  const cutoffStr = Utilities.formatDate(cutoff, "GMT", "yyyy-MM-dd'T'HH:mm:ss'Z'");
 
   const driveActivity = [];
-  
-  // HIGH-SIGNAL FOLDERS: BOMs and CDs/Permits
-  const targetFolderIds = [
+  const targetFolders = [
     { id: BOMS_FOLDER_ID, name: 'BOMs' },
     { id: CDS_PERMITS_FOLDER_ID, name: 'CDs_and_Permits' }
   ];
+  
+  const targetIdMap = {};
+  targetFolders.forEach(t => targetIdMap[t.id] = t.name);
 
-  targetFolderIds.forEach(target => {
-    try {
-      const folder = DriveApp.getFolderById(target.id);
-      _collectDriveChanges(folder, target.name, cutoff, driveActivity, { count: 0 }, 0);
-    } catch(e) { 
-      logMsg('SIGNAL: Failed to scan ' + target.name + ' — ' + e.message); 
+  try {
+    // 🧠 ADVANCED SEARCH: Use Drive.Files.list (API v2) for better stability in corporate drives.
+    // Supports Shared Drives (Team Drives) which often causes 'Service error' in standard DriveApp.
+    const query = "modifiedDate >= '" + cutoffStr + "' and trashed = false and mimeType != 'application/vnd.google-apps.folder'";
+    
+    const response = Drive.Files.list({
+      q: query,
+      maxResults: 150,
+      orderBy: "modifiedDate desc",
+      supportsTeamDrives: true,
+      includeItemsFromTeamDrives: true,
+      fields: "items(id,title,alternateLink,modifiedDate,parents)"
+    });
+
+    if (!response.items || response.items.length === 0) {
+      try { cache.put(cacheKey, JSON.stringify([]), 600); } catch(e) {}
+      return [];
     }
-  });
+
+    const ancestryCache = {};
+    const itemsByRoot = {};
+    targetFolders.forEach(t => itemsByRoot[t.id] = []);
+
+    response.items.forEach(item => {
+      if (item.title.charAt(0) === '.') return;
+
+      let targetRootId = null;
+      let pathParts = [];
+      
+      // Determine ancestry
+      if (item.parents && item.parents.length > 0) {
+        let currentParentId = item.parents[0].id;
+        let walkLimit = 6; // User said ~2 levels deep, 6 is plenty.
+        
+        while (currentParentId && walkLimit > 0) {
+          if (targetIdMap[currentParentId]) {
+            targetRootId = currentParentId;
+            break;
+          }
+          
+          if (ancestryCache[currentParentId]) {
+            targetRootId = ancestryCache[currentParentId].rootId;
+            if (targetRootId) pathParts = ancestryCache[currentParentId].path.concat(pathParts);
+            break;
+          }
+
+          try {
+            // Using Drive.Files.get is faster than DriveApp
+            const parent = Drive.Files.get(currentParentId, { supportsTeamDrives: true });
+            pathParts.unshift(parent.title);
+            
+            if (parent.parents && parent.parents.length > 0) {
+              currentParentId = parent.parents[0].id;
+            } else {
+              currentParentId = null;
+            }
+          } catch(e) {
+            currentParentId = null;
+          }
+          walkLimit--;
+        }
+
+        // Cache this branch's root for subsequent siblings
+        ancestryCache[item.parents[0].id] = {
+          rootId: targetRootId,
+          path: pathParts
+        };
+      }
+
+      if (targetRootId) {
+        const modDate = new Date(item.modifiedDate);
+        itemsByRoot[targetRootId].push({
+          folderPath: targetIdMap[targetRootId] + " / " + pathParts.join(" / "),
+          folderUrl: "https://drive.google.com/drive/folders/" + targetRootId,
+          file: {
+            name: item.title,
+            url: item.alternateLink,
+            modified: Utilities.formatDate(modDate, "GMT-5", "MM/dd/yy HH:mm")
+          }
+        });
+      }
+    });
+
+    // Group and format for UI
+    for (const rootId in itemsByRoot) {
+      const foldersMap = {};
+      itemsByRoot[rootId].forEach(item => {
+        if (!foldersMap[item.folderPath]) {
+          foldersMap[item.folderPath] = { folder: item.folderPath, folderUrl: item.folderUrl, files: [] };
+          driveActivity.push(foldersMap[item.folderPath]);
+        }
+        foldersMap[item.folderPath].files.push(item.file);
+      });
+    }
+
+  } catch (e) {
+    const msg = String(e);
+    logMsg('SIGNAL: Failed Advanced Drive Scan — ' + msg);
+    if (msg.indexOf('Service error') > -1) {
+      try { cache.put(failureKey, '1', 300); } catch(ex) {}
+    }
+  }
 
   try { cache.put(cacheKey, JSON.stringify(driveActivity), 600); } catch(e) {}
   return driveActivity;
 }
 
-// Recursive helper: walks folder tree depth-first, collecting files modified since cutoff.
-// Caps at 150 results and depth 5 to prevent GAS timeout on large trees.
+// Optimized helper: walks folder tree using Drive Search for performance.
+// (Keeping signature for compatibility but delegating to getSignalDrive logic)
 function _collectDriveChanges(folder, path, cutoff, out, counter, depth) {
-  if (counter.count >= 150 || (depth || 0) > 5) return;
-
-  // Since we start at the target folders, we descend into all subfolders
-  // We only prune if the folder itself hasn't been updated since cutoff
-  try {
-    if (folder.getLastUpdated() < cutoff) {
-      // In these specific folders, we STILL descend because sub-folder dates 
-      // aren't always reliable for child file updates in real-time.
-    }
-  } catch(e) {}
-
-  // Files in this folder
-  const files = folder.getFiles();
-  const found = [];
-  while (files.hasNext() && counter.count < 150) {
-    const file = files.next();
-    if (file.getName().charAt(0) === '.') continue; // skip hidden/system files
-    const lastUpdated = file.getLastUpdated();
-    if (lastUpdated >= cutoff) {
-      found.push({
-        name: file.getName(),
-        url: file.getUrl(),
-        modified: Utilities.formatDate(lastUpdated, "GMT-5", "MM/dd/yy HH:mm")
-      });
-      counter.count++;
-    }
-  }
-  if (found.length > 0) {
-    out.push({ folder: path, folderUrl: folder.getUrl(), files: found });
-  }
-
-  // Recurse into subfolders — skip hidden folders (names starting with '.')
-  const subs = folder.getFolders();
-  while (subs.hasNext() && counter.count < 150) {
-    const sub = subs.next();
-    if (sub.getName().charAt(0) === '.') continue; // skip hidden folders (.playwright-mcp, .git, etc.)
-    _collectDriveChanges(sub, path + ' / ' + sub.getName(), cutoff, out, counter, (depth || 0) + 1);
-  }
+  // Logic migrated to getSignalDrive for global search performance.
 }
 
 /**

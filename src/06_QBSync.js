@@ -25,8 +25,7 @@ const QB_DEPENDENCY_TABLE_ID = "bvmsmt5cf";
 
 // --- PHASE 2 SCAFFOLD (not active — write-back not enabled) ---
 // FIDs are unique PER TABLE only. Always pair with parent Table ID to avoid collision.
-// Overlapping FIDs: 192 (Active Set), 193 (Active Has Power), 188 (Manager Note)
-// exist in both write-permitted tables and must be addressed per namespace below.
+// Overlapping FIDs must be addressed per table namespace below.
 const QB_WRITE_MAPPING = {
   "bts3c49e9": { // FDH Projects (Write-Permitted)
     "517": "Sent for Permitting",
@@ -34,13 +33,13 @@ const QB_WRITE_MAPPING = {
     "525": "Special Crossings Choice",
     "526": "Special Crossing Details",
     "192": "Active Set",
-    "193": "Active Has Power",
-    "518": "Transport Available",
-    "522": "What Does it Feed",
-    "524": "Island Missing Components",
+    "927": "Light to Cabinets",
+    "518": "Transport ready",
+    "520": "Feeds FDH Project",
+    "521": "FDH Project Island",
+    "524": "Date Change Details",
     "188": "Manager Note",
     "513": "BOM Sent",
-    "523": "How is it Fed",
     "742": "Phase ID",
     "744": "Stage ID",
     "746": "Status ID",
@@ -52,28 +51,8 @@ const QB_WRITE_MAPPING = {
   }
 };
 
-// --- DECK REFERENCE QUERY CONFIG ---
-// fdhFid = FID of the "FDH Engineering ID" field in that secondary table.
-// Verified: PM table (bvieaendx) uses FID 645 for Engineering ID.
-const QB_DECK_QUERY_CONFIG = {
-  "bvieaendx": {
-    fdhFid: 645,
-    fields: {
-      q_permit_sent: 612, q_permit_appr: 653,
-      q_cd_dist:     471, q_splice_dist: 473, q_strand_dist: 472,
-      q_xing_exist:  620, q_cross_sub:   622, q_cross_appr:  623, q_cross_dist: 624,
-      q_bom_sent:    513,
-      q_sow_sign:    436, q_active_set:  192, q_active_pwr:  193, q_transport:  613,
-      q_leg:         274,
-      q_how_fed:     614,
-      q_what_feeds:  615,
-      q_island:      617,
-      q_ofs_change:  618,
-      q_ofs_reason:  619
-    }
-  }
-  // bts3c49gt (Permits) and bts8av3cw (Cabinets) — add FID configs after field discovery
-};
+// Current-table Deck fields fetched from FDH Projects (bts3c49e9) and copied into QB_* columns.
+const QB_PRIMARY_DECK_FIDS = [517, 459, 527, 528, 529, 192, 927, 274, 518, 520, 521, 588, 589, 439, 513, 436, 733, 524];
 
 // Column names appended to 5-Reference_Data for Deck gap indicators
 const QB_DECK_COLUMNS = [
@@ -81,7 +60,7 @@ const QB_DECK_COLUMNS = [
   "QB_Active_Set",  "QB_Active_Pwr",  "QB_Leg",       "QB_Transport",
   "QB_How_Fed",     "QB_What_Feeds",  "QB_Island",    "QB_Ofs_Change", "QB_Ofs_Reason",
   "QB_CD_Dist",     "QB_Splice_Dist", "QB_Strand_Dist", "QB_BOM_Sent", "QB_SOW_Sign",
-  "QB_PM_RID",      "QB_Link_IDs",    "QB_Predecessors", "QB_Successors"
+  "QB_Link_IDs",    "QB_Predecessors", "QB_Successors"
 ];
 
 /**
@@ -90,7 +69,7 @@ const QB_DECK_COLUMNS = [
  * Filtering here keeps Reference_Data lean and Phase 1 sync fast at any record volume.
  *
  * Fields whose label contains "FDH" are always included (engine uses fuzzy match).
- * QB_* deck enrichment columns are NOT listed here — they come from the PM table join.
+ * QB_* deck enrichment columns are derived from this primary table and dependency data.
  *
  * TO UPDATE: run _inspectFieldCount() to see all available labels, then add any new
  * engine-needed fields to this list using their exact QB label.
@@ -184,7 +163,6 @@ function discoverAllQBFields() {
   const QB_TABLES = {
     "Active Cabinets":    "bts8av3cw",
     "FDH Projects":       "bts3c49e9",
-    "Project Management": "bvieaendx",
     "Permits":            "bts3c49gt",
     "FDH Inspections":    "bvterz4k4",
     "Dependencies":       "bvmsmt5cf"
@@ -344,55 +322,10 @@ function syncFromQBWebApp() {
         if (key) fdhRowMap[key] = i;
       });
 
-      for (var tableId in QB_DECK_QUERY_CONFIG) {
-        var cfg        = QB_DECK_QUERY_CONFIG[tableId];
-        var fetchFids  = [cfg.fdhFid, 3].concat(Object.values(cfg.fields)); // Added FID 3 for Record ID
-        var records    = _fetchTableAllFids(token, tableId, fetchFids);
-        var fdhFidStr  = String(cfg.fdhFid);
-
-        // Build colName → FID string map from the named fields config
-        var colKeyToCol = {
-          q_permit_sent: "QB_Permit_Sent", q_permit_appr: "QB_Permit_Appr",
-          q_xing_exist:  "QB_Xing_Exist",
-          q_cross_sub:   "QB_Cross_Sub",   q_cross_appr:  "QB_Cross_Appr",
-          q_cross_dist:  "QB_Cross_Dist",  q_active_set:  "QB_Active_Set",
-          q_active_pwr:  "QB_Active_Pwr",  q_leg:         "QB_Leg",
-          q_transport:   "QB_Transport",   q_how_fed:     "QB_How_Fed",
-          q_what_feeds:  "QB_What_Feeds",  q_island:      "QB_Island",
-          q_ofs_change:  "QB_Ofs_Change",  q_ofs_reason:  "QB_Ofs_Reason",
-          q_cd_dist:     "QB_CD_Dist",     q_splice_dist: "QB_Splice_Dist",
-          q_strand_dist: "QB_Strand_Dist", q_bom_sent:    "QB_BOM_Sent",
-          q_sow_sign:    "QB_SOW_Sign",
-          q_pm_rid:      "QB_PM_RID"       // Local alias for FID 3 on PM table
-        };
-        var colMap = {};
-        Object.keys(cfg.fields).forEach(function(key) {
-          if (colKeyToCol[key]) colMap[colKeyToCol[key]] = String(cfg.fields[key]);
-        });
-        
-        // Ensure FID 3 is mapped correctly specifically for the PM table RID
-        if (tableId === "bvieaendx") colMap["QB_PM_RID"] = "3";
-
-        records.forEach(function(rec) {
-          var fdhCell = rec[fdhFidStr];
-          var fdhVal  = fdhCell ? _extractValue(fdhCell.value) : "";
-          if (!fdhVal) return;
-          var fdhKey = fdhVal.toString().trim().toUpperCase();
-          var rowIdx = fdhRowMap[fdhKey];
-          if (rowIdx === undefined) return;
-
-          QB_DECK_COLUMNS.forEach(function(col) {
-            var fid = colMap[col];
-            if (!fid || !rec[fid]) return;
-            var val    = _extractValue(rec[fid].value);
-            var colIdx = refHeaders2.indexOf(col);
-            if (colIdx > -1 && val !== "") refValues[rowIdx][colIdx] = val;
-          });
-        });
-      }
+      _applyPrimaryDeckColumns(refHeaders2, refValues);
       if (refRange) refRange.setValues(refValues);
       timings.deckEnrichmentMs = Date.now() - deckStartMs;
-      logMsg("QB Deck Enrichment: " + Object.keys(fdhRowMap).length + " rows scanned across " + Object.keys(QB_DECK_QUERY_CONFIG).length + " tables.");
+      logMsg("QB Deck Enrichment: " + Object.keys(fdhRowMap).length + " rows enriched from primary FDH Projects fields.");
 
       // --- New: FDH Dependency Link Enrichment (Table bvmsmt5cf) ---
       try {
@@ -423,6 +356,40 @@ function syncFromQBWebApp() {
     logMsg("WARN", "syncFromQBWebApp", e.message);
     return { success: false, error: e.message };
   }
+}
+
+function _applyPrimaryDeckColumns(headers, rows) {
+  const aliasMap = {
+    "QB_Permit_Sent": "Sent to Permitting",
+    "QB_Permit_Appr": "Permit Approved",
+    "QB_Xing_Exist": "Special Crossings?",
+    "QB_Cross_Sub": "SC Submitted",
+    "QB_Cross_Appr": "SC Approved",
+    "QB_Cross_Dist": "SC Distributed",
+    "QB_Active_Set": "Cabinets Set",
+    "QB_Active_Pwr": "Light to Cabinets",
+    "QB_Leg": "Feeder Leg",
+    "QB_Transport": "Transport ready",
+    "QB_What_Feeds": "Feeds FDH Project",
+    "QB_Island": "FDH Project Island",
+    "QB_Ofs_Change": "Current OFS Date Change Log Date",
+    "QB_Ofs_Reason": "Date Change Details",
+    "QB_CD_Dist": "CD Distributed",
+    "QB_Splice_Dist": "Splice Docs Distributed",
+    "QB_Strand_Dist": "Strand Maps",
+    "QB_BOM_Sent": "BOM in Deliverables",
+    "QB_SOW_Sign": "SOW signed"
+  };
+
+  Object.keys(aliasMap).forEach(function(targetHeader) {
+    const targetIdx = headers.indexOf(targetHeader);
+    const sourceIdx = headers.indexOf(aliasMap[targetHeader]);
+    if (targetIdx === -1 || sourceIdx === -1) return;
+    rows.forEach(function(row) {
+      const value = row[sourceIdx];
+      if (value !== "" && value != null) row[targetIdx] = value;
+    });
+  });
 }
 
 /**
@@ -650,7 +617,7 @@ function syncChangeLogs() {
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     };
-    const response = UrlFetchApp.fetch(url, options);
+    const response = _qbFetchWithRetry(url, options, "syncChangeLogs");
     if (response.getResponseCode() !== 200) throw new Error("QB API Error: " + response.getContentText());
     const result = JSON.parse(response.getContentText());
     const page = result.data || [];
@@ -1265,6 +1232,7 @@ function _fetchReferenceTableSnapshot(token) {
   
   var fidSet = new Set();
   CRITICAL_FIDS.forEach(function(fid) { if (fieldMap[fid]) fidSet.add(fid); });
+  QB_PRIMARY_DECK_FIDS.forEach(function(fid) { if (fieldMap[fid]) fidSet.add(fid); });
 
   // 3. Merge fields from the QuickBase report if available
   var reportFids = null;
@@ -1412,6 +1380,33 @@ function _normalizeVendor(name) {
  * Queries a QB table for specific FIDs using the /records/query endpoint.
  * Returns an array of raw record objects keyed by FID string.
  */
+function _qbFetchWithRetry(url, opts, contextLabel) {
+  var maxAttempts = 3;
+  var lastError = null;
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      var resp = UrlFetchApp.fetch(url, opts);
+      var code = resp.getResponseCode();
+      var body = resp.getContentText ? resp.getContentText() : "";
+      var retryableBody = body && body.indexOf("Bandwidth quota exceeded") > -1;
+      if (code !== 429 && code !== 503 && !retryableBody) return resp;
+      lastError = new Error("QB query HTTP " + code + " retryable response");
+    } catch (e) {
+      lastError = e;
+      var msg = e && e.message ? e.message : String(e);
+      if (msg.indexOf("Bandwidth quota exceeded") === -1 && msg.indexOf("Service invoked too many times") === -1 && msg.indexOf("Exception: Request failed") === -1) {
+        throw e;
+      }
+    }
+    if (attempt < maxAttempts) {
+      var sleepMs = attempt === 1 ? 1000 : 3000;
+      logMsg("WARN", "_qbFetchWithRetry", (contextLabel || "records/query") + " throttled; retry " + (attempt + 1) + "/" + maxAttempts);
+      Utilities.sleep(sleepMs);
+    }
+  }
+  throw lastError || new Error("QB records/query failed after retries");
+}
+
 function _fetchTableAllFids(token, tableId, fids, where) {
   var url        = QB_API_BASE + "/records/query";
   var allRecords = [];
@@ -1430,7 +1425,7 @@ function _fetchTableAllFids(token, tableId, fids, where) {
       options: { skip: skip, top: QB_PAGE_SIZE }
     });
 
-    var resp = UrlFetchApp.fetch(url, opts);
+    var resp = _qbFetchWithRetry(url, opts, "_fetchTableAllFids:" + tableId);
     if (resp.getResponseCode() !== 200) {
       logMsg("WARN", "_fetchTableAllFids", "QB query HTTP " + resp.getResponseCode() + " for table " + tableId);
       break;
@@ -1443,6 +1438,7 @@ function _fetchTableAllFids(token, tableId, fids, where) {
     total = (meta.totalRecords != null) ? meta.totalRecords : 0;
     skip += (meta.numRecords  != null) ? meta.numRecords  : 0;
     if (!meta.numRecords || meta.numRecords === 0) break;
+    if (skip < total) Utilities.sleep(150);
   }
 
   Logger.log("_fetchTableAllFids: " + tableId + " → " + allRecords.length + " records");
