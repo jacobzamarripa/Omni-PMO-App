@@ -1,5 +1,13 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-27: Daily Upload weekend recommendation and export gating stabilized
+- **Branch:** `fix/daily-upload-stability`.
+- **Monday recommendation:** Daily Upload now exposes recommended target metadata. Mondays load one Friday-Sunday range, so Monday April 27, 2026 recommends `2026-04-24 - 2026-04-26` and checks for `Daily_Production_Report_04.24.26-04.26.26.csv`.
+- **Queue/load stability:** Step 2 now carries loaded date arrays/labels, preserves the specific-date picker across pipeline rerenders, and ignores stale queue-load responses if a newer date selection wins the race.
+- **Finalize safety:** Dry run remains available after queue approval, while live QuickBase upload requires an explicit CSV export for the loaded date/range. Live uploads no longer create automatic snapshot CSVs unless a caller explicitly requests one.
+- **UI stability:** Upload progress and result cards now render inside the existing upload table body, preserving the reusable table shell, and compact pipeline scroll state uses rAF plus hysteresis to reduce jitter.
+- **Verification:** `node scripts/validate-daily-upload-duplicates.js`, `node scripts/validate-daily-upload-batching.js`, `node scripts/validate-daily-upload-stability.js`, backend parse check for `src/07_DailyUpload.js`, frontend parse check for `src/_module_daily_upload.html`, and `git diff --check -- src/07_DailyUpload.js src/_module_daily_upload.html src/WebApp.html src/_styles_daily_upload.html scripts/validate-daily-upload-stability.js` passed.
+
 > [!success] 2026-04-27: Crossings row-context sync and zero-filter guard
 - **Context sync:** Crossing row clicks, checkbox interactions, status selects, details textareas, and CD upload interactions now switch Quick Peek to the interacted FDH so the side panel stays aligned with the active work row.
 - **Zero-filter guard:** Vendor `Pending / YES / NO` status chips now render disabled when the count is `0`, preventing the empty-filter trap where all rows disappear.

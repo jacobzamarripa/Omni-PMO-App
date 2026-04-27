@@ -59,8 +59,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: min-height 0.25s ease-out, padding 0.25s ease-out;
-  will-change: min-height;
+  transition: padding 140ms ease, border-color 140ms ease, background 140ms ease;
 }
 
 .upload-stage-card::before {
@@ -97,8 +96,7 @@
   max-width: 999px;
   opacity: 1;
   overflow: hidden;
-  transition: max-height 0.25s ease-out, max-width 0.25s ease-out, opacity 0.2s ease-out, padding 0.2s ease-out;
-  will-change: max-height, opacity;
+  transition: opacity 120ms ease, padding 120ms ease;
 }
 
 .upload-stage-card--incoming .upload-card-headcopy {
@@ -179,8 +177,7 @@
   max-height: 250px;
   opacity: 1;
   overflow: hidden;
-  transition: max-height 0.25s ease-out, opacity 0.2s ease-out, margin-top 0.2s ease-out, min-height 0.2s ease-out;
-  will-change: max-height, opacity;
+  transition: opacity 120ms ease, margin-top 120ms ease;
 }
 
 .upload-pipeline-actions {
@@ -1620,6 +1617,14 @@ body.dark-mode .du-loaded-chip {
 
 .upload-table tbody td:first-child {
   border-left: 1px solid var(--du-grid-line);
+}
+
+.upload-table-message-row td {
+  padding: 16px !important;
+  background: var(--card-bg);
+  border-left: 1px solid var(--du-grid-line);
+  border-right: 1px solid var(--du-grid-line);
+  border-bottom: 1px solid var(--du-grid-line);
 }
 
 .upload-table thead th:hover {

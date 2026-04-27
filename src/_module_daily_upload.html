@@ -10,6 +10,10 @@ var _duSelected = new Set();
 var _duPipeline = {};
 var _duTargetDate = '';
 var _duLoadedQueueDate = '';
+var _duLoadedQueueDates = [];
+var _duLoadedQueueDateLabel = '';
+var _duTargetDates = [];
+var _duTargetDateLabel = '';
 var _duLatestExport = null;
 var _duDirty = {};
 var _duSortCol = 'Date';
@@ -42,6 +46,9 @@ var _duExportStatus = null;
 var _duLastApprovalReason = '';
 var _duScrollBound = false;
 var _duStickyCompact = false;
+var _duStickyRaf = 0;
+var _duQueueLoadSeq = 0;
+var _duResultsCardHtml = '';
 
 var _DU_COL_GROUP = {
   'Date':                       'col-dark-navy',
@@ -83,10 +90,61 @@ var _DU_TABLE_COLS = [
   'Construction Comments'
 ];
 
+function _duNormalizeDateList(value) {
+  var arr = Array.isArray(value) ? value : [value];
+  var seen = {};
+  return arr.map(function(item) {
+    return String(item || '').trim();
+  }).filter(function(item) {
+    if (!item || seen[item]) return false;
+    seen[item] = true;
+    return true;
+  }).sort();
+}
+
+function _duDateLabel(dates, fallback) {
+  dates = _duNormalizeDateList(dates);
+  if (dates.length === 0) return fallback || '';
+  return dates.length === 1 ? dates[0] : dates[0] + ' - ' + dates[dates.length - 1];
+}
+
+function _duSetRecommendedTargetFromPipeline() {
+  _duTargetDates = _duNormalizeDateList(_duPipeline.recommendedDates || _duPipeline.recommendedDate || _duTodayIso(-1));
+  _duTargetDate = _duTargetDates[0] || _duTodayIso(-1);
+  _duTargetDateLabel = _duPipeline.recommendedDateLabel || _duDateLabel(_duTargetDates, _duTargetDate);
+}
+
+function _duLoadedDateLabel() {
+  return _duLoadedQueueDateLabel || _duDateLabel(_duLoadedQueueDates, _duLoadedQueueDate);
+}
+
+function _duIsRecommendedWeekendRange() {
+  return _duNormalizeDateList(_duPipeline.recommendedDates).length > 1;
+}
+
+function _duSameDateList(a, b) {
+  a = _duNormalizeDateList(a);
+  b = _duNormalizeDateList(b);
+  if (a.length !== b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function _duBuildDatePickerHtml() {
+  return '<div id="du-date-picker-wrap" style="display:none;align-items:center;gap:6px;margin-top:6px;padding:0 2px;">' +
+    '<input type="date" class="upload-search" id="upload-target-date" onchange="_duHandleTargetDateInput(this.value)" style="flex:1;min-width:0;">' +
+    '<button class="upload-btn btn-ghost" type="button" onclick="_duLoadQueueForDate(document.getElementById(\'upload-target-date\').value)" title="Load queue for the selected date">Load</button>' +
+  '</div>';
+}
+
 function initUploadWorkspace() {
   if (!_duInitialized) {
     _duMissingDate = _duRecommendedMissingDate();
     _duTargetDate = _duTodayIso(-1);
+    _duTargetDates = [_duTargetDate];
+    _duTargetDateLabel = _duTargetDate;
     window.addEventListener('beforeunload', _duBeforeUnload);
     document.addEventListener('keydown', _duHandleModalKeydown);
     _duInitialized = true;
@@ -101,9 +159,17 @@ function _duBindScrollState() {
   if (_duScrollBound) return;
   var scrollRegion = document.getElementById('upload-scroll-region');
   if (!scrollRegion) return;
-  scrollRegion.addEventListener('scroll', _duSyncStickyState, { passive: true });
-  window.addEventListener('resize', function() { _duSyncStickyState(); _duSyncSwimlaneTop(); });
+  scrollRegion.addEventListener('scroll', _duRequestStickyStateSync, { passive: true });
+  window.addEventListener('resize', function() { _duRequestStickyStateSync(); _duSyncSwimlaneTop(); });
   _duScrollBound = true;
+}
+
+function _duRequestStickyStateSync() {
+  if (_duStickyRaf) return;
+  _duStickyRaf = requestAnimationFrame(function() {
+    _duStickyRaf = 0;
+    _duSyncStickyState();
+  });
 }
 
 function _duSyncStickyState() {
@@ -117,7 +183,9 @@ function _duSyncStickyState() {
   }
   var scrollRegion = document.getElementById('upload-scroll-region');
   if (!scrollRegion) return;
-  var isCompact = scrollRegion.scrollTop > 0;
+  var enterAt = 24;
+  var exitAt = 8;
+  var isCompact = _duStickyCompact ? scrollRegion.scrollTop > exitAt : scrollRegion.scrollTop > enterAt;
   workspace.classList.toggle('upload-workspace--pipeline-stuck', isCompact);
   if (_duStickyCompact === isCompact) return;
   _duStickyCompact = isCompact;
@@ -155,11 +223,7 @@ function _duLoadPipelineStatus() {
   google.script.run
     .withSuccessHandler(function(status) {
       _duPipeline = status || {};
-      if (_duPipeline.recommendedDate) {
-        _duTargetDate = _duPipeline.recommendedDate;
-      } else if (!_duTargetDate) {
-        _duTargetDate = _duTodayIso(-1);
-      }
+      _duSetRecommendedTargetFromPipeline();
       _duLatestExport = _duPipeline.latestExport || null;
       _duIncomingCount = _duPipeline.incomingFileCount || 0;
       _duIncomingFiles = _duPipeline.incomingFiles || [];
@@ -174,8 +238,8 @@ function _duLoadPipelineStatus() {
 }
 
 function _duLoadExportStatus(targetDate) {
-  var dateStr = targetDate || _duLoadedQueueDate || _duTargetDate || '';
-  if (!dateStr) {
+  var dateTarget = targetDate || (_duLoadedQueueDates.length ? _duLoadedQueueDates : (_duTargetDates.length ? _duTargetDates : _duTargetDate));
+  if (!dateTarget || (Array.isArray(dateTarget) && dateTarget.length === 0)) {
     _duExportStatus = null;
     _duRenderPipeline();
     _duRenderToolbar();
@@ -192,7 +256,7 @@ function _duLoadExportStatus(targetDate) {
       _duRenderPipeline();
       _duRenderToolbar();
     })
-    .getDailyUploadExportStatus(dateStr);
+    .getDailyUploadExportStatus(dateTarget);
 }
 
 function _duLoadQueue() {
@@ -212,7 +276,7 @@ function _duLoadQueue() {
       _duRenderToolbar();
       _duRenderLastSync();
       _duRenderStepGates();
-      _duLoadExportStatus(_duLoadedQueueDate);
+      _duLoadExportStatus(_duLoadedQueueDates.length ? _duLoadedQueueDates : _duLoadedQueueDate);
     })
     .withFailureHandler(function(err) {
       _duSetTableLoading(false);
@@ -231,14 +295,17 @@ function _duLoadStats() {
     .getDailyUploadStats();
 }
 
-function _duLoadMissing() {
+function _duLoadMissing(afterLoad) {
   google.script.run
     .withSuccessHandler(function(items) {
       _duMissingData = items || {};
       _duMissing = _duFlattenMissingEntries(_duMissingData);
       _duRenderMissingPanel();
+      if (typeof afterLoad === 'function') afterLoad();
     })
-    .withFailureHandler(function() {})
+    .withFailureHandler(function() {
+      if (typeof afterLoad === 'function') afterLoad();
+    })
     .getMissingReportVendors(_duMissingDate);
 }
 
@@ -258,7 +325,7 @@ function _duRenderPipeline() {
   var finalEl    = document.getElementById('upload-pipeline-final');
   var queueMeta  = document.getElementById('upload-queue-meta');
   var targetInput = document.getElementById('upload-target-date');
-  if (targetInput && _duTargetDate) targetInput.value = _duTargetDate;
+  var activeTargetValue = (targetInput && targetInput.value) ? targetInput.value : _duTargetDate;
 
   // Step 1 body
   if (incomingEl) {
@@ -282,29 +349,40 @@ function _duRenderPipeline() {
 
   // Step 2 body — show loaded date badge + date-picker toggle
   if (targetEl) {
-    if (_duLoadedQueueDate) {
+    var loadedLabel = _duLoadedDateLabel();
+    if (loadedLabel) {
       targetEl.innerHTML =
-        '<div class="du-step-inline-status"><span class="du-loaded-chip">Loaded ' + _duEsc(_duLoadedQueueDate) + '</span></div>' +
+        '<div class="du-step-inline-status"><span class="du-loaded-chip">Loaded ' + _duEsc(loadedLabel) + '</span></div>' +
         '<div class="du-step-meta-row du-step-meta-row--compact">' +
           '<span class="du-step-meta-label">Queue Rows</span>' +
           '<span class="du-step-meta-value">' + _duQueue.length + '</span>' +
-        '</div>';
+        '</div>' +
+        _duBuildDatePickerHtml();
     } else {
       targetEl.innerHTML =
-        '<div class="du-step-inline-status"><span class="upload-step-state-badge is-blocked">Not Loaded</span></div>';
+        '<div class="du-step-inline-status"><span class="upload-step-state-badge is-blocked">Not Loaded</span></div>' +
+        _duBuildDatePickerHtml();
     }
   }
 
-  // Step 2 Load Yesterday gate
+  // Step 2 recommended-load gate
   var btnYesterday = document.getElementById('du-btn-load-yesterday');
   if (btnYesterday) {
+    var weekendRange = _duIsRecommendedWeekendRange();
     btnYesterday.disabled = _duIncomingCount > 0;
-    btnYesterday.title = _duIncomingCount > 0 ? 'Process incoming files in Step 1 first' : 'Load data for yesterday';
+    btnYesterday.textContent = weekendRange ? 'Load Weekend' : 'Load Recommended';
+    btnYesterday.title = _duIncomingCount > 0
+      ? 'Process incoming files in Step 1 first'
+      : (weekendRange ? 'Load the recommended Friday-Sunday weekend report range' : 'Load the recommended report date');
   }
 
   // Step 2 date picker wrap visibility
   var pickerWrap = document.getElementById('du-date-picker-wrap');
   if (pickerWrap) pickerWrap.style.display = _duShowDatePicker ? 'flex' : 'none';
+  targetInput = document.getElementById('upload-target-date');
+  if (targetInput && activeTargetValue) targetInput.value = activeTargetValue;
+  var btnSpecific = document.getElementById('du-btn-specific-date');
+  if (btnSpecific) btnSpecific.textContent = _duShowDatePicker ? 'Hide Date Picker' : 'Load a Specific Date';
 
   // Step 4 body
   if (finalEl) {
@@ -316,8 +394,8 @@ function _duRenderPipeline() {
     if (_duQueue.length > 0) {
       queueMeta.innerHTML = _duBuildQueueReviewHtml();
     } else {
-      queueMeta.innerHTML = _duLoadedQueueDate
-        ? '<div class="du-step-inline-status"><span class="upload-step-state-badge is-warning">Queue Empty</span></div><div class="upload-pipeline-meta">No rows available for ' + _duEsc(_duLoadedQueueDate) + '.</div>'
+      queueMeta.innerHTML = _duLoadedDateLabel()
+        ? '<div class="du-step-inline-status"><span class="upload-step-state-badge is-warning">Queue Empty</span></div><div class="upload-pipeline-meta">No rows available for ' + _duEsc(_duLoadedDateLabel()) + '.</div>'
         : '<div class="du-step-inline-status"><span class="upload-step-state-badge is-blocked">Not Loaded</span></div><div class="upload-pipeline-meta">Load a date in Step 2 to review the queue.</div>';
     }
   }
@@ -381,11 +459,15 @@ function _duBuildQueueReviewHtml() {
 }
 
 function _duHasExportForLoadedDate() {
-  return !!(_duExportStatus && _duExportStatus.exists && _duExportStatus.targetDate === _duLoadedQueueDate);
+  return !!(_duExportStatus && _duExportStatus.exists && _duSameDateList(_duExportStatus.targetDates || _duExportStatus.targetDate, _duLoadedQueueDates.length ? _duLoadedQueueDates : _duLoadedQueueDate));
 }
 
 function _duCanRunFinalizeActions() {
   return _duQueueApproved && _duDirtyCount() === 0 && !_duIsSaving;
+}
+
+function _duCanRunLiveUploadActions() {
+  return _duCanRunFinalizeActions() && _duHasExportForLoadedDate();
 }
 
 function _duBuildFinalizeHtml() {
@@ -397,21 +479,21 @@ function _duBuildFinalizeHtml() {
   if (_duHasExportForLoadedDate()) {
     return '<div class="upload-step-state-badge is-complete">Export Found</div>' +
       '<div class="upload-pipeline-stat"><span class="upload-pipeline-stat-label">Existing CSV</span><span class="upload-pipeline-stat-value">' + _duEsc(_duExportStatus.fileName || '—') + '</span></div>' +
-      '<div class="upload-pipeline-meta">Existing export found for ' + _duEsc(_duLoadedQueueDate) + '. Dry run and upload are available for ' + selectedCount + ' selected row(s).</div>' +
+      '<div class="upload-pipeline-meta">Existing export found for ' + _duEsc(_duLoadedDateLabel()) + '. Dry run and upload are available for ' + selectedCount + ' selected row(s).</div>' +
       (_duExportStatus.fileUrl
         ? '<div class="upload-pipeline-meta"><a href="' + _duEsc(_duExportStatus.fileUrl) + '" target="_blank" rel="noopener">Open export file</a></div>'
         : '');
   }
   return '<div class="upload-step-state-badge is-warning">Export Recommended</div>' +
-    '<div class="upload-pipeline-meta">No manual export found for ' + _duEsc(_duLoadedQueueDate || 'this queue') + '. A snapshot will be created automatically on upload. You may also export now for an early backup.</div>';
+    '<div class="upload-pipeline-meta">No manual export found for ' + _duEsc(_duLoadedDateLabel() || 'this queue') + '. Dry run is available after approval; live upload requires an explicit CSV export first.</div>';
 }
 
 function _duGetStepCardState(stepKey) {
   var health = _duGetQueueHealth();
   if (stepKey === 'step1') return _duIncomingCount > 0 ? 'warning' : 'complete';
-  if (stepKey === 'step2') return _duLoadedQueueDate ? 'complete' : 'current';
+  if (stepKey === 'step2') return _duLoadedDateLabel() ? 'complete' : 'current';
   if (stepKey === 'step3') {
-    if (!_duLoadedQueueDate) return 'blocked';
+    if (!_duLoadedDateLabel()) return 'blocked';
     if (_duQueueApproved) return 'complete';
     if (health.flagged > 0) return 'warning';
     return 'current';
@@ -575,30 +657,42 @@ function _duRunIncomingPipeline() {
 
 function _duHandleTargetDateInput(value) {
   _duTargetDate = value || _duTodayIso(-1);
+  _duTargetDates = [_duTargetDate];
+  _duTargetDateLabel = _duTargetDate;
 }
 
 function _duLoadRecommendedQueueDate() {
-  _duTargetDate = _duPipeline.recommendedDate || _duTodayIso(-1);
+  if (!_duPipeline.recommendedDate && !_duPipeline.recommendedDates) _duSetRecommendedTargetFromPipeline();
+  _duTargetDates = _duNormalizeDateList(_duPipeline.recommendedDates || _duPipeline.recommendedDate || _duTodayIso(-1));
+  _duTargetDate = _duTargetDates[0] || _duTodayIso(-1);
+  _duTargetDateLabel = _duPipeline.recommendedDateLabel || _duDateLabel(_duTargetDates, _duTargetDate);
   var targetInput = document.getElementById('upload-target-date');
   if (targetInput) targetInput.value = _duTargetDate;
-  _duLoadQueueForDate(_duTargetDate);
+  _duLoadQueueForDate(_duTargetDates);
 }
 
 function _duLoadQueueForDate(dateStr) {
-  var target = dateStr || _duTargetDate || _duTodayIso(-1);
-  showToast('Loading QuickBase upload tab for ' + target + '…', 'info');
+  var target = dateStr || _duTargetDates || _duTargetDate || _duTodayIso(-1);
+  var targetDates = _duNormalizeDateList(target);
+  var targetLabel = _duDateLabel(targetDates, String(target || ''));
+  var requestSeq = ++_duQueueLoadSeq;
+  showToast('Loading QuickBase upload tab for ' + targetLabel + '…', 'info');
   google.script.run
     .withSuccessHandler(function(result) {
-      _duLoadedQueueDate = result.targetDate || target;
+      if (requestSeq !== _duQueueLoadSeq) return;
+      _duLoadedQueueDates = _duNormalizeDateList(result.targetDates || result.targetDate || targetDates);
+      _duLoadedQueueDate = result.targetDate || _duLoadedQueueDates[0] || '';
+      _duLoadedQueueDateLabel = result.targetDateLabel || _duDateLabel(_duLoadedQueueDates, _duLoadedQueueDate);
       _duPipeline.queueRowCount = result.rowCount || 0;
       _duResetApproval('', true);
       _duExportStatus = null;
       _duLoadQueue();
       _duLoadStats();
       _duRenderPipeline();
-      showToast('Queue loaded for ' + _duLoadedQueueDate + '.', 'success');
+      showToast('Queue loaded for ' + _duLoadedDateLabel() + '.', 'success');
     })
     .withFailureHandler(function(err) {
+      if (requestSeq !== _duQueueLoadSeq) return;
       showToast('Queue load failed: ' + (err.message || err), 'error');
     })
     .loadDailyUploadQueueForDate(target);
@@ -616,6 +710,8 @@ function _duExportPipelineCsv() {
       };
       _duExportStatus = {
         targetDate: _duLoadedQueueDate,
+        targetDates: _duLoadedQueueDates.slice(),
+        targetDateLabel: _duLoadedDateLabel(),
         exists: true,
         fileId: result.fileId,
         fileName: result.fileName,
@@ -731,16 +827,16 @@ function _duRenderLastSync() {
   if (!el) return;
   var dirtyCount = _duDirtyCount();
   var syncText = _duLastLoadedAt ? 'Queue refreshed ' + _duFormatRelativeTime(_duLastLoadedAt) : 'Queue not loaded yet';
-  if (_duLoadedQueueDate) {
-    syncText = 'Loaded date ' + _duLoadedQueueDate + ' • ' + syncText;
+  if (_duLoadedDateLabel()) {
+    syncText = 'Loaded date ' + _duLoadedDateLabel() + ' • ' + syncText;
   }
   var dirtyText = dirtyCount > 0 ? ' • ' + dirtyCount + ' unsaved queue change' + (dirtyCount === 1 ? '' : 's') : '';
   el.textContent = syncText + dirtyText;
 }
 
 function _duOpenMissingReportsModal() {
-  _duLoadMissing(); // Refresh data
   _duRenderMissingModal();
+  _duLoadMissing(_duRenderMissingModal); // Refresh data, then rerender from the response.
 }
 
 function _duFlattenMissingEntries(data) {
@@ -813,8 +909,8 @@ function _duRenderMissingModal() {
         '<div class="upload-field">' +
           '<span class="upload-field-label">Report Bucket</span>' +
           '<div class="upload-missing-header-right">' +
-            '<button type="button" class="upload-missing-today-btn" onclick="_duMissingDate=_duRecommendedMissingDate(); _duLoadMissing(); setTimeout(_duRenderMissingModal, 100)">Prior Day</button>' +
-            '<input type="date" class="upload-missing-date-picker" value="' + _duIsoDate(_duMissingDate) + '" onchange="_duOnMissingDateChange(this.value); setTimeout(_duRenderMissingModal, 100)">' +
+            '<button type="button" class="upload-missing-today-btn" onclick="_duMissingDate=_duRecommendedMissingDate(); _duLoadMissing(_duRenderMissingModal)">Prior Day</button>' +
+            '<input type="date" class="upload-missing-date-picker" value="' + _duIsoDate(_duMissingDate) + '" onchange="_duOnMissingDateChange(this.value)">' +
           '</div>' +
         '</div>' +
         '<div class="upload-missing-bucket-label">' + _duEsc(bucketLabel) + '</div>' +
@@ -844,7 +940,7 @@ function _duOnMissingDateChange(isoVal) {
   if (!isoVal) return;
   var parts = isoVal.split('-');
   _duMissingDate = parts[1] + '/' + parts[2] + '/' + parts[0];
-  _duLoadMissing();
+  _duLoadMissing(_duRenderMissingModal);
 }
 
 function _duRenderToolbar() {
@@ -867,7 +963,7 @@ function _duRenderToolbar() {
   var btnEdit = document.getElementById('upload-btn-editmode');
   var finalizeReady = _duCanRunFinalizeActions();
   if (btnDry) btnDry.disabled = !finalizeReady || selectedPending.length === 0;
-  if (btnUpload) btnUpload.disabled = !finalizeReady || selectedPending.length === 0;
+  if (btnUpload) btnUpload.disabled = !_duCanRunLiveUploadActions() || selectedPending.length === 0;
   if (btnSave) btnSave.disabled = dirtyCount === 0 || _duIsSaving;
   if (btnRevert) btnRevert.disabled = dirtyCount === 0 || _duIsSaving;
   if (btnEdit) {
@@ -1265,7 +1361,7 @@ function _duApplyColWidths() {
 function _duRunDryRun() {
   var eligible = _duGetEligibleSelected();
   if (!_duCanRunFinalizeActions()) {
-    showToast('Step 4 requires an approved queue and a CSV export for the loaded date.', 'warn');
+    showToast('Step 4 requires an approved queue with no unsaved edits.', 'warn');
     return;
   }
   if (_duDirtyCount() > 0) {
@@ -1312,8 +1408,8 @@ function _duOpenDryRunResultModal(result) {
 
 function _duOpenPreview() {
   var eligible = _duGetEligibleSelected();
-  if (!_duCanRunFinalizeActions()) {
-    showToast('Step 4 requires an approved queue and a CSV export for the loaded date.', 'warn');
+  if (!_duCanRunLiveUploadActions()) {
+    showToast('Export the approved queue to CSV before running a live QuickBase upload.', 'warn');
     return;
   }
   if (_duDirtyCount() > 0) {
@@ -1410,7 +1506,8 @@ function _duDoUpload(rowIndices, skipDuplicates, forceRows) {
       batchId: batchId,
       skipDuplicates: !!skipDuplicates,
       forceRows: forceRows || [],
-      targetDate: _duLoadedQueueDate || ''
+      targetDate: _duLoadedDateLabel() || '',
+      targetDates: _duLoadedQueueDates.slice()
     });
 }
 
@@ -1419,12 +1516,13 @@ function _duClearElapsedTimer() {
 }
 
 function _duShowUploadProgress(rowCount, batchId) {
-  var tableWrap = document.querySelector('#upload-workspace .upload-table-wrap');
-  if (!tableWrap) return;
+  var tbody = document.getElementById('upload-table-body');
+  if (!tbody) return;
   var chunkCount = Math.max(1, Math.ceil(rowCount / 25));
   var estSecs = Math.round(chunkCount * 1.5 + 1);
 
-  tableWrap.innerHTML =
+  tbody.innerHTML =
+    '<tr class="upload-table-message-row"><td colspan="' + (_DU_TABLE_COLS.length + 2) + '">' +
     '<div class="upload-in-progress">' +
       '<div class="uip-header">' +
         '<div class="uip-spinner"></div>' +
@@ -1436,7 +1534,8 @@ function _duShowUploadProgress(rowCount, batchId) {
       '<div class="uip-progress-rail"><div class="uip-progress-fill" id="uip-fill"></div></div>' +
       '<div class="uip-elapsed" id="uip-elapsed">0s elapsed</div>' +
       '<div class="uip-batch">Batch · ' + _duEsc(batchId) + '</div>' +
-    '</div>';
+    '</div>' +
+    '</td></tr>';
 
   // Animate progress bar over estimated duration
   var startTime = Date.now();
@@ -1949,8 +2048,8 @@ function _duForceDupeRow(rowIdx) {
 
 // ── Triage: post-upload results card ────────────────────────
 function _duRenderResultsCard(result) {
-  var tableWrap = document.querySelector('#upload-workspace .upload-table-wrap');
-  if (!tableWrap) { _duOpenUploadResultModal(result); return; }
+  var tbody = document.getElementById('upload-table-body');
+  if (!tbody) { _duOpenUploadResultModal(result); return; }
 
   var failedRows = (result.results || []).filter(function(r) { return r.status === 'failed'; });
   var reconciledRows = (result.results || []).filter(function(r) { return r.reconciled; });
@@ -1999,7 +2098,7 @@ function _duRenderResultsCard(result) {
     ? '<div class="upload-rc-timing">' + elapsedSec + ' elapsed</div>'
     : '';
 
-  tableWrap.innerHTML =
+  _duResultsCardHtml =
     '<div class="upload-results-card">' +
       '<div class="upload-rc-header">' +
         '<div class="' + iconCls + '">' + iconSvg + '</div>' +
@@ -2035,6 +2134,10 @@ function _duRenderResultsCard(result) {
         '<button type="button" class="upload-btn btn-primary" onclick="_duCloseResultsCard()">Back to Review</button>' +
       '</div>' +
     '</div>';
+  tbody.innerHTML =
+    '<tr class="upload-table-message-row"><td colspan="' + (_DU_TABLE_COLS.length + 2) + '">' +
+      _duResultsCardHtml +
+    '</td></tr>';
 }
 
 function _duCloseResultsCard() {

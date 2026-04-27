@@ -94,10 +94,33 @@ function _generateBatchId() {
   return id;
 }
 
+function _getDailyUploadIsoFromDate(dateObj) {
+  return Utilities.formatDate(dateObj, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function _getPipelineRecommendedTarget(anchorDate) {
+  var today = anchorDate ? new Date(anchorDate.getTime()) : new Date();
+  var target = new Date(today.getTime());
+  var day = today.getDay();
+  var dates = [];
+
+  if (day === 1) {
+    [3, 2, 1].forEach(function(offset) {
+      var d = new Date(today.getTime());
+      d.setDate(today.getDate() - offset);
+      dates.push(_getDailyUploadIsoFromDate(d));
+    });
+  } else {
+    target.setDate(today.getDate() - 1);
+    dates.push(_getDailyUploadIsoFromDate(target));
+  }
+
+  return _buildDailyUploadTargetMeta(dates);
+}
+
 function _getPipelineRecommendedDate() {
-  var d = new Date();
-  d.setDate(d.getDate() - 1);
-  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var target = _getPipelineRecommendedTarget();
+  return target.targetDate;
 }
 
 function _countDailyUploadQueueRows() {
@@ -136,6 +159,37 @@ function _normalizeDailyUploadTargetDate(dateStr) {
   return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
+function _normalizeDailyUploadTargetDates(targetDates) {
+  var input = Array.isArray(targetDates) ? targetDates : [targetDates];
+  var seen = {};
+  var dates = [];
+  input.forEach(function(value) {
+    var normalized = _normalizeDailyUploadTargetDate(value);
+    if (!normalized || seen[normalized]) return;
+    seen[normalized] = true;
+    dates.push(normalized);
+  });
+  dates.sort();
+  return dates;
+}
+
+function _formatDailyUploadTargetDateLabel(targetDates) {
+  var dates = _normalizeDailyUploadTargetDates(targetDates);
+  if (dates.length === 0) return '';
+  if (dates.length === 1) return dates[0];
+  return dates[0] + ' - ' + dates[dates.length - 1];
+}
+
+function _buildDailyUploadTargetMeta(targetDates) {
+  var dates = _normalizeDailyUploadTargetDates(targetDates);
+  return {
+    targetDate: dates[0] || '',
+    targetDates: dates,
+    targetDateLabel: _formatDailyUploadTargetDateLabel(dates),
+    targetDateType: dates.length > 1 ? 'range' : 'single'
+  };
+}
+
 function _formatDailyUploadDatePart(dateStr) {
   var normalized = _normalizeDailyUploadTargetDate(dateStr);
   if (!normalized) return '';
@@ -144,12 +198,23 @@ function _formatDailyUploadDatePart(dateStr) {
   return Utilities.formatDate(parsed, 'GMT-5', 'MM.dd.yy');
 }
 
+function _formatDailyUploadDateRangePart(targetDates) {
+  var dates = _normalizeDailyUploadTargetDates(targetDates);
+  if (dates.length === 0) return '';
+  var first = _formatDailyUploadDatePart(dates[0]);
+  var last = _formatDailyUploadDatePart(dates[dates.length - 1]);
+  if (!first || !last) return '';
+  return first === last ? first : first + '-' + last;
+}
+
 function getDailyUploadExportStatus(dateStr) {
-  var normalized = _normalizeDailyUploadTargetDate(dateStr);
-  var datePart = _formatDailyUploadDatePart(normalized);
-  if (!normalized || !datePart) {
+  var meta = _buildDailyUploadTargetMeta(dateStr);
+  var datePart = _formatDailyUploadDateRangePart(meta.targetDates);
+  if (!meta.targetDates.length || !datePart) {
     return {
-      targetDate: normalized || '',
+      targetDate: meta.targetDate || '',
+      targetDates: meta.targetDates,
+      targetDateLabel: meta.targetDateLabel,
       exists: false,
       fileId: '',
       fileName: '',
@@ -170,7 +235,9 @@ function getDailyUploadExportStatus(dateStr) {
   }
 
   return {
-    targetDate: normalized,
+    targetDate: meta.targetDate,
+    targetDates: meta.targetDates,
+    targetDateLabel: meta.targetDateLabel,
     exists: !!latest,
     fileId: latest ? latest.getId() : '',
     fileName: latest ? latest.getName() : '',
@@ -196,16 +263,20 @@ function listProductionIncomingFiles() {
 
 function getDailyPipelineStatus() {
   var props = PropertiesService.getScriptProperties();
+  var recommendedTarget = _getPipelineRecommendedTarget();
   var latestArchiveDate = typeof _getLatestArchiveDate === 'function'
     ? _getLatestArchiveDate()
-    : _getPipelineRecommendedDate();
+    : recommendedTarget.targetDateLabel;
   var latestExport = _getLatestCompiledUploadFileMeta();
   var stats = getDailyUploadStats();
   var incoming = listProductionIncomingFiles();
   return {
     archiveStatus: props.getProperty('INGESTION_STATUS') || 'idle',
     latestArchiveDate: latestArchiveDate,
-    recommendedDate: _getPipelineRecommendedDate(),
+    recommendedDate: recommendedTarget.targetDate,
+    recommendedDates: recommendedTarget.targetDates,
+    recommendedDateLabel: recommendedTarget.targetDateLabel,
+    recommendedDateType: recommendedTarget.targetDateType,
     queueRowCount: _countDailyUploadQueueRows(),
     pendingQueueCount: stats.pending || 0,
     latestExport: latestExport,
@@ -240,14 +311,18 @@ function runIncomingArchivePipeline() {
 }
 
 function loadDailyUploadQueueForDate(dateStr) {
-  if (!dateStr) dateStr = _getPipelineRecommendedDate();
-  populateQuickBaseTabCore(dateStr);
+  var meta = _buildDailyUploadTargetMeta(dateStr || _getPipelineRecommendedTarget().targetDates);
+  if (meta.targetDates.length === 0) throw new Error('No valid report date supplied.');
+  populateQuickBaseTabCore(meta.targetDates.length > 1 ? meta.targetDates : meta.targetDate);
   return {
     success: true,
     step: 'load_queue',
-    targetDate: dateStr,
+    targetDate: meta.targetDate,
+    targetDates: meta.targetDates,
+    targetDateLabel: meta.targetDateLabel,
+    targetDateType: meta.targetDateType,
     rowCount: _countDailyUploadQueueRows(),
-    message: 'QuickBase upload queue loaded for ' + dateStr + '.'
+    message: 'QuickBase upload queue loaded for ' + meta.targetDateLabel + '.'
   };
 }
 
@@ -1631,7 +1706,7 @@ function uploadDailyRecordsToQB(rowIndices, options) {
   }
 
   var snapshotFile = null;
-  if (!dryRun) {
+  if (!dryRun && options.createSnapshot === true) {
     snapshotFile = _ensureDailyUploadSnapshot(options.targetDate || '', batchId, rowIndices);
   }
 
