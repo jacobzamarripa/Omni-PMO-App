@@ -178,27 +178,43 @@ function getBOMComparisonData() {
 }
 
 // ════════════════════════════════════════════════════════════
-// CROSSINGS CSV PARSE
+// CROSSINGS XLSX / CSV PARSE
 // ════════════════════════════════════════════════════════════
-/**
- * Accepts a base64-encoded CSV/TSV from the browser, parses it,
- * validates FDHs against Reference Data, and returns a preview.
- * Expected columns (case-insensitive): FDH, Xing/Crossing, Details
- * @param {string} base64Csv
- * @returns {{valid:Array, skipped:Array, errors:Array}}
- */
-function parseCrossingsCSV(base64Csv) {
-  var raw = Utilities.newBlob(Utilities.base64Decode(base64Csv)).getDataAsString();
-  var rows = Utilities.parseCsv(raw);
+const CROSSINGS_ROUNDTRIP_HEADERS = [
+  'FDH ID',
+  'Vendor',
+  'Special Crossings? Yes/No',
+  'Special Crossings Details',
+  'Source Verified Date'
+];
+
+function _baNormalizeXingChoice(value) {
+  var clean = String(value == null ? '' : value).trim().toUpperCase();
+  if (clean === 'Y' || clean === 'TRUE' || clean === '1') return 'YES';
+  if (clean === 'N' || clean === 'FALSE' || clean === '0') return 'NO';
+  return clean;
+}
+
+function _baDateText(value) {
+  if (!value) return '';
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+  }
+  return String(value || '').trim();
+}
+
+function _baParseCrossingsRows_(rows) {
   if (!rows || rows.length < 2) return { valid: [], skipped: [], errors: ['File appears empty or has no data rows.'] };
 
   var headers = rows[0].map(function(h){ return String(h).trim().toLowerCase(); });
   var fdhIdx  = _baFindCol(headers, ['fdh', 'fdh engineering id', 'fdh id', 'engineering id']);
-  var xingIdx = _baFindCol(headers, ['xing', 'crossing', 'special crossings', 'special crossings?', 'crossing status']);
-  var detIdx  = _baFindCol(headers, ['details', 'crossing details', 'special crossing details', 'notes', 'sheet names']);
+  var xingIdx = _baFindCol(headers, ['special crossings? yes/no', 'special crossings yes/no', 'xing', 'crossing', 'special crossings', 'special crossings?', 'crossing status']);
+  var detIdx  = _baFindCol(headers, ['special crossings details', 'details', 'crossing details', 'special crossing details', 'notes', 'sheet names']);
+  var dateIdx = _baFindCol(headers, ['source verified date', 'verified date', 'crossings verified date']);
 
-  if (fdhIdx < 0) return { valid: [], skipped: [], errors: ['Could not find FDH column. Expected header: "FDH" or "FDH Engineering ID".'] };
-  if (xingIdx < 0) return { valid: [], skipped: [], errors: ['Could not find Crossing column. Expected header: "Xing" or "Crossing Status".'] };
+  if (fdhIdx < 0) return { valid: [], skipped: [], errors: ['Could not find FDH column. Expected header: "FDH ID".'] };
+  if (xingIdx < 0) return { valid: [], skipped: [], errors: ['Could not find Special Crossings? Yes/No column.'] };
+  if (detIdx < 0) return { valid: [], skipped: [], errors: ['Could not find Special Crossings Details column.'] };
 
   const refDict = getReferenceDictionary();
   var valid   = [];
@@ -207,17 +223,24 @@ function parseCrossingsCSV(base64Csv) {
 
   for (var i = 1; i < rows.length; i++) {
     var row = rows[i];
-    if (!row || row.every(function(c){ return !c.trim(); })) continue; // blank row
+    if (!row || row.every(function(c){ return !String(c || '').trim(); })) continue; // blank row
 
     var fdh  = String(row[fdhIdx]  || '').trim();
-    var xing = String(row[xingIdx] || '').trim().toUpperCase();
+    var xing = _baNormalizeXingChoice(row[xingIdx]);
     var det  = detIdx >= 0 ? String(row[detIdx] || '').trim() : '';
 
     if (!fdh) { errors.push('Row ' + (i+1) + ': empty FDH'); continue; }
 
-    // Validate xing value
-    if (xing && !['YES','NO','N/A',''].includes(xing)) {
-      errors.push('Row ' + (i+1) + ' (' + fdh + '): invalid crossing value "' + xing + '"');
+    if (!xing) {
+      errors.push('Row ' + (i+1) + ' (' + fdh + '): Special Crossings? Yes/No is required.');
+      continue;
+    }
+    if (!['YES','NO'].includes(xing)) {
+      errors.push('Row ' + (i+1) + ' (' + fdh + '): invalid crossing value "' + xing + '". Use YES or NO.');
+      continue;
+    }
+    if (!det) {
+      errors.push('Row ' + (i+1) + ' (' + fdh + '): Special Crossings Details is required.');
       continue;
     }
 
@@ -225,10 +248,55 @@ function parseCrossingsCSV(base64Csv) {
     var ref = refDict[fdh.toUpperCase()];
     if (!ref) { skipped.push(fdh); continue; }
 
-    valid.push({ fdh: fdh, xing: xing || '', details: det });
+    valid.push({
+      fdh: fdh,
+      xing: xing || '',
+      details: det,
+      verifiedDate: dateIdx >= 0 ? _baDateText(row[dateIdx]) : ''
+    });
   }
 
   return { valid: valid, skipped: skipped, errors: errors };
+}
+
+/**
+ * Accepts a base64-encoded CSV from the browser, parses it, validates FDHs
+ * against Reference Data, and returns a preview.
+ * @param {string} base64Csv
+ * @returns {{valid:Array, skipped:Array, errors:Array}}
+ */
+function parseCrossingsCSV(base64Csv) {
+  var raw = Utilities.newBlob(Utilities.base64Decode(base64Csv)).getDataAsString();
+  return _baParseCrossingsRows_(Utilities.parseCsv(raw));
+}
+
+function _baReadXlsxRows_(base64Data, fileName) {
+  var blob = Utilities.newBlob(
+    Utilities.base64Decode(base64Data),
+    MimeType.MICROSOFT_EXCEL,
+    fileName || 'Crossings_Import.xlsx'
+  );
+  var tempFile = Drive.Files.insert({ title: '[TEMP]_' + (fileName || 'Crossings_Import.xlsx') }, blob, { convert: true });
+  try {
+    var tempSS = SpreadsheetApp.openById(tempFile.id);
+    var sheet = tempSS.getSheets()[0];
+    return sheet.getDataRange().getDisplayValues();
+  } finally {
+    Drive.Files.remove(tempFile.id);
+  }
+}
+
+/**
+ * Accepts a base64-encoded XLSX or CSV from the browser and returns a validated
+ * import preview for the Action Center Crossings tab.
+ * @param {string} base64Data
+ * @param {string} fileName
+ * @returns {{valid:Array, skipped:Array, errors:Array}}
+ */
+function parseCrossingsImport(base64Data, fileName) {
+  var name = String(fileName || '').toLowerCase();
+  if (name.endsWith('.csv')) return parseCrossingsCSV(base64Data);
+  return _baParseCrossingsRows_(_baReadXlsxRows_(base64Data, fileName));
 }
 
 function _baFindCol(headers, aliases) {
@@ -245,7 +313,7 @@ function _baFindCol(headers, aliases) {
 /**
  * Stages pre-validated crossing rows (from parseCrossingsCSV) into
  * 6-Committed_Reviews with Pending QB Sync Status.
- * @param {Array<{fdh:string, xing:string, details:string}>} validRows
+ * @param {Array<{fdh:string, xing:string, details:string, verifiedDate:string}>} validRows
  * @returns {{staged:number}}
  */
 function stageParsedCrossings(validRows) {
@@ -264,21 +332,21 @@ function stageParsedCrossings(validRows) {
   var date  = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy");
 
   var newRows = validRows.map(function(r) {
-    return [r.fdh, r.xing || '', r.details || '', date, ts, email, 'Pending', ''];
+    return [r.fdh, r.xing || '', r.details || '', r.verifiedDate || date, ts, email, 'Pending', ''];
   });
 
   if (newRows.length) {
     sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 8).setValues(newRows);
   }
 
-  logMsg('stageParsedCrossings: staged ' + newRows.length + ' rows from CSV import');
+  logMsg('stageParsedCrossings: staged ' + newRows.length + ' rows from crossings import');
   return { staged: newRows.length };
 }
 
 // ════════════════════════════════════════════════════════════
-// CROSSINGS CSV EXPORT
+// CROSSINGS XLSX EXPORT
 // ════════════════════════════════════════════════════════════
-function _baBuildCrossingsCsv_(fdhList) {
+function _baBuildCrossingsRows_(fdhList) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const refDict = getReferenceDictionary();
   var filterSet = null;
@@ -300,46 +368,106 @@ function _baBuildCrossingsCsv_(fdhList) {
     var cXingIdx = cHeaders.indexOf('Special Crossings?');
     var cDetIdx  = cHeaders.indexOf('Special Crossing Details');
     var cDateIdx = cHeaders.indexOf('Verified Date');
-    var cSyncIdx = cHeaders.indexOf('QB Sync Status');
     for (var i = 1; i < cData.length; i++) {
       var r = cData[i];
       var fdh = cFdhIdx > -1 ? String(r[cFdhIdx] || '').trim().toUpperCase() : '';
       if (!fdh) continue;
       committedMap[fdh] = {
-        xing:    cXingIdx > -1 ? String(r[cXingIdx] || '') : '',
+        xing:    cXingIdx > -1 ? _baNormalizeXingChoice(r[cXingIdx]) : '',
         details: cDetIdx  > -1 ? String(r[cDetIdx]  || '') : '',
-        date:    cDateIdx > -1 ? String(r[cDateIdx]  || '') : '',
-        sync:    cSyncIdx > -1 ? String(r[cSyncIdx]  || '') : ''
+        date:    cDateIdx > -1 ? _baDateText(r[cDateIdx]) : ''
       };
     }
   }
 
-  var cols = ['FDH Engineering ID','Vendor','QB Crossing Status','Committed Xing','Details','Verified Date','QB Sync Status'];
-  var csvRows = [cols.map(_baCsvEsc).join(',')];
+  var dataRows = [];
 
   Object.keys(refDict).sort().forEach(function(fdhKey) {
     if (filterSet && !filterSet[fdhKey]) return;
     var ref = refDict[fdhKey];
-    var qbX = (ref.qbRef && ref.qbRef.xingExist) ? ref.qbRef.xingExist : '';
+    var qbX = _baNormalizeXingChoice((ref.qbRef && ref.qbRef.xingExist) || ref.rawSpecialX || '');
     var c   = committedMap[fdhKey] || {};
-    csvRows.push([
+    var xing = c.xing || qbX;
+    if (xing !== 'YES' && xing !== 'NO') xing = '';
+    dataRows.push([
       ref.fdh  || fdhKey,
       ref.vendor || '',
-      qbX,
-      c.xing    || '',
-      c.details  || '',
-      c.date     || '',
-      c.sync     || ''
-    ].map(_baCsvEsc).join(','));
+      xing,
+      c.details || ref.specXDetails || (ref.qbRef && ref.qbRef['526']) || '',
+      c.date || ''
+    ]);
   });
 
+  return dataRows;
+}
+
+function _baBuildCrossingsCsv_(fdhList) {
+  var csvRows = [CROSSINGS_ROUNDTRIP_HEADERS.map(_baCsvEsc).join(',')];
+  _baBuildCrossingsRows_(fdhList).forEach(function(row) {
+    csvRows.push(row.map(_baCsvEsc).join(','));
+  });
   return csvRows.join('\r\n');
 }
 
-/**
- * Exports all crossings data (6-Committed_Reviews + QB reference) to Drive CSV.
- * @returns {string} URL of the created file
- */
+function _baExportTempSpreadsheetToXlsx_(tempSS, filename, folder) {
+  SpreadsheetApp.flush();
+  var url = 'https://docs.google.com/spreadsheets/export?id=' + tempSS.getId() + '&exportFormat=xlsx';
+  var params = {
+    method: 'get',
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  };
+  var response = UrlFetchApp.fetch(url, params);
+  if (response.getResponseCode() !== 200) {
+    throw new Error('XLSX export failed: ' + response.getContentText());
+  }
+  var blob = response.getBlob();
+  blob.setName(filename + '.xlsx');
+  return folder.createFile(blob).getUrl();
+}
+
+function _baCreateCrossingsWorkbook_(dataRows, filename, folder) {
+  var tempSS = SpreadsheetApp.create(filename);
+  try {
+    var sheet = tempSS.getSheets()[0];
+    sheet.setName('Crossings');
+    sheet.getRange(1, 1, 1, CROSSINGS_ROUNDTRIP_HEADERS.length).setValues([CROSSINGS_ROUNDTRIP_HEADERS]);
+    if (dataRows.length) {
+      sheet.getRange(2, 1, dataRows.length, CROSSINGS_ROUNDTRIP_HEADERS.length).setValues(dataRows);
+      var rule = SpreadsheetApp.newDataValidation().requireValueInList(['YES', 'NO'], true).build();
+      sheet.getRange(2, 3, dataRows.length, 1).setDataValidation(rule);
+      sheet.getRange(2, 1, dataRows.length, CROSSINGS_ROUNDTRIP_HEADERS.length).setWrap(true).setVerticalAlignment('middle');
+    }
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, CROSSINGS_ROUNDTRIP_HEADERS.length).setBackground('#111827').setFontColor('#ffffff').setFontWeight('bold');
+    sheet.setColumnWidth(1, 150);
+    sheet.setColumnWidth(2, 160);
+    sheet.setColumnWidth(3, 190);
+    sheet.setColumnWidth(4, 440);
+    sheet.setColumnWidth(5, 170);
+    return _baExportTempSpreadsheetToXlsx_(tempSS, filename, folder);
+  } finally {
+    DriveApp.getFileById(tempSS.getId()).setTrashed(true);
+  }
+}
+
+function exportCrossingsXLSX() {
+  var filename = 'Crossings_Export_' + _baNow();
+  var folder   = _baReportFolder(CROSSINGS_REPORTS_FOLDER_ID);
+  var url      = _baCreateCrossingsWorkbook_(_baBuildCrossingsRows_(), filename, folder);
+  logMsg('exportCrossingsXLSX: created ' + filename + '.xlsx');
+  return url;
+}
+
+function exportCrossingsXLSXForFdhs(fdhList) {
+  if (!fdhList || !fdhList.length) return exportCrossingsXLSX();
+  var filename = 'Crossings_Export_Scoped_' + _baNow();
+  var folder   = _baReportFolder(CROSSINGS_REPORTS_FOLDER_ID);
+  var url      = _baCreateCrossingsWorkbook_(_baBuildCrossingsRows_(fdhList), filename, folder);
+  logMsg('exportCrossingsXLSXForFdhs: created ' + filename + '.xlsx rows=' + fdhList.length);
+  return url;
+}
+
 function exportCrossingsCSV() {
   var csv      = _baBuildCrossingsCsv_();
   var filename = 'Crossings_Export_' + _baNow() + '.csv';
@@ -349,11 +477,6 @@ function exportCrossingsCSV() {
   return file.getUrl();
 }
 
-/**
- * Exports selected/scoped crossings rows by FDH.
- * @param {string[]} fdhList
- * @returns {string} URL of the created file
- */
 function exportCrossingsCSVForFdhs(fdhList) {
   if (!fdhList || !fdhList.length) return exportCrossingsCSV();
   var csv      = _baBuildCrossingsCsv_(fdhList);

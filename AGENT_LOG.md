@@ -1,5 +1,32 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-27: Crossings row-context sync and zero-filter guard
+- **Context sync:** Crossing row clicks, checkbox interactions, status selects, details textareas, and CD upload interactions now switch Quick Peek to the interacted FDH so the side panel stays aligned with the active work row.
+- **Zero-filter guard:** Vendor `Pending / YES / NO` status chips now render disabled when the count is `0`, preventing the empty-filter trap where all rows disappear.
+- **Visual feedback:** Added an active-row highlight keyed to the Quick Peek FDH, plus disabled styling for zero-count vendor status chips.
+- **Verification:** `node scripts/validate-crossings-bulk-actions.js`, backend parse check for `src/08_BulkActions.js`, frontend script parse check for `src/_module_action_center.html`, and `git diff --check -- src/_module_action_center.html src/08_BulkActions.js src/_styles_action_center.html scripts/validate-crossings-bulk-actions.js AGENT_LOG.md` passed.
+
+> [!success] 2026-04-27: Crossings quick-fill and contextual detail slice
+- **Bulk workstation controls:** Added selected-row quick-fill actions for `Set YES`, `Set NO`, shared `Apply Details`, `Clear`, and `Commit Selected`, with selected summary chips for Pending/YES/NO/Edited counts.
+- **Import preview:** Split XLSX import feedback into valid rows, unrecognized FDHs, and rows needing correction so bad sync-back rows are easier to diagnose before staging.
+- **Quick Peek focus:** Crossing row `Details` now opens the existing detail panel directly at the Special X-ings section while preserving Schedule, Field Production, Diagnostics, PM Note, and Change Log.
+- **Density/feedback:** Tightened Crossing row spacing, reduced details bubble width, and strengthened selected-row visual treatment for safer bulk work.
+- **Verification:** `node scripts/validate-crossings-bulk-actions.js`, backend parse check for `src/08_BulkActions.js`, frontend script parse check for `src/_module_action_center.html`, and `git diff --check -- src/_module_action_center.html src/08_BulkActions.js src/_styles_action_center.html scripts/validate-crossings-bulk-actions.js AGENT_LOG.md` passed.
+
+> [!info] 2026-04-27: Turn-20 checkpoint — Crossings Action Center hardening
+- **Current branch:** `feat/action-center-dashboard-aesthetic`.
+- **State:** Crossings XLSX import/export, no-auto side panel, vendor/status filters, and vendor checkbox selection are implemented and validated. The follow-on slice is in progress: selected-row quick-fill, clearer import preview, denser rows, and Quick Peek opening at Special X-ings while preserving full panel context.
+- **Next critical verification:** Re-run `node scripts/validate-crossings-bulk-actions.js`, frontend/backend parse checks, and `git diff --check`; then visually smoke-test Crossings with panel closed/open.
+
+> [!success] 2026-04-27: Action Center Crossings bulk workflow hardened
+- **Branch:** `feat/action-center-dashboard-aesthetic`.
+- **Crossings side panel:** Stopped the Crossings tab from auto-opening Quick Peek. The detail panel now opens only when a row `Details` button is clicked, while BOMs/Comments keep the existing permanent peek behavior.
+- **Bulk selection + filters:** Restored vendor-level checkbox selection for visible Crossing rows. KPI chips and vendor `Pending / YES / NO` chips now apply real Crossing filters.
+- **XLSX round trip:** Replaced the Crossing CSV-first flow with XLSX export/import endpoints in `src/08_BulkActions.js`. The workbook uses `FDH ID`, `Vendor`, `Special Crossings? Yes/No`, `Special Crossings Details`, and `Source Verified Date`; imports require Yes/No + Details and preserve Source Verified Date when supplied.
+- **Export scoping:** When no rows are checked, export now opens a scope modal with `All`, `Pending`, `Yes`, and `No` options, including combinations for the status scopes.
+- **Layout:** Centered and narrowed the Crossings row stack while the side panel is closed; the workspace expands/pushes only after Quick Peek is opened.
+- **Verification:** `node scripts/validate-crossings-bulk-actions.js`, backend parse check for `src/08_BulkActions.js`, frontend script parse check for `src/_module_action_center.html`, and `git diff --check -- src/_module_action_center.html src/08_BulkActions.js src/_styles_action_center.html scripts/validate-crossings-bulk-actions.js` passed.
+
 > [!info] 2026-04-26: Turn-25 pivot — Action Center bulk workspace refinement in progress
 - **Current branch:** `feat/action-center-bulk-surface`.
 - **Completed in this session:** Action Center tabs gained icon/label/badge structure and all-caps labels; shared crossing resolution now feeds KPI counts, filters, table values, Reports preview, and commit fallback; Reports BOM preview now uses the array BOM payload; row detail buttons are text `Details`; Action Center side panel auto-opens for Crossings/BOMs/Comments and Top Offenders `Open Detail` opens the side panel only inside Action Center.

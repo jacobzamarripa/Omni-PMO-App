@@ -181,10 +181,13 @@
 
   // ── Tab switching ─────────────────────────────────────────
   function _acSwitchTab(tab) {
+    var prevTab = _acActiveTab;
     _acActiveTab = tab;
     if (tab !== 'crossings') {
       var ws = document.getElementById('action-workspace');
       if (ws) ws.classList.remove('ac-xing-scrolled');
+    } else if (prevTab !== 'crossings' && typeof closeQuickPeek === 'function') {
+      closeQuickPeek();
     }
     ['crossings','boms','comments','offenders','reports'].forEach(function(t) {
       var btn   = document.getElementById('ac-tab-btn-' + t);
@@ -214,7 +217,7 @@
   }
 
   function _acEnsurePermanentPeek() {
-    if (!['crossings','boms','comments'].includes(_acActiveTab)) return;
+    if (!['boms','comments'].includes(_acActiveTab)) return;
     var ws = document.getElementById('action-workspace');
     if (!ws || !ws.classList.contains('ws-active')) return;
     var items = _acGetPeekSeedItems().filter(function(i){ return i && i.fdh; });
@@ -243,10 +246,10 @@
       var pending = xings.filter(function(i){ return _acResolveCrossing(i).pending; }).length;
       var yes     = xings.filter(function(i){ return _acResolveCrossing(i).xing.toUpperCase() === 'YES'; }).length;
       var no      = xings.filter(function(i){ return _acResolveCrossing(i).xing.toUpperCase() === 'NO'; }).length;
-      html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue');
-      html += _acKpiChip(pending,      'Pending',         pending > 0 ? 'ac-chip-crit' : 'ac-chip-queue');
-      html += _acKpiChip(yes,          'YES',             'ac-chip-yes');
-      html += _acKpiChip(no,           'NO',              no > 0 ? 'ac-chip-no' : 'ac-chip-queue');
+      html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue', "_acSetUniversalFilter('crossings','all')");
+      html += _acKpiChip(pending,      'Pending',         pending > 0 ? 'ac-chip-crit' : 'ac-chip-queue', "_acSetUniversalFilter('crossings','pending')");
+      html += _acKpiChip(yes,          'YES',             'ac-chip-yes', "_acSetUniversalFilter('crossings','YES')");
+      html += _acKpiChip(no,           'NO',              no > 0 ? 'ac-chip-no' : 'ac-chip-queue', "_acSetUniversalFilter('crossings','NO')");
 
     } else if (tab === 'boms') {
       var bomRows = _acGetBomRows();
@@ -317,8 +320,8 @@
           '" onclick="_acSetUniversalFilter(\'crossings\',\'' + val + '\')">' + label + '</button>';
       });
       html += '<div class="ac-ufb-sep"></div>';
-      html += '<button class="ac-ufb-action-btn" onclick="_acExportCrossingsCSV()">Export CSV</button>';
-      html += '<button class="ac-ufb-action-btn" onclick="_acTriggerCsvImport()">Import CSV</button>';
+      html += '<button class="ac-ufb-action-btn" onclick="_acExportCrossingsXLSX()">Export XLSX</button>';
+      html += '<button class="ac-ufb-action-btn" onclick="_acTriggerCsvImport()">Import XLSX</button>';
     } else if (tab === 'boms' && _acBomData) {
       html += '<div class="ac-ufb-sep"></div>';
       ['all','diffs'].forEach(function(val) {
@@ -430,6 +433,34 @@
     return items;
   }
 
+  function _acFilterCrossingsForSearchScope(items) {
+    var q = _acUniversalSearchQuery.trim().toLowerCase();
+    if (q) {
+      items = items.filter(function(i) {
+        var resolved = _acResolveCrossing(i);
+        return [
+          i.fdh, i.vendor, i.city, i.stage, i.status,
+          resolved.xing, resolved.details
+        ].join(' ').toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    if (_acXingVendorFilter) items = items.filter(function(i) { return (i.vendor || '') === _acXingVendorFilter; });
+    if (_acXingCityFilter)   items = items.filter(function(i) { return (i.city   || '') === _acXingCityFilter;   });
+    return items;
+  }
+
+  function _acGetCrossingItemsForStatuses(statuses) {
+    var items = _acFilterCrossingsForSearchScope(_acGetActiveItems());
+    if (!statuses || statuses.indexOf('all') !== -1) return items;
+    var wanted = {};
+    statuses.forEach(function(s){ wanted[String(s || '').toLowerCase()] = true; });
+    return items.filter(function(i) {
+      var resolved = _acResolveCrossing(i);
+      var status = resolved.pending ? 'pending' : String(resolved.xing || '').toLowerCase();
+      return !!wanted[status];
+    });
+  }
+
   function _acXingGroupKey(vendor, city) {
     return String(vendor || 'Unassigned Vendor') + '::' + String(city || 'No City');
   }
@@ -450,6 +481,12 @@
   function _acSetXingCityFilter(c) {
     _acXingCityFilter = (_acXingCityFilter === c) ? null : c;
     _acRenderCrossingsTab();
+  }
+
+  function _acSetXingVendorStatusFilter(vendor, status) {
+    _acXingVendorFilter = vendor || null;
+    _acXingCityFilter = null;
+    _acSetUniversalFilter('crossings', status || 'all');
   }
 
   function _acOnXingScroll() {
@@ -510,35 +547,112 @@
     var xSelCls = 'xing-select' + (curX === 'YES' ? ' val-yes' : curX === 'NO' ? ' val-no' : '');
     var isPeekOpen = _acOpenPeekFdh === item.fdh;
 
-    return '<div class="ac-xing-proj-row' + (isSel ? ' is-selected' : '') + (isDirty ? ' is-dirty' : '') + '">'
-      + '<div class="ac-xpr-check" onclick="event.stopPropagation();_acToggleXingRow(\'' + fdhJs + '\')">'
-      +   '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onclick="event.stopPropagation()" onchange="_acToggleXingRow(\'' + fdhJs + '\')">'
+    return '<div class="ac-xing-proj-row' + (isSel ? ' is-selected' : '') + (isDirty ? ' is-dirty' : '') + (isPeekOpen ? ' is-active-row' : '') + '" onclick="_acFocusCrossingContext(\'' + fdhJs + '\',false)">'
+      + '<div class="ac-xpr-check" onclick="event.stopPropagation();_acFocusCrossingContext(\'' + fdhJs + '\',false);_acToggleXingRow(\'' + fdhJs + '\')">'
+      +   '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onclick="event.stopPropagation();_acFocusCrossingContext(\'' + fdhJs + '\',false)" onchange="_acToggleXingRow(\'' + fdhJs + '\')">'
       + '</div>'
-      + '<div class="ac-xpr-meta" onclick="event.stopPropagation()">'
+      + '<div class="ac-xpr-meta" onclick="event.stopPropagation();_acFocusCrossingContext(\'' + fdhJs + '\',false)">'
       +   '<span class="ac-xpr-fdh">' + fdhSafe + '</span>'
       +   '<button class="ac-xpr-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + fdhJs + '\')" title="Open detail panel">Details</button>'
       + '</div>'
-      + '<div class="ac-xpr-controls" onclick="event.stopPropagation()">'
+      + '<div class="ac-xpr-controls" onclick="event.stopPropagation();_acFocusCrossingContext(\'' + fdhJs + '\',false)">'
       +   '<span class="ac-xpill ' + xPillCls + '">' + _e(curX || '—') + '</span>'
-      +   '<select class="' + xSelCls + '" onchange="_acOnXingChange(\'' + fdhJs + '\',this.value)">'
+      +   '<select class="' + xSelCls + '" onfocus="_acFocusCrossingContext(\'' + fdhJs + '\',false)" onchange="_acOnXingChange(\'' + fdhJs + '\',this.value)">'
       +     '<option value=""' + (!curX ? ' selected' : '') + '>—</option>'
       +     '<option value="YES"' + (curX === 'YES' ? ' selected' : '') + '>YES</option>'
       +     '<option value="NO"'  + (curX === 'NO'  ? ' selected' : '') + '>NO</option>'
       +     '<option value="N/A"' + (curX === 'N/A' ? ' selected' : '') + '>N/A</option>'
       +   '</select>'
       + '</div>'
-      + '<div class="ac-xpr-bubble" onclick="event.stopPropagation()">'
+      + '<div class="ac-xpr-bubble" onclick="event.stopPropagation();_acFocusCrossingContext(\'' + fdhJs + '\',false)">'
       +   '<div class="xing-bubble ac-xing-entry cd-dropzone" id="ac-cd-dropzone-' + fdhSafe + '" '
-      +     'ondragover="handleCdDragOver(event,this)" ondragleave="handleCdDragLeave(event,this)" ondrop="handleCdDrop(event,this,\'' + fdhJs + '\')">'
-      +     '<div class="cd-overlay-trigger" onclick="event.stopPropagation();triggerCdSelect(\'' + fdhJs + '\',\'ac-cd-dropzone-' + fdhJs + '\')" title="Analyze CD PDF">' + icon('upload', 14) + '</div>'
+      +     'ondragover="handleCdDragOver(event,this)" ondragleave="handleCdDragLeave(event,this)" ondrop="_acFocusCrossingContext(\'' + fdhJs + '\',true);handleCdDrop(event,this,\'' + fdhJs + '\')">'
+      +     '<div class="cd-overlay-trigger" onclick="event.stopPropagation();_acFocusCrossingContext(\'' + fdhJs + '\',true);triggerCdSelect(\'' + fdhJs + '\',\'ac-cd-dropzone-' + fdhJs + '\')" title="Analyze CD PDF">' + icon('upload', 14) + '</div>'
       +     '<div class="cd-drop-hint">DROP CD PDF TO ANALYZE</div>'
       +     '<textarea class="xing-details-textarea" '
       +       'oninput="_acOnXingDetailChange(\'' + fdhJs + '\',this.value);this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" '
-      +       'onfocus="this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" '
+      +       'onfocus="_acFocusCrossingContext(\'' + fdhJs + '\',false);this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" '
       +       'placeholder="Sheet names, crossing types…">' + _e(curDet) + '</textarea>'
       +   '</div>'
       + '</div>'
     + '</div>';
+  }
+
+  function _acFocusCrossingContext(fdh, scrollToXings) {
+    if (!fdh) return;
+    if (_acOpenPeekFdh === fdh) {
+      _acUpdateDetailBtns();
+      return;
+    }
+    if (scrollToXings) _acOpenPeekAtXings(fdh);
+    else _acOpenPeek(fdh);
+  }
+
+  function _acGetSelectedCrossingItems() {
+    var selected = [];
+    var all = (typeof allActionItems !== 'undefined' ? allActionItems : []);
+    _acXingsSelected.forEach(function(fdh) {
+      var item = all.find(function(i){ return i.fdh === fdh; });
+      if (item) selected.push(item);
+    });
+    return selected;
+  }
+
+  function _acGetSelectedCrossingSummary() {
+    var summary = { total: 0, pending: 0, yes: 0, no: 0, dirty: 0 };
+    _acGetSelectedCrossingItems().forEach(function(item) {
+      var resolved = _acResolveCrossing(item);
+      var x = String(resolved.xing || '').toUpperCase();
+      summary.total++;
+      if (resolved.pending) summary.pending++;
+      else if (x === 'YES') summary.yes++;
+      else if (x === 'NO') summary.no++;
+      if (_acCrossingsEdits[item.fdh]) summary.dirty++;
+    });
+    return summary;
+  }
+
+  function _acApplyXingToSelected(value) {
+    var fdhs = Array.from(_acXingsSelected);
+    if (!fdhs.length) return;
+    fdhs.forEach(function(fdh) {
+      if (!_acCrossingsEdits[fdh]) _acCrossingsEdits[fdh] = {};
+      _acCrossingsEdits[fdh].xing = value;
+    });
+    _acRenderCrossingsTab();
+    _acSyncTabBadges();
+    if (typeof showToast === 'function') showToast('Set ' + fdhs.length + ' selected row' + (fdhs.length !== 1 ? 's' : '') + ' to ' + value + '.', 'success');
+  }
+
+  function _acApplyDetailsToSelected() {
+    var fdhs = Array.from(_acXingsSelected);
+    if (!fdhs.length) return;
+    var bodyHtml =
+      '<div class="ac-bulk-details-form">' +
+        '<div class="ac-export-scope-sub">Apply the same Special Crossings details to the currently selected rows.</div>' +
+        '<textarea id="ac-bulk-xing-details" class="xing-details-textarea" placeholder="Sheet names, crossing types…"></textarea>' +
+      '</div>';
+    _acShowModal('Apply Details to ' + fdhs.length + ' Selected', bodyHtml, 'Apply Details', function() {
+      var el = document.getElementById('ac-bulk-xing-details');
+      var val = el ? el.value.trim() : '';
+      if (!val) {
+        if (typeof showToast === 'function') showToast('Enter details before applying.', 'error');
+        return false;
+      }
+      fdhs.forEach(function(fdh) {
+        if (!_acCrossingsEdits[fdh]) _acCrossingsEdits[fdh] = {};
+        _acCrossingsEdits[fdh].details = val;
+      });
+      _acRenderCrossingsTab();
+      _acSyncTabBadges();
+      if (typeof showToast === 'function') showToast('Applied details to ' + fdhs.length + ' selected row' + (fdhs.length !== 1 ? 's' : '') + '.', 'success');
+    });
+  }
+
+  function _acClearXingSelection() {
+    _acXingsSelected.clear();
+    _acRenderCrossingsTab();
+    _acSyncTabBadges();
   }
 
   function _acRenderCrossingsTab() {
@@ -563,7 +677,7 @@
     });
     vendorList.sort();
 
-    var html = '<input type="file" id="ac-csv-import-input" accept=".csv,.xlsx" style="display:none" onchange="_acOnCsvFileSelected(this)">';
+    var html = '<input type="file" id="ac-csv-import-input" accept=".xlsx,.csv" style="display:none" onchange="_acOnCsvFileSelected(this)">';
 
     // Vendor filter chips — gray rectangle buttons, second row below search bar
     if (vendorList.length > 1) {
@@ -581,10 +695,23 @@
 
     // Toolbar: only render when rows are selected
     if (selCount > 0) {
+      var selectedSummary = _acGetSelectedCrossingSummary();
       html += '<div class="ac-toolbar">'
         + '<div class="ac-toolbar-left">'
         +   '<span class="ac-bulk-count">' + selCount + ' selected</span>'
-        +   '<button class="ac-bulk-action-btn" onclick="_acCommitSelectedCrossings()">Commit Selected</button>'
+        +   '<span class="ac-selected-summary">'
+        +     '<span>' + selectedSummary.pending + ' Pend</span>'
+        +     '<span>' + selectedSummary.yes + ' YES</span>'
+        +     '<span>' + selectedSummary.no + ' NO</span>'
+        +     (selectedSummary.dirty ? '<span>' + selectedSummary.dirty + ' Edited</span>' : '')
+        +   '</span>'
+        + '</div>'
+        + '<div class="ac-toolbar-right">'
+        +   '<button class="ac-bulk-action-btn" onclick="_acApplyXingToSelected(\'YES\')">Set YES</button>'
+        +   '<button class="ac-bulk-action-btn" onclick="_acApplyXingToSelected(\'NO\')">Set NO</button>'
+        +   '<button class="ac-bulk-action-btn" onclick="_acApplyDetailsToSelected()">Apply Details</button>'
+        +   '<button class="ac-bulk-action-btn" onclick="_acClearXingSelection()">Clear</button>'
+        +   '<button class="ac-bulk-action-btn btn-primary" onclick="_acCommitSelectedCrossings()">Commit Selected</button>'
         + '</div>'
         + '</div>';
     }
@@ -616,10 +743,18 @@
           });
         });
         var pendCount = group.count - yesCount - noCount;
+        var vendorFdhs = [];
+        group.cityNames.forEach(function(c) {
+          group.cities[c].forEach(function(item) { vendorFdhs.push(item.fdh); });
+        });
+        var vendorChecked = vendorFdhs.length > 0 && vendorFdhs.every(function(fdh) { return _acXingsSelected.has(fdh); });
 
         html += '<div class="off-vendor-card">'
           + '<div class="off-vendor-header" onclick="_acToggleXingGroup(\'' + _acJs(vendorKey) + '\')">'
           +   '<div class="off-vendor-title-wrap">'
+          +     '<label class="ac-xing-vendor-check" onclick="event.stopPropagation()">'
+          +       '<input type="checkbox"' + (vendorChecked ? ' checked' : '') + ' onchange="_acToggleXingVendor(this.checked,\'' + _acJs(group.vendor) + '\')">'
+          +     '</label>'
           +     '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>'
           +     '<div class="off-vendor-title-block">'
           +       '<div class="off-vendor-title-line">'
@@ -629,9 +764,9 @@
           +     '</div>'
           +   '</div>'
           +   '<div class="off-vendor-stats">'
-          +     '<div class="off-vendor-stat"><span class="off-vendor-stat-value">' + pendCount + '</span><span class="off-vendor-stat-label">Pending</span></div>'
-          +     '<div class="off-vendor-stat"><span class="off-vendor-stat-value">' + yesCount  + '</span><span class="off-vendor-stat-label">YES</span></div>'
-          +     '<div class="off-vendor-stat"><span class="off-vendor-stat-value">' + noCount   + '</span><span class="off-vendor-stat-label">NO</span></div>'
+          +     _acRenderVendorStatusChip(group.vendor, 'pending', 'Pending', pendCount)
+          +     _acRenderVendorStatusChip(group.vendor, 'YES', 'YES', yesCount)
+          +     _acRenderVendorStatusChip(group.vendor, 'NO', 'NO', noCount)
           +   '</div>'
           + '</div>'
           + '<div class="off-vendor-footer">'
@@ -682,6 +817,15 @@
     _acBindXingScroll();
   }
 
+  function _acRenderVendorStatusChip(vendor, status, label, count) {
+    var disabled = Number(count) <= 0;
+    return '<button class="off-vendor-stat ac-xing-status-chip' + (disabled ? ' is-disabled' : '') + '" ' +
+      (disabled
+        ? 'disabled aria-disabled="true"'
+        : 'onclick="event.stopPropagation();_acSetXingVendorStatusFilter(\'' + _acJs(vendor) + '\',\'' + _acJs(status) + '\')"') +
+      '><span class="off-vendor-stat-value">' + count + '</span><span class="off-vendor-stat-label">' + _e(label) + '</span></button>';
+  }
+
   // Shims for backward compatibility (inline handlers in Quick Peek may call these)
   function _acSetXingsFilter(val) {
     _acSetUniversalFilter('crossings', val);
@@ -710,6 +854,17 @@
       if (checked) _acXingsSelected.add(fdh);
       else _acXingsSelected.delete(fdh);
     });
+    _acRenderCrossingsTab();
+    _acSyncTabBadges();
+  }
+
+  function _acToggleXingVendor(checked, vendor) {
+    _acGetFilteredCrossingItems()
+      .filter(function(i) { return (i.vendor || 'Unassigned Vendor') === vendor; })
+      .forEach(function(i) {
+        if (checked) _acXingsSelected.add(i.fdh);
+        else _acXingsSelected.delete(i.fdh);
+      });
     _acRenderCrossingsTab();
     _acSyncTabBadges();
   }
@@ -772,7 +927,7 @@
     });
   }
 
-  // ── CSV Import ────────────────────────────────────────────
+  // ── Crossings XLSX / CSV Import ──────────────────────────
   function _acTriggerCsvImport() {
     var el = document.getElementById('ac-csv-import-input');
     if (el) el.click();
@@ -791,7 +946,7 @@
         .withFailureHandler(function(err) {
           if (typeof showToast === 'function') showToast('Parse failed: ' + (err.message || err), 'error');
         })
-        .parseCrossingsCSV(base64);
+        .parseCrossingsImport(base64, file.name);
     };
     reader.readAsBinaryString(file);
   }
@@ -814,6 +969,18 @@
         '<td class="ac-td-ellipsis">' + _e(r.details||'') + '</td></tr>';
     }).join('');
 
+    var skippedHtml = skipped.length
+      ? '<div class="ac-import-section ac-import-section-warn">' +
+          '<div class="ac-import-section-title">Unrecognized FDHs</div>' +
+          '<div class="ac-import-chip-list">' + skipped.map(function(s){ return '<code>' + _e(s) + '</code>'; }).join('') + '</div>' +
+        '</div>'
+      : '';
+    var errorHtml = errors.length
+      ? '<div class="ac-import-section ac-import-section-bad">' +
+          '<div class="ac-import-section-title">Rows Needing Correction</div>' +
+          '<ul>' + errors.map(function(s){ return '<li>' + _e(s) + '</li>'; }).join('') + '</ul>' +
+        '</div>'
+      : '';
     var bodyHtml = summaryHtml +
       (valid.length > 0
         ? '<div class="ac-table-wrap" style="max-height:260px;overflow-y:auto;margin-top:14px;">' +
@@ -822,8 +989,8 @@
             (valid.length > 8 ? '<tr><td colspan="3" class="ac-more-row">…and ' + (valid.length - 8) + ' more</td></tr>' : '') +
           '</tbody></table></div>'
         : '<div class="ac-empty-sm" style="margin-top:14px;">No valid rows to stage.</div>') +
-      (skipped.length ? '<div style="margin-top:10px;font-size:10px;color:var(--text-muted);">Unrecognized FDHs: ' + skipped.map(function(s){ return '<code>' + _e(s) + '</code>'; }).join(', ') + '</div>' : '') +
-      (errors.length  ? '<div style="margin-top:6px;font-size:10px;color:#ef4444;">Errors: ' + errors.map(function(s){ return _e(s); }).join('; ') + '</div>' : '');
+      skippedHtml +
+      errorHtml;
 
     _acShowModal(
       'Import Preview — ' + valid.length + ' row' + (valid.length !== 1 ? 's' : '') + ' to stage',
@@ -845,40 +1012,78 @@
     );
   }
 
-  // ── Crossings CSV Export ──────────────────────────────────
-  function _acExportCrossingsCSV() {
+  // ── Crossings XLSX Export ─────────────────────────────────
+  function _acExportCrossingsXLSX() {
     var selected = Array.from(_acXingsSelected);
-    var activeFdhs = _acGetActiveItems().map(function(i){ return i.fdh; }).filter(Boolean);
-    var currentFdhs = (_acVisibleXingFdhs && _acVisibleXingFdhs.length) ? _acVisibleXingFdhs.slice() : activeFdhs.slice();
-    var exportFdhs = selected.length ? selected : currentFdhs;
-    var scopeLabel = selected.length ? 'selected rows' : 'current search/filter';
-
     if (!selected.length) {
-      if (currentFdhs.length !== activeFdhs.length) {
-        var useCurrent = window.confirm('No rows are checked. Export the current search/filter result? Press Cancel to export all active Action Center rows.');
-        exportFdhs = useCurrent ? currentFdhs : activeFdhs;
-        scopeLabel = useCurrent ? 'current search/filter' : 'all active rows';
-      } else if (!window.confirm('No rows are checked. Export all active Action Center rows?')) {
-        return;
-      }
+      _acShowCrossingsExportScopeModal();
+      return;
     }
+    _acRunCrossingsExport(selected, 'selected rows');
+  }
 
+  function _acShowCrossingsExportScopeModal() {
+    var counts = {
+      all: _acGetCrossingItemsForStatuses(['all']).length,
+      pending: _acGetCrossingItemsForStatuses(['pending']).length,
+      yes: _acGetCrossingItemsForStatuses(['YES']).length,
+      no: _acGetCrossingItemsForStatuses(['NO']).length
+    };
+    var bodyHtml =
+      '<div class="ac-export-scope">' +
+        '<div class="ac-export-scope-sub">No rows are checked. Choose which filtered Crossing rows to export.</div>' +
+        '<label><input type="checkbox" id="ac-xexport-all" checked onchange="_acOnExportAllToggle(this.checked)"> All <span>' + counts.all + '</span></label>' +
+        '<label><input type="checkbox" class="ac-xexport-status" value="pending" disabled onchange="_acOnExportStatusToggle()"> Pending <span>' + counts.pending + '</span></label>' +
+        '<label><input type="checkbox" class="ac-xexport-status" value="YES" disabled onchange="_acOnExportStatusToggle()"> Yes <span>' + counts.yes + '</span></label>' +
+        '<label><input type="checkbox" class="ac-xexport-status" value="NO" disabled onchange="_acOnExportStatusToggle()"> No <span>' + counts.no + '</span></label>' +
+      '</div>';
+    _acShowModal('Export Crossings XLSX', bodyHtml, 'Export XLSX', function() {
+      var allBox = document.getElementById('ac-xexport-all');
+      var statuses = allBox && allBox.checked ? ['all'] : Array.from(document.querySelectorAll('.ac-xexport-status:checked')).map(function(el){ return el.value; });
+      if (!statuses.length) {
+        if (typeof showToast === 'function') showToast('Choose at least one export scope.', 'error');
+        return false;
+      }
+      var fdhs = _acGetCrossingItemsForStatuses(statuses).map(function(i){ return i.fdh; }).filter(Boolean);
+      _acRunCrossingsExport(fdhs, statuses.indexOf('all') !== -1 ? 'all filtered rows' : statuses.join(' + ') + ' rows');
+    });
+  }
+
+  function _acOnExportAllToggle(checked) {
+    document.querySelectorAll('.ac-xexport-status').forEach(function(el) {
+      el.checked = false;
+      el.disabled = checked;
+    });
+  }
+
+  function _acOnExportStatusToggle() {
+    var allBox = document.getElementById('ac-xexport-all');
+    if (!allBox) return;
+    var anyStatus = !!document.querySelector('.ac-xexport-status:checked');
+    allBox.checked = !anyStatus;
+  }
+
+  function _acRunCrossingsExport(exportFdhs, scopeLabel) {
     exportFdhs = exportFdhs.filter(Boolean);
     if (!exportFdhs.length) {
       if (typeof showToast === 'function') showToast('No rows available to export.', 'error');
       return;
     }
 
-    if (typeof showToast === 'function') showToast('Generating crossings export for ' + exportFdhs.length + ' ' + scopeLabel + '…', 'info');
+    if (typeof showToast === 'function') showToast('Generating crossings XLSX for ' + exportFdhs.length + ' ' + scopeLabel + '…', 'info');
     google.script.run
       .withSuccessHandler(function(url) {
-        if (typeof showToast === 'function') showToast('Crossings CSV saved to Drive.', 'success');
+        if (typeof showToast === 'function') showToast('Crossings XLSX saved to Drive.', 'success');
         if (url && typeof window !== 'undefined') window.open(url, '_blank');
       })
       .withFailureHandler(function(err) {
         if (typeof showToast === 'function') showToast('Export failed: ' + (err.message||err), 'error');
       })
-      .exportCrossingsCSVForFdhs(exportFdhs);
+      .exportCrossingsXLSXForFdhs(exportFdhs);
+  }
+
+  function _acExportCrossingsCSV() {
+    _acExportCrossingsXLSX();
   }
 
   // ════════════════════════════════════════════════════════════
@@ -1294,7 +1499,8 @@
   }
 
   function _acTogglePeek(fdh) {
-    _acOpenPeek(fdh);
+    if (_acActiveTab === 'crossings') _acOpenPeekAtXings(fdh);
+    else _acOpenPeek(fdh);
   }
 
   function _acUpdateDetailBtns() {
@@ -1411,7 +1617,7 @@
   }
 
   function _acReportsExport(key) {
-    if (key === 'crossings') _acExportCrossingsCSV();
+    if (key === 'crossings') _acExportCrossingsXLSX();
     else if (key === 'boms') _acExportBOMCSV();
     else if (key === 'comments') _acExportLatestComments();
   }
@@ -1495,6 +1701,9 @@
   window._acCommitSelectedCrossings = _acCommitSelectedCrossings;
   window._acTriggerCsvImport      = _acTriggerCsvImport;
   window._acOnCsvFileSelected     = _acOnCsvFileSelected;
+  window._acOnExportAllToggle     = _acOnExportAllToggle;
+  window._acOnExportStatusToggle  = _acOnExportStatusToggle;
+  window._acExportCrossingsXLSX   = _acExportCrossingsXLSX;
   window._acExportCrossingsCSV    = _acExportCrossingsCSV;
   window._acLoadBomData           = _acLoadBomData;
   window._acExportBOMCSV          = _acExportBOMCSV;
@@ -1509,6 +1718,8 @@
   window._acCloseModal            = _acCloseModal;
   window._acModalConfirm          = _acModalConfirm;
   window._acTogglePeek            = _acTogglePeek;
+  window._acSetXingVendorStatusFilter = _acSetXingVendorStatusFilter;
+  window._acToggleXingVendor      = _acToggleXingVendor;
   window._acRenderReportsTab      = _acRenderReportsTab;
   window._acReportsSwitchView     = _acReportsSwitchView;
   window._acReportsExport         = _acReportsExport;
