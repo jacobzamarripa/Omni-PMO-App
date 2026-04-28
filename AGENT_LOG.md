@@ -1,5 +1,12 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-28: Daily Upload CSV coverage hardening
+- **Branch:** `fix/daily-upload-csv-hardening`.
+- **Root cause:** Step 4 treated any dated `Daily_Production_Report_*.csv` in `01_Pending_Upload` as sufficient. It did not read the CSV and prove that it covered the current `1-QuickBase_Upload` rows, so partial/stale exports could still force unnecessary re-export decisions or leave the live-upload gate in the wrong state.
+- **Fix:** Daily Upload export status now retries Drive folder/file/blob reads, parses matching dated CSVs, and compares exported coverage against current queue rows using `Date + FDH Engineering ID + Contractor`. Queue approval triggers a fresh Pending Upload coverage check, and only complete coverage unlocks live upload. Partial coverage uses compact neutral `CSV PARTIAL` / `CSV MISSING` status text and exports only missing rows with a `(MISSING)` filename tag.
+- **Drive hardening:** Pending Upload folder scans, CSV reads, and CSV creates now use retry/backoff wrappers so transient `Service error: Drive` failures do not silently degrade into false “no export exists” results.
+- **Verification:** `node scripts/validate-daily-upload-csv-hardening.js`, `node scripts/validate-daily-upload-stability.js`, `node scripts/validate-daily-upload-duplicates.js`, `node scripts/validate-daily-upload-batching.js`, backend/frontend parse checks, and `git diff --check` passed.
+
 > [!success] 2026-04-28: Daily Production re-ingestion QuickBase staging fixed
 - **Branch:** `fix/dpr-reingestion-qb-staging`.
 - **Regression comparison:** Diffed current ingestion code against pre-5pm baseline `fcb2367` (`2026-04-27 16:18:41 -0500`). The only later ingestion change was `6c1b89f`, which changed stale-lock handling and the `parseFileToRows()` fallback return; it did not intentionally remove duplicate-row QuickBase staging.

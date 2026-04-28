@@ -49,6 +49,7 @@ var _duStickyCompact = false;
 var _duStickyRaf = 0;
 var _duQueueLoadSeq = 0;
 var _duResultsCardHtml = '';
+var _duIsCheckingExportStatus = false;
 
 var _DU_COL_GROUP = {
   'Date':                       'col-dark-navy',
@@ -245,18 +246,24 @@ function _duLoadExportStatus(targetDate) {
   var dateTarget = targetDate || (_duLoadedQueueDates.length ? _duLoadedQueueDates : (_duTargetDates.length ? _duTargetDates : _duTargetDate));
   if (!dateTarget || (Array.isArray(dateTarget) && dateTarget.length === 0)) {
     _duExportStatus = null;
+    _duIsCheckingExportStatus = false;
     _duRenderPipeline();
     _duRenderToolbar();
     return;
   }
+  _duIsCheckingExportStatus = true;
+  _duRenderPipeline();
+  _duRenderToolbar();
   google.script.run
     .withSuccessHandler(function(status) {
       _duExportStatus = status || null;
+      _duIsCheckingExportStatus = false;
       _duRenderPipeline();
       _duRenderToolbar();
     })
     .withFailureHandler(function() {
       _duExportStatus = null;
+      _duIsCheckingExportStatus = false;
       _duRenderPipeline();
       _duRenderToolbar();
     })
@@ -463,7 +470,9 @@ function _duBuildQueueReviewHtml() {
 }
 
 function _duHasExportForLoadedDate() {
-  return !!(_duExportStatus && _duExportStatus.exists && _duSameDateList(_duExportStatus.targetDates || _duExportStatus.targetDate, _duLoadedQueueDates.length ? _duLoadedQueueDates : _duLoadedQueueDate));
+  return !!(_duExportStatus &&
+    _duExportStatus.coverageStatus === 'complete' &&
+    _duSameDateList(_duExportStatus.targetDates || _duExportStatus.targetDate, _duLoadedQueueDates.length ? _duLoadedQueueDates : _duLoadedQueueDate));
 }
 
 function _duCanRunFinalizeActions() {
@@ -471,7 +480,7 @@ function _duCanRunFinalizeActions() {
 }
 
 function _duCanRunLiveUploadActions() {
-  return _duCanRunFinalizeActions() && _duHasExportForLoadedDate();
+  return _duCanRunFinalizeActions() && !_duIsCheckingExportStatus && _duHasExportForLoadedDate();
 }
 
 function _duBuildFinalizeHtml() {
@@ -480,15 +489,29 @@ function _duBuildFinalizeHtml() {
     return '<div class="upload-step-state-badge is-blocked">Blocked</div>' +
       '<div class="upload-pipeline-meta">Approve the reviewed queue in Step 3 before exporting or uploading.</div>';
   }
+  if (_duIsCheckingExportStatus) {
+    return '<div class="upload-step-state-badge is-current">Checking CSV</div>' +
+      '<div class="upload-pipeline-meta">Verifying Pending Upload coverage for ' + _duEsc(_duLoadedDateLabel() || 'the loaded queue') + '.</div>';
+  }
   if (_duHasExportForLoadedDate()) {
     return '<div class="upload-step-state-badge is-complete">Export Found</div>' +
       '<div class="upload-pipeline-stat"><span class="upload-pipeline-stat-label">Existing CSV</span><span class="upload-pipeline-stat-value">' + _duEsc(_duExportStatus.fileName || '—') + '</span></div>' +
-      '<div class="upload-pipeline-meta">Existing export found for ' + _duEsc(_duLoadedDateLabel()) + '. Dry run and upload are available for ' + selectedCount + ' selected row(s).</div>' +
+      '<div class="upload-pipeline-meta">Existing export covers all ' + _duEsc(_duExportStatus.rowCount || _duQueue.length) + ' loaded row(s). Dry run and upload are available for ' + selectedCount + ' selected row(s).</div>' +
       (_duExportStatus.fileUrl
         ? '<div class="upload-pipeline-meta"><a href="' + _duEsc(_duExportStatus.fileUrl) + '" target="_blank" rel="noopener">Open export file</a></div>'
         : '');
   }
-  return '<div class="upload-step-state-badge is-warning">Export Recommended</div>' +
+  if (_duExportStatus && _duExportStatus.coverageStatus === 'partial') {
+    return '<div class="upload-step-state-badge is-current">CSV Partial</div>' +
+      '<div class="upload-pipeline-stat"><span class="upload-pipeline-stat-label">Existing CSV</span><span class="upload-pipeline-stat-value">' + _duEsc(_duExportStatus.fileName || '—') + '</span></div>' +
+      '<div class="upload-pipeline-meta">CSV PARTIAL · ' + _duEsc(_duExportStatus.matchedRowCount || 0) + '/' + _duEsc(_duExportStatus.rowCount || _duQueue.length) + ' rows covered. Export writes ' + _duEsc(_duExportStatus.missingRowCount || 0) + ' missing row(s).</div>';
+  }
+  if (_duExportStatus && _duExportStatus.coverageStatus === 'missing' && _duExportStatus.exists) {
+    return '<div class="upload-step-state-badge is-current">CSV Mismatch</div>' +
+      '<div class="upload-pipeline-stat"><span class="upload-pipeline-stat-label">Existing CSV</span><span class="upload-pipeline-stat-value">' + _duEsc(_duExportStatus.fileName || '—') + '</span></div>' +
+      '<div class="upload-pipeline-meta">CSV MISSING · Existing dated file does not cover the loaded rows. Export writes the current queue.</div>';
+  }
+  return '<div class="upload-step-state-badge is-current">CSV Needed</div>' +
     '<div class="upload-pipeline-meta">No manual export found for ' + _duEsc(_duLoadedDateLabel() || 'this queue') + '. Dry run is available after approval; live upload requires an explicit CSV export first.</div>';
 }
 
@@ -504,6 +527,7 @@ function _duGetStepCardState(stepKey) {
   }
   if (stepKey === 'step4') {
     if (!_duQueueApproved) return 'blocked';
+    if (_duIsCheckingExportStatus) return 'current';
     return _duHasExportForLoadedDate() ? 'complete' : 'current';
   }
   return '';
@@ -571,15 +595,18 @@ function _duRenderStepGates() {
   if (btnExport4) {
     var hasQueue = _duQueue.length > 0;
     var hasExport = _duHasExportForLoadedDate();
-    btnExport4.disabled = !_duQueueApproved || !hasQueue || _duDirtyCount() > 0 || _duIsSaving;
-    btnExport4.textContent = hasExport ? 'Re-export QB CSV' : 'Export QB CSV';
+    var partialExport = _duExportStatus && _duExportStatus.coverageStatus === 'partial';
+    btnExport4.disabled = _duIsCheckingExportStatus || hasExport || !_duQueueApproved || !hasQueue || _duDirtyCount() > 0 || _duIsSaving;
+    btnExport4.textContent = _duIsCheckingExportStatus ? 'Checking CSV' : (hasExport ? 'CSV Verified' : (partialExport ? 'Export Missing Rows' : 'Export QB CSV'));
     btnExport4.classList.toggle('btn-ghost', hasExport);
     btnExport4.classList.toggle('btn-primary', !hasExport);
     btnExport4.title = !_duQueueApproved
       ? 'Approve the queue in Step 3 first'
       : hasExport
-        ? 'A CSV already exists for this date. Re-export only if you need a fresh file.'
-        : 'Export current queue to 01_Pending_Upload as a QB CSV';
+        ? 'A CSV already exists and covers every loaded row.'
+        : partialExport
+          ? 'Export only rows missing from the existing dated CSV.'
+          : 'Export current queue to 01_Pending_Upload as a QB CSV';
   }
   _duApplyStepCardStates();
 }
@@ -599,7 +626,8 @@ function _duApproveQueue() {
   }
   _duQueueApproved = true;
   _duRenderStepGates();
-  showToast('Queue approved. Step 4 is now unlocked.', 'success');
+  _duLoadExportStatus(_duLoadedQueueDates.length ? _duLoadedQueueDates : _duLoadedQueueDate);
+  showToast('Queue approved. Checking Pending Upload CSV coverage.', 'success');
 }
 
 function _duPreflightExport() {
@@ -610,6 +638,13 @@ function _duPreflightExport() {
   var eligible = _duGetEligibleSelected();
   var pendingRows = _duQueue.filter(function(r) { return r.uploadStatus === 'Pending'; });
   var checkRows = eligible.length > 0 ? eligible : pendingRows.map(function(r) { return r.rowIdx; });
+  if (_duExportStatus && _duExportStatus.coverageStatus === 'complete') {
+    showToast('The existing CSV already covers the loaded queue.', 'success');
+    return;
+  }
+  if (_duExportStatus && _duExportStatus.coverageStatus === 'partial' && _duExportStatus.missingRowIndices && _duExportStatus.missingRowIndices.length) {
+    checkRows = _duExportStatus.missingRowIndices.slice();
+  }
   if (checkRows.length === 0) {
     showToast('No pending rows to export.', 'warn');
     return;
@@ -632,6 +667,9 @@ function _duPreflightExport() {
     '<div class="upload-preview-note">' +
       '<strong>' + checkRows.length + ' row' + (checkRows.length === 1 ? '' : 's') + '</strong> will be written to <em>01_Pending_Upload</em> as a CSV.' +
     '</div>' +
+    (_duExportStatus && _duExportStatus.coverageStatus === 'partial'
+      ? '<div class="upload-preview-note ok">An existing CSV covers ' + _duEsc(_duExportStatus.matchedRowCount || 0) + ' row(s); this export will include only the missing rows.</div>'
+      : '') +
     '<div class="upload-pipeline-meta" style="margin:8px 0 4px">Vendor breakdown:</div>' +
     '<ul style="margin:0 0 10px 16px;padding:0;font-size:11px;color:var(--text-main)">' + vendorLines + '</ul>' +
     '<div class="upload-preview-note warn">Tip: After export, verify the CSV before pushing it to QuickBase. Duplicates already in QB will be flagged on upload.</div>';
@@ -703,7 +741,9 @@ function _duLoadQueueForDate(dateStr) {
 }
 
 function _duExportPipelineCsv() {
-  showToast('Exporting current QuickBase upload tab to CSV…', 'info');
+  showToast(_duExportStatus && _duExportStatus.coverageStatus === 'partial'
+    ? 'Exporting missing Daily Upload rows to CSV…'
+    : 'Exporting current QuickBase upload tab to CSV…', 'info');
   google.script.run
     .withSuccessHandler(function(result) {
       _duLatestExport = {
@@ -721,11 +761,17 @@ function _duExportPipelineCsv() {
         fileName: result.fileName,
         fileUrl: result.fileUrl,
         createdAt: result.createdAt,
-        modifiedAt: result.createdAt
+        modifiedAt: result.createdAt,
+        coverageStatus: result.coverageStatus || 'complete',
+        rowCount: result.rowCount || _duQueue.length,
+        exportedRowCount: result.exportedRowCount || result.rowCount || 0,
+        matchedRowCount: result.matchedRowCount || result.rowCount || 0,
+        missingRowCount: result.missingRowCount || 0,
+        missingRowIndices: result.missingRowIndices || []
       };
       _duRenderPipeline();
       _duRenderToolbar();
-      showToast('CSV exported to 01_Pending_Upload.', 'success');
+      showToast(result.reusedExisting ? 'Existing CSV already covers the loaded queue.' : 'CSV exported to 01_Pending_Upload.', 'success');
     })
     .withFailureHandler(function(err) {
       showToast('CSV export failed: ' + (err.message || err), 'error');

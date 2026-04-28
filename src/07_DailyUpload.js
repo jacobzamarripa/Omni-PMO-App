@@ -207,44 +207,189 @@ function _formatDailyUploadDateRangePart(targetDates) {
   return first === last ? first : first + '-' + last;
 }
 
-function getDailyUploadExportStatus(dateStr) {
-  var meta = _buildDailyUploadTargetMeta(dateStr);
+function _dailyUploadDriveRetry(label, fn, attempts, delayMs) {
+  attempts = Math.max(1, Number(attempts || 3));
+  delayMs = Math.max(0, Number(delayMs || 500));
+  var lastErr = null;
+  for (var attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return fn();
+    } catch (err) {
+      lastErr = err;
+      logMsg('[DailyUpload][DriveRetry] ' + label + ' attempt ' + attempt + ' failed: ' + _truncateDailyUploadLogValue(err.message || err, 220));
+      if (attempt < attempts) Utilities.sleep(delayMs * attempt);
+    }
+  }
+  throw lastErr;
+}
+
+function _getDailyUploadPendingFolderSafely() {
+  return _dailyUploadDriveRetry('get pending upload folder', function() {
+    return DriveApp.getFolderById(COMPILED_FOLDER_ID);
+  }, 3, 600);
+}
+
+function _getDailyUploadCsvFilesSafely(folder) {
+  return _dailyUploadDriveRetry('scan pending upload CSV files', function() {
+    var iter = folder.getFilesByType(MimeType.CSV);
+    var files = [];
+    while (iter.hasNext()) files.push(iter.next());
+    return files;
+  }, 3, 700);
+}
+
+function _readDailyUploadCsvSafely(file) {
+  return _dailyUploadDriveRetry('read pending upload CSV ' + (file && file.getName ? file.getName() : ''), function() {
+    return file.getBlob().getDataAsString();
+  }, 3, 700);
+}
+
+function _createDailyUploadCsvFileSafely(folder, fileName, csvContent) {
+  return _dailyUploadDriveRetry('create pending upload CSV ' + fileName, function() {
+    return folder.createFile(fileName, csvContent, MimeType.CSV);
+  }, 3, 900);
+}
+
+function _dailyUploadHeaderIndexMap(headers) {
+  var map = {};
+  (headers || []).forEach(function(header, idx) {
+    map[_normalizeUploadHeaderKey(header)] = idx;
+  });
+  return map;
+}
+
+function _dailyUploadGetCsvCell(row, indexMap, header) {
+  var idx = indexMap[_normalizeUploadHeaderKey(header)];
+  return idx === undefined ? '' : row[idx];
+}
+
+function _buildDailyUploadCsvCoverageKey(dateVal, fdhVal, vendorVal) {
+  var canonicalDate = _normalizeQuickBaseDateValue(dateVal);
+  var fdh = String(fdhVal || '').trim().toUpperCase();
+  var vendor = _normalizeDailyUploadDuplicateVendor(vendorVal);
+  return canonicalDate && fdh ? canonicalDate + '::' + fdh + '::' + vendor : '';
+}
+
+function _getDailyUploadCurrentExportRows(targetDates, rowIndices) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(QB_UPLOAD_SHEET);
+  if (!sheet || getTrueLastDataRow(sheet) < 2) return [];
+  var lastRow = getTrueLastDataRow(sheet);
+  var width = Math.max(sheet.getLastColumn(), QB_HEADERS.length + UPLOAD_TRACKING_HEADERS.length);
+  var data = sheet.getRange(1, 1, lastRow, width).getValues();
+  var targetSet = {};
+  _normalizeDailyUploadTargetDates(targetDates).forEach(function(d) { targetSet[d] = true; });
+  var rowSet = null;
+  if (rowIndices && rowIndices.length) {
+    rowSet = {};
+    rowIndices.forEach(function(rowIdx) { rowSet[Number(rowIdx)] = true; });
+  }
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    var sheetRowIdx = i + 1;
+    if (rowSet && !rowSet[sheetRowIdx]) continue;
+    var row = data[i];
+    var status = String(row[UPLOAD_COL_STATUS] || '').trim();
+    if (status === UPLOAD_STATUS.UPLOADED || status === UPLOAD_STATUS.SKIPPED) continue;
+    var canonicalDate = _normalizeQuickBaseDateValue(row[0]);
+    if (Object.keys(targetSet).length && !targetSet[canonicalDate]) continue;
+    var key = _buildDailyUploadCsvCoverageKey(row[0], row[2], row[1]);
+    if (!key) continue;
+    rows.push({
+      rowIdx: sheetRowIdx,
+      key: key,
+      values: row.slice(0, QB_HEADERS.length),
+      date: canonicalDate,
+      fdh: String(row[2] || '').trim(),
+      vendor: String(row[1] || '').trim()
+    });
+  }
+  return rows;
+}
+
+function _scanDailyUploadExportCoverage(targetDates) {
+  var meta = _buildDailyUploadTargetMeta(targetDates);
   var datePart = _formatDailyUploadDateRangePart(meta.targetDates);
-  if (!meta.targetDates.length || !datePart) {
-    return {
-      targetDate: meta.targetDate || '',
-      targetDates: meta.targetDates,
-      targetDateLabel: meta.targetDateLabel,
-      exists: false,
-      fileId: '',
-      fileName: '',
-      fileUrl: '',
-      createdAt: ''
-    };
-  }
+  var requiredRows = _getDailyUploadCurrentExportRows(meta.targetDates);
+  var requiredKeys = {};
+  requiredRows.forEach(function(row) { requiredKeys[row.key] = row; });
 
-  var folder = DriveApp.getFolderById(COMPILED_FOLDER_ID);
-  var files = folder.getFilesByType(MimeType.CSV);
-  var latest = null;
-  while (files.hasNext()) {
-    var file = files.next();
-    var name = file.getName();
-    if (name.indexOf('Daily_Production_Report_') !== 0) continue;
-    if (name.indexOf(datePart) === -1) continue;
-    if (!latest || file.getLastUpdated() > latest.getLastUpdated()) latest = file;
-  }
-
-  return {
-    targetDate: meta.targetDate,
+  var base = {
+    targetDate: meta.targetDate || '',
     targetDates: meta.targetDates,
     targetDateLabel: meta.targetDateLabel,
-    exists: !!latest,
-    fileId: latest ? latest.getId() : '',
-    fileName: latest ? latest.getName() : '',
-    fileUrl: latest ? latest.getUrl() : '',
-    createdAt: latest ? Utilities.formatDate(latest.getDateCreated(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss') : '',
-    modifiedAt: latest ? Utilities.formatDate(latest.getLastUpdated(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss') : ''
+    exists: false,
+    coverageStatus: requiredRows.length ? 'missing' : 'empty',
+    complete: false,
+    rowCount: requiredRows.length,
+    exportedRowCount: 0,
+    matchedRowCount: 0,
+    missingRowCount: requiredRows.length,
+    missingRowIndices: requiredRows.map(function(row) { return row.rowIdx; }),
+    fileId: '',
+    fileName: '',
+    fileUrl: '',
+    createdAt: '',
+    modifiedAt: '',
+    scannedFileCount: 0,
+    matchedFileCount: 0
   };
+  if (!meta.targetDates.length || !datePart) return base;
+
+  var folder = _getDailyUploadPendingFolderSafely();
+  var files = _getDailyUploadCsvFilesSafely(folder);
+  var latest = null;
+  var exportedKeys = {};
+  files.forEach(function(file) {
+    var name = file.getName();
+    if (name.indexOf('Daily_Production_Report_') !== 0) return;
+    if (name.indexOf(datePart) === -1) return;
+    base.scannedFileCount++;
+    if (!latest || file.getLastUpdated() > latest.getLastUpdated()) latest = file;
+    try {
+      var parsed = Utilities.parseCsv(_readDailyUploadCsvSafely(file));
+      if (!parsed || parsed.length < 2) return;
+      base.matchedFileCount++;
+      var indexMap = _dailyUploadHeaderIndexMap(parsed[0]);
+      for (var i = 1; i < parsed.length; i++) {
+        var row = parsed[i] || [];
+        var key = _buildDailyUploadCsvCoverageKey(
+          _dailyUploadGetCsvCell(row, indexMap, 'Date'),
+          _dailyUploadGetCsvCell(row, indexMap, 'FDH Engineering ID'),
+          _dailyUploadGetCsvCell(row, indexMap, 'Contractor')
+        );
+        if (!key) continue;
+        exportedKeys[key] = true;
+      }
+    } catch (err) {
+      logMsg('[DailyUpload] Existing CSV coverage scan skipped ' + name + ': ' + _truncateDailyUploadLogValue(err.message || err, 220));
+    }
+  });
+
+  base.exists = !!latest;
+  base.fileId = latest ? latest.getId() : '';
+  base.fileName = latest ? latest.getName() : '';
+  base.fileUrl = latest ? latest.getUrl() : '';
+  base.createdAt = latest ? Utilities.formatDate(latest.getDateCreated(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss') : '';
+  base.modifiedAt = latest ? Utilities.formatDate(latest.getLastUpdated(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss') : '';
+  base.exportedRowCount = Object.keys(exportedKeys).length;
+
+  var missing = [];
+  requiredRows.forEach(function(row) {
+    if (exportedKeys[row.key]) base.matchedRowCount++;
+    else missing.push(row.rowIdx);
+  });
+  base.missingRowIndices = missing;
+  base.missingRowCount = missing.length;
+  base.complete = requiredRows.length > 0 && missing.length === 0;
+  base.coverageStatus = requiredRows.length === 0
+    ? 'empty'
+    : (base.complete ? 'complete' : (base.exists && base.matchedRowCount > 0 ? 'partial' : 'missing'));
+  return base;
+}
+
+function getDailyUploadExportStatus(dateStr) {
+  return _scanDailyUploadExportCoverage(dateStr);
 }
 
 function listProductionIncomingFiles() {
@@ -327,18 +472,57 @@ function loadDailyUploadQueueForDate(dateStr) {
 }
 
 function exportCurrentDailyUploadCsv() {
-  var meta = exportQuickBaseCSVCore(true, 'MANUAL');
+  var activeDates = [];
+  var queueRows = _getDailyUploadCurrentExportRows([]);
+  queueRows.forEach(function(row) {
+    if (row.date && activeDates.indexOf(row.date) === -1) activeDates.push(row.date);
+  });
+  activeDates.sort();
+  var status = _scanDailyUploadExportCoverage(activeDates);
+  if (status.complete) {
+    return {
+      success: true,
+      step: 'export_csv',
+      reusedExisting: true,
+      coverageStatus: status.coverageStatus,
+      fileId: status.fileId,
+      fileName: status.fileName,
+      fileUrl: status.fileUrl,
+      folderId: COMPILED_FOLDER_ID,
+      createdAt: status.createdAt,
+      rowCount: status.rowCount,
+      exportedRowCount: status.exportedRowCount,
+      matchedRowCount: status.matchedRowCount,
+      missingRowCount: 0,
+      message: 'Existing CSV already covers the loaded Daily Upload queue.'
+    };
+  }
+
+  var rowsToExport = status.exists && status.missingRowIndices.length
+    ? _getDailyUploadCurrentExportRows(status.targetDates, status.missingRowIndices)
+    : _getDailyUploadCurrentExportRows(activeDates);
+  var meta = _createDailyUploadQueueCsv(status.targetDates.length ? status.targetDates : activeDates, rowsToExport, status.exists ? 'MISSING' : '');
   if (!meta) throw new Error('The QuickBase upload tab is empty. Load a report date first.');
+  var refreshed = _scanDailyUploadExportCoverage(status.targetDates.length ? status.targetDates : activeDates);
   return {
     success: true,
     step: 'export_csv',
+    reusedExisting: false,
+    coverageStatus: refreshed.coverageStatus,
     fileId: meta.fileId,
     fileName: meta.fileName,
     fileUrl: meta.fileUrl,
     folderId: meta.folderId,
     createdAt: meta.createdAt,
-    rowCount: meta.rowCount,
-    message: 'CSV exported to 01_Pending_Upload.'
+    rowCount: refreshed.rowCount,
+    createdRowCount: meta.rowCount,
+    exportedRowCount: refreshed.exportedRowCount,
+    matchedRowCount: refreshed.matchedRowCount,
+    missingRowCount: refreshed.missingRowCount,
+    missingRowIndices: refreshed.missingRowIndices,
+    message: refreshed.complete
+      ? 'CSV coverage is complete for the loaded Daily Upload queue.'
+      : 'CSV exported to 01_Pending_Upload, but coverage still needs review.'
   };
 }
 
@@ -1165,14 +1349,16 @@ function _normalizeQuickBaseDateValue(value) {
   if (!raw) return '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
 
-  var slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  var slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
   if (slashMatch) {
-    return slashMatch[3] + '-' + slashMatch[1].padStart(2, '0') + '-' + slashMatch[2].padStart(2, '0');
+    var slashYear = slashMatch[3].length === 2 ? '20' + slashMatch[3] : slashMatch[3];
+    return slashYear + '-' + slashMatch[1].padStart(2, '0') + '-' + slashMatch[2].padStart(2, '0');
   }
 
-  var dashMatch = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  var dashMatch = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{2}|\d{4})$/);
   if (dashMatch) {
-    return dashMatch[3] + '-' + dashMatch[1].padStart(2, '0') + '-' + dashMatch[2].padStart(2, '0');
+    var dashYear = dashMatch[3].length === 2 ? '20' + dashMatch[3] : dashMatch[3];
+    return dashYear + '-' + dashMatch[1].padStart(2, '0') + '-' + dashMatch[2].padStart(2, '0');
   }
 
   var isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -2223,6 +2409,67 @@ function _ensureDailyUploadSnapshot(dateStr, batchId, rowIndices) {
 
 // --- EXPORT ---
 
+function _dailyUploadCsvEscape(val) {
+  var s = (val instanceof Date)
+    ? Utilities.formatDate(val, Session.getScriptTimeZone(), 'MM/dd/yyyy')
+    : String(val === null || val === undefined ? '' : val);
+  if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+    s = '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function _buildDailyUploadCsvName(targetDates, tag) {
+  var datePart = _formatDailyUploadDateRangePart(targetDates);
+  if (!datePart) return '';
+  var safeTag = String(tag || '').trim();
+  return safeTag
+    ? 'Daily_Production_Report_(' + safeTag + ')_' + datePart + '.csv'
+    : 'Daily_Production_Report_' + datePart + '.csv';
+}
+
+function _versionDailyUploadCsvName(folder, fileName) {
+  var files = _getDailyUploadCsvFilesSafely(folder);
+  var names = {};
+  files.forEach(function(file) { names[file.getName()] = true; });
+  if (!names[fileName]) return fileName;
+  var baseName = fileName.replace(/\.csv$/i, '');
+  var version = 2;
+  var candidate = baseName + '_v' + version + '.csv';
+  while (names[candidate]) {
+    version++;
+    candidate = baseName + '_v' + version + '.csv';
+  }
+  return candidate;
+}
+
+function _createDailyUploadQueueCsv(targetDates, exportRows, tag) {
+  if (!exportRows || !exportRows.length) return null;
+  var normalizedDates = _normalizeDailyUploadTargetDates(targetDates);
+  if (!normalizedDates.length) {
+    exportRows.forEach(function(row) {
+      if (row.date && normalizedDates.indexOf(row.date) === -1) normalizedDates.push(row.date);
+    });
+    normalizedDates.sort();
+  }
+  var folder = _getDailyUploadPendingFolderSafely();
+  var fileName = _versionDailyUploadCsvName(folder, _buildDailyUploadCsvName(normalizedDates, tag));
+  var csvRows = [QB_HEADERS].concat(exportRows.map(function(row) { return row.values; }));
+  var csvContent = csvRows.map(function(row) {
+    return row.map(_dailyUploadCsvEscape).join(',');
+  }).join('\r\n');
+  var file = _createDailyUploadCsvFileSafely(folder, fileName, csvContent);
+  logMsg('[DailyUpload] CSV exported: ' + fileName + ' (' + exportRows.length + ' row(s), tag=' + (tag || 'FULL') + ')');
+  return {
+    fileId: file.getId(),
+    fileName: file.getName(),
+    fileUrl: file.getUrl(),
+    folderId: COMPILED_FOLDER_ID,
+    createdAt: Utilities.formatDate(file.getDateCreated(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'),
+    rowCount: exportRows.length
+  };
+}
+
 /**
  * Exports a filtered subset of 1-QuickBase_Upload rows to Drive as CSV.
  * @param {Array<number>} rowIndices - 1-indexed row numbers to include.
@@ -2241,25 +2488,15 @@ function exportDailyUploadViewToCSV(rowIndices) {
     allData.slice(1).filter(function(_, i) { return rowIndices ? rowSet.has(i + 1) : true; })
   );
 
-  function _csvEscape(val) {
-    var s = (val instanceof Date)
-      ? Utilities.formatDate(val, Session.getScriptTimeZone(), 'MM/dd/yyyy')
-      : String(val === null || val === undefined ? '' : val);
-    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-      s = '"' + s.replace(/"/g, '""') + '"';
-    }
-    return s;
-  }
-
   const csvContent = exportRows.map(function(row) {
-    return row.map(_csvEscape).join(',');
+    return row.map(_dailyUploadCsvEscape).join(',');
   }).join('\r\n');
 
   const dateStamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
   const filename  = 'Daily_Upload_Export_' + dateStamp + '.csv';
 
-  const folder = DriveApp.getFolderById(COMPILED_FOLDER_ID);
-  const file   = folder.createFile(filename, csvContent, MimeType.CSV);
+  const folder = _getDailyUploadPendingFolderSafely();
+  const file   = _createDailyUploadCsvFileSafely(folder, filename, csvContent);
 
   logMsg('[DailyUpload] Exported ' + (exportRows.length - 1) + ' rows to ' + filename);
   return file.getUrl();

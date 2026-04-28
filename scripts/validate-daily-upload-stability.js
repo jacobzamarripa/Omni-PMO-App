@@ -108,6 +108,25 @@ const context = {
   },
   populateQuickBaseTabCore(targetDates) {
     capturedPopulateArg = targetDates;
+  },
+  _scanDailyUploadExportCoverage(targetDates) {
+    const dates = Array.isArray(targetDates) ? targetDates.slice().sort() : [targetDates];
+    const targetDate = dates[0] || '';
+    const targetDateLabel = dates.length > 1 ? `${dates[0]} - ${dates[dates.length - 1]}` : targetDate;
+    const datePart = dates.length > 1 ? '04.24.26-04.26.26' : '04.27.26';
+    return {
+      targetDate,
+      targetDates: dates,
+      targetDateLabel,
+      exists: datePart === '04.24.26-04.26.26',
+      coverageStatus: datePart === '04.24.26-04.26.26' ? 'complete' : 'missing',
+      complete: datePart === '04.24.26-04.26.26',
+      fileId: datePart === '04.24.26-04.26.26' ? 'range-file' : '',
+      fileName: datePart === '04.24.26-04.26.26' ? 'Daily_Production_Report_04.24.26-04.26.26.csv' : '',
+      fileUrl: datePart === '04.24.26-04.26.26' ? 'https://drive.example/range-file' : '',
+      createdAt: '2026-04-27 08:05:00',
+      modifiedAt: '2026-04-27 08:05:00'
+    };
   }
 };
 
