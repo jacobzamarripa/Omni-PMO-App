@@ -257,6 +257,9 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
   let newRowsAppended = [];
   let allProcessedDates = [];
   let allParsedRowsForQB = [];
+  if (!isContinuation) {
+    resetQuickBaseUploadTabForIngestion();
+  }
 
   // 🔄 Execute scan across both folders (Top-level only for speed and safety)
   const targetFolders = [REFERENCE_FOLDER_ID, INCOMING_FOLDER_ID];
@@ -292,6 +295,7 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
       "INGESTION_STATUS": "resume_scheduled",
       "INGESTION_LAST_RESUME_SCHEDULED_AT": String(resumeScheduledAt)
     });
+    applyQuickBaseUploadTabFinalStyling();
   } else {
     // ✅ COMPLETE
     props.setProperties({
@@ -299,9 +303,9 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
       "INGESTION_STATUS": "idle",
       "INGESTION_LAST_COMPLETED_AT": String(Date.now())
     });
-    populateQuickBaseTabDirectly(allParsedRowsForQB);
+    applyQuickBaseUploadTabFinalStyling();
     // 🧠 autoArchiveProcessedFiles() is no longer needed here as files move immediately
-    logMsg(`✅ INGESTION COMPLETE: Added ${newRowsAppended.length} rows to Archive.`);
+    logMsg(`✅ INGESTION COMPLETE: Added ${newRowsAppended.length} rows to Archive. Staged ${allParsedRowsForQB.length} rows to QuickBase Upload.`);
 
     if (newRowsAppended.length > 0) {
       props.setProperty("LATEST_SIGNAL_EVENT_MS", String(Date.now()));
@@ -309,7 +313,7 @@ function processIncomingForQuickBase(isSilent = false, isContinuation = false) {
 
     if (!isSilent && !isContinuation) {
       if (newRowsAppended.length === 0) {
-        SpreadsheetApp.getUi().alert("No new rows found.\n\nNote: If you are trying to re-process a report manually, please ensure it is dropped into the root of the 'Production Incoming' folder.");
+        SpreadsheetApp.getUi().alert(`No new archive rows found.\n\nQuickBase Upload tab refreshed with ${allParsedRowsForQB.length} row(s).\n\nNote: If you are trying to re-process a report manually, please ensure it is dropped into the root of the 'Production Incoming' folder.`);
       } else {
         SpreadsheetApp.getUi().alert(`Done scanning.\n\nFiltered duplicates and appended ${newRowsAppended.length} new rows to the Archive.\nQuickBase Upload tab refreshed with ${allParsedRowsForQB.length} row(s).\n\n📁 All processed files have been moved to the Master Archive.`);
       }
@@ -433,6 +437,7 @@ function applyQuickBaseTabStyling(qbSheet) {
 function processFolderRecursive(folder, existingKeys, refDict, folderDate, isArchive, newRowsAppended = null, allProcessedDates = null, forceReprocess = false, allParsedRowsForQB = null, startTime = null, recursive = true, existingTotals = {}) {
   let resolvedFolderDate = extractDateFromName(folder.getName());
   if (resolvedFolderDate) folderDate = resolvedFolderDate;
+  if (!isArchive) cleanupStaleTempConvertedFilesInFolder(folder);
 
   // Only query for valid Microsoft Excel formats natively.
   // (Prevents looping over Google Sheets, PDFs, etc.)
@@ -447,19 +452,14 @@ function processFolderRecursive(folder, existingKeys, refDict, folderDate, isArc
 
     let file = files.next();
 
-    // Fallback name check for safety
-    if (!file.getName().toLowerCase().endsWith(".xlsx")) {
-      // Still log if something weird is identified as Excel but named incorrectly
-      continue;
-    }
-
     if (file.getDescription() === "PROCESSED" && !forceReprocess) {
       // 🧠 SAFETY: If it's already processed but still in the incoming folder, move it now
       if (!isArchive) {
         let fDate = folderDate || extractDateFromName(file.getName()) || deriveFallbackTargetDate(file);
-        let targetFolder = getArchiveFolderForDate(fDate);
-        file.moveTo(targetFolder);
-        logMsg(`📦 Cleaned up "PROCESSED" file that was left in incoming: ${file.getName()}`);
+        let targetFolder = getArchiveFolderForDateSafely(fDate);
+        if (moveFileToArchiveFolderSafely(file, targetFolder, fDate)) {
+          logMsg(`📦 Cleaned up "PROCESSED" file that was left in incoming: ${file.getName()}`);
+        }
       }
       continue;
     }
@@ -470,9 +470,11 @@ function processFolderRecursive(folder, existingKeys, refDict, folderDate, isArc
     if (fDate && allProcessedDates !== null) allProcessedDates.push(fDate);
 
     try {
+        let qbStartCount = allParsedRowsForQB ? allParsedRowsForQB.length : 0;
         let result = parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppended, allProcessedDates, allParsedRowsForQB, existingTotals);
         let rows = result.rows;
         let fileArchiveDate = result.maxDate || fDate;
+        let parsedRowsForThisFile = allParsedRowsForQB ? allParsedRowsForQB.slice(qbStartCount) : [];
 
         if (rows && rows.length > 0) {
             const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HISTORY_SHEET);
@@ -494,16 +496,19 @@ function processFolderRecursive(folder, existingKeys, refDict, folderDate, isArc
             logMsg(`ℹ️ No new archive rows for ${file.getName()} (Likely duplicates or empty).`);
         }
 
-        file.setDescription("PROCESSED");
+        appendQuickBaseUploadRowsForIngestion(parsedRowsForThisFile);
+
+        setProcessedDescriptionSafely(file);
 
         // 🚀 IMMEDIATE MOVE: Prevent re-scanning on timeout/resume
         // Moving this out of the 'rows.length > 0' check so processed but duplicate files still get moved.
         if (!isArchive) {
           logMsg(`📦 Archiving file: ${file.getName()}... Target: ${fileArchiveDate}`);
-          let targetFolder = getArchiveFolderForDate(fileArchiveDate);
+          let targetFolder = getArchiveFolderForDateSafely(fileArchiveDate);
           if (targetFolder) {
-            file.moveTo(targetFolder);
-            logMsg(`✅ File archived: ${file.getName()} to folder ${fileArchiveDate}`);
+            if (moveFileToArchiveFolderSafely(file, targetFolder, fileArchiveDate)) {
+              logMsg(`✅ File archived: ${file.getName()} to folder ${fileArchiveDate}`);
+            }
           } else {
             logMsg(`⚠️ Could not find/create archive folder for ${fileArchiveDate}. File left in place.`);
           }
@@ -543,8 +548,116 @@ function getArchiveFolderForDate(dateStr) {
   let formattedFolderName = `${m}.${d}.${yy}`;
   return archiveFolder.createFolder(formattedFolderName);
 }
+
+function getArchiveFolderForDateSafely(dateStr) {
+  let lastError = "";
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return getArchiveFolderForDate(dateStr);
+    } catch (e) {
+      lastError = e.message || String(e);
+      logMsg(`⚠️ Archive folder lookup attempt ${attempt} failed for ${dateStr || "root"}: ${lastError}`);
+      Utilities.sleep(500 * attempt);
+    }
+  }
+  logMsg(`❌ Archive folder unavailable for ${dateStr || "root"} after retries: ${lastError}`);
+  return null;
+}
+
+function setProcessedDescriptionSafely(file) {
+  if (!file) return false;
+  const fileName = file.getName();
+  let lastError = "";
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      file.setDescription("PROCESSED");
+      return true;
+    } catch (e) {
+      lastError = e.message || String(e);
+      logMsg(`⚠️ PROCESSED tag attempt ${attempt} failed for ${fileName}: ${lastError}`);
+      Utilities.sleep(300 * attempt);
+    }
+  }
+  logMsg(`⚠️ File parsed/staged but could not be tagged PROCESSED: ${fileName}. Last error: ${lastError}`);
+  return false;
+}
+
+function moveFileToArchiveFolderSafely(file, targetFolder, targetDateLabel) {
+  if (!file || !targetFolder) return false;
+  const fileName = file.getName();
+  let lastError = "";
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      file.moveTo(targetFolder);
+      return true;
+    } catch (e) {
+      lastError = e.message || String(e);
+      logMsg(`⚠️ Drive move attempt ${attempt} failed for ${fileName}: ${lastError}`);
+      Utilities.sleep(500 * attempt);
+    }
+  }
+
+  try {
+    const targetFolderId = targetFolder.getId();
+    const parentIds = [];
+    const parents = file.getParents();
+    while (parents.hasNext()) parentIds.push(parents.next().getId());
+    Drive.Files.patch({}, file.getId(), {
+      addParents: targetFolderId,
+      removeParents: parentIds.join(","),
+      supportsTeamDrives: true
+    });
+    logMsg(`✅ File archived via Drive API fallback: ${fileName} to folder ${targetDateLabel || targetFolderId}`);
+    return true;
+  } catch (fallbackErr) {
+    logMsg(`❌ Archive move failed for ${fileName}: ${fallbackErr.message || fallbackErr}. Last moveTo error: ${lastError}`);
+    return false;
+  }
+}
+
+function cleanupTempConvertedFileSafely(tempFile, sourceName) {
+  if (!tempFile || !tempFile.id) return;
+  const label = sourceName || tempFile.title || tempFile.id;
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      Drive.Files.remove(tempFile.id);
+      return;
+    } catch (e) {
+      logMsg(`⚠️ Temp cleanup delete attempt ${attempt} failed for ${label}: ${e.message || e}`);
+      Utilities.sleep(300 * attempt);
+    }
+  }
+
+  try {
+    DriveApp.getFileById(tempFile.id).setTrashed(true);
+    logMsg(`🧹 Temp file trashed after delete fallback: ${label}`);
+  } catch (trashErr) {
+    logMsg(`⚠️ Temp cleanup left file in Drive for ${label}: ${trashErr.message || trashErr}`);
+  }
+}
+
+function cleanupStaleTempConvertedFilesInFolder(folder) {
+  try {
+    const tempFiles = folder.searchFiles("title contains '[TEMP]_' and mimeType='application/vnd.google-apps.spreadsheet'");
+    while (tempFiles.hasNext()) {
+      const temp = tempFiles.next();
+      try {
+        temp.setTrashed(true);
+        logMsg(`🧹 Removed stale temp conversion file: ${temp.getName()}`);
+      } catch (e) {
+        logMsg(`⚠️ Could not remove stale temp conversion file ${temp.getName()}: ${e.message || e}`);
+      }
+    }
+  } catch (scanErr) {
+    logMsg(`⚠️ Stale temp cleanup scan failed: ${scanErr.message || scanErr}`);
+  }
+}
+
 function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppended, allProcessedDates, allParsedRowsForQB = null, existingTotals = {}) {
-  let tempFile = Drive.Files.insert({ title: "[TEMP]_" + file.getName(), parents: [{id: file.getParents().next().getId()}] }, file.getBlob(), {convert: true});
+  let tempFile = createTempConvertedSpreadsheetSafely(file);
+  if (!tempFile) return { rows: [], maxDate: "" };
   
   // 🧠 Resilience: Sometimes converted files aren't immediately "openable"
   let tempSS = null;
@@ -556,12 +669,18 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
       Utilities.sleep(1000);
     }
   }
-  if (!tempSS) { Drive.Files.remove(tempFile.id); return { rows: [], maxDate: "" }; }
+  if (!tempSS) {
+    cleanupTempConvertedFileSafely(tempFile, file.getName());
+    return { rows: [], maxDate: "" };
+  }
 
   let reportTab = tempSS.getSheetByName("Daily Report") || tempSS.getSheets()[0];
   const fullData = reportTab.getDataRange().getValues();
   
-  if (fullData.length < 2) { Drive.Files.remove(tempFile.id); return { rows: [], maxDate: "" }; }
+  if (fullData.length < 2) {
+    cleanupTempConvertedFileSafely(tempFile, file.getName());
+    return { rows: [], maxDate: "" };
+  }
   
   let headerRowIndex = 0, fileHeaders = [], fdhIdx = -1;
   for (let i = 0; i < Math.min(10, fullData.length); i++) {
@@ -569,7 +688,10 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
     let foundIdx = tempHeaders.findIndex(h => h.includes("fdh") || h.includes("engineering id"));
     if (foundIdx !== -1) { headerRowIndex = i; fileHeaders = tempHeaders; fdhIdx = foundIdx; break; }
   }
-  if (fdhIdx === -1) { Drive.Files.remove(tempFile.id); return { rows: [], maxDate: "" }; }
+  if (fdhIdx === -1) {
+    cleanupTempConvertedFileSafely(tempFile, file.getName());
+    return { rows: [], maxDate: "" };
+  }
 
   const idxCache = {};
   const getIdx = (name) => {
@@ -801,8 +923,31 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
     logMsg(`❌ parseFileToRows error: ${e.message}`);
     return { rows: [], maxDate: "" };
   } finally {
-    Drive.Files.remove(tempFile.id);
+    cleanupTempConvertedFileSafely(tempFile, file.getName());
   }
+}
+
+function createTempConvertedSpreadsheetSafely(file) {
+  if (!file) return null;
+  const fileName = file.getName();
+  let lastError = "";
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const parents = file.getParents();
+      const parentId = parents.hasNext() ? parents.next().getId() : null;
+      const metadata = { title: "[TEMP]_" + fileName };
+      if (parentId) metadata.parents = [{ id: parentId }];
+      return Drive.Files.insert(metadata, file.getBlob(), { convert: true });
+    } catch (e) {
+      lastError = e.message || String(e);
+      logMsg(`⚠️ Temp conversion attempt ${attempt} failed for ${fileName}: ${lastError}`);
+      Utilities.sleep(700 * attempt);
+    }
+  }
+
+  logMsg(`❌ Could not convert file for ingestion after retries: ${fileName}. Last error: ${lastError}`);
+  return null;
 }
 
 function populateQuickBaseTabDirectly(parsedRows) {
@@ -819,6 +964,31 @@ function populateQuickBaseTabDirectly(parsedRows) {
     qbSheet.getRange(2, 1, qbData.length, QB_HEADERS.length).setValues(qbData);
   }
 
+  applyQuickBaseTabStyling(qbSheet);
+}
+
+function resetQuickBaseUploadTabForIngestion() {
+  populateQuickBaseTabDirectly([]);
+}
+
+function appendQuickBaseUploadRowsForIngestion(parsedRows) {
+  const safeRows = Array.isArray(parsedRows) ? parsedRows : [];
+  if (safeRows.length === 0) return 0;
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const qbSheet = ss.getSheetByName(QB_UPLOAD_SHEET);
+  const qbData = mapHistoryRowsToQuickBaseRows(safeRows);
+  const trueLastRow = Math.max(1, getTrueLastDataRow(qbSheet));
+  ensureCapacity(qbSheet, trueLastRow + qbData.length, QB_HEADERS.length);
+  qbSheet.getRange(trueLastRow + 1, 1, qbData.length, QB_HEADERS.length).setValues(qbData);
+  SpreadsheetApp.flush();
+  logMsg(`📤 QuickBase Upload staged ${qbData.length} row(s).`);
+  return qbData.length;
+}
+
+function applyQuickBaseUploadTabFinalStyling() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const qbSheet = ss.getSheetByName(QB_UPLOAD_SHEET);
   applyQuickBaseTabStyling(qbSheet);
 }
 

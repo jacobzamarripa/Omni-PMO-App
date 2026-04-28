@@ -1,5 +1,14 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-04-28: Daily Production re-ingestion QuickBase staging fixed
+- **Branch:** `fix/dpr-reingestion-qb-staging`.
+- **Regression comparison:** Diffed current ingestion code against pre-5pm baseline `fcb2367` (`2026-04-27 16:18:41 -0500`). The only later ingestion change was `6c1b89f`, which changed stale-lock handling and the `parseFileToRows()` fallback return; it did not intentionally remove duplicate-row QuickBase staging.
+- **Root cause:** QuickBase upload rows were still held only in the current execution's memory until final completion. If files were parsed and immediately archived before a timeout/resume boundary, the resumed completion could clear/rewrite `1-QuickBase_Upload` with only the later in-memory batch. Extensionless Excel MIME files could also be skipped by a stale `.xlsx` filename guard.
+- **Fix:** Fresh ingestion now resets the upload tab once, each processed file appends its parsed QuickBase rows before being marked `PROCESSED` and moved, and completion/resume styling no longer clears staged rows. The master archive duplicate guard remains unchanged, so re-ingesting a duplicate morning batch should stage QB rows and add zero archive rows.
+- **Drive reliability follow-up:** Live test logs showed successful duplicate parsing/staging, but `Drive.Files.remove()` temp cleanup could throw `Empty response` and abort staging, while `file.moveTo()` could throw `Service error: Drive` after staging. Temp cleanup is now non-fatal with delete/trash fallback, stale `[TEMP]` converted sheets are removed during incoming scans, and archive moves retry before using an Advanced Drive parent-patch fallback.
+- **Outage hardening:** A 2026-04-28 Workspace AppSheet outage with internal server errors likely explains the new intermittent Drive backend failures. The remaining Drive call sites are now wrapped: temp conversion retries `getParents/getBlob/Drive.Files.insert`, archive folder lookup retries `getArchiveFolderForDate`, and `setDescription("PROCESSED")` is non-fatal after staging.
+- **Verification:** Backend parse check for `src/01_Engine_Archive.js`, `node scripts/validate-ingestion-qb-staging.js`, and `node scripts/validate-daily-upload-stability.js` passed. `node scripts/validate-sync-hotpaths.js` still fails on an unrelated stale SIGNAL Drive assertion expecting `SIGNAL_DRIVE_FAIL_GLOBAL` while both current and pre-5pm code use `SIGNAL_DRIVE_FAIL_V2`.
+
 > [!success] 2026-04-27: Primary-table Deck remap and payload reference confidence fix
 - **Branch:** `fix/v2-payload-ofs-date`.
 - **QuickBase table cleanup:** Removed the obsolete `Project Management` table lookup and mapped Deck enrichment outputs from the live `bts3c49e9` FDH Projects table. `QB_Active_Pwr` now uses `Light to Cabinets`, `QB_Ofs_Change` uses `Current OFS Date Change Log Date`, and `QB_Ofs_Reason` uses `Date Change Details`.
