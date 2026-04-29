@@ -1607,7 +1607,7 @@ body.dark-mode .du-loaded-chip {
   overflow: visible;
   margin: 0 -2px;
   padding: 8px;
-  border-radius: 18px;
+  border-radius: 0;
   border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   background: var(--card-bg);
 }
@@ -1758,6 +1758,10 @@ body.dark-mode .du-loaded-chip {
   left: 0;
   z-index: 10; /* Tier 2: Frozen Columns */
   border-left: 1px solid var(--du-grid-line);
+}
+
+.upload-table td.upload-swimlane-check-cell {
+  z-index: 46; /* Tier 2.6: Above swimlane cell (45) — same specificity as td.col-check, placed after to win */
 }
 
 .upload-table th.col-check,
@@ -2315,13 +2319,18 @@ body.dark-mode .du-loaded-chip {
 .upload-swimlane-cell {
   position: sticky;
   left: 48px; /* Match Date column start */
-  z-index: 45;
+  z-index: 45; /* Tier 2.5: Above data rows, below sticky headers (50) */
   padding: 0 !important;
   height: auto !important;
   border-top: 1px solid var(--border) !important;
   border-bottom: 1px solid var(--border) !important;
   border-left: none !important;
   border-right: none !important;
+}
+.upload-swimlane-clip {
+  overflow: clip; /* Clips translateX without expanding scroll-width — unlike overflow:hidden on <td> */
+  width: 100%;
+  height: 100%;
 }
 .upload-swimlane-header {
   display: flex;

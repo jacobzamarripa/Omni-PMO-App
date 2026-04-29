@@ -195,7 +195,7 @@ function _duSyncStickyState() {
 
 function _duSyncSwimlaneTop() {
   setTimeout(function() {
-    var thead = document.querySelector('#upload-table thead');
+    var thead = document.querySelector('.upload-table thead');
     if (!thead) return;
     var h = Math.ceil(thead.getBoundingClientRect().height);
     if (!h) return;
@@ -203,7 +203,25 @@ function _duSyncSwimlaneTop() {
     var cells = document.querySelectorAll('.upload-swimlane-cell, .upload-swimlane-check-cell, .upload-swimlane-empty-cell');
     rows.forEach(function(row) { row.style.top = h + 'px'; });
     cells.forEach(function(cell) { cell.style.top = h + 'px'; });
+    _duAttachSwimlaneLeftSync();
+    _duSyncSwimlaneLeft();
   }, 60);
+}
+
+function _duAttachSwimlaneLeftSync() {
+  var region = document.getElementById('upload-scroll-region');
+  if (!region || region._duLeftSyncAttached) return;
+  region.addEventListener('scroll', _duSyncSwimlaneLeft, { passive: true });
+  region._duLeftSyncAttached = true;
+}
+
+function _duSyncSwimlaneLeft() {
+  var region = document.getElementById('upload-scroll-region');
+  if (!region) return;
+  var s = region.scrollLeft;
+  document.querySelectorAll('.upload-swimlane-header').forEach(function(el) {
+    el.style.transform = 'translateX(' + s + 'px)';
+  });
 }
 
 function _duRefreshAll(options) {
@@ -1981,11 +1999,13 @@ function _duBuildSwimlaneDivider(key, count, colSpan, selectedCount, selectableC
   return '<tr class="upload-swimlane-row ' + cfg.cls + '" onclick="_duToggleSwimlane(\'' + key + '\')">' +
     checkCell +
     '<td colspan="' + (colSpan - 1) + '" class="upload-swimlane-cell">' +
-      '<div class="upload-swimlane-header">' +
-        '<div class="upload-swimlane-header-left">' +
-          chevronSvg + cfg.icon +
-          '<span class="upload-swimlane-label">' + cfg.label + '</span>' +
-          '<span class="upload-swimlane-count">' + count + '</span>' +
+      '<div class="upload-swimlane-clip">' +
+        '<div class="upload-swimlane-header">' +
+          '<div class="upload-swimlane-header-left">' +
+            chevronSvg + cfg.icon +
+            '<span class="upload-swimlane-label">' + cfg.label + '</span>' +
+            '<span class="upload-swimlane-count">' + count + '</span>' +
+          '</div>' +
         '</div>' +
       '</div>' +
     '</td>' +
