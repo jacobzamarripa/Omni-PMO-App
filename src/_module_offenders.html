@@ -390,6 +390,8 @@
   var _offendersActiveFlagFilter = null;
   var _offendersUtilityDrawerOpen = false;
   var _offendersPmPanelOpen = false;
+  var _offendersGroupCollapsed = {}; // flat table collapse state { 'off_v::Vendor': bool }
+  var _offendersFlatSelected = new Set(); // flat table row selection
 
   // ── Active project gate ──────────────────────────────────────────
   // Include only projects that are actively in construction OR have
@@ -465,6 +467,213 @@
       .slice(0, limit || 4);
   }
 
+  function _offendersToggleGroup(key) {
+    _offendersGroupCollapsed[key] = !_offendersGroupCollapsed[key];
+    _renderSignalOffenders();
+  }
+
+  function _offendersToggleFlatRow(fdh) {
+    if (_offendersFlatSelected.has(fdh)) _offendersFlatSelected.delete(fdh);
+    else _offendersFlatSelected.add(fdh);
+    _renderSignalOffenders();
+  }
+
+  function _renderOffendersFlat(el, data) {
+    var vendors = data.vendors;
+    var vendorMap = data.vendorMap;
+    var globalFlagCounts = data.globalFlagCounts;
+    var totalFlags = vendors.reduce(function(acc, v) { return acc + vendorMap[v].totalFlags; }, 0);
+    var sortedFlags = Object.keys(globalFlagCounts).sort(function(a, b) { return globalFlagCounts[b] - globalFlagCounts[a]; });
+
+    var html = '';
+
+    // KPI Rail
+    html += '<div class="ac-kpi-rail ac-tab-kpi-rail">';
+    html += '<div class="ac-kpi-chip">' +
+      '<div class="ac-kpi-val">' + vendors.length + '</div>' +
+      '<div class="ac-kpi-label">Active Vendors</div>' +
+      '</div>';
+    html += '<div class="ac-kpi-chip' + (totalFlags > 0 ? ' ac-chip-crit' : '') + '">' +
+      '<div class="ac-kpi-val">' + totalFlags + '</div>' +
+      '<div class="ac-kpi-label">Total Flags</div>' +
+      '</div>';
+    sortedFlags.slice(0, 3).forEach(function(flag) {
+      var isActive = _offendersActiveFlagFilter === flag;
+      var cls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(flag) : 'chip-warn';
+      var label = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
+      var flagJs = (typeof escJs === 'function') ? escJs(flag) : String(flag || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      html += '<div class="ac-kpi-chip' + (isActive ? ' ac-chip-active' : '') + '" onclick="_offendersSetFlagFilter(\'' + flagJs + '\')">' +
+        '<div class="ac-kpi-val">' + globalFlagCounts[flag] + '</div>' +
+        '<div class="ac-kpi-label">' + _esc(label) + '</div>' +
+        '</div>';
+    });
+    html += '</div>';
+
+    // Toolbar
+    html += '<div class="off-toolbar">' +
+      '<div class="off-toolbar-main">' +
+      '<span class="off-toolbar-label">Refine Feed</span>' +
+      '<div class="off-ctrl-bar">' +
+      '<button class="signal-tf-pill' + (_offendersSortBy === 'count' ? ' active' : '') + '" onclick="_offendersSetSort(\'count\')">Flag Count</button>' +
+      '<button class="signal-tf-pill' + (_offendersSortBy === 'vendor' ? ' active' : '') + '" onclick="_offendersSetSort(\'vendor\')">Vendor A-Z</button>' +
+      '</div>' +
+      '</div>' +
+      '<div class="off-toolbar-actions">' +
+      '<button class="signal-tf-pill' + (_offendersUtilityDrawerOpen ? ' active' : '') + '" onclick="_offendersToggleUtilityDrawer()">' + (_offendersUtilityDrawerOpen ? 'Hide Utilities' : 'Utilities') + '</button>' +
+      '</div>' +
+      '</div>';
+
+    // Utilities drawer
+    html += '<div class="off-utility-drawer' + (_offendersUtilityDrawerOpen ? ' open' : '') + '" id="off-utility-drawer">' +
+      '<div class="off-utility-header">' +
+      '<div><div class="off-utility-title">Reporting Utilities</div>' +
+      '<div class="off-utility-sub">Export and PM email maintenance.</div></div>' +
+      '<div class="off-utility-actions">' +
+      '<button class="off-export-btn" id="off-btn-export-all" onclick="_offendersExportAll()">Export All</button>' +
+      '<button class="off-export-btn" id="off-btn-export-sel" onclick="_offendersExportSelected()">Export Selected</button>' +
+      '<button class="signal-tf-pill' + (_offendersPmPanelOpen ? ' active' : '') + '" onclick="_offendersTogglePmPanel()">' + (_offendersPmPanelOpen ? 'Hide PM Emails' : 'PM Emails') + '</button>' +
+      '</div></div>' +
+      '<div class="off-pm-panel' + (_offendersPmPanelOpen ? ' open' : '') + '" id="off-pm-panel">' +
+      '<div class="signal-section-header" style="padding:0 0 2px">PM Email Addresses</div>' +
+      '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">One address per vendor.</div>' +
+      '<div class="off-pm-grid" id="off-pm-grid">' + (_offendersPmPanelOpen ? '<span style="font-size:11px;color:var(--text-muted)">Loading...</span>' : '') + '</div>' +
+      '<div style="display:flex;gap:8px;align-items:center;">' +
+      '<button class="off-export-btn" onclick="_offendersSavePmEmails()">Save</button>' +
+      '<span id="off-pm-save-status" style="font-size:11px;color:var(--text-muted)"></span>' +
+      '</div></div></div>';
+
+    // Flag filter chips
+    if (sortedFlags.length > 0 || _offendersActiveFlagFilter) {
+      html += '<div class="off-filter-bar">';
+      var allActive = !_offendersActiveFlagFilter;
+      html += '<span class="off-filter-chip glass-pill chip-muted' + (allActive ? ' active' : '') + '" onclick="_offendersSetFlagFilter(null)">All (' + totalFlags + ')</span>';
+      sortedFlags.forEach(function(flag) {
+        var isActive = _offendersActiveFlagFilter === flag;
+        var displayFlag = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
+        var cls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(flag) : 'chip-warn';
+        var flagJs = (typeof escJs === 'function') ? escJs(flag) : String(flag || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        html += '<span class="off-filter-chip tag ' + cls + (isActive ? ' active' : '') + '" onclick="_offendersSetFlagFilter(\'' + flagJs + '\')">' +
+          _esc(displayFlag) + ' &times;' + globalFlagCounts[flag] + '</span>';
+      });
+      html += '</div>';
+    }
+
+    // Flat table
+    html += '<div class="ac-table-wrap"><table class="ac-table ac-table-workspace">' +
+      '<thead><tr>' +
+      '<th class="ac-th-check"><input type="checkbox" onchange="_offendersToggleFlatAll(this.checked)"></th>' +
+      '<th>FDH</th>' +
+      '<th>City</th>' +
+      '<th>Stage</th>' +
+      '<th>Status</th>' +
+      '<th>Flags</th>' +
+      '<th class="ac-th-peek"></th>' +
+      '</tr></thead><tbody>';
+
+    if (!vendors.length) {
+      html += '<tr><td colspan="7" class="ac-empty-cell">No active vendors with open flags.</td></tr>';
+    } else {
+      vendors.forEach(function(vendor, vIdx) {
+        var vd = vendorMap[vendor];
+        var vKey = 'off_v::' + vendor;
+        if (_offendersGroupCollapsed[vKey] === undefined) _offendersGroupCollapsed[vKey] = true;
+        var isVCollapsed = _offendersGroupCollapsed[vKey] === true;
+        var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(vendor) : vendor.slice(0, 2).toUpperCase();
+        var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(vendor, vIdx) : '';
+        var vendorKeyJs = (typeof escJs === 'function') ? escJs(vKey) : vKey.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+        html += '<tr class="ac-xing-sep-row ac-xing-sep-vendor" onclick="_offendersToggleGroup(\'' + vendorKeyJs + '\')">' +
+          '<td colspan="7">' +
+            '<div class="ac-xing-sep-vendor-inner">' +
+              '<div class="queue-group-monogram" style="' + themeStyle + '">' + _esc(monogram) + '</div>' +
+              '<span class="ac-xing-sep-vendor-name">' + _esc(vendor) + '</span>' +
+              '<span class="ac-xing-sep-count ac-xing-sep-pend">' + vd.projects.length + ' project' + (vd.projects.length !== 1 ? 's' : '') + '</span>' +
+              '<span class="ac-xing-sep-count ac-xing-sep-no">' + vd.totalFlags + ' flag' + (vd.totalFlags !== 1 ? 's' : '') + '</span>' +
+            '</div>' +
+          '</td></tr>';
+
+        if (!isVCollapsed) {
+          // Group projects by city
+          var cityMap = {};
+          var cityOrder = [];
+          vd.projects.forEach(function(p) {
+            var c = p.city || 'Unknown City';
+            if (!cityMap[c]) { cityMap[c] = []; cityOrder.push(c); }
+            cityMap[c].push(p);
+          });
+          cityOrder.sort();
+
+          cityOrder.forEach(function(city) {
+            var cProjects = cityMap[city];
+            var cKey = 'off_c::' + vendor + '::' + city;
+            if (_offendersGroupCollapsed[cKey] === undefined) _offendersGroupCollapsed[cKey] = false;
+            var isCCollapsed = _offendersGroupCollapsed[cKey] === true;
+            var cKeyJs = (typeof escJs === 'function') ? escJs(cKey) : cKey.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+            html += '<tr class="ac-xing-sep-row ac-xing-sep-city" onclick="_offendersToggleGroup(\'' + cKeyJs + '\')">' +
+              '<td colspan="7">' +
+                '<div class="ac-xing-sep-city-inner" style="padding-left:40px;">' +
+                  '<span class="ac-xing-sep-city-name">' + _esc(city) + '</span>' +
+                  '<span class="ac-xing-sep-city-count">(' + cProjects.length + ')</span>' +
+                '</div>' +
+              '</td></tr>';
+
+            if (!isCCollapsed) {
+              cProjects.forEach(function(p) {
+                var fdhSafe = _esc(p.fdh || '—');
+                var fdhJs = (typeof escJs === 'function') ? escJs(p.fdh || '') : String(p.fdh || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                var isSel = _offendersFlatSelected.has(p.fdh);
+
+                var flagsHtml = '';
+                if (p.flags && p.flags.length) {
+                  flagsHtml = p.flags.slice(0, 5).map(function(flag) {
+                    var cls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(flag) : 'chip-warn';
+                    var displayFlag = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
+                    return '<span class="tag ' + cls + '" style="font-size:9px;padding:2px 6px;">' + _esc(displayFlag) + '</span>';
+                  }).join('');
+                  if (p.flags.length > 5) {
+                    flagsHtml += '<span class="tag chip-muted" style="font-size:9px;padding:2px 6px;">+' + (p.flags.length - 5) + '</span>';
+                  }
+                }
+
+                html += '<tr class="ac-row' + (isSel ? ' is-selected' : '') + '">' +
+                  '<td class="ac-td-check" onclick="event.stopPropagation();_offendersToggleFlatRow(\'' + fdhJs + '\')">' +
+                    '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_offendersToggleFlatRow(\'' + fdhJs + '\')" onclick="event.stopPropagation()">' +
+                  '</td>' +
+                  '<td class="ac-td-fdh" style="padding-left:60px !important;"><span class="ac-fdh">' + fdhSafe + '</span></td>' +
+                  '<td style="font-size:11px;color:var(--text-muted);">' + _esc(p.city || '—') + '</td>' +
+                  '<td style="font-size:11px;color:var(--text-muted);">' + _esc(p.stage || '—') + '</td>' +
+                  '<td style="font-size:11px;color:var(--text-muted);">' + _esc(p.status || '—') + '</td>' +
+                  '<td style="padding:6px 10px;">' + flagsHtml + '</td>' +
+                  '<td class="ac-td-peek" onclick="event.stopPropagation()">' +
+                    '<button class="ac-detail-btn" onclick="_acOpenPeek(\'' + fdhJs + '\')" title="Open detail panel">&#8250;</button>' +
+                  '</td>' +
+                  '</tr>';
+              });
+            }
+          });
+        }
+      });
+    }
+
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+    if (_offendersPmPanelOpen) _offendersLoadPmEmails();
+  }
+
+  function _offendersToggleFlatAll(checked) {
+    _offendersFlatSelected.clear();
+    if (checked) {
+      var data = _buildOffendersData();
+      data.vendors.forEach(function(v) {
+        data.vendorMap[v].projects.forEach(function(p) {
+          if (p.fdh) _offendersFlatSelected.add(p.fdh);
+        });
+      });
+    }
+    _renderSignalOffenders();
+  }
+
   function _renderSignalOffenders() {
     var signalOpen = (function() { var o = document.getElementById('signal-overlay'); return o && o.classList.contains('visible'); })();
     var actionWsActive = (function() { var w = document.getElementById('action-workspace'); return w && w.classList.contains('ws-active'); })();
@@ -473,6 +682,13 @@
     if (!el) return;
 
     var data = _buildOffendersData();
+
+    // Action Center uses the flat table; Signal Panel uses the card layout
+    if (targetId === 'action-offenders-panel') {
+      _renderOffendersFlat(el, data);
+      return;
+    }
+
     var vendors = data.vendors;
     var vendorMap = data.vendorMap;
     var globalFlagCounts = data.globalFlagCounts;
@@ -840,15 +1056,18 @@
       .exportOffendersCsv(vendorList, email);
   }
 
-  window._renderSignalOffenders    = _renderSignalOffenders;
-  window._offendersSetSort         = _offendersSetSort;
-  window._offendersSetFlagFilter   = _offendersSetFlagFilter;
-  window._offendersToggleVendor    = _offendersToggleVendor;
-  window._offendersToggleExpand    = _offendersToggleExpand;
+  window._renderSignalOffenders       = _renderSignalOffenders;
+  window._offendersSetSort            = _offendersSetSort;
+  window._offendersSetFlagFilter      = _offendersSetFlagFilter;
+  window._offendersToggleVendor       = _offendersToggleVendor;
+  window._offendersToggleExpand       = _offendersToggleExpand;
   window._offendersToggleUtilityDrawer = _offendersToggleUtilityDrawer;
-  window._offendersTogglePmPanel   = _offendersTogglePmPanel;
-  window._offendersExportAll       = _offendersExportAll;
-  window._offendersExportSelected  = _offendersExportSelected;
-  window._offendersSavePmEmails    = _offendersSavePmEmails;
+  window._offendersTogglePmPanel      = _offendersTogglePmPanel;
+  window._offendersExportAll          = _offendersExportAll;
+  window._offendersExportSelected     = _offendersExportSelected;
+  window._offendersSavePmEmails       = _offendersSavePmEmails;
+  window._offendersToggleGroup        = _offendersToggleGroup;
+  window._offendersToggleFlatRow      = _offendersToggleFlatRow;
+  window._offendersToggleFlatAll      = _offendersToggleFlatAll;
 })();
 </script>

@@ -35,6 +35,7 @@
   var _acBomVendorFilter  = 'ALL';
   var _acBomCityFilter    = 'ALL';
   var _acBomCollapsed     = {};
+  var _acCommentsGroupCollapsed = {}; // { 'v::VendorName': bool }
 
   // ── Universal filter bar state ────────────────────────────
   var _acUniversalSearchQuery = '';
@@ -273,25 +274,47 @@
       var pending = xings.filter(function(i){ return _acResolveCrossing(i).pending; }).length;
       var yes     = xings.filter(function(i){ return _acResolveCrossing(i).xing.toUpperCase() === 'YES'; }).length;
       var no      = xings.filter(function(i){ return _acResolveCrossing(i).xing.toUpperCase() === 'NO'; }).length;
-      html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue', "_acSetUniversalFilter('crossings','all')");
-      html += _acKpiChip(pending,      'Pending',         pending > 0 ? 'ac-chip-crit' : 'ac-chip-queue', "_acSetUniversalFilter('crossings','pending')");
-      html += _acKpiChip(yes,          'YES',             'ac-chip-yes', "_acSetUniversalFilter('crossings','YES')");
-      html += _acKpiChip(no,           'NO',              no > 0 ? 'ac-chip-no' : 'ac-chip-queue', "_acSetUniversalFilter('crossings','NO')");
+      var xf = _acUniversalFilters.crossings;
+      html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue');
+      html += _acKpiChip(pending, 'Pending', (pending > 0 ? 'ac-chip-crit' : 'ac-chip-queue') + (xf === 'pending' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('crossings','pending')");
+      html += _acKpiChip(yes, 'YES', 'ac-chip-yes' + (xf === 'YES' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('crossings','YES')");
+      html += _acKpiChip(no, 'NO', (no > 0 ? 'ac-chip-no' : 'ac-chip-queue') + (xf === 'NO' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('crossings','NO')");
 
     } else if (tab === 'boms') {
       var bomRows = _acGetBomRows();
       var diffs   = bomRows.filter(function(r){ return r.hasDiff; }).length;
       var clean   = bomRows.length - diffs;
+      var bf = _acUniversalFilters.boms;
       html += _acKpiChip(_acBomData ? bomRows.length : '—', 'Total Projects', 'ac-chip-queue');
-      html += _acKpiChip(_acBomData ? diffs : '—',          'With Diffs',     diffs > 0 ? 'ac-chip-no' : 'ac-chip-queue');
-      html += _acKpiChip(_acBomData ? clean : '—',          'Clean',          'ac-chip-yes');
+      html += _acKpiChip(_acBomData ? diffs : '—', 'With Diffs', (diffs > 0 ? 'ac-chip-no' : 'ac-chip-queue') + (bf === 'diffs' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('boms','diffs')");
+      html += _acKpiChip(_acBomData ? clean : '—', 'Clean', 'ac-chip-yes' + (bf === 'clean' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('boms','clean')");
 
     } else if (tab === 'comments') {
       var edited = Object.keys(_acCommentsEdits).length;
-      var saved  = items.length - edited;
+      var cf = _acUniversalFilters.comments;
       html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue');
-      html += _acKpiChip(edited,       'Edited',          edited > 0 ? 'ac-chip-warn' : 'ac-chip-queue');
-      html += _acKpiChip(saved > 0 ? saved : 0, 'Saved',  'ac-chip-yes');
+      html += _acKpiChip(edited, 'Edited', (edited > 0 ? 'ac-chip-warn' : 'ac-chip-queue') + (cf === 'edited' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('comments','edited')");
+
+    } else if (tab === 'worklog') {
+      var wlVendors = _acWorkLogData ? Object.keys(_acWorkLogData).length : '—';
+      var wlDays = 0; var wlDisc = 0;
+      if (_acWorkLogData) {
+        Object.keys(_acWorkLogData).forEach(function(v) {
+          Object.keys(_acWorkLogData[v]._cities).forEach(function(c) {
+            Object.keys(_acWorkLogData[v]._cities[c]._fdhs).forEach(function(f) {
+              Object.keys(_acWorkLogData[v]._cities[c]._fdhs[f]._dates).forEach(function(d) {
+                wlDays++;
+                if (_acWorkLogData[v]._cities[c]._fdhs[f]._dates[d].diff.hasDiscrepancy) wlDisc++;
+              });
+            });
+          });
+        });
+      }
+      var wf = _acUniversalFilters.worklog;
+      html += _acKpiChip(wlVendors, 'Vendors', 'ac-chip-queue');
+      html += _acKpiChip(_acWorkLogData ? wlDays : '—', 'Record-Days', 'ac-chip-queue');
+      html += _acKpiChip(_acWorkLogData ? wlDisc : '—', 'Discrepancies', (wlDisc > 0 ? 'ac-chip-crit' : 'ac-chip-queue') + (wf === 'discrepancies' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('worklog','discrepancies')");
+      html += _acKpiChip(_acWorkLogSelected.size || '—', 'Selected', 'ac-chip-queue' + (wf === 'selected' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('worklog','selected')");
 
     } else if (tab === 'reports') {
       _AC_REPORT_DEFS.forEach(function(d) {
@@ -483,7 +506,8 @@
 
   function _acGetFilteredBomItems() {
     var rows = _acGetBomRows();
-    if (_acUniversalFilters.boms === 'diffs') rows = rows.filter(function(r){ return r.hasDiff; });
+    if (_acUniversalFilters.boms === 'diffs')  rows = rows.filter(function(r){ return r.hasDiff; });
+    if (_acUniversalFilters.boms === 'clean')  rows = rows.filter(function(r){ return !r.hasDiff; });
     if (_acBomVendorFilter !== 'ALL') rows = rows.filter(function(r){ return r.vendor === _acBomVendorFilter; });
     
     if (_acBomCityFilter !== 'ALL') {
@@ -626,9 +650,7 @@
   }
 
   function _acToggleXingGroup(key) {
-    // Default (undefined) = collapsed; false = explicitly opened
-    var isCurrentlyCollapsed = _acXingGroupCollapsed[key] !== false;
-    _acXingGroupCollapsed[key] = !isCurrentlyCollapsed;
+    _acXingGroupCollapsed[key] = !_acXingGroupCollapsed[key];
     _acRenderCrossingsTab();
   }
 
@@ -719,7 +741,7 @@
   }
 
   function _acToggleXingGridGroup(key) {
-    _acXingGroupCollapsed[key] = (_acXingGroupCollapsed[key] !== false) ? false : true;
+    _acXingGroupCollapsed[key] = !_acXingGroupCollapsed[key];
     _acRenderCrossingsTab();
   }
 
@@ -779,12 +801,13 @@
       var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(group.vendor, themeIdx) : '';
 
       var vendorKey = _acXingGroupKey(group.vendor, '');
-      var vendorCollapsed = _acXingGroupCollapsed[vendorKey] !== false;
+      if (_acXingGroupCollapsed[vendorKey] === undefined) _acXingGroupCollapsed[vendorKey] = true;
+      var vendorCollapsed = _acXingGroupCollapsed[vendorKey] === true;
 
       html += '<tr class="ac-xing-sep-row ac-xing-sep-vendor">'
         + '<td colspan="' + COLS + '">'
         +   '<div class="ac-xing-sep-vendor-inner" onclick="_acToggleXingGridGroup(\'' + _acJs(vendorKey) + '\')">'
-        +     '<span class="ac-xing-sep-toggle' + (vendorCollapsed ? '' : ' open') + '">&#9658;</span>'
+        +     '<span class="ac-xing-sep-toggle"></span>'
         +     '<label class="ac-xing-vendor-check" onclick="event.stopPropagation()">'
         +       '<input type="checkbox"' + (vendorChecked ? ' checked' : '') + ' onchange="_acToggleXingVendor(this.checked,\'' + _acJs(group.vendor) + '\')" onclick="event.stopPropagation()">'
         +     '</label>'
@@ -801,13 +824,14 @@
         group.cityNames.forEach(function(city) {
           var cityItems = group.cities[city];
           var cityKey = _acXingGroupKey(group.vendor, city);
-          var cityCollapsed = showCityHd && (_acXingGroupCollapsed[cityKey] !== false);
+          if (_acXingGroupCollapsed[cityKey] === undefined) _acXingGroupCollapsed[cityKey] = false;
+          var cityCollapsed = showCityHd && (_acXingGroupCollapsed[cityKey] === true);
 
           if (showCityHd) {
             html += '<tr class="ac-xing-sep-row ac-xing-sep-city">'
               + '<td colspan="' + COLS + '">'
               +   '<div class="ac-xing-sep-city-inner" onclick="_acToggleXingGridGroup(\'' + _acJs(cityKey) + '\')">'
-              +     '<span class="ac-xing-sep-toggle' + (cityCollapsed ? '' : ' open') + '">&#9658;</span>'
+              +     '<span class="ac-xing-sep-toggle"></span>'
               +     '<span class="ac-xing-sep-city-name">' + _e(city) + '</span>'
               +     '<span class="ac-xing-sep-city-count">(' + cityItems.length + ')</span>'
               +   '</div>'
@@ -1411,8 +1435,8 @@
     if (vendors.length === 0) {
       html += '<tr><td colspan="11" class="ac-empty-cell">No BOM data available.</td></tr>';
     } else {
-      vendors.forEach(function(vName) {
-        html += _acRenderBomVendor(vName, grouped[vName]);
+      vendors.forEach(function(vName, vIdx) {
+        html += _acRenderBomVendor(vName, grouped[vName], vIdx);
       });
     }
 
@@ -1421,15 +1445,18 @@
     _acSyncTabBadges();
   }
 
-  function _acRenderBomVendor(name, data) {
+  function _acRenderBomVendor(name, data, idx) {
     var key = 'bom_v::' + name;
+    if (_acBomCollapsed[key] === undefined) _acBomCollapsed[key] = true;
     var isCollapsed = _acBomCollapsed[key] === true;
     var cities = Object.keys(data._cities).sort();
-    
+    var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(name) : name.slice(0, 2).toUpperCase();
+    var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(name, idx || 0) : '';
+
     var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor" onclick="_acToggleBomGroup(\'' + _acJs(key) + '\')">' +
       '<td colspan="11">' +
         '<div class="ac-xing-sep-vendor-inner">' +
-          '<span class="ac-xing-sep-toggle' + (!isCollapsed ? ' open' : '') + '"></span>' +
+          '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>' +
           '<span class="ac-xing-sep-vendor-name">' + _e(name) + '</span>' +
           _acRenderBomTotalsInline(data._totals) +
         '</div>' +
@@ -1445,6 +1472,7 @@
 
   function _acRenderBomCity(name, data, vName) {
     var key = 'bom_c::' + vName + '::' + name;
+    if (_acBomCollapsed[key] === undefined) _acBomCollapsed[key] = false;
     var isCollapsed = _acBomCollapsed[key] === true;
     var fdhs = Object.keys(data._fdhs).sort();
 
@@ -1504,7 +1532,8 @@
     _acSyncTabBadges();
     google.script.run
       .withSuccessHandler(function(data) {
-        _acBomData    = data;
+        var _activeFdhs = _acGetActiveItems().map(function(i) { return i.fdh; });
+        _acBomData    = Array.isArray(data) ? data.filter(function(r) { return _activeFdhs.indexOf(r.fdh) !== -1; }) : data;
         _acBomLoading = false;
         _acRenderBOMsTab();
         _acSyncTabBadges();
@@ -1549,6 +1578,16 @@
     var allFdhs = items.map(function(i){ return i.fdh; });
     var allChecked = items.length > 0 && items.every(function(i){ return _acCommentsSelected.has(i.fdh); });
 
+    // Group by vendor
+    var vendorMap = {};
+    var vendorOrder = [];
+    items.forEach(function(item) {
+      var v = item.vendor || 'Unassigned';
+      if (!vendorMap[v]) { vendorMap[v] = []; vendorOrder.push(v); }
+      vendorMap[v].push(item);
+    });
+    vendorOrder.sort();
+
     var html =
       _acRenderTabKpi('comments') +
       '<div class="ac-toolbar">' +
@@ -1576,39 +1615,57 @@
           '<th class="ac-th-check"><input type="checkbox" ' + (allChecked ? 'checked' : '') +
             ' onchange="_acToggleAllComments(this.checked,' + JSON.stringify(allFdhs) + ')"></th>' +
           '<th>FDH</th>' +
-          '<th>Vendor</th>' +
           '<th>Current Note</th>' +
           '<th class="ac-th-comment">New Omni Comment</th>' +
           '<th class="ac-th-peek"></th>' +
         '</tr></thead><tbody>';
 
-      items.forEach(function(item) {
-        var isSel  = _acCommentsSelected.has(item.fdh);
-        var edited = _acCommentsEdits[item.fdh];
-        var isDirty = edited !== undefined;
-        var localNote = (typeof _acLoadNote === 'function') ? _acLoadNote(item.fdh) : null;
-        var currentText = localNote ? localNote.text : '—';
-        var fdhSafe = _e(item.fdh);
+      vendorOrder.forEach(function(vName, vIdx) {
+        var vItems = vendorMap[vName];
+        var vKey = 'cv::' + vName;
+        if (_acCommentsGroupCollapsed[vKey] === undefined) _acCommentsGroupCollapsed[vKey] = true;
+        var isCollapsed = _acCommentsGroupCollapsed[vKey] === true;
+        var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(vName) : vName.slice(0, 2).toUpperCase();
+        var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(vName, vIdx) : '';
 
-        var isPeekOpen = _acOpenPeekFdh === item.fdh;
-        html +=
-          '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (isDirty ? ' is-dirty' : '') + '">' +
-          '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleCommentRow(\'' + fdhSafe + '\')">' +
-            '<input type="checkbox" ' + (isSel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="_acToggleCommentRow(\'' + fdhSafe + '\')">' +
-          '</td>' +
-          '<td class="ac-td-fdh"><span class="ac-fdh">' + fdhSafe + '</span></td>' +
-          '<td>' + _e(item.vendor || '—') + '</td>' +
-          '<td class="ac-td-current-note">' + _e(currentText.length > 60 ? currentText.slice(0, 60) + '…' : currentText) + '</td>' +
-          '<td class="ac-td-comment" onclick="event.stopPropagation()">' +
-            '<textarea class="chat-bubble" ' +
-              'oninput="_acOnCommentChange(\'' + fdhSafe + '\',this.value);this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
-              'onfocus="this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
-              'placeholder="Enter Omni/Manager comment…">' + _e(edited || '') + '</textarea>' +
-          '</td>' +
-          '<td class="ac-td-peek" onclick="event.stopPropagation()">' +
-            '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + fdhSafe + '\')" title="Open detail panel">&#8250;</button>' +
-          '</td>' +
-          '</tr>';
+        html += '<tr class="ac-xing-sep-row ac-xing-sep-vendor" onclick="_acToggleCommentsGroup(\'' + _acJs(vKey) + '\')">' +
+          '<td colspan="5">' +
+            '<div class="ac-xing-sep-vendor-inner">' +
+              '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>' +
+              '<span class="ac-xing-sep-vendor-name">' + _e(vName) + '</span>' +
+              '<span class="ac-xing-sep-count ac-xing-sep-pend">' + vItems.length + ' project' + (vItems.length !== 1 ? 's' : '') + '</span>' +
+            '</div>' +
+          '</td></tr>';
+
+        if (!isCollapsed) {
+          vItems.forEach(function(item) {
+            var isSel  = _acCommentsSelected.has(item.fdh);
+            var edited = _acCommentsEdits[item.fdh];
+            var isDirty = edited !== undefined;
+            var localNote = (typeof _acLoadNote === 'function') ? _acLoadNote(item.fdh) : null;
+            var currentText = localNote ? localNote.text : '—';
+            var fdhSafe = _e(item.fdh);
+            var isPeekOpen = _acOpenPeekFdh === item.fdh;
+
+            html +=
+              '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (isDirty ? ' is-dirty' : '') + '">' +
+              '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleCommentRow(\'' + fdhSafe + '\')">' +
+                '<input type="checkbox" ' + (isSel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="_acToggleCommentRow(\'' + fdhSafe + '\')">' +
+              '</td>' +
+              '<td class="ac-td-fdh" style="padding-left:44px !important;"><span class="ac-fdh">' + fdhSafe + '</span></td>' +
+              '<td class="ac-td-current-note">' + _e(currentText.length > 60 ? currentText.slice(0, 60) + '…' : currentText) + '</td>' +
+              '<td class="ac-td-comment" onclick="event.stopPropagation()">' +
+                '<textarea class="chat-bubble" ' +
+                  'oninput="_acOnCommentChange(\'' + fdhSafe + '\',this.value);this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
+                  'onfocus="this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
+                  'placeholder="Enter Omni/Manager comment…">' + _e(edited || '') + '</textarea>' +
+              '</td>' +
+              '<td class="ac-td-peek" onclick="event.stopPropagation()">' +
+                '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + fdhSafe + '\')" title="Open detail panel">&#8250;</button>' +
+              '</td>' +
+              '</tr>';
+          });
+        }
       });
 
       html += '</tbody></table></div>';
@@ -1616,6 +1673,11 @@
 
     container.innerHTML = html;
     _acSyncTabBadges();
+  }
+
+  function _acToggleCommentsGroup(key) {
+    _acCommentsGroupCollapsed[key] = !_acCommentsGroupCollapsed[key];
+    _acRenderCommentsTab();
   }
 
   function _acToggleCommentRow(fdh) {
@@ -2001,15 +2063,14 @@
     _acInitWorkLog();
 
     if (!_acWorkLogData && !_acWorkLogLoading) {
+      _acLoadWorkLogData();
       container.innerHTML =
         '<div class="ac-bom-load-shell">' +
-          '<div class="ac-bom-load-icon">' +
-            '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>' +
-          '</div>' +
-          '<div class="ac-bom-load-title">Work Log Reconciliation</div>' +
-          '<div class="ac-bom-load-sub">Compare Master Archive records against live QuickBase data. Select a date range and vendor to begin the audit.</div>' +
-          '<button class="btn btn-primary" style="margin-top:18px;padding:12px 28px;font-size:11px;" onclick="_acLoadWorkLogData()">Fetch Logs</button>' +
+          '<div class="ac-loader" style="width:32px; height:32px; border-width:3px;"></div>' +
+          '<div class="ac-bom-load-title">Loading Work Log…</div>' +
+          '<div class="ac-bom-load-sub">Comparing Master Archive records against live QuickBase data.</div>' +
         '</div>';
+      _acSyncTabBadges();
       return;
     }
 
@@ -2074,8 +2135,8 @@
     if (vendors.length === 0) {
       html += '<tr><td colspan="12" class="ac-empty-cell">No records found for the selected range.</td></tr>';
     } else {
-      vendors.forEach(function(vName) {
-        html += _acRenderWorkLogVendor(vName, _acWorkLogData[vName]);
+      vendors.forEach(function(vName, vIdx) {
+        html += _acRenderWorkLogVendor(vName, _acWorkLogData[vName], vIdx);
       });
     }
 
@@ -2083,15 +2144,18 @@
     container.innerHTML = html;
   }
 
-  function _acRenderWorkLogVendor(name, data) {
+  function _acRenderWorkLogVendor(name, data, idx) {
     var key = 'v::' + name;
+    if (_acWorkLogCollapsed[key] === undefined) _acWorkLogCollapsed[key] = true;
     var isCollapsed = _acWorkLogCollapsed[key] === true;
     var cities = Object.keys(data._cities).sort();
-    
+    var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(name) : name.slice(0, 2).toUpperCase();
+    var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(name, idx || 0) : '';
+
     var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
       '<td colspan="12">' +
         '<div class="ac-xing-sep-vendor-inner">' +
-          '<span class="ac-xing-sep-toggle' + (!isCollapsed ? ' open' : '') + '"></span>' +
+          '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>' +
           '<span class="ac-xing-sep-vendor-name">' + _e(name) + '</span>' +
           _acRenderAuditTotalsInline(data._totals) +
         '</div>' +
@@ -2107,13 +2171,13 @@
 
   function _acRenderWorkLogCity(name, data, vName) {
     var key = 'c::' + vName + '::' + name;
+    if (_acWorkLogCollapsed[key] === undefined) _acWorkLogCollapsed[key] = false;
     var isCollapsed = _acWorkLogCollapsed[key] === true;
     var fdhs = Object.keys(data._fdhs).sort();
 
     var html = '<tr class="ac-xing-sep-row ac-xing-sep-city" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
       '<td colspan="12">' +
         '<div class="ac-xing-sep-city-inner" style="padding-left:40px;">' +
-          '<span class="ac-xing-sep-toggle' + (!isCollapsed ? ' open' : '') + '"></span>' +
           '<span class="ac-xing-sep-city-name">' + _e(name) + '</span>' +
           _acRenderAuditTotalsInline(data._totals) +
         '</div>' +
@@ -2129,24 +2193,27 @@
 
   function _acRenderWorkLogFdh(id, data, vName, cName) {
     var key = 'f::' + vName + '::' + cName + '::' + id;
+    if (_acWorkLogCollapsed[key] === undefined) _acWorkLogCollapsed[key] = false;
     var isCollapsed = _acWorkLogCollapsed[key] === true; 
     var dates = Object.keys(data._dates).sort().reverse();
 
     var html = '<tr class="ac-row ac-audit-fdh-row' + (isCollapsed ? ' collapsed' : '') + '" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
       '<td colspan="2" class="ac-td-fdh" style="padding-left:60px !important; font-weight:800; color:var(--text-main);">' +
-        '<span class="ac-xing-sep-toggle' + (!isCollapsed ? ' open' : '') + '" style="margin-right:8px;"></span>' +
         '<span class="ac-fdh">' + _e(id) + '</span>' +
       '</td>' +
       '<td colspan="10">' + _acRenderAuditTotalsInline(data._totals) + '</td>' +
     '</tr>';
 
     if (!isCollapsed) {
+      var wlFilter = _acUniversalFilters.worklog;
       dates.forEach(function(date) {
         if (date === 'RECONCILE') return; // Skip in main loop, render last
         var pair = data._dates[date];
         var rowKey = vName + '::' + cName + '::' + id + '::' + date;
         var isSel = _acWorkLogSelected.has(rowKey);
         var hasDiff = pair.diff.hasDiscrepancy;
+        if (wlFilter === 'discrepancies' && !hasDiff) return;
+        if (wlFilter === 'selected' && !isSel) return;
 
         html += '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (hasDiff ? ' ac-bom-diff-row' : '') + '" onclick="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')">' +
           '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')">' +
@@ -2377,6 +2444,7 @@
   window._acExportCrossingsCSV    = _acExportCrossingsCSV;
   window._acLoadBomData           = _acLoadBomData;
   window._acExportBOMCSV          = _acExportBOMCSV;
+  window._acToggleCommentsGroup   = _acToggleCommentsGroup;
   window._acToggleCommentRow      = _acToggleCommentRow;
   window._acToggleAllComments     = _acToggleAllComments;
   window._acOnCommentChange       = _acOnCommentChange;
