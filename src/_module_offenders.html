@@ -493,6 +493,8 @@
     var globalFlagCounts = data.globalFlagCounts;
     var totalFlags = vendors.reduce(function(acc, v) { return acc + vendorMap[v].totalFlags; }, 0);
     var sortedFlags = Object.keys(globalFlagCounts).sort(function(a, b) { return globalFlagCounts[b] - globalFlagCounts[a]; });
+    var totalProjects = vendors.reduce(function(acc, v) { return acc + vendorMap[v].projects.length; }, 0);
+    var selectedVendors = _offendersCountSelected();
 
     var html = '';
 
@@ -518,38 +520,21 @@
     });
     html += '</div>';
 
-    // Toolbar
-    html += '<div class="off-toolbar">' +
-      '<div class="off-toolbar-main">' +
-      '<span class="off-toolbar-label">Refine Feed</span>' +
-      '<div class="off-ctrl-bar">' +
-      '<button class="signal-tf-pill' + (_offendersSortBy === 'count' ? ' active' : '') + '" onclick="_offendersSetSort(\'count\')">Flag Count</button>' +
-      '<button class="signal-tf-pill' + (_offendersSortBy === 'vendor' ? ' active' : '') + '" onclick="_offendersSetSort(\'vendor\')">Vendor A-Z</button>' +
+    html += '<div class="ac-toolbar ac-toolbar-offenders">' +
+      '<div class="ac-toolbar-left">' +
+        '<span class="ac-result-count">' + vendors.length + ' vendors · ' + totalProjects + ' projects · ' + totalFlags + ' flags' +
+          (selectedVendors > 0 ? ' · <span style="color:var(--accent)">' + selectedVendors + ' vendors selected</span>' : '') +
+        '</span>' +
+        '<div class="off-ctrl-bar">' +
+          '<button class="signal-tf-pill' + (_offendersSortBy === 'count' ? ' active' : '') + '" onclick="_offendersSetSort(\'count\')">Flag Count</button>' +
+          '<button class="signal-tf-pill' + (_offendersSortBy === 'vendor' ? ' active' : '') + '" onclick="_offendersSetSort(\'vendor\')">Vendor A-Z</button>' +
+        '</div>' +
       '</div>' +
-      '</div>' +
-      '<div class="off-toolbar-actions">' +
-      '<button class="signal-tf-pill' + (_offendersUtilityDrawerOpen ? ' active' : '') + '" onclick="_offendersToggleUtilityDrawer()">' + (_offendersUtilityDrawerOpen ? 'Hide Utilities' : 'Utilities') + '</button>' +
+      '<div class="ac-toolbar-right">' +
+        '<button class="ac-bulk-action-btn ac-bulk-export off-export-btn" id="off-btn-export-all" onclick="_offendersExportAll()">Export All</button>' +
+        '<button class="ac-bulk-action-btn off-export-btn" id="off-btn-export-sel" onclick="_offendersExportSelected()">Export Selected</button>' +
       '</div>' +
       '</div>';
-
-    // Utilities drawer
-    html += '<div class="off-utility-drawer' + (_offendersUtilityDrawerOpen ? ' open' : '') + '" id="off-utility-drawer">' +
-      '<div class="off-utility-header">' +
-      '<div><div class="off-utility-title">Reporting Utilities</div>' +
-      '<div class="off-utility-sub">Export and PM email maintenance.</div></div>' +
-      '<div class="off-utility-actions">' +
-      '<button class="off-export-btn" id="off-btn-export-all" onclick="_offendersExportAll()">Export All</button>' +
-      '<button class="off-export-btn" id="off-btn-export-sel" onclick="_offendersExportSelected()">Export Selected</button>' +
-      '<button class="signal-tf-pill' + (_offendersPmPanelOpen ? ' active' : '') + '" onclick="_offendersTogglePmPanel()">' + (_offendersPmPanelOpen ? 'Hide PM Emails' : 'PM Emails') + '</button>' +
-      '</div></div>' +
-      '<div class="off-pm-panel' + (_offendersPmPanelOpen ? ' open' : '') + '" id="off-pm-panel">' +
-      '<div class="signal-section-header" style="padding:0 0 2px">PM Email Addresses</div>' +
-      '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">One address per vendor.</div>' +
-      '<div class="off-pm-grid" id="off-pm-grid">' + (_offendersPmPanelOpen ? '<span style="font-size:11px;color:var(--text-muted)">Loading...</span>' : '') + '</div>' +
-      '<div style="display:flex;gap:8px;align-items:center;">' +
-      '<button class="off-export-btn" onclick="_offendersSavePmEmails()">Save</button>' +
-      '<span id="off-pm-save-status" style="font-size:11px;color:var(--text-muted)"></span>' +
-      '</div></div></div>';
 
     // Flag filter chips
     if (sortedFlags.length > 0 || _offendersActiveFlagFilter) {
@@ -587,13 +572,18 @@
         var vKey = 'off_v::' + vendor;
         if (_offendersGroupCollapsed[vKey] === undefined) _offendersGroupCollapsed[vKey] = true;
         var isVCollapsed = _offendersGroupCollapsed[vKey] === true;
+        var isVendorChecked = !!_offendersSelectedVendors[vendor];
         var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(vendor) : vendor.slice(0, 2).toUpperCase();
         var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(vendor, vIdx) : '';
         var vendorKeyJs = (typeof escJs === 'function') ? escJs(vKey) : vKey.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        var vendorJs = (typeof escJs === 'function') ? escJs(vendor) : String(vendor || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
         html += '<tr class="ac-xing-sep-row ac-xing-sep-vendor" onclick="_offendersToggleGroup(\'' + vendorKeyJs + '\')">' +
           '<td colspan="7">' +
             '<div class="ac-xing-sep-vendor-inner">' +
+              '<label class="ac-xing-vendor-check" onclick="event.stopPropagation()">' +
+                '<input type="checkbox"' + (isVendorChecked ? ' checked' : '') + ' onchange="_offendersToggleVendor(\'' + vendorJs + '\')" onclick="event.stopPropagation()">' +
+              '</label>' +
               '<div class="queue-group-monogram" style="' + themeStyle + '">' + _esc(monogram) + '</div>' +
               '<span class="ac-xing-sep-vendor-name">' + _esc(vendor) + '</span>' +
               '<span class="ac-xing-sep-count ac-xing-sep-pend">' + vd.projects.length + ' project' + (vd.projects.length !== 1 ? 's' : '') + '</span>' +

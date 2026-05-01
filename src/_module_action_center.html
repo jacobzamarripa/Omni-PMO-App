@@ -213,8 +213,11 @@
     if (tab !== 'crossings') {
       var ws = document.getElementById('action-workspace');
       if (ws) ws.classList.remove('ac-xing-scrolled');
-    } else if (prevTab !== 'crossings' && typeof closeQuickPeek === 'function') {
+    }
+    if (tab === 'reports' && typeof closeQuickPeek === 'function') {
       closeQuickPeek();
+    } else if (tab !== prevTab) {
+      _acOpenPeekFdh = null;
     }
     ['crossings','boms','comments','offenders','reports','worklog'].forEach(function(t) {
       var btn   = document.getElementById('ac-tab-btn-' + t);
@@ -245,15 +248,27 @@
   }
 
   function _acEnsurePermanentPeek() {
-    if (!['boms','comments'].includes(_acActiveTab)) return;
+    if (_acActiveTab === 'reports') return;
     var ws = document.getElementById('action-workspace');
     if (!ws || !ws.classList.contains('ws-active')) return;
-    var items = _acGetPeekSeedItems().filter(function(i){ return i && i.fdh; });
-    if (!items.length) return;
-    var target = items.find(function(i){ return i.fdh === _acOpenPeekFdh; }) || items[0];
-    if (target && target.fdh && typeof openQuickPeek === 'function') {
-      _acOpenPeek(target.fdh);
-    }
+    if (_acOpenPeekFdh) return;
+    _acOpenEmptyPeek();
+  }
+
+  function _acOpenEmptyPeek() {
+    var panel = document.getElementById('gantt-quick-peek');
+    var ws = document.getElementById('action-workspace');
+    if (!panel || !ws || !ws.classList.contains('ws-active')) return;
+    panel.innerHTML =
+      '<div class="ac-empty-peek">' +
+        '<div class="ac-empty-peek-kicker">Action Center</div>' +
+        '<div class="ac-empty-peek-title">Select a row</div>' +
+        '<div class="ac-empty-peek-body">Project details will appear here when you open a vendor item.</div>' +
+      '</div>';
+    panel.classList.add('open');
+    ws.classList.add('ac-peek-open');
+    _acOpenPeekFdh = null;
+    _acUpdateDetailBtns();
   }
 
   // ── Per-tab contextual KPI strip ─────────────────────────
@@ -369,9 +384,6 @@
         html += '<button class="ac-filter-pill' + (active ? ' active' : '') +
           '" onclick="_acSetUniversalFilter(\'crossings\',\'' + val + '\')">' + label + '</button>';
       });
-      html += '<div class="ac-ufb-sep"></div>';
-      html += '<button class="ac-ufb-action-btn" onclick="_acExportCrossingsXLSX()">Export XLSX</button>';
-      html += '<button class="ac-ufb-action-btn" onclick="_acTriggerCsvImport()">Import XLSX</button>';
     } else if (tab === 'boms' && _acBomData) {
       html += '<div class="ac-ufb-sep"></div>';
       ['all','diffs'].forEach(function(val) {
@@ -1063,28 +1075,24 @@
     // Full KPI rail — collapses into search bar chips on scroll
     html += _acRenderTabKpi('crossings');
 
-    // Toolbar: only render when rows are selected
-    if (selCount > 0) {
-      var selectedSummary = _acGetSelectedCrossingSummary();
-      html += '<div class="ac-toolbar">'
+    var selectedSummary = _acGetSelectedCrossingSummary();
+    html += '<div class="ac-toolbar">'
         + '<div class="ac-toolbar-left">'
-        +   '<span class="ac-bulk-count">' + selCount + ' selected</span>'
-        +   '<span class="ac-selected-summary">'
-        +     '<span>' + selectedSummary.pending + ' Pend</span>'
-        +     '<span>' + selectedSummary.yes + ' YES</span>'
-        +     '<span>' + selectedSummary.no + ' NO</span>'
-        +     (selectedSummary.dirty ? '<span>' + selectedSummary.dirty + ' Edited</span>' : '')
-        +   '</span>'
+        +   '<span class="ac-result-count">' + items.length + ' projects' +
+              (selCount > 0 ? ' · <span style="color:var(--accent)">' + selCount + ' selected</span>' : '') +
+            '</span>'
+        +   (selCount > 0
+              ? '<span class="ac-selected-summary"><span>' + selectedSummary.pending + ' Pend</span><span>' + selectedSummary.yes + ' YES</span><span>' + selectedSummary.no + ' NO</span>' + (selectedSummary.dirty ? '<span>' + selectedSummary.dirty + ' Edited</span>' : '') + '</span>'
+              : '')
         + '</div>'
         + '<div class="ac-toolbar-right">'
-        +   '<button class="ac-bulk-action-btn" onclick="_acApplyXingToSelected(\'YES\')">Set YES</button>'
-        +   '<button class="ac-bulk-action-btn" onclick="_acApplyXingToSelected(\'NO\')">Set NO</button>'
-        +   '<button class="ac-bulk-action-btn" onclick="_acApplyDetailsToSelected()">Apply Details</button>'
-        +   '<button class="ac-bulk-action-btn" onclick="_acClearXingSelection()">Clear</button>'
-        +   '<button class="ac-bulk-action-btn btn-primary" onclick="_acCommitSelectedCrossings()">Commit Selected</button>'
+        +   '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportCrossingsXLSX()">' + (selCount > 0 ? 'Export Selected' : 'Export All') + '</button>'
+        +   '<button class="ac-bulk-action-btn" onclick="_acTriggerCsvImport()">Import XLSX</button>'
+        +   (selCount > 0
+              ? '<button class="ac-bulk-action-btn" onclick="_acApplyXingToSelected(\'YES\')">Set YES</button><button class="ac-bulk-action-btn" onclick="_acApplyXingToSelected(\'NO\')">Set NO</button><button class="ac-bulk-action-btn" onclick="_acApplyDetailsToSelected()">Apply Details</button><button class="ac-bulk-action-btn" onclick="_acClearXingSelection()">Clear</button><button class="ac-bulk-action-btn btn-primary" onclick="_acCommitSelectedCrossings()">Commit Selected</button>'
+              : '')
         + '</div>'
         + '</div>';
-    }
 
     html += _acRenderXingGrid(items, vendorList);
 
@@ -1399,7 +1407,7 @@
     var vendors = Object.keys(grouped).sort();
     var rows = _acGetFilteredBomItems();
     var diffCount = rows.filter(function(r) { return r.hasDiff; }).length;
-    var allChecked = rows.length > 0 && _acBomSelected.size >= rows.length;
+    var allChecked = rows.length > 0 && rows.every(function(r) { return _acBomSelected.has(r.fdh); });
 
     var html =
       _acRenderTabKpi('boms') +
@@ -1450,12 +1458,17 @@
     if (_acBomCollapsed[key] === undefined) _acBomCollapsed[key] = true;
     var isCollapsed = _acBomCollapsed[key] === true;
     var cities = Object.keys(data._cities).sort();
+    var vendorFdhs = _acGetBomVendorFdhs(data);
+    var vendorChecked = vendorFdhs.length > 0 && vendorFdhs.every(function(fdh) { return _acBomSelected.has(fdh); });
     var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(name) : name.slice(0, 2).toUpperCase();
     var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(name, idx || 0) : '';
 
     var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor">' +
       '<td colspan="11">' +
         '<div class="ac-xing-sep-vendor-inner" onclick="_acToggleBomGroup(\'' + _acJs(key) + '\')">' +
+          '<label class="ac-xing-vendor-check" onclick="event.stopPropagation()">' +
+            '<input type="checkbox"' + (vendorChecked ? ' checked' : '') + ' onchange="_acToggleBomVendor(this.checked,\'' + _acJs(name) + '\')" onclick="event.stopPropagation()">' +
+          '</label>' +
           '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>' +
           '<span class="ac-xing-sep-vendor-name">' + _e(name) + '</span>' +
           _acRenderBomTotalsInline(data._totals) +
@@ -1523,6 +1536,25 @@
     var cls = isDiff ? ' ac-bom-diff' : '';
     return '<td class="ac-bom-val' + cls + '">' + (qbVal     > 0 ? qbVal.toLocaleString()     : '—') + '</td>' +
            '<td class="ac-bom-val ac-bom-vendor' + cls + '">' + (vendorVal > 0 ? vendorVal.toLocaleString() : '—') + '</td>';
+  }
+
+  function _acGetBomVendorFdhs(data) {
+    var fdhs = [];
+    Object.keys(data._cities || {}).forEach(function(cName) {
+      Object.keys(data._cities[cName]._fdhs || {}).forEach(function(fId) { fdhs.push(fId); });
+    });
+    return fdhs;
+  }
+
+  function _acToggleBomVendor(checked, vendorName) {
+    var data = _acGetGroupedBomData()[vendorName];
+    if (!data) return;
+    _acGetBomVendorFdhs(data).forEach(function(fId) {
+      if (checked) _acBomSelected.add(fId);
+      else _acBomSelected.delete(fId);
+    });
+    _acRenderBOMsTab();
+    _acSyncTabBadges();
   }
 
   function _acLoadBomData() {
@@ -1624,12 +1656,16 @@
         var vKey = 'cv::' + vName;
         if (_acCommentsGroupCollapsed[vKey] === undefined) _acCommentsGroupCollapsed[vKey] = true;
         var isCollapsed = _acCommentsGroupCollapsed[vKey] === true;
+        var vendorChecked = vItems.length > 0 && vItems.every(function(item) { return _acCommentsSelected.has(item.fdh); });
         var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(vName) : vName.slice(0, 2).toUpperCase();
         var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(vName, vIdx) : '';
 
         html += '<tr class="ac-xing-sep-row ac-xing-sep-vendor">' +
           '<td colspan="5">' +
             '<div class="ac-xing-sep-vendor-inner" onclick="_acToggleCommentsGroup(\'' + _acJs(vKey) + '\')">' +
+              '<label class="ac-xing-vendor-check" onclick="event.stopPropagation()">' +
+                '<input type="checkbox"' + (vendorChecked ? ' checked' : '') + ' onchange="_acToggleCommentVendor(this.checked,\'' + _acJs(vName) + '\')" onclick="event.stopPropagation()">' +
+              '</label>' +
               '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>' +
               '<span class="ac-xing-sep-vendor-name">' + _e(vName) + '</span>' +
               '<span class="ac-xing-sep-count ac-xing-sep-pend">' + vItems.length + ' project' + (vItems.length !== 1 ? 's' : '') + '</span>' +
@@ -1682,6 +1718,16 @@
   function _acToggleCommentRow(fdh) {
     if (_acCommentsSelected.has(fdh)) _acCommentsSelected.delete(fdh);
     else _acCommentsSelected.add(fdh);
+    _acRenderCommentsTab();
+    _acSyncTabBadges();
+  }
+
+  function _acToggleCommentVendor(checked, vendorName) {
+    _acGetFilteredCommentItems().forEach(function(item) {
+      if ((item.vendor || 'Unassigned') !== vendorName) return;
+      if (checked) _acCommentsSelected.add(item.fdh);
+      else _acCommentsSelected.delete(item.fdh);
+    });
     _acRenderCommentsTab();
     _acSyncTabBadges();
   }
@@ -2096,7 +2142,8 @@
       });
     });
 
-    var allChecked = totalDays > 0 && _acWorkLogSelected.size >= totalDays;
+    var allVisibleWorkLogKeys = _acGetVisibleWorkLogRowKeys();
+    var allChecked = allVisibleWorkLogKeys.length > 0 && allVisibleWorkLogKeys.every(function(key) { return _acWorkLogSelected.has(key); });
 
     var html =
       _acRenderTabKpi('worklog') +
@@ -2148,12 +2195,17 @@
     if (_acWorkLogCollapsed[key] === undefined) _acWorkLogCollapsed[key] = true;
     var isCollapsed = _acWorkLogCollapsed[key] === true;
     var cities = Object.keys(data._cities).sort();
+    var vendorKeys = _acGetWorkLogVendorRowKeys(name, data);
+    var vendorChecked = vendorKeys.length > 0 && vendorKeys.every(function(rowKey) { return _acWorkLogSelected.has(rowKey); });
     var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(name) : name.slice(0, 2).toUpperCase();
     var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(name, idx || 0) : '';
 
-    var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor">' +
+    var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
       '<td colspan="12">' +
-        '<div class="ac-xing-sep-vendor-inner" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
+        '<div class="ac-xing-sep-vendor-inner">' +
+          '<label class="ac-xing-vendor-check" onclick="event.stopPropagation()">' +
+            '<input type="checkbox"' + (vendorChecked ? ' checked' : '') + ' onchange="_acToggleWorkLogVendor(this.checked,\'' + _acJs(name) + '\')" onclick="event.stopPropagation()">' +
+          '</label>' +
           '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>' +
           '<span class="ac-xing-sep-vendor-name">' + _e(name) + '</span>' +
           _acRenderAuditTotalsInline(data._totals) +
@@ -2176,7 +2228,7 @@
 
     var html = '<tr class="ac-xing-sep-row ac-xing-sep-city" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
       '<td colspan="12">' +
-        '<div class="ac-xing-sep-city-inner" style="padding-left:40px;">' +
+        '<div class="ac-xing-sep-city-inner" style="padding-left:24px;">' +
           '<span class="ac-xing-sep-city-name">' + _e(name) + '</span>' +
           _acRenderAuditTotalsInline(data._totals) +
         '</div>' +
@@ -2197,7 +2249,7 @@
     var dates = Object.keys(data._dates).sort().reverse();
 
     var html = '<tr class="ac-row ac-audit-fdh-row' + (isCollapsed ? ' collapsed' : '') + '" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
-      '<td colspan="2" class="ac-td-fdh" style="padding-left:60px !important; font-weight:800; color:var(--text-main);">' +
+      '<td colspan="2" class="ac-td-fdh" style="padding-left:44px !important; font-weight:800; color:var(--text-main);">' +
         '<span class="ac-fdh">' + _e(id) + '</span>' +
       '</td>' +
       '<td colspan="10">' + _acRenderAuditTotalsInline(data._totals) + '</td>' +
@@ -2218,7 +2270,7 @@
           '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')">' +
             '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')" onclick="event.stopPropagation()">' +
           '</td>' +
-          '<td class="ac-td-date" style="padding-left:80px !important;">' + _acFormatDateShort(date) + '</td>' +
+          '<td class="ac-td-date" style="padding-left:64px !important;">' + _acFormatDateShort(date) + '</td>' +
           _acWorkLogMetricPair(pair.diff, 'ug') +
           _acWorkLogMetricPair(pair.diff, 'ae') +
           _acWorkLogMetricPair(pair.diff, 'fib') +
@@ -2237,6 +2289,27 @@
       }
     }
     return html;
+  }
+
+  function _acRenderWorkLogReconcileRow(pair, vName, cName, id) {
+    var rowKey = vName + '::' + cName + '::' + id + '::RECONCILE';
+    var isSel = _acWorkLogSelected.has(rowKey);
+    return '<tr class="ac-row ac-audit-reconcile-row' + (isSel ? ' is-selected' : '') + '" onclick="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\');_acOpenPeek(\'' + _acJs(id) + '\')">' +
+      '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')">' +
+        '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')" onclick="event.stopPropagation()">' +
+      '</td>' +
+      '<td class="ac-td-date" style="padding-left:64px !important; font-weight:800; color:var(--accent);">RECONCILE</td>' +
+      _acWorkLogMetricPair(pair.diff, 'ug') +
+      _acWorkLogMetricPair(pair.diff, 'ae') +
+      _acWorkLogMetricPair(pair.diff, 'fib') +
+      _acWorkLogMetricPair(pair.diff, 'nap') +
+      '<td class="ac-td-comment" style="font-size:11px; color:var(--text-muted); font-style:italic; opacity:0.8;">' + 
+        _e(pair.archive["Construction Comments"] || '') + 
+      '</td>' +
+      '<td class="ac-td-peek" onclick="event.stopPropagation()">' +
+        '<button class="ac-detail-btn" onclick="_acTogglePeek(\'' + _acJs(id) + '\')" title="Open detail panel">&#8250;</button>' +
+      '</td>' +
+    '</tr>';
   }
 
   function _acWorkLogMetricPair(diff, key) {
@@ -2271,6 +2344,7 @@
   function _acToggleWorkLogGroup(key) {
     _acWorkLogCollapsed[key] = !_acWorkLogCollapsed[key];
     _acRenderWorkLogTab();
+    _acEnsurePermanentPeek();
   }
 
   function _acExportWorkLog() {
@@ -2342,18 +2416,51 @@
 
   function _acToggleAllWorkLogRows(checked) {
     _acWorkLogSelected.clear();
-    if (checked && _acWorkLogData) {
-      Object.keys(_acWorkLogData).forEach(function(vName) {
-        Object.keys(_acWorkLogData[vName]._cities).forEach(function(cName) {
-          Object.keys(_acWorkLogData[vName]._cities[cName]._fdhs).forEach(function(fId) {
-            Object.keys(_acWorkLogData[vName]._cities[cName]._fdhs[fId]._dates).forEach(function(date) {
-              _acWorkLogSelected.add(vName + '::' + cName + '::' + fId + '::' + date);
-            });
-          });
+    if (checked) _acGetVisibleWorkLogRowKeys().forEach(function(key) { _acWorkLogSelected.add(key); });
+    _acRenderWorkLogTab();
+  }
+
+  function _acGetWorkLogVendorRowKeys(vName, vData) {
+    var keys = [];
+    Object.keys(vData._cities || {}).forEach(function(cName) {
+      var cData = vData._cities[cName];
+      Object.keys(cData._fdhs || {}).forEach(function(fId) {
+        var fData = cData._fdhs[fId];
+        Object.keys(fData._dates || {}).forEach(function(date) {
+          if (date !== 'RECONCILE') keys.push(vName + '::' + cName + '::' + fId + '::' + date);
         });
       });
-    }
+    });
+    return keys;
+  }
+
+  function _acGetVisibleWorkLogRowKeys() {
+    var keys = [];
+    if (!_acWorkLogData) return keys;
+    Object.keys(_acWorkLogData).forEach(function(vName) {
+      var vData = _acWorkLogData[vName];
+      _acGetWorkLogVendorRowKeys(vName, vData).forEach(function(rowKey) {
+        if (_acUniversalFilters.worklog !== 'all') {
+          var parts = rowKey.split('::');
+          var pair = vData._cities[parts[1]]._fdhs[parts[2]]._dates[parts[3]];
+          var isSelected = _acWorkLogSelected.has(rowKey);
+          if (_acUniversalFilters.worklog === 'discrepancies' && !(pair.diff && pair.diff.hasDiscrepancy)) return;
+          if (_acUniversalFilters.worklog === 'selected' && !isSelected) return;
+        }
+        keys.push(rowKey);
+      });
+    });
+    return keys;
+  }
+
+  function _acToggleWorkLogVendor(checked, vendorName) {
+    if (!_acWorkLogData || !_acWorkLogData[vendorName]) return;
+    _acGetWorkLogVendorRowKeys(vendorName, _acWorkLogData[vendorName]).forEach(function(rowKey) {
+      if (checked) _acWorkLogSelected.add(rowKey);
+      else _acWorkLogSelected.delete(rowKey);
+    });
     _acRenderWorkLogTab();
+    _acSyncTabBadges();
   }
 
   // ── Modal helper ──────────────────────────────────────────
@@ -2445,6 +2552,7 @@
   window._acExportBOMCSV          = _acExportBOMCSV;
   window._acToggleCommentsGroup   = _acToggleCommentsGroup;
   window._acToggleCommentRow      = _acToggleCommentRow;
+  window._acToggleCommentVendor   = _acToggleCommentVendor;
   window._acToggleAllComments     = _acToggleAllComments;
   window._acOnCommentChange       = _acOnCommentChange;
   window._acSaveAllComments       = _acSaveAllComments;
@@ -2456,6 +2564,7 @@
   window._acExportWorkLog            = _acExportWorkLog;
   window._acToggleWorkLogGroup       = _acToggleWorkLogGroup;
   window._acToggleWorkLogRow         = _acToggleWorkLogRow;
+  window._acToggleWorkLogVendor      = _acToggleWorkLogVendor;
   window._acToggleAllWorkLogRows     = _acToggleAllWorkLogRows;
   window._acLoadWorkLogData          = _acLoadWorkLogData;
   window._acSetWorkLogVendor         = _acSetWorkLogVendor;
@@ -2464,6 +2573,7 @@
   window._acSetBomCity               = _acSetBomCity;
   window._acToggleBomGroup           = _acToggleBomGroup;
   window._acToggleBomRow             = _acToggleBomRow;
+  window._acToggleBomVendor          = _acToggleBomVendor;
   window._acToggleAllBomRows         = _acToggleAllBomRows;
 
   window._acModalConfirm          = _acModalConfirm;

@@ -499,6 +499,13 @@ body.action-view-active #admin-fab {
   -webkit-overflow-scrolling: touch;
 }
 
+#ac-tab-boms > .ac-table-wrap,
+#ac-tab-comments > .ac-table-wrap,
+#ac-tab-worklog > .ac-table-wrap {
+  padding: 12px 40px 24px;
+  box-sizing: border-box;
+}
+
 .ac-table {
   width: 100%;
   min-width: 760px;
@@ -1138,7 +1145,8 @@ body.action-view-active #admin-fab {
   height: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0 0 24px;
+  padding: 12px 40px 24px;
+  box-sizing: border-box;
   background: var(--card-bg);
 }
 .ac-table-crossings-grid {
@@ -2093,9 +2101,58 @@ body.dark-mode .ac-table thead { background: color-mix(in srgb, var(--card-bg) 9
 
 /* ── Offenders action-only toolbar ──────────────────────── */
 .ac-toolbar.ac-toolbar-offenders {
-  padding: 6px 20px;
-  background: transparent;
-  border-bottom: none;
+  padding: 10px 20px;
+  background: color-mix(in srgb, var(--card-bg) 60%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+.ac-toolbar.ac-toolbar-offenders .off-ctrl-bar {
+  margin-left: 6px;
+}
+
+#action-offenders-panel .off-filter-bar {
+  padding: 8px 40px 10px;
+  margin: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+#action-offenders-panel .ac-table-wrap {
+  padding: 0;
+}
+
+.ac-empty-peek {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100%;
+  padding: 28px;
+  box-sizing: border-box;
+  color: var(--text-main);
+  background: var(--card-bg);
+}
+
+.ac-empty-peek-kicker {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.ac-empty-peek-title {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.ac-empty-peek-body {
+  max-width: 260px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 .ac-kpi-note {
@@ -2112,6 +2169,17 @@ body.dark-mode .ac-table thead { background: color-mix(in srgb, var(--card-bg) 9
   .ac-kpi-rail { padding: 10px 12px; gap: 8px; }
   .ac-kpi-chip { padding: 10px 12px; min-width: 80px; }
   .ac-kpi-val { font-size: 22px; }
+  #ac-tab-boms > .ac-table-wrap,
+  #ac-tab-comments > .ac-table-wrap,
+  #ac-tab-worklog > .ac-table-wrap,
+  .ac-xing-grid-wrap {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  #action-offenders-panel .off-filter-bar {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
 }
 
 /* ── Work Log Audit ───────────────────────────────────────── */
@@ -2145,6 +2213,13 @@ body.dark-mode .ac-table thead { background: color-mix(in srgb, var(--card-bg) 9
   color: var(--text-muted);
   font-weight: 800;
   font-size: 11px;
+}
+.ac-audit-reconcile-row {
+  background: color-mix(in srgb, var(--accent) 3%, var(--card-bg));
+}
+.ac-audit-reconcile-row .ac-td-date {
+  color: var(--accent) !important;
+  font-weight: 800 !important;
 }
 
 .ac-table-worklog .ac-th-comment, .ac-table-worklog .ac-td-comment {
