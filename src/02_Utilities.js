@@ -3306,3 +3306,312 @@ function setupWeeklyOffendersTrigger() {
   logMsg('setupWeeklyOffendersTrigger: deleted=' + deleted + ', active=' + count + ', fires=Monday@7am');
   SpreadsheetApp.getUi().alert('Weekly Offenders Report scheduled for Monday at 7am.');
 }
+
+// ============================================================
+// WORK LOG AUDIT — Reconciliation & Export
+// ============================================================
+
+/**
+ * Fetches data for the Work Log Audit.
+ * Groups by Vendor > City > FDH.
+ */
+function getWorkLogAuditData(startDate, endDate, vendorFilter) {
+  try {
+    logMsg("INFO", "getWorkLogAuditData", "Starting audit fetch for " + startDate + " to " + endDate);
+    const qbRecords = _fetchQBWorkLogRange(startDate, endDate, vendorFilter);
+    const archiveRecords = _fetchArchiveWorkLogRange(startDate, endDate, vendorFilter);
+    const refDict = getReferenceDictionary(); // For City info
+    
+    return _reconcileWorkLogAudit(qbRecords, archiveRecords, refDict);
+  } catch (e) {
+    logMsg("ERROR", "getWorkLogAuditData", e.message);
+    throw e;
+  }
+}
+
+/**
+ * Fetches records from QB Work Log table for a date range.
+ */
+function _fetchQBWorkLogRange(startDate, endDate, vendorFilter) {
+  const token = PropertiesService.getScriptProperties().getProperty("QB_USER_TOKEN");
+  if (!token) throw new Error("QB_USER_TOKEN not found.");
+
+  const dateFid = QB_DAILY_LOG_FID_MAP["Date"];
+  const vendorFid = QB_DAILY_LOG_FID_MAP["Contractor"];
+  
+  // QuickBase Date Operators: OAF (On or After), OBF (On or Before)
+  let where = `{${dateFid}.OAF.'${startDate}'} AND {${dateFid}.OBF.'${endDate}'}`;
+  if (vendorFilter && vendorFilter !== "ALL") {
+    const escapedVendor = vendorFilter.replace(/'/g, "\\'");
+    where += ` AND {${vendorFid}.EX.'${escapedVendor}'}`;
+  }
+
+  const fids = Object.values(QB_DAILY_LOG_FID_MAP);
+  if (!fids.includes(3)) fids.push(3);
+
+  logMsg("INFO", "_fetchQBWorkLogRange", "Querying QB Table " + QB_DAILY_LOG_TABLE_ID + " with where: " + where);
+  const rawRecords = _fetchTableAllFids(token, QB_DAILY_LOG_TABLE_ID, fids, where);
+  logMsg("INFO", "_fetchQBWorkLogRange", "Found " + rawRecords.length + " QB records");
+  
+  const fidToLabel = {};
+  Object.keys(QB_DAILY_LOG_FID_MAP).forEach(label => {
+    fidToLabel[QB_DAILY_LOG_FID_MAP[label]] = label;
+  });
+  fidToLabel[3] = "Record ID#";
+
+  return rawRecords.map(rec => {
+    const obj = {};
+    Object.keys(rec).forEach(fid => {
+      const label = fidToLabel[fid];
+      if (label) obj[label] = _extractValue(rec[fid].value);
+    });
+    return obj;
+  });
+}
+
+function _fetchArchiveWorkLogRange(startDate, endDate, vendorFilter) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const histSheet = ss.getSheetByName(HISTORY_SHEET);
+  if (!histSheet || histSheet.getLastRow() < 2) return [];
+
+  const dateArr = _getDatesInRange(startDate, endDate);
+  const data = histSheet.getDataRange().getValues();
+  const headers = data[0];
+  const vendorColIdx = HISTORY_HEADERS.indexOf("Contractor");
+
+  logMsg("INFO", "_fetchArchiveWorkLogRange", "Filtering Master Archive for " + dateArr.length + " days...");
+
+  const filteredRows = data.filter((row, idx) => {
+    if (idx === 0) return false;
+    
+    if (vendorFilter && vendorFilter !== "ALL") {
+        let rowVendor = String(row[vendorColIdx] || "").trim();
+        if (rowVendor.toUpperCase() !== vendorFilter.toUpperCase()) return false;
+    }
+
+    let rowDate = (row[0] instanceof Date) ? Utilities.formatDate(row[0], "GMT-5", "yyyy-MM-dd") : normalizeDateString(row[0]);
+    return dateArr.includes(rowDate);
+  });
+
+  logMsg("INFO", "_fetchArchiveWorkLogRange", "Found " + filteredRows.length + " Archive records");
+  if (filteredRows.length === 0) return [];
+
+  const prevTotals = _buildPrevTotalsLookup(histSheet, dateArr);
+  const qbData = _mapHistoryRowsWithCorrections(filteredRows, prevTotals);
+  
+  return qbData.map(row => {
+    const obj = {};
+    QB_HEADERS.forEach((h, idx) => {
+      obj[h] = row[idx];
+    });
+    return obj;
+  });
+}
+
+/**
+ * Generates an array of ISO date strings between start and end (inclusive).
+ */
+function _getDatesInRange(startStr, endStr) {
+  const dates = [];
+  let curr = new Date(startStr.replace(/-/g, '/') + " 12:00:00");
+  const end = new Date(endStr.replace(/-/g, '/') + " 12:00:00");
+  
+  while (curr <= end) {
+    dates.push(Utilities.formatDate(curr, "GMT-5", "yyyy-MM-dd"));
+    curr.setDate(curr.getDate() + 1);
+  }
+  return dates;
+}
+
+/**
+ * Reconciles Archive vs QB and groups into hierarchy: Vendor > City > FDH > Date.
+ */
+function _reconcileWorkLogAudit(qbRecords, archiveRecords, refDict) {
+  const auditMap = {}; 
+
+  const getTargetBucket = (rec) => {
+    const fdh = String(rec["FDH Engineering ID"] || "").trim().toUpperCase();
+    const vendor = String(rec["Contractor"] || "Unknown Vendor").trim();
+    const refData = refDict[fdh] || {};
+    const city = String(refData.city || "Unknown City").trim();
+
+    if (!auditMap[vendor]) auditMap[vendor] = { _totals: _emptyAuditTotals(), _cities: {} };
+    if (!auditMap[vendor]._cities[city]) auditMap[vendor]._cities[city] = { _totals: _emptyAuditTotals(), _fdhs: {} };
+    if (!auditMap[vendor]._cities[city]._fdhs[fdh]) auditMap[vendor]._cities[city]._fdhs[fdh] = { _totals: _emptyAuditTotals(), _dates: {} };
+
+    return auditMap[vendor]._cities[city]._fdhs[fdh];
+  };
+
+  const processRecord = (rec, type) => {
+    const rawDate = rec["Date"];
+    const dateStr = (rawDate instanceof Date) ? Utilities.formatDate(rawDate, "GMT-5", "yyyy-MM-dd") : normalizeDateString(rawDate);
+    if (!dateStr) return;
+
+    const bucket = getTargetBucket(rec);
+    if (!bucket._dates[dateStr]) bucket._dates[dateStr] = { archive: null, qb: null };
+    bucket._dates[dateStr][type] = rec;
+  };
+
+  archiveRecords.forEach(rec => processRecord(rec, 'archive'));
+  qbRecords.forEach(rec => processRecord(rec, 'qb'));
+
+  // Final pass to calculate totals and identify discrepancies
+  Object.keys(auditMap).forEach(v => {
+    const vendor = auditMap[v];
+    Object.keys(vendor._cities).forEach(c => {
+      const city = vendor._cities[c];
+      Object.keys(city._fdhs).forEach(f => {
+        const fdh = city._fdhs[f];
+        Object.keys(fdh._dates).forEach(d => {
+          const pair = fdh._dates[d];
+          const diff = _calculateWorkLogDiff(pair.archive, pair.qb);
+          pair.diff = diff;
+          
+          // Accumulate totals
+          _accumulateAuditTotals(fdh._totals, diff);
+          _accumulateAuditTotals(city._totals, diff);
+          _accumulateAuditTotals(vendor._totals, diff);
+        });
+      });
+    });
+  });
+
+  // Ensure JSON serializability by removing any complex objects if they crept in
+  return JSON.parse(JSON.stringify(auditMap));
+}
+
+function _emptyAuditTotals() {
+  return { ug: 0, ae: 0, fib: 0, nap: 0, ugDiff: 0, aeDiff: 0, fibDiff: 0, napDiff: 0 };
+}
+
+function _accumulateAuditTotals(totalObj, diff) {
+  totalObj.ug += diff.archive.ug;
+  totalObj.ae += diff.archive.ae;
+  totalObj.fib += diff.archive.fib;
+  totalObj.nap += diff.archive.nap;
+  totalObj.ugDiff += diff.delta.ug;
+  totalObj.aeDiff += diff.delta.ae;
+  totalObj.fibDiff += diff.delta.fib;
+  totalObj.napDiff += diff.delta.nap;
+}
+
+function _calculateWorkLogDiff(archive, qb) {
+  const getVal = (obj, key) => Number(obj && obj[key]) || 0;
+  
+  const aVals = {
+    ug: getVal(archive, "Daily UG Footage"),
+    ae: getVal(archive, "Daily Strand Footage"),
+    fib: getVal(archive, "Daily Fiber Footage"),
+    nap: getVal(archive, "Daily NAPs/Encl. Completed")
+  };
+  
+  const qVals = {
+    ug: getVal(qb, "Daily UG Footage"),
+    ae: getVal(qb, "Daily Strand Footage"),
+    fib: getVal(qb, "Daily Fiber Footage"),
+    nap: getVal(qb, "Daily NAPs/Encl. Completed")
+  };
+
+  return {
+    archive: aVals,
+    qb: qVals,
+    delta: {
+      ug: qVals.ug - aVals.ug,
+      ae: qVals.ae - aVals.ae,
+      fib: qVals.fib - aVals.fib,
+      nap: qVals.nap - aVals.nap
+    },
+    hasDiscrepancy: (qVals.ug !== aVals.ug || qVals.ae !== aVals.ae || qVals.fib !== aVals.fib || qVals.nap !== aVals.nap)
+  };
+}
+
+/**
+ * Generates a multi-tab Google Sheet export of the Work Log Audit.
+ */
+function exportWorkLogAuditToSheet(auditData, startDate, endDate) {
+  try {
+    const ss = SpreadsheetApp.create(`Work_Log_Audit_${startDate}_to_${endDate}`);
+    const summarySheet = ss.getSheets()[0];
+    summarySheet.setName("Executive Summary");
+    
+    const summaryHeaders = ["Vendor", "City", "UG Archive", "UG QB", "UG Delta", "ST Archive", "ST QB", "ST Delta", "FB Archive", "FB QB", "FB Delta", "NP Archive", "NP QB", "NP Delta"];
+    const summaryRows = [];
+
+    const detailSheet = ss.insertSheet("Audit Detail");
+    const detailHeaders = ["Vendor", "City", "FDH ID", "Date", "Metric", "Archive Value", "QuickBase Value", "Delta", "Comments"];
+    const detailRows = [];
+
+    Object.keys(auditData).sort().forEach(vName => {
+      const vData = auditData[vName];
+      Object.keys(vData._cities).sort().forEach(cName => {
+        const cData = vData._cities[cName];
+        
+        summaryRows.push([
+          vName, cName,
+          cData._totals.ug, cData._totals.ug + cData._totals.ugDiff, cData._totals.ugDiff,
+          cData._totals.ae, cData._totals.ae + cData._totals.aeDiff, cData._totals.aeDiff,
+          cData._totals.fib, cData._totals.fib + cData._totals.fibDiff, cData._totals.fibDiff,
+          cData._totals.nap, cData._totals.nap + cData._totals.napDiff, cData._totals.napDiff
+        ]);
+
+        Object.keys(cData._fdhs).sort().forEach(fId => {
+          const fData = cData._fdhs[fId];
+          Object.keys(fData._dates).sort().reverse().forEach(date => {
+            const pair = fData._dates[date];
+            const metrics = [
+              { label: 'UG Footage', key: 'ug' },
+              { label: 'Strand Footage', key: 'ae' },
+              { label: 'Fiber Footage', key: 'fib' },
+              { label: 'NAPs/Encl', key: 'nap' }
+            ];
+            
+            const comment = (pair.archive && pair.archive["Construction Comments"]) || (pair.qb && pair.qb["Construction Comments"]) || "";
+
+            metrics.forEach(m => {
+              detailRows.push([
+                vName, cName, fId, date, m.label,
+                pair.diff.archive[m.key], pair.diff.qb[m.key], pair.diff.delta[m.key],
+                comment
+              ]);
+            });
+          });
+        });
+      });
+    });
+
+    // Write Summary
+    summarySheet.getRange(1, 1, 1, summaryHeaders.length).setValues([summaryHeaders]).setBackground("#0f172a").setFontColor("white").setFontWeight("bold");
+    if (summaryRows.length > 0) summarySheet.getRange(2, 1, summaryRows.length, summaryHeaders.length).setValues(summaryRows);
+    summarySheet.setFrozenRows(1);
+    summarySheet.autoResizeColumns(1, summaryHeaders.length);
+
+    // Write Detail
+    detailSheet.getRange(1, 1, 1, detailHeaders.length).setValues([detailHeaders]).setBackground("#0f172a").setFontColor("white").setFontWeight("bold");
+    if (detailRows.length > 0) {
+        ensureCapacity(detailSheet, detailRows.length + 1, detailHeaders.length);
+        detailSheet.getRange(2, 1, detailRows.length, detailHeaders.length).setValues(detailRows);
+    }
+    detailSheet.setFrozenRows(1);
+    detailSheet.autoResizeColumns(1, detailHeaders.length);
+
+    // Apply conditional formatting
+    const applyDeltaFormatting = (sheet, colIndex, rowCount) => {
+        if (rowCount === 0) return;
+        const range = sheet.getRange(2, colIndex, rowCount, 1);
+        sheet.setConditionalFormatRules([
+            SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0).setFontColor("#16a34a").setRanges([range]).build(),
+            SpreadsheetApp.newConditionalFormatRule().whenNumberLessThan(0).setFontColor("#dc2626").setRanges([range]).build()
+        ]);
+    };
+
+    [5, 8, 11, 14].forEach(col => applyDeltaFormatting(summarySheet, col, summaryRows.length));
+    applyDeltaFormatting(detailSheet, 8, detailRows.length);
+
+    logMsg("INFO", "exportWorkLogAuditToSheet", `Exported audit to ${ss.getUrl()}`);
+    return ss.getUrl();
+  } catch (e) {
+    logMsg("ERROR", "exportWorkLogAuditToSheet", e.message);
+    throw e;
+  }
+}
+

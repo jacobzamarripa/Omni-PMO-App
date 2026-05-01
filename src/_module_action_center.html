@@ -25,6 +25,11 @@
   var _acBomLoading      = false;
   var _acOpenPeekFdh     = null;      // FDH whose peek panel is currently open
   var _acReportsView     = 'crossings'; // which report is staged in Reports tab
+  var _acWorkLogData     = null;
+  var _acWorkLogLoading  = false;
+  var _acWorkLogDates    = { start: '', end: '' };
+  var _acWorkLogVendorFilter = 'ALL';
+  var _acWorkLogCollapsed = {}; // { groupKey: boolean }
 
   // ── Universal filter bar state ────────────────────────────
   var _acUniversalSearchQuery = '';
@@ -34,7 +39,8 @@
     boms:      'all',   // 'all' | 'diffs'
     comments:  'all',   // 'all' | 'edited'
     offenders: null,    // null = All, string = flag key
-    reports:   null
+    reports:   null,
+    worklog:   'all'    // 'all' | 'discrepancies'
   };
   var _acUniversalSearchTimer = null;
 
@@ -159,12 +165,27 @@
     var activeItems = _acGetActiveItems();
     var pendingCrossings = activeItems.filter(function(i){ return _acResolveCrossing(i).pending; }).length;
     var bomRows = _acGetBomRows();
+
+    var workLogDiscrepancies = 0;
+    if (_acWorkLogData) {
+      Object.keys(_acWorkLogData).forEach(function(v) {
+        Object.keys(_acWorkLogData[v]._cities).forEach(function(c) {
+          Object.keys(_acWorkLogData[v]._cities[c]._fdhs).forEach(function(f) {
+            Object.keys(_acWorkLogData[v]._cities[c]._fdhs[f]._dates).forEach(function(d) {
+              if (_acWorkLogData[v]._cities[c]._fdhs[f]._dates[d].diff.hasDiscrepancy) workLogDiscrepancies++;
+            });
+          });
+        });
+      });
+    }
+
     var badgeVals = {
       crossings: pendingCrossings,
       boms: _acBomData ? bomRows.filter(function(r){ return r.hasDiff; }).length : (_acBomLoading ? 0 : 'Load'),
       comments: Object.keys(_acCommentsEdits).length,
       offenders: _acGetOffenderCount(),
-      reports: _acGetReportRowAvailability()
+      reports: _acGetReportRowAvailability(),
+      worklog: _acWorkLogData ? workLogDiscrepancies : (_acWorkLogLoading ? 0 : 'Load')
     };
 
     Object.keys(badgeVals).forEach(function(key) {
@@ -175,7 +196,7 @@
       el.hidden = !show;
       el.textContent = val === 'Load' ? 'Load' : String(val);
       el.classList.toggle('ac-tab-badge-green', key === 'reports' && show);
-      el.classList.toggle('ac-tab-badge-warn', key === 'boms' && val === 'Load');
+      el.classList.toggle('ac-tab-badge-warn', (key === 'boms' || key === 'worklog') && val === 'Load');
     });
   }
 
@@ -189,7 +210,7 @@
     } else if (prevTab !== 'crossings' && typeof closeQuickPeek === 'function') {
       closeQuickPeek();
     }
-    ['crossings','boms','comments','offenders','reports'].forEach(function(t) {
+    ['crossings','boms','comments','offenders','reports','worklog'].forEach(function(t) {
       var btn   = document.getElementById('ac-tab-btn-' + t);
       var panel = document.getElementById('ac-tab-' + t);
       if (btn)   btn.classList.toggle('active', t === tab);
@@ -206,6 +227,7 @@
     else if (_acActiveTab === 'comments')  _acRenderCommentsTab();
     else if (_acActiveTab === 'offenders') _acRenderOffendersTab();
     else if (_acActiveTab === 'reports')   _acRenderReportsTab();
+    else if (_acActiveTab === 'worklog')   _acRenderWorkLogTab();
     _acEnsurePermanentPeek();
   }
 
@@ -349,6 +371,32 @@
         html += '<button class="ac-filter-pill' + (active ? ' active' : '') +
           '" onclick="_acReportsSwitchView(\'' + d.key + '\')" style="--ac-tab-accent:' + d.dot + '">' + _e(d.label) + '</button>';
       });
+    } else if (tab === 'worklog') {
+      html += '<div class="ac-ufb-sep"></div>';
+      _acInitWorkLog();
+      html += '<input type="date" class="ac-ufb-date" value="' + _acWorkLogDates.start + '" onchange="_acSetWorkLogDate(\'start\',this.value)">';
+      html += '<span style="margin:0 2px;opacity:0.4;color:var(--text-muted)">—</span>';
+      html += '<input type="date" class="ac-ufb-date" value="' + _acWorkLogDates.end + '" onchange="_acSetWorkLogDate(\'end\',this.value)">';
+      
+      html += '<div class="ac-ufb-sep"></div>';
+      var workLogVendors = _acGetWorkLogVendors();
+      html += '<select class="ac-ufb-select" onchange="_acSetWorkLogVendor(this.value)">';
+      html += '<option value="ALL"' + (_acWorkLogVendorFilter === 'ALL' ? ' selected' : '') + '>All Vendors</option>';
+      workLogVendors.forEach(function(v) {
+        html += '<option value="' + _e(v) + '"' + (_acWorkLogVendorFilter === v ? ' selected' : '') + '>' + _e(v) + '</option>';
+      });
+      html += '</select>';
+
+      html += '<div class="ac-ufb-sep"></div>';
+      ['all','discrepancies'].forEach(function(val) {
+        var label = val === 'all' ? 'All' : 'Discrepancies';
+        var active = _acUniversalFilters.worklog === val;
+        html += '<button class="ac-filter-pill' + (active ? ' active' : '') +
+          '" onclick="_acSetUniversalFilter(\'worklog\',\'' + val + '\')">' + label + '</button>';
+      });
+
+      html += '<div class="ac-ufb-sep"></div>';
+      html += '<button class="ac-ufb-action-btn" onclick="_acLoadWorkLogData()" ' + (_acWorkLogLoading ? 'disabled' : '') + ' style="background:var(--accent);color:white;border-color:var(--accent)">' + (_acWorkLogLoading ? 'Loading...' : 'Fetch Logs') + '</button>';
     }
 
     // Count badge
@@ -356,6 +404,7 @@
     if      (tab === 'crossings') count = _acGetFilteredCrossingItems().length + ' projects';
     else if (tab === 'boms')      count = _acBomData ? (_acGetFilteredBomItems().length + ' projects') : '—';
     else if (tab === 'comments')  count = _acGetFilteredCommentItems().length + ' projects';
+    else if (tab === 'worklog')   count = _acWorkLogData ? (Object.keys(_acWorkLogData).length + ' vendors') : '—';
 
     if (count) html += '<span class="ac-ufb-count">' + count + '</span>';
 
@@ -1721,6 +1770,282 @@
     else if (key === 'comments') _acExportLatestComments();
   }
 
+  // ════════════════════════════════════════════════════════════
+  // TAB 6 — WORK LOG AUDIT
+  // ════════════════════════════════════════════════════════════
+
+  function _acInitWorkLog() {
+    if (_acWorkLogDates.start) return;
+    var now = new Date();
+    var lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    _acWorkLogDates.end = now.toISOString().split('T')[0];
+    _acWorkLogDates.start = lastWeek.toISOString().split('T')[0];
+  }
+
+  function _acSetWorkLogDate(type, val) {
+    _acWorkLogDates[type] = val;
+    _acRenderUniversalFilterBar('worklog');
+  }
+
+  function _acSetWorkLogVendor(val) {
+    _acWorkLogVendorFilter = val;
+    _acRenderUniversalFilterBar('worklog');
+  }
+
+  function _acGetWorkLogVendors() {
+    var vendors = new Set();
+    (typeof allActionItems !== 'undefined' ? allActionItems : []).forEach(function(i) {
+      if (i.vendor) vendors.add(i.vendor);
+    });
+    return Array.from(vendors).sort();
+  }
+
+  function _acLoadWorkLogData() {
+    if (_acWorkLogLoading) return;
+    _acWorkLogLoading = true;
+    _acRenderUniversalFilterBar('worklog');
+    _acRenderWorkLogTab();
+    _acSyncTabBadges();
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        _acWorkLogData = data;
+        _acWorkLogLoading = false;
+        _acRenderUniversalFilterBar('worklog');
+        _acRenderWorkLogTab();
+        _acSyncTabBadges();
+      })
+      .withFailureHandler(function(err) {
+        _acWorkLogLoading = false;
+        _acRenderUniversalFilterBar('worklog');
+        _acRenderWorkLogTab();
+        _acSyncTabBadges();
+        if (typeof showNotification === 'function') showNotification('Error loading work logs: ' + err.message, 'error');
+      })
+      .getWorkLogAuditData(_acWorkLogDates.start, _acWorkLogDates.end, _acWorkLogVendorFilter);
+  }
+
+  function _acRenderWorkLogTab() {
+    var el = document.getElementById('ac-tab-worklog');
+    if (!el) return;
+
+    _acInitWorkLog();
+
+    if (!_acWorkLogData && !_acWorkLogLoading) {
+      el.innerHTML = '<div class="ac-empty-state" style="padding:100px 20px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;">' +
+        '<div class="ac-empty-icon" style="margin-bottom:24px; opacity:0.3; color:var(--text-main);">' +
+        '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>' +
+        '</div>' +
+        '<h3 style="font-size:20px; font-weight:900; color:var(--text-main); letter-spacing:-0.02em; margin-bottom:12px;">Work Log Reconciliation</h3>' +
+        '<p style="max-width:380px; margin:0 auto 32px; color:var(--text-muted); font-size:14px; line-height:1.6; font-weight:500;">' +
+        'Compare Master Archive records against live QuickBase data. Select a date range and vendor to begin the audit.</p>' +
+        '<button class="ac-header-util-btn" style="padding:12px 32px; background:var(--accent); color:white; border-radius:10px; font-size:13px; font-weight:800; box-shadow:0 4px 12px color-mix(in srgb, var(--accent) 25%, transparent);" onclick="_acLoadWorkLogData()">Fetch Logs</button>' +
+        '</div>';
+      return;
+    }
+
+    if (_acWorkLogLoading) {
+      el.innerHTML = '<div class="ac-empty-state" style="padding:100px 20px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;">' +
+        '<div class="ac-loader" style="width:32px; height:32px; border-width:3px;"></div>' +
+        '<p style="margin-top:24px; color:var(--text-muted); font-size:14px; font-weight:600; letter-spacing:0.02em;">Fetching records from Master Archive and QuickBase...</p>' +
+        '</div>';
+      return;
+    }
+
+    console.log("WORK LOG: Rendering hierarchy for data:", _acWorkLogData);
+    var html = '<div class="ac-worklog-wrap">';
+    html += _acRenderWorkLogHierarchy();
+    html += '</div>';
+
+    el.innerHTML = html;
+  }
+
+  function _acRenderWorkLogHierarchy() {
+    if (!_acWorkLogData) return '';
+    var vendors = Object.keys(_acWorkLogData).sort();
+    console.log("WORK LOG: Found vendors:", vendors);
+    
+    if (vendors.length === 0) {
+      return '<div class="ac-empty-state" style="padding:60px 20px; text-align:center;">' +
+        '<p style="color:var(--text-muted); font-size:13px;">No records found for the selected range.</p>' +
+        '</div>';
+    }
+
+    var html = '<div class="ac-audit-grid">';
+    vendors.forEach(function(vName) {
+      var vData = _acWorkLogData[vName];
+      html += _acRenderWorkLogVendor(vName, vData);
+    });
+    html += '</div>';
+
+    // Global Totals Bar
+    html += _acRenderWorkLogGlobalTotals();
+
+    return html;
+  }
+
+  function _acRenderWorkLogVendor(name, data) {
+    var key = 'v::' + name;
+    var isCollapsed = _acWorkLogCollapsed[key] === true;
+    var cities = Object.keys(data._cities).sort();
+    
+    var html = '<div class="ac-audit-vendor-group' + (isCollapsed ? ' collapsed' : '') + '">';
+    html += '<div class="ac-audit-header ac-audit-vendor-header" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
+      '<span class="ac-audit-toggle"></span>' +
+      '<span class="ac-audit-title">' + _e(name) + '</span>' +
+      _acRenderAuditTotals(data._totals) +
+      '</div>';
+
+    if (!isCollapsed) {
+      html += '<div class="ac-audit-body">';
+      cities.forEach(function(cName) {
+        html += _acRenderWorkLogCity(cName, data._cities[cName], name);
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function _acRenderWorkLogCity(name, data, vName) {
+    var key = 'c::' + vName + '::' + name;
+    var isCollapsed = _acWorkLogCollapsed[key] === true;
+    var fdhs = Object.keys(data._fdhs).sort();
+
+    var html = '<div class="ac-audit-city-group' + (isCollapsed ? ' collapsed' : '') + '">';
+    html += '<div class="ac-audit-header ac-audit-city-header" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
+      '<span class="ac-audit-toggle"></span>' +
+      '<span class="ac-audit-title">' + _e(name) + '</span>' +
+      _acRenderAuditTotals(data._totals) +
+      '</div>';
+
+    if (!isCollapsed) {
+      html += '<div class="ac-audit-body">';
+      fdhs.forEach(function(fId) {
+        html += _acRenderWorkLogFdh(fId, data._fdhs[fId], vName, name);
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function _acRenderWorkLogFdh(id, data, vName, cName) {
+    var key = 'f::' + vName + '::' + cName + '::' + id;
+    var isCollapsed = _acWorkLogCollapsed[key] !== false; // Default FDH to collapsed
+    var dates = Object.keys(data._dates).sort().reverse();
+
+    var html = '<div class="ac-audit-group' + (isCollapsed ? ' collapsed' : '') + '">';
+    html += '<div class="ac-audit-header ac-audit-fdh-header" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
+      '<span class="ac-audit-toggle"></span>' +
+      '<span class="ac-audit-title">' + _e(id) + '</span>' +
+      _acRenderAuditTotals(data._totals) +
+      '</div>';
+
+    if (!isCollapsed) {
+      html += '<div class="ac-audit-table-wrap">' +
+        '<table class="ac-audit-table">' +
+        '<thead><tr>' +
+        '<th>Date</th><th>Metric</th><th>Archive</th><th>QuickBase</th><th>Delta</th>' +
+        '</tr></thead>' +
+        '<tbody>';
+      
+      dates.forEach(function(d) {
+        html += _acRenderWorkLogDateRows(d, data._dates[d]);
+      });
+
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function _acRenderWorkLogDateRows(date, pair) {
+    var metrics = [
+      { label: 'UG Footage', key: 'ug' },
+      { label: 'Strand Footage', key: 'ae' },
+      { label: 'Fiber Footage', key: 'fib' },
+      { label: 'NAPs/Encl', key: 'nap' }
+    ];
+
+    var rows = '';
+    var filter = _acUniversalFilters.worklog;
+    if (filter === 'discrepancies' && !pair.diff.hasDiscrepancy) return '';
+
+    metrics.forEach(function(m, idx) {
+      var aVal = pair.diff.archive[m.key];
+      var qVal = pair.diff.qb[m.key];
+      var delta = pair.diff.delta[m.key];
+      var hasDiff = aVal !== qVal;
+
+      rows += '<tr class="' + (hasDiff ? 'ac-audit-diff' : '') + '">' +
+        (idx === 0 ? '<td rowspan="4" class="ac-audit-date-col">' + _acFormatDateShort(date) + '</td>' : '') +
+        '<td>' + m.label + '</td>' +
+        '<td>' + aVal.toLocaleString() + '</td>' +
+        '<td>' + qVal.toLocaleString() + '</td>' +
+        '<td class="' + (delta !== 0 ? (delta > 0 ? 'text-pos' : 'text-neg') : '') + '">' + 
+        (delta > 0 ? '+' : '') + delta.toLocaleString() + '</td>' +
+        '</tr>';
+    });
+    
+    // Add comment row if exists
+    var comment = (pair.archive && pair.archive["Construction Comments"]) || (pair.qb && pair.qb["Construction Comments"]);
+    if (comment) {
+        rows += '<tr class="ac-audit-comment-row"><td colspan="4" class="ac-audit-comment-cell">' +
+                '<span class="ac-audit-comment-label">Comment:</span> ' + _e(comment) + '</td></tr>';
+    }
+
+    return rows;
+  }
+
+  function _acRenderAuditTotals(totals) {
+    return '<div class="ac-audit-totals-strip">' +
+      '<span class="ac-total-item" title="UG Footage">UG: ' + totals.ug.toLocaleString() + (totals.ugDiff !== 0 ? ' <b class="' + (totals.ugDiff > 0 ? 'text-pos' : 'text-neg') + '">' + (totals.ugDiff > 0 ? '+' : '') + totals.ugDiff.toLocaleString() + '</b>' : '') + '</span>' +
+      '<span class="ac-total-item" title="Strand Footage">ST: ' + totals.ae.toLocaleString() + (totals.aeDiff !== 0 ? ' <b class="' + (totals.aeDiff > 0 ? 'text-pos' : 'text-neg') + '">' + (totals.aeDiff > 0 ? '+' : '') + totals.aeDiff.toLocaleString() + '</b>' : '') + '</span>' +
+      '<span class="ac-total-item" title="Fiber Footage">FB: ' + totals.fib.toLocaleString() + (totals.fibDiff !== 0 ? ' <b class="' + (totals.fibDiff > 0 ? 'text-pos' : 'text-neg') + '">' + (totals.fibDiff > 0 ? '+' : '') + totals.fibDiff.toLocaleString() + '</b>' : '') + '</span>' +
+      '<span class="ac-total-item" title="NAPs/Encl">NP: ' + totals.nap.toLocaleString() + (totals.napDiff !== 0 ? ' <b class="' + (totals.napDiff > 0 ? 'text-pos' : 'text-neg') + '">' + (totals.napDiff > 0 ? '+' : '') + totals.napDiff.toLocaleString() + '</b>' : '') + '</span>' +
+      '</div>';
+  }
+
+  function _acRenderWorkLogGlobalTotals() {
+    var g = { ug: 0, ae: 0, fib: 0, nap: 0, ugDiff: 0, aeDiff: 0, fibDiff: 0, napDiff: 0 };
+    Object.keys(_acWorkLogData).forEach(function(v) {
+        var vt = _acWorkLogData[v]._totals;
+        g.ug += vt.ug; g.ae += vt.ae; g.fib += vt.fib; g.nap += vt.nap;
+        g.ugDiff += vt.ugDiff; g.aeDiff += vt.aeDiff; g.fibDiff += vt.fibDiff; g.napDiff += vt.napDiff;
+    });
+
+    return '<div class="ac-audit-global-footer">' +
+      '<div class="ac-global-totals-label">GRAND TOTALS</div>' +
+      _acRenderAuditTotals(g) +
+      '<button class="ac-audit-export-btn" onclick="_acExportWorkLog()">Export Audit Sheet</button>' +
+      '</div>';
+  }
+
+  function _acToggleWorkLogGroup(key) {
+    _acWorkLogCollapsed[key] = !_acWorkLogCollapsed[key];
+    _acRenderWorkLogTab();
+  }
+
+  function _acFormatDateShort(iso) {
+    var p = iso.split('-');
+    return p[1] + '/' + p[2] + '/' + p[0].slice(2);
+  }
+
+  function _acExportWorkLog() {
+      if (!_acWorkLogData) return;
+      if (typeof showNotification === 'function') showNotification('Generating export...', 'info');
+      google.script.run
+        .withSuccessHandler(function(url) {
+            if (url) window.open(url, '_blank');
+            if (typeof showNotification === 'function') showNotification('Export complete!', 'success');
+        })
+        .withFailureHandler(function(err) {
+            if (typeof showNotification === 'function') showNotification('Export failed: ' + err.message, 'error');
+        })
+        .exportWorkLogAuditToSheet(_acWorkLogData, _acWorkLogDates.start, _acWorkLogDates.end);
+  }
+
   // ── Modal helper ──────────────────────────────────────────
   function _acShowModal(title, bodyHtml, confirmLabel, onConfirm) {
     var existing = document.getElementById('ac-modal-overlay');
@@ -1817,6 +2142,12 @@
   window._acOpenBulkStatusModal   = _acOpenBulkStatusModal;
   window._acApplySuggestion       = _acApplySuggestion;
   window._acCloseModal            = _acCloseModal;
+  window._acExportWorkLog            = _acExportWorkLog;
+  window._acToggleWorkLogGroup       = _acToggleWorkLogGroup;
+  window._acLoadWorkLogData          = _acLoadWorkLogData;
+  window._acSetWorkLogVendor         = _acSetWorkLogVendor;
+  window._acSetWorkLogDate           = _acSetWorkLogDate;
+
   window._acModalConfirm          = _acModalConfirm;
   window._acTogglePeek            = _acTogglePeek;
   window._acSetXingVendorStatusFilter = _acSetXingVendorStatusFilter;
