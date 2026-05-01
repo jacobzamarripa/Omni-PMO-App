@@ -1,5 +1,12 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-05-01: Action Center uniformity visual fixes
+- **Branch:** `fix/action-center-uniformity`.
+- **Unassigned vendor treatment:** Standardized missing vendors to `Unassigned`, bottom-sorted them, restored the yellow warning theme in Action Center and Active Portfolio, and moved the warning icon into the vendor avatar slot instead of the vendor name text.
+- **Action Center tab parity:** Reworked Action Center tabs into a View Picker-style trough with a glass sliding pill, full visible tab labels, muted inactive tabs, active accent coloring, and `Bulk Status` kept as a separate utility button.
+- **Row visibility fix:** Removed clipping-prone bottom padding from Action Center scroll surfaces and reinforced tab/table wrappers so lower rows remain reachable when vendor groups are expanded.
+- **Verification:** `node scripts/validate-crossings-bulk-actions.js`, frontend parse checks for `src/_module_action_center.html`, `src/_module_queue_state.html`, and `src/_module_webapp_core.html`, and `git diff --check` passed.
+
 > [!success] 2026-04-30: Work Log Audit Implementation & Refinement
 - **Branch:** `feature/daily-work-log-audit`.
 - **New Feature:** Implemented "Work Log" audit tab in Action Center for reconciliation of Master Archive vs. QuickBase (`bvay4aqkz`).

@@ -44,6 +44,7 @@ body.action-view-active #action-workspace {
 body.action-view-active #action-workspace.ac-peek-open {
   width: calc(100% - var(--ac-peek-width)) !important;
   max-width: calc(100% - var(--ac-peek-width)) !important;
+  flex: 0 1 calc(100% - var(--ac-peek-width)) !important;
   padding-right: 0 !important;
   transition: none !important;
 }
@@ -142,64 +143,112 @@ body.action-view-active #admin-fab {
 
 /* ── Tab Bar ─────────────────────────────────────────────── */
 .ac-tab-bar {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
   flex-shrink: 0;
   padding: 10px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--card-bg);
   overflow-x: auto;
-
   scrollbar-width: none;
 }
 .ac-tab-bar::-webkit-scrollbar { display: none; }
 
-.ac-tab-btn {
-  --ac-tab-accent: var(--accent);
+.ac-tab-trough {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 7px 12px 7px 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--card-bg) 76%, transparent);
-  color: var(--text-muted);
-  font-size: 12px;
+  gap: 2px;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 3px;
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.07), inset 0 1px 1px rgba(0,0,0,0.04);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ac-tab-trough::-webkit-scrollbar { display: none; }
+body.dark-mode .ac-tab-trough {
+  background: #1c1c1c;
+  border-color: rgba(255,255,255,0.05);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.35), inset 0 1px 1px rgba(0,0,0,0.25);
+}
+
+.ac-tab-pill-indicator {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  height: calc(100% - 6px);
+  border-radius: 11px;
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(255,255,255,0.6);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06),
+              inset 0 1px 0 rgba(255,255,255,0.95);
+  pointer-events: none;
+  z-index: 0;
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1), width 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, width;
+}
+body.dark-mode .ac-tab-pill-indicator {
+  background: rgba(255,255,255,0.88);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2),
+              inset 0 1px 0 rgba(255,255,255,0.95);
+}
+
+.ac-tab-btn {
+  --ac-tab-accent: var(--accent);
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 11px;
+  background: transparent;
+  color: rgba(0,0,0,0.35);
+  font-size: 11px;
   font-weight: 800;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 1px 0 color-mix(in srgb, #ffffff 55%, transparent) inset;
-  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s;
+  transition: color 0.2s;
 }
-.ac-tab-btn:nth-child(1) { --ac-tab-accent: #f59e0b; }
-.ac-tab-btn:nth-child(2) { --ac-tab-accent: #3b82f6; }
-.ac-tab-btn:nth-child(3) { --ac-tab-accent: #a855f7; }
-.ac-tab-btn:nth-child(4) { --ac-tab-accent: #ef4444; }
-.ac-tab-btn:nth-child(5) { --ac-tab-accent: #16a34a; }
+#ac-tab-btn-worklog { --ac-tab-accent: #14b8a6; }
+#ac-tab-btn-offenders { --ac-tab-accent: #ef4444; }
+#ac-tab-btn-boms { --ac-tab-accent: #3b82f6; }
+#ac-tab-btn-crossings { --ac-tab-accent: #f59e0b; }
+#ac-tab-btn-comments { --ac-tab-accent: #a855f7; }
+#ac-tab-btn-reports { --ac-tab-accent: #16a34a; }
 
 .ac-tab-btn:hover {
-  color: var(--text-main);
-  border-color: color-mix(in srgb, var(--ac-tab-accent) 36%, var(--border));
-  transform: translateY(-1px);
+  color: rgba(0,0,0,0.58);
 }
 .ac-tab-btn.active {
-  color: var(--text-main);
-  border-color: color-mix(in srgb, var(--ac-tab-accent) 56%, var(--border));
-  background: color-mix(in srgb, var(--ac-tab-accent) 11%, var(--card-bg));
+  color: var(--ac-tab-accent);
+  box-shadow: none;
 }
+body.dark-mode .ac-tab-btn { color: rgba(255,255,255,0.38); }
+body.dark-mode .ac-tab-btn:hover { color: rgba(255,255,255,0.62); }
+body.dark-mode .ac-tab-btn.active { color: #0f0f0f; }
 
 .ac-tab-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--ac-tab-accent) 14%, transparent);
-  color: var(--ac-tab-accent);
+  width: 18px;
+  height: 18px;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor;
   font-size: 10px;
   font-weight: 900;
   flex: 0 0 auto;
@@ -212,7 +261,12 @@ body.action-view-active #admin-fab {
 }
 
 .ac-tab-label {
+  display: inline-block;
   line-height: 1;
+  max-width: none;
+  opacity: 1;
+  overflow: visible;
+  letter-spacing: 0.02em;
 }
 
 .ac-tab-badge {
@@ -244,21 +298,46 @@ body.action-view-active #admin-fab {
   border-color: color-mix(in srgb, #f59e0b 34%, transparent);
 }
 
+.ac-tab-spacer {
+  flex: 1 1 auto;
+  min-width: 12px;
+}
+
+.ac-header-util-btn {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card-bg) 80%, transparent);
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 /* ── Tab Content ─────────────────────────────────────────── */
 .ac-tab-content {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
   position: relative;
+  background: var(--card-bg);
+  overflow: hidden;
 }
 
 .ac-tab-panel {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%;
+  height: auto;
+  flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
+  background: var(--card-bg);
 }
 
 #ac-tab-crossings {
@@ -496,18 +575,13 @@ body.action-view-active #admin-fab {
 
 /* ── Table ───────────────────────────────────────────────── */
 .ac-table-wrap {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
   overflow-y: auto;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-}
-
-#ac-tab-boms > .ac-table-wrap,
-#ac-tab-comments > .ac-table-wrap,
-#ac-tab-worklog > .ac-table-wrap {
-  padding: 0 0 24px;
+  background: var(--card-bg);
   box-sizing: border-box;
 }
 
@@ -878,6 +952,15 @@ body.action-view-active #admin-fab {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
   font-weight: 900;
 }
+.ac-xing-chip-btn.is-unassigned-vendor {
+  background: color-mix(in srgb, #facc15 16%, var(--card-bg));
+  color: #92400e;
+  border-color: color-mix(in srgb, #f59e0b 44%, var(--border));
+}
+.ac-xing-chip-btn.is-unassigned-vendor.active {
+  background: color-mix(in srgb, #facc15 24%, var(--card-bg));
+  color: #78350f;
+}
 .ac-xing-vendor-check {
   flex-shrink: 0;
   display: inline-flex;
@@ -1101,22 +1184,23 @@ body.action-view-active #admin-fab {
 
 /* ── Tab bar spacer + Bulk Status utility button ─────────── */
 .ac-tab-spacer {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 12px;
 }
 .ac-header-util-btn {
-  flex-shrink: 0;
-  padding: 6px 14px;
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
+  background: color-mix(in srgb, var(--card-bg) 80%, transparent);
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 900;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
-  align-self: center;
-  margin-left: 8px;
 }
 .ac-header-util-btn:hover {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
@@ -1168,7 +1252,7 @@ body.action-view-active #admin-fab {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0 0 24px;
+  padding: 0;
   box-sizing: border-box;
   background: var(--card-bg);
 }
@@ -1228,6 +1312,12 @@ body.action-view-active #admin-fab {
 .ac-table-crossings-grid .ac-xing-grid-row.is-dirty > td { background: color-mix(in srgb, #f59e0b 6%, var(--card-bg)) !important; }
 .ac-table-crossings-grid .ac-xing-grid-row.is-dirty > td:first-child { border-left: 3px solid #f59e0b; }
 .ac-table-crossings-grid .ac-xing-grid-row.is-active-row > td { background: color-mix(in srgb, var(--accent) 6%, var(--card-bg)) !important; }
+.ac-table .ac-row.is-active-row > td {
+  background: color-mix(in srgb, var(--accent) 6%, var(--card-bg)) !important;
+}
+.ac-table .ac-row.is-active-row > td:first-child {
+  border-left: 3px solid var(--accent);
+}
 
 /* Striped left-edge indicator: selected, active peek, or typing */
 .ac-table-crossings-grid .ac-xing-grid-row.is-selected > td:first-child,
@@ -1253,6 +1343,12 @@ body.action-view-active #admin-fab {
   border-top: 2px solid var(--border);
 
   border-bottom: 1px solid var(--border) !important;
+}
+.ac-xing-sep-vendor.is-unassigned-vendor > td {
+  background: color-mix(in srgb, #facc15 15%, var(--card-bg)) !important;
+  color: #78350f;
+  border-top-color: color-mix(in srgb, #f59e0b 42%, var(--border));
+  border-bottom-color: color-mix(in srgb, #f59e0b 42%, var(--border));
 }
 .ac-xing-sep-vendor-inner {
   display: flex;
@@ -2017,9 +2113,9 @@ body.dark-mode .ac-table thead { background: color-mix(in srgb, var(--card-bg) 9
   .ac-toolbar-left,
   .ac-toolbar-right { width: 100%; }
   .ac-search-input { min-width: 0; width: 100%; flex-basis: 100%; }
-  .ac-tab-bar { padding: 8px 12px; gap: 6px; }
-  .ac-tab-btn { min-height: 36px; padding: 6px 10px 6px 7px; }
-  .ac-tab-icon { width: 22px; height: 22px; }
+  .ac-tab-bar { padding: 8px 12px; gap: 8px; }
+  .ac-tab-btn { min-height: 34px; padding: 0 10px; }
+  .ac-tab-icon { width: 18px; height: 18px; }
   .ac-kpi-chip { padding: 8px 14px 8px 12px; }
   .ac-kpi-val  { font-size: 16px; }
   .ac-table td, .ac-table th { padding: 7px 10px; }
@@ -2242,6 +2338,8 @@ body.dark-mode .ac-table thead { background: color-mix(in srgb, var(--card-bg) 9
     padding-left: 12px;
     padding-right: 12px;
   }
+  .ac-tab-bar { padding: 8px 12px; }
+  .ac-tab-trough { flex: 1 1 auto; }
 }
 
 /* ── Work Log Audit ───────────────────────────────────────── */

@@ -72,7 +72,7 @@ function isQueueGroupCollapsed(groupKey) {
 function getGroupMetaForItem(item, groupBy) {
     let mode = GROUP_BY_OPTIONS.includes(groupBy) ? groupBy : 'none';
     if (mode === 'vendor') {
-        let raw = String(item.vendor || 'Unknown Vendor').trim() || 'Unknown Vendor';
+        let raw = normalizeQueueVendorLabel(item.vendor);
         // Enforce the same suffix-stripping normalization as the engine
         let label = raw.replace(/ Utilities$/i, '').replace(/ Group$/i, '').replace(/ LLC$/i, '').replace(/ Inc$/i, '').replace(/ Corp$/i, '').trim();
         return { key: 'vendor:' + label.toLowerCase(), label: label, sortKey: label.toLowerCase() };
@@ -102,6 +102,22 @@ function getGroupMetaForItem(item, groupBy) {
     return { key: 'all', label: 'All Projects', sortKey: '0' };
 }
 
+function normalizeQueueVendorLabel(value) {
+    let clean = String(value || '').trim();
+    if (!clean || /^(unknown|unknown vendor|unassigned vendor|no vendor)$/i.test(clean)) return 'Unassigned';
+    return clean;
+}
+
+function compareQueueVendorSort(a, b) {
+    const aVal = String(a || '').trim();
+    const bVal = String(b || '').trim();
+    const aUnassigned = aVal.toLowerCase() === 'unassigned';
+    const bUnassigned = bVal.toLowerCase() === 'unassigned';
+    if (aUnassigned && !bUnassigned) return 1;
+    if (!aUnassigned && bUnassigned) return -1;
+    return aVal.localeCompare(bVal);
+}
+
 function getGroupedQueueSections(items) {
     if (currentGroupBy === 'none') return [];
     let groups = new Map();
@@ -110,7 +126,7 @@ function getGroupedQueueSections(items) {
         if (currentGroupBy === 'vendor' && item.allVendors && item.allVendors.length > 0) {
             let uniqueSections = new Set();
             item.allVendors.forEach(function(vName) {
-                let raw = String(vName || 'Unknown Vendor').trim() || 'Unknown Vendor';
+                let raw = normalizeQueueVendorLabel(vName);
                 let label = raw.replace(/ Utilities$/i, '').replace(/ Group$/i, '').replace(/ LLC$/i, '').replace(/ Inc$/i, '').replace(/ Corp$/i, '').trim();
                 let key = 'vendor:' + label.toLowerCase();
                 if (!uniqueSections.has(key)) {
@@ -140,8 +156,13 @@ function getGroupedQueueSections(items) {
         if (currentGroupBy === 'health') return Number(a.sortKey) - Number(b.sortKey);
         const aIsUnknown = (a.sortKey || '').toLowerCase().includes('unknown');
         const bIsUnknown = (b.sortKey || '').toLowerCase().includes('unknown');
+        const aIsUnassigned = currentGroupBy === 'vendor' && (a.label || '').toLowerCase() === 'unassigned';
+        const bIsUnassigned = currentGroupBy === 'vendor' && (b.label || '').toLowerCase() === 'unassigned';
+        if (aIsUnassigned && !bIsUnassigned) return 1;
+        if (!aIsUnassigned && bIsUnassigned) return -1;
         if (aIsUnknown && !bIsUnknown) return 1;
         if (!aIsUnknown && bIsUnknown) return -1;
+        if (currentGroupBy === 'vendor') return compareQueueVendorSort(a.label, b.label);
         return String(a.sortKey || '').localeCompare(String(b.sortKey || ''));
     });
 
@@ -323,14 +344,14 @@ function getListCardHtml(item) {
     let combinedPill = getQueueCombinedPill(item);
     let pillCls = getQueuePillClass(item.stage, item.status);
     let isSelected = (typeof currentActiveItem !== 'undefined' && currentActiveItem && currentActiveItem.fdh === item.fdh) ? 'selected' : '';
-    let cityVendor = [item.city, item.vendor].filter(Boolean).join(' · ');
+    let cityVendor = [item.city, normalizeQueueVendorLabel(item.vendor)].filter(Boolean).join(' · ');
 
     return `
        <div class="email-card ${highestSev} ${isSelected}" id="card-${item.fdh}" data-fdh="${item.fdh}" onclick="handleCardClick('${item.fdh}')">
           <div class="em-header">
              <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; flex: 1 1 auto;">
                  <div class="em-fdh" style="flex-shrink: 0;">${item.fdh}</div>
-                 <div class="em-vendor" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cityVendor || 'Unknown City \u00b7 Unknown Vendor'}</div>
+                 <div class="em-vendor" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cityVendor || 'Unknown City \u00b7 Unassigned'}</div>
              </div>
              <div class="em-pill-stack">
                  <span class="glass-pill ${pillCls}" style="flex-shrink: 0;">${combinedPill}</span>
@@ -445,7 +466,7 @@ function renderList(items) {
                 <div class="grid-card-header" style="padding-bottom:6px;">
                     <div>
                         <div style="font-size:14px; font-weight:900; color:var(--text-main);">${item.fdh}</div>
-                        <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${item.vendor}</div>
+                        <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">${normalizeQueueVendorLabel(item.vendor)}</div>
                     </div>
                     <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
                         <span class="glass-pill ${pillCls}" style="font-size:8px; padding:2px 6px;">${combinedPill}</span>
@@ -719,10 +740,11 @@ function openPane(item, cardEl, force) {
 
         setTxt('p-fdh', item.fdh || "N/A");
         let cityDisplay = String(item.city || '').trim();
-        let vendorDisplay = String((item.allVendors && item.allVendors.length > 0) ? item.allVendors.join(" / ") : (item.vendor || '')).trim();
+        let rawVendorDisplay = String((item.allVendors && item.allVendors.length > 0) ? item.allVendors.map(normalizeQueueVendorLabel).join(" / ") : (item.vendor || '')).trim();
+        let vendorDisplay = rawVendorDisplay ? rawVendorDisplay : '';
         if (!cityDisplay && !vendorDisplay) {
             cityDisplay = 'Unknown City';
-            vendorDisplay = 'No Vendor';
+            vendorDisplay = 'Unassigned';
         } else if (!cityDisplay) {
             cityDisplay = vendorDisplay;
             vendorDisplay = '';
@@ -1122,8 +1144,8 @@ function applyFilters() {
         let filterMatch = (item, skipCategory) => {
             let ofsBuckets = getOfsFilterBuckets(item, today);
             let mSev = skipCategory === 'sev' || activeFilters.sev.length === 0 || activeFilters.sev.includes(getSeverity(item.flags));
-            let mVen = skipCategory === 'vendor' || activeFilters.vendor.length === 0 || activeFilters.vendor.includes(item.vendor) ||
-                       (item.allVendors && item.allVendors.some(function(v) { return activeFilters.vendor.includes(v); }));
+            let mVen = skipCategory === 'vendor' || activeFilters.vendor.length === 0 || activeFilters.vendor.includes(normalizeQueueVendorLabel(item.vendor)) ||
+                       (item.allVendors && item.allVendors.some(function(v) { return activeFilters.vendor.includes(normalizeQueueVendorLabel(v)); }));
             let mCit = skipCategory === 'city' || activeFilters.city.length === 0 || activeFilters.city.includes(item.city);
             let mOfs = skipCategory === 'ofs' || activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
             let mStatus = skipCategory === 'status' || activeFilters.status.length === 0 || activeFilters.status.includes(item.status || '');
@@ -1131,7 +1153,7 @@ function applyFilters() {
         };
 
         let validSev = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'sev')).map(i => getSeverity(i.flags)))];
-        let validVen = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'vendor')).flatMap(i => (i.allVendors && i.allVendors.length > 0) ? i.allVendors : [i.vendor]).filter(Boolean))].sort();
+        let validVen = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'vendor')).flatMap(i => (i.allVendors && i.allVendors.length > 0) ? i.allVendors.map(normalizeQueueVendorLabel) : [normalizeQueueVendorLabel(i.vendor)]).filter(Boolean))].sort(compareQueueVendorSort);
         let validCit = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'city')).map(i => i.city).filter(Boolean))].sort();
         let validStatus = [...new Set(activeQueueItems.filter(i => filterMatch(i, 'status')).map(i => i.status).filter(Boolean))].sort();
         let validOfsSet = new Set();
@@ -1178,8 +1200,8 @@ function applyFilters() {
         let baseFiltered = activeQueueItems.filter(i => {
             let ofsBuckets = getOfsFilterBuckets(i, today);
             let mSev = activeFilters.sev.length === 0 || activeFilters.sev.includes(getSeverity(i.flags));
-            let mVen = activeFilters.vendor.length === 0 || activeFilters.vendor.includes(i.vendor) ||
-                       (i.allVendors && i.allVendors.some(function(v) { return activeFilters.vendor.includes(v); }));
+            let mVen = activeFilters.vendor.length === 0 || activeFilters.vendor.includes(normalizeQueueVendorLabel(i.vendor)) ||
+                       (i.allVendors && i.allVendors.some(function(v) { return activeFilters.vendor.includes(normalizeQueueVendorLabel(v)); }));
             let mCit = activeFilters.city.length === 0 || activeFilters.city.includes(i.city);
             let mOfs = activeFilters.ofs.length === 0 || activeFilters.ofs.some(v => ofsBuckets.includes(v));
             let mStatus = activeFilters.status.length === 0 || activeFilters.status.includes(i.status || '');
@@ -1227,7 +1249,7 @@ function applyFilters() {
 
             let stageName = item.stage || 'Unknown';
             currentFilterStats.stageCounts[stageName] = (currentFilterStats.stageCounts[stageName] || 0) + 1;
-            let vendorName = item.vendor || "Unknown";
+            let vendorName = normalizeQueueVendorLabel(item.vendor);
             currentFilterStats.projectCountByVendor[vendorName] = (currentFilterStats.projectCountByVendor[vendorName] || 0) + 1;
 
             let pieSliceName = getProjectsPieSliceLabel(item);

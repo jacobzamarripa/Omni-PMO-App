@@ -80,6 +80,46 @@
     return String(val == null ? '' : val).trim();
   }
 
+  function _acVendorDisplay(val) {
+    var clean = _acCleanVal(val);
+    if (!clean || /^(unknown|unknown vendor|unassigned vendor|no vendor)$/i.test(clean)) return 'Unassigned';
+    return clean;
+  }
+
+  function _acIsUnassignedVendor(val) {
+    return _acVendorDisplay(val).toLowerCase() === 'unassigned';
+  }
+
+  function _acCompareVendors(a, b) {
+    var av = _acVendorDisplay(a);
+    var bv = _acVendorDisplay(b);
+    var au = _acIsUnassignedVendor(av);
+    var bu = _acIsUnassignedVendor(bv);
+    if (au && !bu) return 1;
+    if (!au && bu) return -1;
+    return av.localeCompare(bv);
+  }
+
+  function _acVendorGroupClass(vendor) {
+    return _acIsUnassignedVendor(vendor) ? ' is-unassigned-vendor' : '';
+  }
+
+  function _acWarningSvgIcon() {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+  }
+
+  function _acVendorAvatarInner(vendor, fallback) {
+    return _acIsUnassignedVendor(vendor) ? _acWarningSvgIcon() : _e(fallback || '');
+  }
+
+  function _acFindItemByFdh(fdh) {
+    return (typeof allActionItems !== 'undefined' ? allActionItems : []).find(function(i){ return i.fdh === fdh; });
+  }
+
+  function _acCanAutoOpenPeek() {
+    return ['crossings','boms','comments','worklog'].indexOf(_acActiveTab) !== -1;
+  }
+
   function _acNormalizeXing(val) {
     var clean = _acCleanVal(val);
     if (!clean || clean === '—') return '';
@@ -204,6 +244,7 @@
       el.classList.toggle('ac-tab-badge-green', key === 'reports' && show);
       el.classList.toggle('ac-tab-badge-warn', (key === 'boms' || key === 'worklog') && val === 'Load');
     });
+    setTimeout(_acUpdateTabPill, 0);
   }
 
   // ── Tab switching ─────────────────────────────────────────
@@ -226,6 +267,19 @@
     _acRenderUniversalFilterBar(tab);
     _acRenderActiveTab();
     _acSyncTabBadges();
+    _acUpdateTabPill();
+  }
+
+  function _acUpdateTabPill() {
+    var trough = document.querySelector('.ac-tab-trough');
+    if (!trough) return;
+    var pill = trough.querySelector('.ac-tab-pill-indicator');
+    var active = trough.querySelector('.ac-tab-btn.active');
+    if (!pill || !active) return;
+    var troughRect = trough.getBoundingClientRect();
+    var activeRect = active.getBoundingClientRect();
+    pill.style.width = activeRect.width + 'px';
+    pill.style.transform = 'translateX(' + (activeRect.left - troughRect.left + trough.scrollLeft) + 'px)';
   }
 
   function _acRenderActiveTab() {
@@ -248,7 +302,7 @@
   }
 
   function _acEnsurePermanentPeek() {
-    if (_acActiveTab === 'reports') return;
+    if (!_acCanAutoOpenPeek()) return;
     var ws = document.getElementById('action-workspace');
     if (!ws || !ws.classList.contains('ws-active')) return;
     if (_acOpenPeekFdh) return;
@@ -586,7 +640,7 @@
     var rows = _acGetBomRows();
     if (_acUniversalFilters.boms === 'diffs')  rows = rows.filter(function(r){ return r.hasDiff; });
     if (_acUniversalFilters.boms === 'clean')  rows = rows.filter(function(r){ return !r.hasDiff; });
-    if (_acBomVendorFilter !== 'ALL') rows = rows.filter(function(r){ return r.vendor === _acBomVendorFilter; });
+    if (_acBomVendorFilter !== 'ALL') rows = rows.filter(function(r){ return _acVendorDisplay(r.vendor) === _acBomVendorFilter; });
     
     if (_acBomCityFilter !== 'ALL') {
         var allItems = typeof allActionItems !== 'undefined' ? allActionItems : [];
@@ -598,7 +652,7 @@
 
     var q = _acUniversalSearchQuery.trim().toLowerCase();
     if (q) rows = rows.filter(function(r){
-      return [r.fdh, r.vendor || ''].join(' ').toLowerCase().indexOf(q) !== -1;
+      return [r.fdh, _acVendorDisplay(r.vendor)].join(' ').toLowerCase().indexOf(q) !== -1;
     });
     return rows;
   }
@@ -609,7 +663,7 @@
     var allItems = typeof allActionItems !== 'undefined' ? allActionItems : [];
 
     rows.forEach(function(r) {
-      var v = r.vendor || 'Unknown Vendor';
+      var v = _acVendorDisplay(r.vendor);
       var activeItem = allItems.find(function(i){ return i.fdh === r.fdh; });
       var c = activeItem ? (activeItem.city || 'Unknown City') : 'Unknown City';
 
@@ -670,12 +724,12 @@
       items = items.filter(function(i){ return _acCommentsEdits[i.fdh] !== undefined; });
     }
     if (_acCommentsVendorFilter !== 'ALL') {
-      items = items.filter(function(i){ return (i.vendor || 'Unassigned') === _acCommentsVendorFilter; });
+      items = items.filter(function(i){ return _acVendorDisplay(i.vendor) === _acCommentsVendorFilter; });
     }
     var q = _acUniversalSearchQuery.trim().toLowerCase();
     if (q) items = items.filter(function(i){
       var edited = _acCommentsEdits[i.fdh] || '';
-      return [i.fdh, i.vendor || '', i.city || '', edited].join(' ').toLowerCase().indexOf(q) !== -1;
+      return [i.fdh, _acVendorDisplay(i.vendor), i.city || '', edited].join(' ').toLowerCase().indexOf(q) !== -1;
     });
     return items;
   }
@@ -699,7 +753,7 @@
       items = items.filter(function(i) {
         var resolved = _acResolveCrossing(i);
         return [
-          i.fdh, i.vendor, i.city, i.stage, i.status,
+          i.fdh, _acVendorDisplay(i.vendor), i.city, i.stage, i.status,
           resolved.xing, resolved.details
         ].join(' ').toLowerCase().indexOf(q) !== -1;
       });
@@ -713,12 +767,12 @@
       items = items.filter(function(i) {
         var resolved = _acResolveCrossing(i);
         return [
-          i.fdh, i.vendor, i.city, i.stage, i.status,
+          i.fdh, _acVendorDisplay(i.vendor), i.city, i.stage, i.status,
           resolved.xing, resolved.details
         ].join(' ').toLowerCase().indexOf(q) !== -1;
       });
     }
-    if (_acXingVendorFilter) items = items.filter(function(i) { return (i.vendor || '') === _acXingVendorFilter; });
+    if (_acXingVendorFilter) items = items.filter(function(i) { return _acVendorDisplay(i.vendor) === _acXingVendorFilter; });
     if (_acXingCityFilter)   items = items.filter(function(i) { return (i.city   || '') === _acXingCityFilter;   });
     return items;
   }
@@ -736,7 +790,7 @@
   }
 
   function _acXingGroupKey(vendor, city) {
-    return String(vendor || 'Unassigned Vendor') + '::' + String(city || 'No City');
+    return _acVendorDisplay(vendor) + '::' + String(city || 'No City');
   }
 
   function _acToggleXingGroup(key) {
@@ -824,14 +878,14 @@
   function _acBuildXingGroups(items) {
     var groups = {};
     items.forEach(function(item) {
-      var vendor = item.vendor || 'Unassigned Vendor';
+      var vendor = _acVendorDisplay(item.vendor);
       var city = item.city || 'No City';
       if (!groups[vendor]) groups[vendor] = { vendor: vendor, count: 0, cities: {} };
       if (!groups[vendor].cities[city]) groups[vendor].cities[city] = [];
       groups[vendor].cities[city].push(item);
       groups[vendor].count++;
     });
-    return Object.keys(groups).sort().map(function(vendor) {
+    return Object.keys(groups).sort(_acCompareVendors).map(function(vendor) {
       var group = groups[vendor];
       group.cityNames = Object.keys(group.cities).sort();
       return group;
@@ -902,14 +956,14 @@
       if (_acXingGroupCollapsed[vendorKey] === undefined) _acXingGroupCollapsed[vendorKey] = true;
       var vendorCollapsed = _acXingGroupCollapsed[vendorKey] === true;
 
-      html += '<tr class="ac-xing-sep-row ac-xing-sep-vendor">'
+      html += '<tr class="ac-xing-sep-row ac-xing-sep-vendor' + _acVendorGroupClass(group.vendor) + '">'
         + '<td colspan="' + COLS + '">'
         +   '<div class="ac-xing-sep-vendor-inner" onclick="_acToggleXingGridGroup(\'' + _acJs(vendorKey) + '\')">'
         +     '<span class="ac-xing-sep-toggle"></span>'
         +     '<label class="ac-xing-vendor-check" onclick="event.stopPropagation()">'
         +       '<input type="checkbox"' + (vendorChecked ? ' checked' : '') + ' onchange="_acToggleXingVendor(this.checked,\'' + _acJs(group.vendor) + '\')" onclick="event.stopPropagation()">'
         +     '</label>'
-        +     '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>'
+        +     '<div class="queue-group-monogram" style="' + themeStyle + '">' + _acVendorAvatarInner(group.vendor, monogram) + '</div>'
         +     '<span class="ac-xing-sep-vendor-name">' + _e(group.vendor) + '</span>'
         +     '<span class="ac-xing-sep-count ac-xing-sep-pend">' + pendCount + ' Pend</span>'
         +     '<span class="ac-xing-sep-count ac-xing-sep-yes">' + yesCount + ' YES</span>'
@@ -969,7 +1023,7 @@
       + '<td class="ac-td-fdh">'
       +   '<span class="ac-xpr-fdh">' + fdhSafe + '</span>'
       + '</td>'
-      + '<td class="ac-td-vendor">' + _e(item.vendor || '—') + '</td>'
+      + '<td class="ac-td-vendor">' + _e(_acVendorDisplay(item.vendor)) + '</td>'
       + '<td class="ac-td-qb-status"><span class="ac-xsrc-pill ' + (srcCls[src] || 'src-none') + '">' + (srcLabel[src] || '—') + '</span></td>'
       + '<td class="ac-td-xing-sel" onclick="event.stopPropagation();_acFocusCrossingContext(\'' + fdhJs + '\',true)">'
       +   '<select class="' + xSelCls + '" onfocus="_acFocusCrossingContext(\'' + fdhJs + '\',true)" onchange="_acOnXingChange(\'' + fdhJs + '\',this.value)">'
@@ -1131,7 +1185,7 @@
 
     // Apply vendor + city filters
     var items = allItems;
-    if (_acXingVendorFilter) items = items.filter(function(i) { return (i.vendor || '') === _acXingVendorFilter; });
+    if (_acXingVendorFilter) items = items.filter(function(i) { return _acVendorDisplay(i.vendor) === _acXingVendorFilter; });
     if (_acXingCityFilter)   items = items.filter(function(i) { return (i.city   || '') === _acXingCityFilter;   });
 
     _acVisibleXingFdhs = items.map(function(i){ return i.fdh; });
@@ -1140,10 +1194,10 @@
     // Build sorted vendor list for theme index consistency
     var vendorSet = {}, vendorList = [];
     allItems.forEach(function(i) {
-      var v = i.vendor || 'Unassigned';
+      var v = _acVendorDisplay(i.vendor);
       if (!vendorSet[v]) { vendorSet[v] = true; vendorList.push(v); }
     });
-    vendorList.sort();
+    vendorList.sort(_acCompareVendors);
 
     var html = '<input type="file" id="ac-csv-import-input" accept=".xlsx,.csv" style="display:none" onchange="_acOnCsvFileSelected(this)">';
     html += _acRenderVendorFilterChips('crossings', vendorList, _acXingVendorFilter, '_acSetXingVendorFilter');
@@ -1182,9 +1236,11 @@
     if (!vendorList || vendorList.length <= 1) return '';
     var html = '<div class="ac-xing-vendor-chips">';
     html += '<button class="ac-xing-chip-btn' + (!activeFilter ? ' active' : '') + '" onclick="' + onSelectFnName + '(null)">All</button>';
+    vendorList = vendorList.slice().sort(_acCompareVendors);
     vendorList.forEach(function(v) {
-      var active = activeFilter === v;
-      html += '<button class="ac-xing-chip-btn' + (active ? ' active' : '') + '" onclick="' + onSelectFnName + '(\'' + _acJs(v) + '\')">' + _e(v) + '</button>';
+      var label = _acVendorDisplay(v);
+      var active = activeFilter === label;
+      html += '<button class="ac-xing-chip-btn' + (active ? ' active' : '') + _acVendorGroupClass(label) + '" onclick="' + onSelectFnName + '(\'' + _acJs(label) + '\')">' + _e(label) + '</button>';
     });
     html += '</div>';
     return html;
@@ -1233,7 +1289,7 @@
 
   function _acToggleXingVendor(checked, vendor) {
     _acGetFilteredCrossingItems()
-      .filter(function(i) { return (i.vendor || 'Unassigned Vendor') === vendor; })
+      .filter(function(i) { return _acVendorDisplay(i.vendor) === vendor; })
       .forEach(function(i) {
         if (checked) _acXingsSelected.add(i.fdh);
         else _acXingsSelected.delete(i.fdh);
@@ -1491,7 +1547,7 @@
     }
 
     var grouped = _acGetGroupedBomData();
-    var vendors = Object.keys(grouped).sort();
+    var vendors = Object.keys(grouped).sort(_acCompareVendors);
     var rows = _acGetFilteredBomItems();
     var diffCount = rows.filter(function(r) { return r.hasDiff; }).length;
     var allChecked = rows.length > 0 && rows.every(function(r) { return _acBomSelected.has(r.fdh); });
@@ -1553,13 +1609,13 @@
     var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(name) : name.slice(0, 2).toUpperCase();
     var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(name, idx || 0) : '';
 
-    var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor">' +
+    var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor' + _acVendorGroupClass(name) + '">' +
       '<td colspan="11">' +
         '<div class="ac-xing-sep-vendor-inner" onclick="_acToggleBomGroup(\'' + _acJs(key) + '\')">' +
           '<label class="ac-xing-vendor-check" onclick="event.stopPropagation()">' +
             '<input type="checkbox"' + (vendorChecked ? ' checked' : '') + ' onchange="_acToggleBomVendor(this.checked,\'' + _acJs(name) + '\')" onclick="event.stopPropagation()">' +
           '</label>' +
-          '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>' +
+          '<div class="queue-group-monogram" style="' + themeStyle + '">' + _acVendorAvatarInner(name, monogram) + '</div>' +
           '<span class="ac-xing-sep-vendor-name">' + _e(name) + '</span>' +
           _acRenderBomTotalsInline(data._totals) +
         '</div>' +
@@ -1594,9 +1650,9 @@
         var fdhSafe = _e(fId);
         var isPeekOpen = _acOpenPeekFdh === fId;
 
-        html += '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (r.hasDiff ? ' ac-bom-diff-row' : '') + '" onclick="_acToggleBomRow(\'' + _acJs(fId) + '\');_acOpenPeek(\'' + _acJs(fId) + '\')">' +
-          '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleBomRow(\'' + _acJs(fId) + '\')">' +
-            '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acToggleBomRow(\'' + _acJs(fId) + '\')" onclick="event.stopPropagation()">' +
+        html += '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (r.hasDiff ? ' ac-bom-diff-row' : '') + (isPeekOpen ? ' is-active-row' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acToggleBomRow(\'' + _acJs(fId) + '\');_acOpenPeek(\'' + _acJs(fId) + '\')">' +
+          '<td class="ac-td-check" onclick="event.stopPropagation();_acOpenPeek(\'' + _acJs(fId) + '\');_acToggleBomRow(\'' + _acJs(fId) + '\')">' +
+            '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acOpenPeek(\'' + _acJs(fId) + '\');_acToggleBomRow(\'' + _acJs(fId) + '\')" onclick="event.stopPropagation()">' +
           '</td>' +
           '<td class="ac-td-fdh" style="padding-left:60px !important;"><span class="ac-fdh">' + fdhSafe + '</span></td>' +
           _acBomCell(r.qbUG,  r.vendorUG)  +
@@ -1604,7 +1660,7 @@
           _acBomCell(r.qbFib, r.vendorFib) +
           _acBomCell(r.qbNAP, r.vendorNAP) +
           '<td class="ac-td-peek" onclick="event.stopPropagation()">' +
-            '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + fdhSafe + '\')" title="Open detail panel">&#8250;</button>' +
+            '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + _acJs(fId) + '\')" title="Open detail panel">&#8250;</button>' +
           '</td>' +
         '</tr>';
       });
@@ -1703,11 +1759,11 @@
     var vendorMap = {};
     var vendorOrder = [];
     items.forEach(function(item) {
-      var v = item.vendor || 'Unassigned';
+      var v = _acVendorDisplay(item.vendor);
       if (!vendorMap[v]) { vendorMap[v] = []; vendorOrder.push(v); }
       vendorMap[v].push(item);
     });
-    vendorOrder.sort();
+    vendorOrder.sort(_acCompareVendors);
 
     var cf = _acCommentsVendorFilter === 'ALL' ? null : _acCommentsVendorFilter;
     var html = _acRenderVendorFilterChips('comments', vendorOrder, cf, '_acSetCommentsVendor');
@@ -1753,13 +1809,13 @@
         var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(vName) : vName.slice(0, 2).toUpperCase();
         var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(vName, vIdx) : '';
 
-        html += '<tr class="ac-xing-sep-row ac-xing-sep-vendor">' +
+        html += '<tr class="ac-xing-sep-row ac-xing-sep-vendor' + _acVendorGroupClass(vName) + '">' +
           '<td colspan="5">' +
             '<div class="ac-xing-sep-vendor-inner" onclick="_acToggleCommentsGroup(\'' + _acJs(vKey) + '\')">' +
               '<label class="ac-xing-vendor-check" onclick="event.stopPropagation()">' +
                 '<input type="checkbox"' + (vendorChecked ? ' checked' : '') + ' onchange="_acToggleCommentVendor(this.checked,\'' + _acJs(vName) + '\')" onclick="event.stopPropagation()">' +
               '</label>' +
-              '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>' +
+              '<div class="queue-group-monogram" style="' + themeStyle + '">' + _acVendorAvatarInner(vName, monogram) + '</div>' +
               '<span class="ac-xing-sep-vendor-name">' + _e(vName) + '</span>' +
               '<span class="ac-xing-sep-count ac-xing-sep-pend">' + vItems.length + ' project' + (vItems.length !== 1 ? 's' : '') + '</span>' +
             '</div>' +
@@ -1776,20 +1832,20 @@
             var isPeekOpen = _acOpenPeekFdh === item.fdh;
 
             html +=
-              '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (isDirty ? ' is-dirty' : '') + '" onclick="_acOpenPeek(\'' + _acJs(item.fdh) + '\')">' +
-              '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleCommentRow(\'' + fdhSafe + '\')">' +
-                '<input type="checkbox" ' + (isSel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="_acToggleCommentRow(\'' + fdhSafe + '\')">' +
+              '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (isDirty ? ' is-dirty' : '') + (isPeekOpen ? ' is-active-row' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acOpenPeek(\'' + _acJs(item.fdh) + '\')">' +
+              '<td class="ac-td-check" onclick="event.stopPropagation();_acOpenPeek(\'' + _acJs(item.fdh) + '\');_acToggleCommentRow(\'' + fdhSafe + '\')">' +
+                '<input type="checkbox" ' + (isSel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="_acOpenPeek(\'' + _acJs(item.fdh) + '\');_acToggleCommentRow(\'' + fdhSafe + '\')">' +
               '</td>' +
               '<td class="ac-td-fdh" style="padding-left:44px !important;"><span class="ac-fdh">' + fdhSafe + '</span></td>' +
               '<td class="ac-td-current-note">' + _e(currentText.length > 60 ? currentText.slice(0, 60) + '…' : currentText) + '</td>' +
-              '<td class="ac-td-comment" onclick="event.stopPropagation()">' +
+              '<td class="ac-td-comment" onclick="event.stopPropagation();_acOpenPeek(\'' + _acJs(item.fdh) + '\')">' +
                 '<textarea class="chat-bubble" ' +
-                  'oninput="_acOnCommentChange(\'' + fdhSafe + '\',this.value);this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
-                  'onfocus="this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
+                  'oninput="_acOpenPeek(\'' + _acJs(item.fdh) + '\');_acOnCommentChange(\'' + fdhSafe + '\',this.value);this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
+                  'onfocus="_acOpenPeek(\'' + _acJs(item.fdh) + '\');this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
                   'placeholder="Enter Omni/Manager comment…">' + _e(edited || '') + '</textarea>' +
               '</td>' +
               '<td class="ac-td-peek" onclick="event.stopPropagation()">' +
-                '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + fdhSafe + '\')" title="Open detail panel">&#8250;</button>' +
+                '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + _acJs(item.fdh) + '\')" title="Open detail panel">&#8250;</button>' +
               '</td>' +
               '</tr>';
           });
@@ -1817,7 +1873,7 @@
 
   function _acToggleCommentVendor(checked, vendorName) {
     _acGetFilteredCommentItems().forEach(function(item) {
-      if ((item.vendor || 'Unassigned') !== vendorName) return;
+      if (_acVendorDisplay(item.vendor) !== vendorName) return;
       if (checked) _acCommentsSelected.add(item.fdh);
       else _acCommentsSelected.delete(item.fdh);
     });
@@ -2000,7 +2056,7 @@
 
   // ── Open Quick Peek ───────────────────────────────────────
   function _acOpenPeek(fdh) {
-    var item = (typeof allActionItems !== 'undefined' ? allActionItems : []).find(function(i){ return i.fdh === fdh; });
+    var item = _acFindItemByFdh(fdh);
     if (!item) return;
     if (typeof openQuickPeek === 'function') openQuickPeek(item, true);
   }
@@ -2024,6 +2080,9 @@
     document.querySelectorAll('.ac-detail-btn[data-fdh]').forEach(function(btn) {
       btn.classList.toggle('is-active', btn.getAttribute('data-fdh') === _acOpenPeekFdh);
     });
+    document.querySelectorAll('.ac-row[data-fdh], .ac-xing-grid-row[data-fdh]').forEach(function(row) {
+      row.classList.toggle('is-active-row', row.getAttribute('data-fdh') === _acOpenPeekFdh);
+    });
   }
 
   window._acOnPeekOpen = function(fdh) {
@@ -2044,8 +2103,8 @@
         var items = _acGetActiveItems();
         return items.map(function(i) {
           var resolved = _acResolveCrossing(i);
-          return [i.fdh, i.vendor || '', resolved.xing || '—', resolved.details || ''];
-        });
+          return [i.fdh, _acVendorDisplay(i.vendor), resolved.xing || '—', resolved.details || ''];
+        }).sort(function(a, b) { return _acCompareVendors(a[1], b[1]) || String(a[0]).localeCompare(String(b[0])); });
       }
     },
     { key: 'boms', label: 'BOM Comparison', dot: '#3b82f6',
@@ -2053,9 +2112,9 @@
       load: function() {
         if (!_acBomData) return null;
         return _acGetBomRows().map(function(r) {
-          return [r.fdh, r.vendor||'', r.qbUG||'', r.vendorUG||'', r.qbAE||'', r.vendorAE||'',
+          return [r.fdh, _acVendorDisplay(r.vendor), r.qbUG||'', r.vendorUG||'', r.qbAE||'', r.vendorAE||'',
                   r.qbFib||'', r.vendorFib||'', r.qbNAP||'', r.vendorNAP||'', r.hasDiff ? 'YES' : ''];
-        });
+        }).sort(function(a, b) { return _acCompareVendors(a[1], b[1]) || String(a[0]).localeCompare(String(b[0])); });
       }
     },
     { key: 'comments', label: 'Manager Notes', dot: '#a855f7',
@@ -2064,8 +2123,8 @@
         var items = _acGetActiveItems();
         return items.map(function(i) {
           var note = (typeof _acLoadNote === 'function') ? _acLoadNote(i.fdh) : null;
-          return [i.fdh, i.vendor || '', note ? note.text : ''];
-        });
+          return [i.fdh, _acVendorDisplay(i.vendor), note ? note.text : ''];
+        }).sort(function(a, b) { return _acCompareVendors(a[1], b[1]) || String(a[0]).localeCompare(String(b[0])); });
       }
     }
   ];
@@ -2091,11 +2150,16 @@
     } else if (!rows || rows.length === 0) {
       previewHtml = '<div class="ac-reports-loading"><span>No data to preview</span></div>';
     } else {
-      var thHtml = def.cols.map(function(c){ return '<th>' + _e(c) + '</th>'; }).join('');
+      var thHtml = def.cols.map(function(c){ return '<th>' + _e(c) + '</th>'; }).join('') + '<th class="ac-th-peek"></th>';
       var tbodyHtml = rows.slice(0, 200).map(function(row) {
-        return '<tr class="ac-row">' + row.map(function(v){ return '<td>' + _e(v == null ? '' : String(v)) + '</td>'; }).join('') + '</tr>';
+        var fdh = row[0] || '';
+        var isPeekOpen = _acOpenPeekFdh === fdh;
+        return '<tr class="ac-row ac-report-preview-row' + (isPeekOpen ? ' is-active-row' : '') + '" data-fdh="' + _e(fdh) + '" onclick="_acReportsSyncPeek(\'' + _acJs(fdh) + '\',false)">' +
+          row.map(function(v){ return '<td>' + _e(v == null ? '' : String(v)) + '</td>'; }).join('') +
+          '<td class="ac-td-peek" onclick="event.stopPropagation()"><button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + _e(fdh) + '" onclick="_acReportsSyncPeek(\'' + _acJs(fdh) + '\',true)" title="Open detail panel">&#8250;</button></td>' +
+        '</tr>';
       }).join('');
-      var moreRow = rows.length > 200 ? '<tr><td colspan="' + def.cols.length + '" class="ac-more-row">Showing 200 of ' + rows.length + ' rows — export for full dataset</td></tr>' : '';
+      var moreRow = rows.length > 200 ? '<tr><td colspan="' + (def.cols.length + 1) + '" class="ac-more-row">Showing 200 of ' + rows.length + ' rows — export for full dataset</td></tr>' : '';
       previewHtml = '<div class="ac-reports-preview-table-wrap"><table class="ac-table"><thead><tr>' + thHtml + '</tr></thead><tbody>' + tbodyHtml + moreRow + '</tbody></table></div>';
     }
 
@@ -2133,6 +2197,11 @@
     _acSyncTabBadges();
   }
 
+  function _acReportsSyncPeek(fdh, explicitOpen) {
+    if (!fdh) return;
+    if (explicitOpen || _acOpenPeekFdh) _acOpenPeek(fdh);
+  }
+
   function _acReportsExport(key) {
     if (key === 'crossings') _acExportCrossingsXLSX();
     else if (key === 'boms') _acExportBOMCSV();
@@ -2166,9 +2235,31 @@
   function _acGetWorkLogVendors() {
     var vendors = new Set();
     (typeof allActionItems !== 'undefined' ? allActionItems : []).forEach(function(i) {
-      if (i.vendor) vendors.add(i.vendor);
+      vendors.add(_acVendorDisplay(i.vendor));
     });
-    return Array.from(vendors).sort();
+    return Array.from(vendors).sort(_acCompareVendors);
+  }
+
+  function _acNormalizeWorkLogData(data) {
+    var normalized = {};
+    Object.keys(data || {}).forEach(function(vName) {
+      var displayName = _acVendorDisplay(vName);
+      if (!normalized[displayName]) normalized[displayName] = data[vName];
+      else {
+        Object.keys(data[vName]._cities || {}).forEach(function(cName) {
+          normalized[displayName]._cities[cName] = data[vName]._cities[cName];
+        });
+        _acAccumulateWorkLogGroupTotals(normalized[displayName]._totals, data[vName]._totals);
+      }
+    });
+    return normalized;
+  }
+
+  function _acAccumulateWorkLogGroupTotals(target, src) {
+    if (!target || !src) return;
+    ['ug','ae','fib','nap','ugDiff','aeDiff','fibDiff','napDiff'].forEach(function(k) {
+      target[k] = (target[k] || 0) + (src[k] || 0);
+    });
   }
 
   function _acLoadWorkLogData() {
@@ -2180,7 +2271,7 @@
 
     google.script.run
       .withSuccessHandler(function(data) {
-        _acWorkLogData = data;
+        _acWorkLogData = _acNormalizeWorkLogData(data);
         _acWorkLogLoading = false;
         _acRenderUniversalFilterBar('worklog');
         _acRenderWorkLogTab();
@@ -2223,7 +2314,7 @@
       return;
     }
 
-    var vendors = Object.keys(_acWorkLogData).sort();
+    var vendors = Object.keys(_acWorkLogData).sort(_acCompareVendors);
     var discCount = 0;
     var totalDays = 0;
     vendors.forEach(function(v){
@@ -2298,13 +2389,13 @@
     var monogram = (typeof getVendorMonogram === 'function') ? getVendorMonogram(name) : name.slice(0, 2).toUpperCase();
     var themeStyle = (typeof getVendorThemeStyle === 'function') ? getVendorThemeStyle(name, idx || 0) : '';
 
-    var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
+    var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor' + _acVendorGroupClass(name) + '" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
       '<td colspan="12">' +
         '<div class="ac-xing-sep-vendor-inner">' +
           '<label class="ac-xing-vendor-check" onclick="event.stopPropagation()">' +
             '<input type="checkbox"' + (vendorChecked ? ' checked' : '') + ' onchange="_acToggleWorkLogVendor(this.checked,\'' + _acJs(name) + '\')" onclick="event.stopPropagation()">' +
           '</label>' +
-          '<div class="queue-group-monogram" style="' + themeStyle + '">' + _e(monogram) + '</div>' +
+          '<div class="queue-group-monogram" style="' + themeStyle + '">' + _acVendorAvatarInner(name, monogram) + '</div>' +
           '<span class="ac-xing-sep-vendor-name">' + _e(name) + '</span>' +
           _acRenderAuditTotalsInline(data._totals) +
         '</div>' +
@@ -2364,9 +2455,10 @@
         if (wlFilter === 'discrepancies' && !hasDiff) return;
         if (wlFilter === 'selected' && !isSel) return;
 
-        html += '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (hasDiff ? ' ac-bom-diff-row' : '') + '" onclick="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\');_acOpenPeek(\'' + _acJs(id) + '\')">' +
-          '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')">' +
-            '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')" onclick="event.stopPropagation()">' +
+        var isPeekOpen = _acOpenPeekFdh === id;
+        html += '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (hasDiff ? ' ac-bom-diff-row' : '') + (isPeekOpen ? ' is-active-row' : '') + '" data-fdh="' + _e(id) + '" onclick="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\');_acOpenPeek(\'' + _acJs(id) + '\')">' +
+          '<td class="ac-td-check" onclick="event.stopPropagation();_acOpenPeek(\'' + _acJs(id) + '\');_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')">' +
+            '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acOpenPeek(\'' + _acJs(id) + '\');_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')" onclick="event.stopPropagation()">' +
           '</td>' +
           '<td class="ac-td-date" style="padding-left:64px !important;">' + _acFormatDateShort(date) + '</td>' +
           _acWorkLogMetricPair(pair.diff, 'ug') +
@@ -2377,7 +2469,7 @@
             _e((pair.archive && pair.archive["Construction Comments"]) || (pair.qb && pair.qb["Construction Comments"]) || '') + 
           '</td>' +
           '<td class="ac-td-peek" onclick="event.stopPropagation()">' +
-            '<button class="ac-detail-btn" onclick="_acTogglePeek(\'' + _acJs(id) + '\')" title="Open detail panel">&#8250;</button>' +
+            '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + _e(id) + '" onclick="_acTogglePeek(\'' + _acJs(id) + '\')" title="Open detail panel">&#8250;</button>' +
           '</td>' +
         '</tr>';
       });
@@ -2392,9 +2484,10 @@
   function _acRenderWorkLogReconcileRow(pair, vName, cName, id) {
     var rowKey = vName + '::' + cName + '::' + id + '::RECONCILE';
     var isSel = _acWorkLogSelected.has(rowKey);
-    return '<tr class="ac-row ac-audit-reconcile-row' + (isSel ? ' is-selected' : '') + '" onclick="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\');_acOpenPeek(\'' + _acJs(id) + '\')">' +
-      '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')">' +
-        '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')" onclick="event.stopPropagation()">' +
+    var isPeekOpen = _acOpenPeekFdh === id;
+    return '<tr class="ac-row ac-audit-reconcile-row' + (isSel ? ' is-selected' : '') + (isPeekOpen ? ' is-active-row' : '') + '" data-fdh="' + _e(id) + '" onclick="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\');_acOpenPeek(\'' + _acJs(id) + '\')">' +
+      '<td class="ac-td-check" onclick="event.stopPropagation();_acOpenPeek(\'' + _acJs(id) + '\');_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')">' +
+        '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acOpenPeek(\'' + _acJs(id) + '\');_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')" onclick="event.stopPropagation()">' +
       '</td>' +
       '<td class="ac-td-date" style="padding-left:64px !important; font-weight:800; color:var(--accent);">RECONCILE</td>' +
       _acWorkLogMetricPair(pair.diff, 'ug') +
@@ -2405,7 +2498,7 @@
         _e(pair.archive["Construction Comments"] || '') + 
       '</td>' +
       '<td class="ac-td-peek" onclick="event.stopPropagation()">' +
-        '<button class="ac-detail-btn" onclick="_acTogglePeek(\'' + _acJs(id) + '\')" title="Open detail panel">&#8250;</button>' +
+        '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + _e(id) + '" onclick="_acTogglePeek(\'' + _acJs(id) + '\')" title="Open detail panel">&#8250;</button>' +
       '</td>' +
     '</tr>';
   }
@@ -2614,7 +2707,10 @@
     _acRenderUniversalFilterBar(_acActiveTab);
     _acSwitchTab(_acActiveTab);
     _acSyncTabBadges();
+    _acUpdateTabPill();
   }
+
+  window.addEventListener('resize', _acUpdateTabPill);
 
   // ── Global exports ────────────────────────────────────────
   window._renderActionCenter           = _renderActionCenter;
@@ -2683,6 +2779,7 @@
   window._acRenderReportsTab      = _acRenderReportsTab;
   window._acReportsSwitchView     = _acReportsSwitchView;
   window._acReportsExport         = _acReportsExport;
+  window._acReportsSyncPeek       = _acReportsSyncPeek;
 
 })();
 </script>
