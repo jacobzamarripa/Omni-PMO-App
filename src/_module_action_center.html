@@ -30,6 +30,7 @@
   var _acWorkLogDates    = { start: '', end: '' };
   var _acWorkLogVendorFilter = 'ALL';
   var _acWorkLogCollapsed = {}; // { groupKey: boolean }
+  var _acWorkLogSelected  = new Set(); // { vendor::city::fdh::date }
 
   // ── Universal filter bar state ────────────────────────────
   var _acUniversalSearchQuery = '';
@@ -1855,52 +1856,62 @@
 
     var vendors = Object.keys(_acWorkLogData).sort();
     var discCount = 0;
+    var totalDays = 0;
     vendors.forEach(function(v){
       Object.keys(_acWorkLogData[v]._cities).forEach(function(c){
         Object.keys(_acWorkLogData[v]._cities[c]._fdhs).forEach(function(f){
           Object.keys(_acWorkLogData[v]._cities[c]._fdhs[f]._dates).forEach(function(d){
+            totalDays++;
             if (_acWorkLogData[v]._cities[c]._fdhs[f]._dates[d].diff.hasDiscrepancy) discCount++;
           });
         });
       });
     });
 
+    var allChecked = totalDays > 0 && _acWorkLogSelected.size >= totalDays;
+
     var html =
       _acRenderTabKpi('worklog') +
       '<div class="ac-toolbar">' +
         '<div class="ac-toolbar-left">' +
-          '<span class="ac-result-count">' + vendors.length + ' vendors' +
+          '<span class="ac-result-count">' + vendors.length + ' vendors · ' + totalDays + ' record-days' +
             (discCount > 0 ? ' · <span style="color:#ef4444">' + discCount + ' discrepancies</span>' : '') +
+            (_acWorkLogSelected.size > 0 ? ' · <span style="color:var(--accent)">' + _acWorkLogSelected.size + ' selected</span>' : '') +
           '</span>' +
         '</div>' +
         '<div class="ac-toolbar-right">' +
-          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportWorkLog()">Export Audit</button>' +
+          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportWorkLog()">' + (_acWorkLogSelected.size > 0 ? 'Export Selected' : 'Export All') + '</button>' +
           '<button class="ac-bulk-action-btn" onclick="_acLoadWorkLogData()" style="opacity:0.6;">Refresh</button>' +
         '</div>' +
       '</div>' +
-      '<div class="ac-worklog-wrap">' +
-        '<div class="ac-table-wrap">' +
+      '<div class="ac-table-wrap">' +
           '<table class="ac-table ac-table-worklog ac-table-workspace">' +
             '<thead><tr>' +
-              '<th>FDH / Date</th><th>Metric</th>' +
-              '<th class="ac-bom-pair-hd" colspan="2">Comparison (ft/units)</th>' +
-              '<th class="ac-th-delta">Delta</th>' +
+              '<th rowspan="2" class="ac-th-check"><input type="checkbox" ' + (allChecked ? 'checked' : '') + ' onchange="_acToggleAllWorkLogRows(this.checked)"></th>' +
+              '<th rowspan="2">FDH / Date</th>' +
+              '<th class="ac-bom-pair-hd" colspan="2">UG (ft)</th>' +
+              '<th class="ac-bom-pair-hd" colspan="2">Strand (ft)</th>' +
+              '<th class="ac-bom-pair-hd" colspan="2">Fiber (ft)</th>' +
+              '<th class="ac-bom-pair-hd" colspan="2">NAPs</th>' +
+              '<th rowspan="2" class="ac-th-comment">Comments</th>' +
+              '<th rowspan="2" class="ac-th-peek"></th>' +
             '</tr>' +
             '<tr class="ac-bom-sub-hd">' +
-              '<th></th><th></th>' +
-              '<th>Archive</th><th>QuickBase</th>' +
-              '<th></th>' +
+              '<th>Archive</th><th>QB</th>' +
+              '<th>Archive</th><th>QB</th>' +
+              '<th>Archive</th><th>QB</th>' +
+              '<th>Archive</th><th>QB</th>' +
             '</tr></thead><tbody>';
 
     if (vendors.length === 0) {
-      html += '<tr><td colspan="5" class="ac-empty-cell">No records found for the selected range.</td></tr>';
+      html += '<tr><td colspan="12" class="ac-empty-cell">No records found for the selected range.</td></tr>';
     } else {
       vendors.forEach(function(vName) {
         html += _acRenderWorkLogVendor(vName, _acWorkLogData[vName]);
       });
     }
 
-    html += '</tbody></table></div></div>';
+    html += '</tbody></table></div>';
     container.innerHTML = html;
   }
 
@@ -1910,11 +1921,11 @@
     var cities = Object.keys(data._cities).sort();
     
     var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
-      '<td colspan="5">' +
+      '<td colspan="12">' +
         '<div class="ac-xing-sep-vendor-inner">' +
           '<span class="ac-xing-sep-toggle' + (!isCollapsed ? ' open' : '') + '"></span>' +
           '<span class="ac-xing-sep-vendor-name">' + _e(name) + '</span>' +
-          _acRenderAuditTotals(data._totals) +
+          _acRenderAuditTotalsInline(data._totals) +
         '</div>' +
       '</td></tr>';
 
@@ -1932,11 +1943,11 @@
     var fdhs = Object.keys(data._fdhs).sort();
 
     var html = '<tr class="ac-xing-sep-row ac-xing-sep-city" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
-      '<td colspan="5">' +
-        '<div class="ac-xing-sep-city-inner">' +
+      '<td colspan="12">' +
+        '<div class="ac-xing-sep-city-inner" style="padding-left:40px;">' +
           '<span class="ac-xing-sep-toggle' + (!isCollapsed ? ' open' : '') + '"></span>' +
           '<span class="ac-xing-sep-city-name">' + _e(name) + '</span>' +
-          _acRenderAuditTotals(data._totals) +
+          _acRenderAuditTotalsInline(data._totals) +
         '</div>' +
       '</td></tr>';
 
@@ -1950,94 +1961,77 @@
 
   function _acRenderWorkLogFdh(id, data, vName, cName) {
     var key = 'f::' + vName + '::' + cName + '::' + id;
-    var isCollapsed = _acWorkLogCollapsed[key] !== false; 
+    var isCollapsed = _acWorkLogCollapsed[key] === true; 
     var dates = Object.keys(data._dates).sort().reverse();
 
     var html = '<tr class="ac-row ac-audit-fdh-row' + (isCollapsed ? ' collapsed' : '') + '" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
-      '<td class="ac-td-fdh" style="padding-left:70px !important;">' +
+      '<td colspan="2" class="ac-td-fdh" style="padding-left:60px !important; font-weight:800; color:var(--text-main);">' +
         '<span class="ac-xing-sep-toggle' + (!isCollapsed ? ' open' : '') + '" style="margin-right:8px;"></span>' +
         '<span class="ac-fdh">' + _e(id) + '</span>' +
       '</td>' +
-      '<td colspan="4">' + _acRenderAuditTotals(data._totals) + '</td>' +
+      '<td colspan="10">' + _acRenderAuditTotalsInline(data._totals) + '</td>' +
     '</tr>';
 
     if (!isCollapsed) {
-      dates.forEach(function(d) {
-        html += _acRenderWorkLogDateRows(d, data._dates[d]);
+      dates.forEach(function(date) {
+        var pair = data._dates[date];
+        var rowKey = vName + '::' + cName + '::' + id + '::' + date;
+        var isSel = _acWorkLogSelected.has(rowKey);
+        var hasDiff = pair.diff.hasDiscrepancy;
+
+        html += '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (hasDiff ? ' ac-bom-diff-row' : '') + '" onclick="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')">' +
+          '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')">' +
+            '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acToggleWorkLogRow(\'' + _acJs(rowKey) + '\')" onclick="event.stopPropagation()">' +
+          '</td>' +
+          '<td class="ac-td-date" style="padding-left:80px !important;">' + _acFormatDateShort(date) + '</td>' +
+          _acWorkLogMetricPair(pair.diff, 'ug') +
+          _acWorkLogMetricPair(pair.diff, 'ae') +
+          _acWorkLogMetricPair(pair.diff, 'fib') +
+          _acWorkLogMetricPair(pair.diff, 'nap') +
+          '<td class="ac-td-comment" style="font-size:11px; color:var(--text-muted); font-style:italic;">' + 
+            _e((pair.archive && pair.archive["Construction Comments"]) || (pair.qb && pair.qb["Construction Comments"]) || '') + 
+          '</td>' +
+          '<td class="ac-td-peek" onclick="event.stopPropagation()">' +
+            '<button class="ac-detail-btn" onclick="_acTogglePeek(\'' + _acJs(id) + '\')" title="Open detail panel">&#8250;</button>' +
+          '</td>' +
+        '</tr>';
       });
     }
     return html;
   }
 
-  function _acRenderWorkLogDateRows(date, pair) {
+  function _acWorkLogMetricPair(diff, key) {
+    var aVal = diff.archive[key];
+    var qVal = diff.qb[key];
+    var isDiff = aVal !== qVal;
+    var cls = isDiff ? ' ac-bom-diff' : '';
+    return '<td class="ac-bom-val' + cls + '">' + (aVal > 0 ? aVal.toLocaleString() : '—') + '</td>' +
+           '<td class="ac-bom-val ac-bom-vendor' + cls + '">' + (qVal > 0 ? qVal.toLocaleString() : '—') + '</td>';
+  }
+
+  function _acRenderAuditTotalsInline(totals) {
     var metrics = [
-      { label: 'UG Footage', key: 'ug' },
-      { label: 'Strand Footage', key: 'ae' },
-      { label: 'Fiber Footage', key: 'fib' },
-      { label: 'NAPs/Encl', key: 'nap' }
+      { l: 'UG', v: totals.ug, d: totals.ugDiff },
+      { l: 'ST', v: totals.ae, d: totals.aeDiff },
+      { l: 'FB', v: totals.fib, d: totals.fibDiff },
+      { l: 'NP', v: totals.nap, d: totals.napDiff }
     ];
-
-    var rows = '';
-    var filter = _acUniversalFilters.worklog;
-    if (filter === 'discrepancies' && !pair.diff.hasDiscrepancy) return '';
-
-    metrics.forEach(function(m, idx) {
-      var aVal = pair.diff.archive[m.key];
-      var qVal = pair.diff.qb[m.key];
-      var delta = pair.diff.delta[m.key];
-      var hasDiff = aVal !== qVal;
-
-      rows += '<tr class="ac-audit-day-row' + (hasDiff ? ' ac-bom-diff-row' : '') + '">' +
-        (idx === 0 ? '<td rowspan="' + (metrics.length + (pair.archive && pair.archive["Construction Comments"] ? 1 : 0)) + '" class="ac-td-date" style="padding-left:90px !important; font-weight:800; color:var(--text-muted);">' + _acFormatDateShort(date) + '</td>' : '') +
-        '<td style="font-size:10px; text-transform:uppercase; font-weight:700; color:var(--text-muted);">' + m.label + '</td>' +
-        '<td class="ac-bom-val">' + (aVal > 0 ? aVal.toLocaleString() : '—') + '</td>' +
-        '<td class="ac-bom-val ac-bom-vendor">' + (qVal > 0 ? qVal.toLocaleString() : '—') + '</td>' +
-        '<td class="ac-td-delta ' + (delta !== 0 ? (delta > 0 ? 'text-pos' : 'text-neg') : '') + '" style="font-weight:900; font-variant-numeric:tabular-nums;">' + 
-        (delta > 0 ? '+' : '') + (delta !== 0 ? delta.toLocaleString() : '—') + '</td>' +
-        '</tr>';
-    });
-    
-    var comment = (pair.archive && pair.archive["Construction Comments"]) || (pair.qb && pair.qb["Construction Comments"]);
-    if (comment) {
-        rows += '<tr class="ac-audit-comment-row"><td style="font-size:9px; text-transform:uppercase; font-weight:800; color:var(--accent);">Comment</td>' +
-                '<td colspan="3" class="ac-audit-comment-cell" style="font-size:11px; font-style:italic; color:var(--text-muted);">' + _e(comment) + '</td></tr>';
-    }
-
-    return rows;
-  }
-
-  function _acRenderAuditTotals(totals) {
-    return '<div class="ac-audit-totals-strip">' +
-      '<span class="ac-total-item" title="UG Footage">UG: ' + totals.ug.toLocaleString() + (totals.ugDiff !== 0 ? ' <b class="' + (totals.ugDiff > 0 ? 'text-pos' : 'text-neg') + '">' + (totals.ugDiff > 0 ? '+' : '') + totals.ugDiff.toLocaleString() + '</b>' : '') + '</span>' +
-      '<span class="ac-total-item" title="Strand Footage">ST: ' + totals.ae.toLocaleString() + (totals.aeDiff !== 0 ? ' <b class="' + (totals.aeDiff > 0 ? 'text-pos' : 'text-neg') + '">' + (totals.aeDiff > 0 ? '+' : '') + totals.aeDiff.toLocaleString() + '</b>' : '') + '</span>' +
-      '<span class="ac-total-item" title="Fiber Footage">FB: ' + totals.fib.toLocaleString() + (totals.fibDiff !== 0 ? ' <b class="' + (totals.fibDiff > 0 ? 'text-pos' : 'text-neg') + '">' + (totals.fibDiff > 0 ? '+' : '') + totals.fibDiff.toLocaleString() + '</b>' : '') + '</span>' +
-      '<span class="ac-total-item" title="NAPs/Encl">NP: ' + totals.nap.toLocaleString() + (totals.napDiff !== 0 ? ' <b class="' + (totals.napDiff > 0 ? 'text-pos' : 'text-neg') + '">' + (totals.napDiff > 0 ? '+' : '') + totals.napDiff.toLocaleString() + '</b>' : '') + '</span>' +
+    return '<div class="ac-audit-totals-strip" style="justify-content:flex-start; margin-left:20px; opacity:0.7;">' +
+      metrics.map(function(m) {
+        var delta = m.d !== 0 ? ' <b class="' + (m.d > 0 ? 'text-pos' : 'text-neg') + '">' + (m.d > 0 ? '+' : '') + m.d.toLocaleString() + '</b>' : '';
+        return '<span class="ac-total-item" style="font-size:10px;">' + m.l + ': ' + m.v.toLocaleString() + delta + '</span>';
+      }).join('') +
       '</div>';
-  }
-
-  function _acRenderWorkLogGlobalTotals() {
-    var g = { ug: 0, ae: 0, fib: 0, nap: 0, ugDiff: 0, aeDiff: 0, fibDiff: 0, napDiff: 0 };
-    Object.keys(_acWorkLogData).forEach(function(v) {
-        var vt = _acWorkLogData[v]._totals;
-        g.ug += vt.ug; g.ae += vt.ae; g.fib += vt.fib; g.nap += vt.nap;
-        g.ugDiff += vt.ugDiff; g.aeDiff += vt.aeDiff; g.fibDiff += vt.fibDiff; g.napDiff += vt.napDiff;
-    });
-
-    return '<div class="ac-audit-global-footer">' +
-      '<div class="ac-global-totals-label">GRAND TOTALS</div>' +
-      _acRenderAuditTotals(g) +
-      '<button class="ac-audit-export-btn" onclick="_acExportWorkLog()">Export Audit Sheet</button>' +
-      '</div>';
-  }
-
-  function _acToggleWorkLogGroup(key) {
-    _acWorkLogCollapsed[key] = !_acWorkLogCollapsed[key];
-    _acRenderWorkLogTab();
   }
 
   function _acFormatDateShort(iso) {
     var p = iso.split('-');
     return p[1] + '/' + p[2] + '/' + p[0].slice(2);
+  }
+
+  function _acToggleWorkLogGroup(key) {
+    _acWorkLogCollapsed[key] = !_acWorkLogCollapsed[key];
+    _acRenderWorkLogTab();
   }
 
   function _acExportWorkLog() {
@@ -2051,7 +2045,76 @@
         .withFailureHandler(function(err) {
             if (typeof showNotification === 'function') showNotification('Export failed: ' + err.message, 'error');
         })
-        .exportWorkLogAuditToSheet(_acWorkLogData, _acWorkLogDates.start, _acWorkLogDates.end);
+        .exportWorkLogAuditToSheet(_acGetSelectedWorkLogData(), _acWorkLogDates.start, _acWorkLogDates.end);
+  }
+
+  function _acGetSelectedWorkLogData() {
+    if (!_acWorkLogData) return {};
+    if (_acWorkLogSelected.size === 0) return _acWorkLogData; // Fallback to all if none selected
+
+    var subset = {};
+    Object.keys(_acWorkLogData).forEach(function(vName) {
+      var vData = _acWorkLogData[vName];
+      Object.keys(vData._cities).forEach(function(cName) {
+        var cData = vData._cities[cName];
+        Object.keys(cData._fdhs).forEach(function(fId) {
+          var fData = cData._fdhs[fId];
+          Object.keys(fData._dates).forEach(function(date) {
+            var key = vName + '::' + cName + '::' + fId + '::' + date;
+            if (_acWorkLogSelected.has(key)) {
+              if (!subset[vName]) subset[vName] = { _totals: _acEmptyAuditTotals(), _cities: {} };
+              if (!subset[vName]._cities[cName]) subset[vName]._cities[cName] = { _totals: _acEmptyAuditTotals(), _fdhs: {} };
+              if (!subset[vName]._cities[cName]._fdhs[fId]) subset[vName]._cities[cName]._fdhs[fId] = { _totals: _acEmptyAuditTotals(), _dates: {} };
+              
+              var pair = fData._dates[date];
+              subset[vName]._cities[cName]._fdhs[fId]._dates[date] = pair;
+              
+              _acAccumulateAuditTotals(subset[vName]._cities[cName]._fdhs[fId]._totals, pair.diff);
+              _acAccumulateAuditTotals(subset[vName]._cities[cName]._totals, pair.diff);
+              _acAccumulateAuditTotals(subset[vName]._totals, pair.diff);
+            }
+          });
+        });
+      });
+    });
+    return subset;
+  }
+
+  function _acEmptyAuditTotals() {
+    return { ug: 0, ae: 0, fib: 0, nap: 0, ugDiff: 0, aeDiff: 0, fibDiff: 0, napDiff: 0 };
+  }
+
+  function _acAccumulateAuditTotals(totalObj, diff) {
+    totalObj.ug += diff.archive.ug;
+    totalObj.ae += diff.archive.ae;
+    totalObj.fib += diff.archive.fib;
+    totalObj.nap += diff.archive.nap;
+    totalObj.ugDiff += diff.delta.ug;
+    totalObj.aeDiff += diff.delta.ae;
+    totalObj.fibDiff += diff.delta.fib;
+    totalObj.napDiff += diff.delta.nap;
+  }
+
+  function _acToggleWorkLogRow(key) {
+    if (_acWorkLogSelected.has(key)) _acWorkLogSelected.delete(key);
+    else _acWorkLogSelected.add(key);
+    _acRenderWorkLogTab();
+  }
+
+  function _acToggleAllWorkLogRows(checked) {
+    _acWorkLogSelected.clear();
+    if (checked && _acWorkLogData) {
+      Object.keys(_acWorkLogData).forEach(function(vName) {
+        Object.keys(_acWorkLogData[vName]._cities).forEach(function(cName) {
+          Object.keys(_acWorkLogData[vName]._cities[cName]._fdhs).forEach(function(fId) {
+            Object.keys(_acWorkLogData[vName]._cities[cName]._fdhs[fId]._dates).forEach(function(date) {
+              _acWorkLogSelected.add(vName + '::' + cName + '::' + fId + '::' + date);
+            });
+          });
+        });
+      });
+    }
+    _acRenderWorkLogTab();
   }
 
   // ── Modal helper ──────────────────────────────────────────

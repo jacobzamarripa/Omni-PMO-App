@@ -2122,81 +2122,62 @@ body.dark-mode .ac-table thead { background: color-mix(in srgb, var(--card-bg) 9
   min-height: 0;
   padding: 0;
   overflow-y: auto;
-  background: var(--bg-main);
-}
-
-.ac-audit-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.ac-audit-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
   background: var(--card-bg);
-  cursor: pointer;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.15s;
-  user-select: none;
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
-.ac-audit-header:hover {
-  background: color-mix(in srgb, var(--accent) 5%, var(--card-bg));
+.ac-table-worklog {
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-.ac-audit-vendor-header {
-  background: color-mix(in srgb, #f59e0b 8%, var(--card-bg));
-  top: 0;
+.ac-table-worklog th, .ac-table-worklog td {
+  white-space: nowrap;
 }
 
-.ac-audit-city-header {
-  background: color-mix(in srgb, #3b82f6 5%, var(--card-bg));
-  padding-left: 40px;
-  top: 45px; /* below vendor header */
+.ac-table-worklog .ac-td-fdh {
+  width: 140px;
+  min-width: 140px;
 }
 
-.ac-audit-fdh-header {
-  background: var(--card-bg);
-  padding-left: 60px;
-  top: 90px; /* below city header */
-}
-
-.ac-audit-toggle {
-  display: inline-flex;
-  width: 16px;
-  height: 16px;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s;
-}
-
-.ac-audit-toggle::before {
-  content: '▼';
-  font-size: 10px;
-  opacity: 0.5;
-}
-
-.collapsed .ac-audit-toggle {
-  transform: rotate(-90deg);
-}
-
-.ac-audit-title {
+.ac-table-worklog .ac-td-date {
+  width: 100px;
+  min-width: 100px;
+  color: var(--text-muted);
   font-weight: 800;
-  font-size: 13px;
-  color: var(--text-main);
-  min-width: 150px;
+  font-size: 11px;
+}
+
+.ac-table-worklog .ac-th-comment, .ac-table-worklog .ac-td-comment {
+  width: auto;
+  min-width: 200px;
+  max-width: 400px;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ac-audit-fdh-row {
+  background: color-mix(in srgb, var(--accent) 3%, var(--card-bg)) !important;
+  cursor: pointer;
+}
+
+.ac-audit-fdh-row:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--card-bg)) !important;
+}
+
+.ac-audit-day-row:hover {
+  background: color-mix(in srgb, var(--accent) 4%, transparent) !important;
+}
+
+.ac-table-worklog .ac-td-delta {
+  width: 70px;
+  text-align: right;
+  padding-right: 16px !important;
 }
 
 .ac-audit-totals-strip {
   display: flex;
-  gap: 16px;
-  margin-left: auto;
+  gap: 12px;
 }
 
 .ac-total-item {
@@ -2212,110 +2193,11 @@ body.dark-mode .ac-table thead { background: color-mix(in srgb, var(--card-bg) 9
   margin-left: 4px;
 }
 
-.ac-audit-table-wrap {
-  padding: 10px 20px 20px 88px;
-  background: var(--bg-main);
-  border-bottom: 1px solid var(--border);
-}
-
-.ac-audit-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-  background: var(--card-bg);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.ac-audit-table th {
-  text-align: left;
-  padding: 8px 12px;
-  background: #0f172a;
-  color: white;
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 10px;
-  letter-spacing: 0.5px;
-}
-
-.ac-audit-table td {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  font-variant-numeric: tabular-nums;
-}
-
-.ac-audit-date-col {
-  font-weight: 800;
-  color: var(--text-main);
-  background: color-mix(in srgb, var(--accent) 3%, var(--card-bg));
-  vertical-align: top;
-}
-
-.ac-audit-diff {
-  background: color-mix(in srgb, #ef4444 8%, var(--card-bg));
-}
-
-.ac-audit-diff td {
-  color: #991b1b;
-}
-
-.ac-audit-comment-row {
-  background: color-mix(in srgb, var(--accent) 3%, var(--card-bg));
-}
-
-.ac-audit-comment-cell {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-style: italic;
-  padding: 6px 12px !important;
-}
-
 .ac-audit-comment-label {
   font-weight: 800;
   font-style: normal;
   color: var(--text-main);
   margin-right: 4px;
-}
-
-.ac-table-worklog .ac-td-fdh {
-  width: 140px;
-  min-width: 140px;
-}
-
-.ac-table-worklog .ac-td-date {
-  width: 110px;
-  min-width: 110px;
-  border-right: 1px solid var(--border);
-}
-
-.ac-table-worklog .ac-th-delta, .ac-table-worklog .ac-td-delta {
-  width: 80px;
-  text-align: right;
-  padding-right: 20px !important;
-}
-
-.ac-audit-fdh-row {
-  cursor: pointer;
-  background: color-mix(in srgb, var(--accent) 2%, var(--card-bg)) !important;
-}
-
-.ac-audit-fdh-row:hover {
-  background: color-mix(in srgb, var(--accent) 5%, var(--card-bg)) !important;
-}
-
-.ac-audit-fdh-row .ac-audit-totals-strip {
-  opacity: 0.8;
-  transform: scale(0.9);
-  transform-origin: right center;
-}
-
-.ac-audit-day-row:hover {
-  background: color-mix(in srgb, var(--accent) 2%, transparent);
-}
-
-.ac-audit-comment-row {
-  border-bottom: 2px solid var(--border);
 }
 
 .text-pos { color: #16a34a !important; font-weight: 800; }
