@@ -237,6 +237,8 @@
     else if (_acActiveTab === 'offenders') _acRenderOffendersTab();
     else if (_acActiveTab === 'reports')   _acRenderReportsTab();
     else if (_acActiveTab === 'worklog')   _acRenderWorkLogTab();
+    
+    _acBindTabScroll(_acActiveTab);
     _acEnsurePermanentPeek();
   }
 
@@ -373,7 +375,8 @@
       'placeholder="Search ' + (tab === 'crossings' ? 'FDH, vendor, city, details' :
                                 tab === 'boms'      ? 'FDH, vendor, city' :
                                 tab === 'comments'  ? 'FDH, vendor, city' :
-                                tab === 'offenders' ? 'vendor, FDH, flag' : '') + '…" ' +
+                                tab === 'offenders' ? 'vendor, FDH, flag' : 
+                                tab === 'worklog'   ? 'FDH, vendor, city' : '') + '…" ' +
       'oninput="_acOnUniversalSearch(this.value)">';
 
     if (tab === 'crossings') {
@@ -422,9 +425,7 @@
           '" onclick="_acSetUniversalFilter(\'comments\',\'' + val + '\')">' + label + '</button>';
       });
     } else if (tab === 'offenders') {
-      // Top Offenders manages its own toolbar and filter chrome — universal bar is intentionally empty here
-      el.innerHTML = '';
-      return;
+      // Show only search bar for now, standardizing filter chips later
     } else if (tab === 'reports') {
       html += '<div class="ac-ufb-sep"></div>';
       _AC_REPORT_DEFS.forEach(function(d) {
@@ -475,6 +476,12 @@
   function _acOnUniversalSearch(val) {
     _acUniversalSearchQuery = val || '';
     window._acUniversalSearchQuery = _acUniversalSearchQuery;
+    
+    // Support Top Offenders signal search sync
+    if (typeof _signalSearchQuery !== 'undefined') {
+      window._signalSearchQuery = _acUniversalSearchQuery;
+    }
+
     clearTimeout(_acUniversalSearchTimer);
     _acUniversalSearchTimer = setTimeout(function() {
       _acRenderUniversalFilterBar(_acActiveTab);
@@ -589,10 +596,22 @@
     _acRenderBOMsTab();
   }
 
+  var _acCommentsVendorFilter = 'ALL';
+
+  function _acSetCommentsVendor(val) {
+    _acCommentsVendorFilter = val || 'ALL';
+    _acCommentsSelected.clear();
+    _acRenderUniversalFilterBar('comments');
+    _acRenderCommentsTab();
+  }
+
   function _acGetFilteredCommentItems() {
     var items = _acGetActiveItems();
     if (_acUniversalFilters.comments === 'edited') {
       items = items.filter(function(i){ return _acCommentsEdits[i.fdh] !== undefined; });
+    }
+    if (_acCommentsVendorFilter !== 'ALL') {
+      items = items.filter(function(i){ return (i.vendor || 'Unassigned') === _acCommentsVendorFilter; });
     }
     var q = _acUniversalSearchQuery.trim().toLowerCase();
     if (q) items = items.filter(function(i){
@@ -669,6 +688,7 @@
   function _acSetXingVendorFilter(v) {
     _acXingVendorFilter = (_acXingVendorFilter === v) ? null : v;
     _acXingCityFilter = null;
+    _acXingsSelected.clear();
     _acRenderCrossingsTab();
   }
 
@@ -683,18 +703,18 @@
     _acSetUniversalFilter('crossings', status || 'all');
   }
 
-  function _acOnXingScroll() {
+  function _acOnTabScroll(event) {
     var ws = document.getElementById('action-workspace');
     if (!ws) return;
-    var wrap = ws.querySelector('#ac-tab-crossings .ac-xing-grid-wrap');
-    ws.classList.toggle('ac-xing-scrolled', !!(wrap && wrap.scrollTop > 0));
+    ws.classList.toggle('ac-tab-scrolled', !!(event.target && event.target.scrollTop > 0));
   }
 
-  function _acBindXingScroll() {
-    var wrap = document.querySelector('#ac-tab-crossings .ac-xing-grid-wrap');
-    if (!wrap || wrap._xingScrollBound) return;
-    wrap._xingScrollBound = true;
-    wrap.addEventListener('scroll', _acOnXingScroll, { passive: true });
+  function _acBindTabScroll(tab) {
+    var selectors = ['#ac-tab-' + tab + ' .ac-table-wrap', '#ac-tab-' + tab + ' .ac-xing-grid-wrap'];
+    var wrap = document.querySelector(selectors.join(','));
+    if (!wrap || wrap._acScrollBound) return;
+    wrap._acScrollBound = true;
+    wrap.addEventListener('scroll', _acOnTabScroll, { passive: true });
   }
 
   function _acBindXingGridInteractions() {
@@ -1060,20 +1080,9 @@
     vendorList.sort();
 
     var html = '<input type="file" id="ac-csv-import-input" accept=".xlsx,.csv" style="display:none" onchange="_acOnCsvFileSelected(this)">';
+    html += _acRenderVendorFilterChips('crossings', vendorList, _acXingVendorFilter, '_acSetXingVendorFilter');
 
-    // Vendor filter chips — gray rectangle buttons, second row below search bar
-    if (vendorList.length > 1) {
-      html += '<div class="ac-xing-vendor-chips">';
-      html += '<button class="ac-xing-chip-btn' + (!_acXingVendorFilter ? ' active' : '') + '" onclick="_acSetXingVendorFilter(null)">All</button>';
-      vendorList.forEach(function(v) {
-        var vCount = allItems.filter(function(i) { return (i.vendor || '') === v; }).length;
-        html += '<button class="ac-xing-chip-btn' + (_acXingVendorFilter === v ? ' active' : '') + '" onclick="_acSetXingVendorFilter(\'' + _acJs(v) + '\')">' + _e(v) + ' ×' + vCount + '</button>';
-      });
-      html += '</div>';
-    }
-
-    // Full KPI rail — collapses into search bar chips on scroll
-    html += _acRenderTabKpi('crossings');
+    // Full KPI rail — collapses into search bar chips on scroll    html += _acRenderTabKpi('crossings');
 
     var selectedSummary = _acGetSelectedCrossingSummary();
     html += '<div class="ac-toolbar">'
@@ -1087,7 +1096,7 @@
         + '</div>'
         + '<div class="ac-toolbar-right">'
         +   '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportCrossingsXLSX()">' + (selCount > 0 ? 'Export Selected' : 'Export All') + '</button>'
-        +   '<button class="ac-bulk-action-btn" onclick="_acTriggerCsvImport()">Import XLSX</button>'
+        +   '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acTriggerCsvImport()">Import XLSX</button>'
         +   (selCount > 0
               ? '<button class="ac-bulk-action-btn" onclick="_acApplyXingToSelected(\'YES\')">Set YES</button><button class="ac-bulk-action-btn" onclick="_acApplyXingToSelected(\'NO\')">Set NO</button><button class="ac-bulk-action-btn" onclick="_acApplyDetailsToSelected()">Apply Details</button><button class="ac-bulk-action-btn" onclick="_acClearXingSelection()">Clear</button><button class="ac-bulk-action-btn btn-primary" onclick="_acCommitSelectedCrossings()">Commit Selected</button>'
               : '')
@@ -1099,8 +1108,19 @@
     container.innerHTML = html;
     _acSyncTabBadges();
     _acRenderUniversalFilterBar('crossings');
-    _acBindXingScroll();
     _acBindXingGridInteractions();
+  }
+
+  function _acRenderVendorFilterChips(tab, vendorList, activeFilter, onSelectFnName) {
+    if (!vendorList || vendorList.length <= 1) return '';
+    var html = '<div class="ac-xing-vendor-chips">';
+    html += '<button class="ac-xing-chip-btn' + (!activeFilter ? ' active' : '') + '" onclick="' + onSelectFnName + '(null)">All</button>';
+    vendorList.forEach(function(v) {
+      var active = activeFilter === v;
+      html += '<button class="ac-xing-chip-btn' + (active ? ' active' : '') + '" onclick="' + onSelectFnName + '(\'' + _acJs(v) + '\')">' + _e(v) + '</button>';
+    });
+    html += '</div>';
+    return html;
   }
 
   function _acRenderVendorStatusChip(vendor, status, label, count) {
@@ -1409,7 +1429,10 @@
     var diffCount = rows.filter(function(r) { return r.hasDiff; }).length;
     var allChecked = rows.length > 0 && rows.every(function(r) { return _acBomSelected.has(r.fdh); });
 
-    var html =
+    var bf = _acBomVendorFilter === 'ALL' ? null : _acBomVendorFilter;
+    var html = _acRenderVendorFilterChips('boms', vendors, bf, '_acSetBomVendor');
+
+    html +=
       _acRenderTabKpi('boms') +
       '<div class="ac-toolbar">' +
         '<div class="ac-toolbar-left">' +
@@ -1420,7 +1443,7 @@
         '</div>' +
         '<div class="ac-toolbar-right">' +
           '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportBOMCSV()">' + (_acBomSelected.size > 0 ? 'Export Selected' : 'Export All') + '</button>' +
-          '<button class="ac-bulk-action-btn" onclick="_acLoadBomData()" style="opacity:0.6;">Refresh</button>' +
+          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acLoadBomData()" style="opacity:0.8;">Refresh BOMs</button>' +
         '</div>' +
       '</div>' +
       '<div class="ac-table-wrap"><table class="ac-table ac-table-worklog ac-table-workspace">' +
@@ -1619,7 +1642,10 @@
     });
     vendorOrder.sort();
 
-    var html =
+    var cf = _acCommentsVendorFilter === 'ALL' ? null : _acCommentsVendorFilter;
+    var html = _acRenderVendorFilterChips('comments', vendorOrder, cf, '_acSetCommentsVendor');
+
+    html +=
       _acRenderTabKpi('comments') +
       '<div class="ac-toolbar">' +
         '<div class="ac-toolbar-left">' +
@@ -2064,8 +2090,10 @@
   }
 
   function _acSetWorkLogVendor(val) {
-    _acWorkLogVendorFilter = val;
+    _acWorkLogVendorFilter = val || 'ALL';
+    _acWorkLogSelected.clear();
     _acRenderUniversalFilterBar('worklog');
+    _acRenderWorkLogTab();
   }
 
   function _acGetWorkLogVendors() {
@@ -2145,7 +2173,10 @@
     var allVisibleWorkLogKeys = _acGetVisibleWorkLogRowKeys();
     var allChecked = allVisibleWorkLogKeys.length > 0 && allVisibleWorkLogKeys.every(function(key) { return _acWorkLogSelected.has(key); });
 
-    var html =
+    var wf = _acWorkLogVendorFilter === 'ALL' ? null : _acWorkLogVendorFilter;
+    var html = _acRenderVendorFilterChips('worklog', vendors, wf, '_acSetWorkLogVendor');
+
+    html +=
       _acRenderTabKpi('worklog') +
       '<div class="ac-toolbar">' +
         '<div class="ac-toolbar-left">' +
@@ -2156,7 +2187,7 @@
         '</div>' +
         '<div class="ac-toolbar-right">' +
           '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportWorkLog()">' + (_acWorkLogSelected.size > 0 ? 'Export Selected' : 'Export All') + '</button>' +
-          '<button class="ac-bulk-action-btn" onclick="_acLoadWorkLogData()" style="opacity:0.6;">Refresh</button>' +
+          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acLoadWorkLogData()" style="opacity:0.8;">Refresh</button>' +
         '</div>' +
       '</div>' +
       '<div class="ac-table-wrap">' +
@@ -2523,6 +2554,7 @@
   window._acSwitchTab                  = _acSwitchTab;
   window._acOpenPeek                   = _acOpenPeek;
   window._acOpenPeekAtXings            = _acOpenPeekAtXings;
+  window._acRenderVendorFilterChips   = _acRenderVendorFilterChips;
   window._acRenderUniversalFilterBar   = _acRenderUniversalFilterBar;
   window._acOnUniversalSearch          = _acOnUniversalSearch;
   window._acSetUniversalFilter         = _acSetUniversalFilter;

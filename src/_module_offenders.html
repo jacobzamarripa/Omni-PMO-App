@@ -388,7 +388,13 @@
   var _offendersSelectedVendors = {};
   var _offendersExpanded = {};
   var _offendersActiveFlagFilter = null;
+  var _offendersVendorFilter = null;
   var _offendersUtilityDrawerOpen = false;
+
+  window._offendersSetVendorFilter = function(v) {
+    _offendersVendorFilter = (_offendersVendorFilter === v) ? null : v;
+    _renderSignalOffenders();
+  };
   var _offendersPmPanelOpen = false;
   var _offendersGroupCollapsed = {}; // flat table collapse state { 'off_v::Vendor': bool }
   var _offendersFlatSelected = new Set(); // flat table row selection
@@ -434,6 +440,8 @@
 
       // Filter: match if any flag's group key equals the active filter
       if (_offendersActiveFlagFilter && !flags.some(function(f) { return _offendersFlagGroupKey(f) === _offendersActiveFlagFilter; })) return;
+
+      if (_offendersVendorFilter && (item.vendor || 'Unassigned') !== _offendersVendorFilter) return;
 
       if (q) {
         var matchable = [item.vendor, item.fdh, item.city, item.stage, item.status].concat(flags).join(' ').toLowerCase();
@@ -532,12 +540,16 @@
       '</div>' +
       '<div class="ac-toolbar-right">' +
         '<button class="ac-bulk-action-btn ac-bulk-export off-export-btn" id="off-btn-export-all" onclick="_offendersExportAll()">Export All</button>' +
-        '<button class="ac-bulk-action-btn off-export-btn" id="off-btn-export-sel" onclick="_offendersExportSelected()">Export Selected</button>' +
+        '<button class="ac-bulk-action-btn ac-bulk-export off-export-btn" id="off-btn-export-sel" onclick="_offendersExportSelected()">Export Selected</button>' +
       '</div>' +
       '</div>';
 
     // Flag filter chips
     if (sortedFlags.length > 0 || _offendersActiveFlagFilter) {
+      var allVendorsRaw = Object.keys(allActionItems.reduce(function(acc, i){ if (i.vendor) acc[i.vendor]=true; return acc; }, {})).sort();
+      html += (typeof _acRenderVendorFilterChips === 'function') 
+        ? _acRenderVendorFilterChips('offenders', allVendorsRaw, _offendersVendorFilter, '_offendersSetVendorFilter') 
+        : '';
       html += '<div class="off-filter-bar">';
       var allActive = !_offendersActiveFlagFilter;
       html += '<span class="off-filter-chip glass-pill chip-muted' + (allActive ? ' active' : '') + '" onclick="_offendersSetFlagFilter(null)">All (' + totalFlags + ')</span>';

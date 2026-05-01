@@ -97,8 +97,8 @@ body.action-view-active #admin-fab {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   white-space: nowrap;
   user-select: none;
-  flex: 1 0 auto;
-  min-width: 100px;
+  flex: 1;
+  min-width: 0;
 }
 .ac-kpi-chip[onclick] { cursor: pointer; }
 .ac-kpi-chip[onclick]:hover {
@@ -502,7 +502,7 @@ body.action-view-active #admin-fab {
 #ac-tab-boms > .ac-table-wrap,
 #ac-tab-comments > .ac-table-wrap,
 #ac-tab-worklog > .ac-table-wrap {
-  padding: 12px 40px 24px;
+  padding: 12px 20px 24px;
   box-sizing: border-box;
 }
 
@@ -514,11 +514,15 @@ body.action-view-active #admin-fab {
   color: var(--text-main);
 }
 
-.ac-table thead {
+.ac-table thead th {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 10;
   background: color-mix(in srgb, var(--card-bg) 97%, transparent);
+}
+.ac-table thead tr.ac-bom-sub-hd th {
+  top: 32px; /* Offset for the top header row */
+  z-index: 9;
 }
 .ac-table th {
   padding: 9px 14px;
@@ -912,7 +916,7 @@ body.action-view-active #admin-fab {
   max-height: 180px;
   overflow: hidden;
 }
-#action-workspace.ac-xing-scrolled #ac-tab-crossings .ac-tab-kpi-rail {
+#action-workspace.ac-tab-scrolled .ac-tab-panel .ac-tab-kpi-rail {
   max-height: 0 !important;
   opacity: 0;
   padding-top: 0 !important;
@@ -925,11 +929,11 @@ body.action-view-active #admin-fab {
 #ac-universal-filter-bar .ac-ufb-kpi-sep {
   display: none;
 }
-#action-workspace.ac-xing-scrolled #ac-universal-filter-bar .ac-tki-chip {
+#action-workspace.ac-tab-scrolled #ac-universal-filter-bar .ac-tki-chip {
   display: inline-flex;
   align-items: center;
 }
-#action-workspace.ac-xing-scrolled #ac-universal-filter-bar .ac-ufb-kpi-sep {
+#action-workspace.ac-tab-scrolled #ac-universal-filter-bar .ac-ufb-kpi-sep {
   display: block;
 }
 .ac-tki-chip {
@@ -1142,10 +1146,9 @@ body.action-view-active #admin-fab {
 .ac-xing-grid-wrap {
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 12px 40px 24px;
+  padding: 12px 20px 24px;
   box-sizing: border-box;
   background: var(--card-bg);
 }
@@ -2111,7 +2114,7 @@ body.dark-mode .ac-table thead { background: color-mix(in srgb, var(--card-bg) 9
 }
 
 #action-offenders-panel .off-filter-bar {
-  padding: 8px 40px 10px;
+  padding: 8px 20px 10px;
   margin: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
 }
