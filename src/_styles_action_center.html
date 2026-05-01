@@ -2278,6 +2278,46 @@ body.dark-mode .ac-table thead { background: color-mix(in srgb, var(--card-bg) 9
   margin-right: 4px;
 }
 
+.ac-table-worklog .ac-td-fdh {
+  width: 140px;
+  min-width: 140px;
+}
+
+.ac-table-worklog .ac-td-date {
+  width: 110px;
+  min-width: 110px;
+  border-right: 1px solid var(--border);
+}
+
+.ac-table-worklog .ac-th-delta, .ac-table-worklog .ac-td-delta {
+  width: 80px;
+  text-align: right;
+  padding-right: 20px !important;
+}
+
+.ac-audit-fdh-row {
+  cursor: pointer;
+  background: color-mix(in srgb, var(--accent) 2%, var(--card-bg)) !important;
+}
+
+.ac-audit-fdh-row:hover {
+  background: color-mix(in srgb, var(--accent) 5%, var(--card-bg)) !important;
+}
+
+.ac-audit-fdh-row .ac-audit-totals-strip {
+  opacity: 0.8;
+  transform: scale(0.9);
+  transform-origin: right center;
+}
+
+.ac-audit-day-row:hover {
+  background: color-mix(in srgb, var(--accent) 2%, transparent);
+}
+
+.ac-audit-comment-row {
+  border-bottom: 2px solid var(--border);
+}
+
 .text-pos { color: #16a34a !important; font-weight: 800; }
 .text-neg { color: #dc2626 !important; font-weight: 800; }
 

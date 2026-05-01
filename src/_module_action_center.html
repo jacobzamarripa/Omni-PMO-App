@@ -1826,62 +1826,82 @@
   }
 
   function _acRenderWorkLogTab() {
-    var el = document.getElementById('ac-tab-worklog');
-    if (!el) return;
+    var container = document.getElementById('ac-tab-worklog');
+    if (!container) return;
 
     _acInitWorkLog();
 
     if (!_acWorkLogData && !_acWorkLogLoading) {
-      el.innerHTML = '<div class="ac-empty-state" style="padding:100px 20px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;">' +
-        '<div class="ac-empty-icon" style="margin-bottom:24px; opacity:0.3; color:var(--text-main);">' +
-        '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>' +
-        '</div>' +
-        '<h3 style="font-size:20px; font-weight:900; color:var(--text-main); letter-spacing:-0.02em; margin-bottom:12px;">Work Log Reconciliation</h3>' +
-        '<p style="max-width:380px; margin:0 auto 32px; color:var(--text-muted); font-size:14px; line-height:1.6; font-weight:500;">' +
-        'Compare Master Archive records against live QuickBase data. Select a date range and vendor to begin the audit.</p>' +
-        '<button class="ac-header-util-btn" style="padding:12px 32px; background:var(--accent); color:white; border-radius:10px; font-size:13px; font-weight:800; box-shadow:0 4px 12px color-mix(in srgb, var(--accent) 25%, transparent);" onclick="_acLoadWorkLogData()">Fetch Logs</button>' +
+      container.innerHTML =
+        '<div class="ac-bom-load-shell">' +
+          '<div class="ac-bom-load-icon">' +
+            '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>' +
+          '</div>' +
+          '<div class="ac-bom-load-title">Work Log Reconciliation</div>' +
+          '<div class="ac-bom-load-sub">Compare Master Archive records against live QuickBase data. Select a date range and vendor to begin the audit.</div>' +
+          '<button class="btn btn-primary" style="margin-top:18px;padding:12px 28px;font-size:11px;" onclick="_acLoadWorkLogData()">Fetch Logs</button>' +
         '</div>';
       return;
     }
 
     if (_acWorkLogLoading) {
-      el.innerHTML = '<div class="ac-empty-state" style="padding:100px 20px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;">' +
-        '<div class="ac-loader" style="width:32px; height:32px; border-width:3px;"></div>' +
-        '<p style="margin-top:24px; color:var(--text-muted); font-size:14px; font-weight:600; letter-spacing:0.02em;">Fetching records from Master Archive and QuickBase...</p>' +
+      container.innerHTML =
+        '<div class="ac-bom-load-shell">' +
+          '<div class="ac-bom-load-title">Fetching records…</div>' +
+          '<div class="ac-bom-load-sub">Pulling data from Master Archive and QuickBase.</div>' +
         '</div>';
       return;
     }
 
-    console.log("WORK LOG: Rendering hierarchy for data:", _acWorkLogData);
-    var html = '<div class="ac-worklog-wrap">';
-    html += _acRenderWorkLogHierarchy();
-    html += '</div>';
-
-    el.innerHTML = html;
-  }
-
-  function _acRenderWorkLogHierarchy() {
-    if (!_acWorkLogData) return '';
     var vendors = Object.keys(_acWorkLogData).sort();
-    console.log("WORK LOG: Found vendors:", vendors);
-    
+    var discCount = 0;
+    vendors.forEach(function(v){
+      Object.keys(_acWorkLogData[v]._cities).forEach(function(c){
+        Object.keys(_acWorkLogData[v]._cities[c]._fdhs).forEach(function(f){
+          Object.keys(_acWorkLogData[v]._cities[c]._fdhs[f]._dates).forEach(function(d){
+            if (_acWorkLogData[v]._cities[c]._fdhs[f]._dates[d].diff.hasDiscrepancy) discCount++;
+          });
+        });
+      });
+    });
+
+    var html =
+      _acRenderTabKpi('worklog') +
+      '<div class="ac-toolbar">' +
+        '<div class="ac-toolbar-left">' +
+          '<span class="ac-result-count">' + vendors.length + ' vendors' +
+            (discCount > 0 ? ' · <span style="color:#ef4444">' + discCount + ' discrepancies</span>' : '') +
+          '</span>' +
+        '</div>' +
+        '<div class="ac-toolbar-right">' +
+          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportWorkLog()">Export Audit</button>' +
+          '<button class="ac-bulk-action-btn" onclick="_acLoadWorkLogData()" style="opacity:0.6;">Refresh</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ac-worklog-wrap">' +
+        '<div class="ac-table-wrap">' +
+          '<table class="ac-table ac-table-worklog ac-table-workspace">' +
+            '<thead><tr>' +
+              '<th>FDH / Date</th><th>Metric</th>' +
+              '<th class="ac-bom-pair-hd" colspan="2">Comparison (ft/units)</th>' +
+              '<th class="ac-th-delta">Delta</th>' +
+            '</tr>' +
+            '<tr class="ac-bom-sub-hd">' +
+              '<th></th><th></th>' +
+              '<th>Archive</th><th>QuickBase</th>' +
+              '<th></th>' +
+            '</tr></thead><tbody>';
+
     if (vendors.length === 0) {
-      return '<div class="ac-empty-state" style="padding:60px 20px; text-align:center;">' +
-        '<p style="color:var(--text-muted); font-size:13px;">No records found for the selected range.</p>' +
-        '</div>';
+      html += '<tr><td colspan="5" class="ac-empty-cell">No records found for the selected range.</td></tr>';
+    } else {
+      vendors.forEach(function(vName) {
+        html += _acRenderWorkLogVendor(vName, _acWorkLogData[vName]);
+      });
     }
 
-    var html = '<div class="ac-audit-grid">';
-    vendors.forEach(function(vName) {
-      var vData = _acWorkLogData[vName];
-      html += _acRenderWorkLogVendor(vName, vData);
-    });
-    html += '</div>';
-
-    // Global Totals Bar
-    html += _acRenderWorkLogGlobalTotals();
-
-    return html;
+    html += '</tbody></table></div></div>';
+    container.innerHTML = html;
   }
 
   function _acRenderWorkLogVendor(name, data) {
@@ -1889,21 +1909,20 @@
     var isCollapsed = _acWorkLogCollapsed[key] === true;
     var cities = Object.keys(data._cities).sort();
     
-    var html = '<div class="ac-audit-vendor-group' + (isCollapsed ? ' collapsed' : '') + '">';
-    html += '<div class="ac-audit-header ac-audit-vendor-header" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
-      '<span class="ac-audit-toggle"></span>' +
-      '<span class="ac-audit-title">' + _e(name) + '</span>' +
-      _acRenderAuditTotals(data._totals) +
-      '</div>';
+    var html = '<tr class="ac-xing-sep-row ac-xing-sep-vendor" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
+      '<td colspan="5">' +
+        '<div class="ac-xing-sep-vendor-inner">' +
+          '<span class="ac-xing-sep-toggle' + (!isCollapsed ? ' open' : '') + '"></span>' +
+          '<span class="ac-xing-sep-vendor-name">' + _e(name) + '</span>' +
+          _acRenderAuditTotals(data._totals) +
+        '</div>' +
+      '</td></tr>';
 
     if (!isCollapsed) {
-      html += '<div class="ac-audit-body">';
       cities.forEach(function(cName) {
         html += _acRenderWorkLogCity(cName, data._cities[cName], name);
       });
-      html += '</div>';
     }
-    html += '</div>';
     return html;
   }
 
@@ -1912,51 +1931,41 @@
     var isCollapsed = _acWorkLogCollapsed[key] === true;
     var fdhs = Object.keys(data._fdhs).sort();
 
-    var html = '<div class="ac-audit-city-group' + (isCollapsed ? ' collapsed' : '') + '">';
-    html += '<div class="ac-audit-header ac-audit-city-header" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
-      '<span class="ac-audit-toggle"></span>' +
-      '<span class="ac-audit-title">' + _e(name) + '</span>' +
-      _acRenderAuditTotals(data._totals) +
-      '</div>';
+    var html = '<tr class="ac-xing-sep-row ac-xing-sep-city" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
+      '<td colspan="5">' +
+        '<div class="ac-xing-sep-city-inner">' +
+          '<span class="ac-xing-sep-toggle' + (!isCollapsed ? ' open' : '') + '"></span>' +
+          '<span class="ac-xing-sep-city-name">' + _e(name) + '</span>' +
+          _acRenderAuditTotals(data._totals) +
+        '</div>' +
+      '</td></tr>';
 
     if (!isCollapsed) {
-      html += '<div class="ac-audit-body">';
       fdhs.forEach(function(fId) {
         html += _acRenderWorkLogFdh(fId, data._fdhs[fId], vName, name);
       });
-      html += '</div>';
     }
-    html += '</div>';
     return html;
   }
 
   function _acRenderWorkLogFdh(id, data, vName, cName) {
     var key = 'f::' + vName + '::' + cName + '::' + id;
-    var isCollapsed = _acWorkLogCollapsed[key] !== false; // Default FDH to collapsed
+    var isCollapsed = _acWorkLogCollapsed[key] !== false; 
     var dates = Object.keys(data._dates).sort().reverse();
 
-    var html = '<div class="ac-audit-group' + (isCollapsed ? ' collapsed' : '') + '">';
-    html += '<div class="ac-audit-header ac-audit-fdh-header" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
-      '<span class="ac-audit-toggle"></span>' +
-      '<span class="ac-audit-title">' + _e(id) + '</span>' +
-      _acRenderAuditTotals(data._totals) +
-      '</div>';
+    var html = '<tr class="ac-row ac-audit-fdh-row' + (isCollapsed ? ' collapsed' : '') + '" onclick="_acToggleWorkLogGroup(\'' + _acJs(key) + '\')">' +
+      '<td class="ac-td-fdh" style="padding-left:70px !important;">' +
+        '<span class="ac-xing-sep-toggle' + (!isCollapsed ? ' open' : '') + '" style="margin-right:8px;"></span>' +
+        '<span class="ac-fdh">' + _e(id) + '</span>' +
+      '</td>' +
+      '<td colspan="4">' + _acRenderAuditTotals(data._totals) + '</td>' +
+    '</tr>';
 
     if (!isCollapsed) {
-      html += '<div class="ac-audit-table-wrap">' +
-        '<table class="ac-audit-table">' +
-        '<thead><tr>' +
-        '<th>Date</th><th>Metric</th><th>Archive</th><th>QuickBase</th><th>Delta</th>' +
-        '</tr></thead>' +
-        '<tbody>';
-      
       dates.forEach(function(d) {
         html += _acRenderWorkLogDateRows(d, data._dates[d]);
       });
-
-      html += '</tbody></table></div>';
     }
-    html += '</div>';
     return html;
   }
 
@@ -1978,21 +1987,20 @@
       var delta = pair.diff.delta[m.key];
       var hasDiff = aVal !== qVal;
 
-      rows += '<tr class="' + (hasDiff ? 'ac-audit-diff' : '') + '">' +
-        (idx === 0 ? '<td rowspan="4" class="ac-audit-date-col">' + _acFormatDateShort(date) + '</td>' : '') +
-        '<td>' + m.label + '</td>' +
-        '<td>' + aVal.toLocaleString() + '</td>' +
-        '<td>' + qVal.toLocaleString() + '</td>' +
-        '<td class="' + (delta !== 0 ? (delta > 0 ? 'text-pos' : 'text-neg') : '') + '">' + 
-        (delta > 0 ? '+' : '') + delta.toLocaleString() + '</td>' +
+      rows += '<tr class="ac-audit-day-row' + (hasDiff ? ' ac-bom-diff-row' : '') + '">' +
+        (idx === 0 ? '<td rowspan="' + (metrics.length + (pair.archive && pair.archive["Construction Comments"] ? 1 : 0)) + '" class="ac-td-date" style="padding-left:90px !important; font-weight:800; color:var(--text-muted);">' + _acFormatDateShort(date) + '</td>' : '') +
+        '<td style="font-size:10px; text-transform:uppercase; font-weight:700; color:var(--text-muted);">' + m.label + '</td>' +
+        '<td class="ac-bom-val">' + (aVal > 0 ? aVal.toLocaleString() : '—') + '</td>' +
+        '<td class="ac-bom-val ac-bom-vendor">' + (qVal > 0 ? qVal.toLocaleString() : '—') + '</td>' +
+        '<td class="ac-td-delta ' + (delta !== 0 ? (delta > 0 ? 'text-pos' : 'text-neg') : '') + '" style="font-weight:900; font-variant-numeric:tabular-nums;">' + 
+        (delta > 0 ? '+' : '') + (delta !== 0 ? delta.toLocaleString() : '—') + '</td>' +
         '</tr>';
     });
     
-    // Add comment row if exists
     var comment = (pair.archive && pair.archive["Construction Comments"]) || (pair.qb && pair.qb["Construction Comments"]);
     if (comment) {
-        rows += '<tr class="ac-audit-comment-row"><td colspan="4" class="ac-audit-comment-cell">' +
-                '<span class="ac-audit-comment-label">Comment:</span> ' + _e(comment) + '</td></tr>';
+        rows += '<tr class="ac-audit-comment-row"><td style="font-size:9px; text-transform:uppercase; font-weight:800; color:var(--accent);">Comment</td>' +
+                '<td colspan="3" class="ac-audit-comment-cell" style="font-size:11px; font-style:italic; color:var(--text-muted);">' + _e(comment) + '</td></tr>';
     }
 
     return rows;
