@@ -381,6 +381,7 @@
   var _offendersActiveFlagFilter = null;
   var _offendersVendorFilter = null;
   var _offendersUtilityDrawerOpen = false;
+  var _offendersFlagsExpanded = false;
 
   window._offendersSetVendorFilter = function(v) {
     _offendersVendorFilter = (_offendersVendorFilter === v) ? null : v;
@@ -518,7 +519,7 @@
     html += '</div>';
 
     // 3. Toolbar (Standard style)
-    html += '<div class="ac-toolbar">' +
+    html += '<div class="ac-toolbar ac-offenders-toolbar">' +
       '<div class="ac-toolbar-left">' +
         '<span class="ac-result-count">' + vendors.length + ' vendors · ' + totalProjects + ' projects · ' + totalFlags + ' flags' +
           (selectedVendors > 0 ? ' · <span style="color:var(--accent)">' + selectedVendors + ' vendors selected</span>' : '') +
@@ -528,7 +529,7 @@
           '<button class="signal-tf-pill' + (_offendersSortBy === 'vendor' ? ' active' : '') + '" onclick="_offendersSetSort(\'vendor\')">Vendor A-Z</button>' +
         '</div>' +
       '</div>' +
-      '<div class="ac-toolbar-right">' +
+      '<div class="ac-toolbar-right ac-offenders-actions">' +
         '<button class="ac-bulk-action-btn ac-bulk-export" id="off-btn-export-all" onclick="_offendersExportAll()">Export All</button>' +
         '<button class="ac-bulk-action-btn ac-bulk-export" id="off-btn-export-sel" onclick="_offendersExportSelected()">Export Selected</button>' +
       '</div>' +
@@ -536,10 +537,11 @@
 
     // 4. Flag Filter Chips
     if (sortedFlags.length > 0 || _offendersActiveFlagFilter) {
-      html += '<div class="off-filter-bar">';
+      html += '<div class="off-filter-bar ac-offenders-filter-bar">';
       var allActive = !_offendersActiveFlagFilter;
       html += '<span class="off-filter-chip glass-pill chip-muted' + (allActive ? ' active' : '') + '" onclick="_offendersSetFlagFilter(null)">All (' + totalFlags + ')</span>';
-      sortedFlags.forEach(function(flag) {
+      var visibleFlags = _offendersFlagsExpanded ? sortedFlags : sortedFlags.slice(0, 5);
+      visibleFlags.forEach(function(flag) {
         var isActive = _offendersActiveFlagFilter === flag;
         var displayFlag = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
         var cls = (typeof getDiagnosticTagClass === 'function') ? getDiagnosticTagClass(flag) : 'chip-warn';
@@ -547,6 +549,11 @@
         html += '<span class="off-filter-chip tag ' + cls + (isActive ? ' active' : '') + '" onclick="_offendersSetFlagFilter(\'' + flagJs + '\')">' +
           _esc(displayFlag) + ' &times;' + globalFlagCounts[flag] + '</span>';
       });
+      if (sortedFlags.length > visibleFlags.length) {
+        html += '<span class="off-filter-chip tag chip-muted" onclick="_offendersToggleFlagsExpanded()">+' + (sortedFlags.length - visibleFlags.length) + ' more</span>';
+      } else if (_offendersFlagsExpanded && sortedFlags.length > 5) {
+        html += '<span class="off-filter-chip tag chip-muted" onclick="_offendersToggleFlagsExpanded()">Show less</span>';
+      }
       html += '</div>';
     }
 
@@ -930,6 +937,11 @@
     _renderSignalOffenders();
   }
 
+  function _offendersToggleFlagsExpanded() {
+    _offendersFlagsExpanded = !_offendersFlagsExpanded;
+    _renderSignalOffenders();
+  }
+
   // ── Vendor selection (checkboxes for export) ──────────────────────
   function _offendersToggleVendor(vendor) {
     _offendersSelectedVendors[vendor] = !_offendersSelectedVendors[vendor];
@@ -1056,6 +1068,7 @@
   window._renderSignalOffenders       = _renderSignalOffenders;
   window._offendersSetSort            = _offendersSetSort;
   window._offendersSetFlagFilter      = _offendersSetFlagFilter;
+  window._offendersToggleFlagsExpanded = _offendersToggleFlagsExpanded;
   window._offendersToggleVendor       = _offendersToggleVendor;
   window._offendersToggleExpand       = _offendersToggleExpand;
   window._offendersToggleUtilityDrawer = _offendersToggleUtilityDrawer;

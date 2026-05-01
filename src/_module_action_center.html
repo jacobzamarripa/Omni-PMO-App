@@ -210,10 +210,8 @@
   function _acSwitchTab(tab) {
     var prevTab = _acActiveTab;
     _acActiveTab = tab;
-    if (tab !== 'crossings') {
-      var ws = document.getElementById('action-workspace');
-      if (ws) ws.classList.remove('ac-xing-scrolled');
-    }
+    var ws = document.getElementById('action-workspace');
+    if (ws) ws.classList.remove('ac-tab-scrolled', 'ac-xing-scrolled');
     if (tab === 'reports' && typeof closeQuickPeek === 'function') {
       closeQuickPeek();
     } else if (tab !== prevTab) {
@@ -350,6 +348,64 @@
     return html;
   }
 
+  function _acMiniKpiChip(val, label, cls) {
+    return '<span class="ac-tki-chip ' + (cls || '') + '">' + _e(val) + ' ' + _e(label) + '</span>';
+  }
+
+  function _acRenderMiniKpiPrefix(tab) {
+    var html = '';
+
+    if (tab === 'crossings') {
+      var xItems = _acGetFilteredCrossingItems();
+      var xPend = xItems.filter(function(i){ return _acResolveCrossing(i).pending; }).length;
+      var xYes  = xItems.filter(function(i){ return (_acResolveCrossing(i).xing || '').toUpperCase() === 'YES'; }).length;
+      var xNo   = xItems.filter(function(i){ return (_acResolveCrossing(i).xing || '').toUpperCase() === 'NO';  }).length;
+      html += _acMiniKpiChip(xPend, 'Pend', 'ac-tki-pend');
+      html += _acMiniKpiChip(xYes, 'YES', 'ac-tki-yes');
+      html += _acMiniKpiChip(xNo, 'NO', 'ac-tki-no');
+    } else if (tab === 'boms') {
+      var bomRows = _acGetBomRows();
+      var bomDiffs = bomRows.filter(function(r){ return r.hasDiff; }).length;
+      html += _acMiniKpiChip(_acBomData ? bomRows.length : '—', 'Rows', 'ac-tki-info');
+      html += _acMiniKpiChip(_acBomData ? bomDiffs : '—', 'Diffs', bomDiffs > 0 ? 'ac-tki-no' : 'ac-tki-info');
+    } else if (tab === 'comments') {
+      html += _acMiniKpiChip(_acGetFilteredCommentItems().length, 'Projects', 'ac-tki-info');
+      html += _acMiniKpiChip(Object.keys(_acCommentsEdits).length, 'Edited', 'ac-tki-warn');
+    } else if (tab === 'offenders') {
+      var offData = (typeof _buildOffendersData === 'function') ? _buildOffendersData() : null;
+      var offVendors = offData && offData.vendors ? offData.vendors.length : '—';
+      var offFlags = 0;
+      if (offData && offData.vendorMap) {
+        Object.keys(offData.vendorMap).forEach(function(v){ offFlags += offData.vendorMap[v].totalFlags || 0; });
+      }
+      html += _acMiniKpiChip(offVendors, 'Vendors', 'ac-tki-info');
+      html += _acMiniKpiChip(offFlags || '—', 'Flags', offFlags > 0 ? 'ac-tki-no' : 'ac-tki-info');
+    } else if (tab === 'reports') {
+      var def = _AC_REPORT_DEFS.find(function(d){ return d.key === _acReportsView; }) || _AC_REPORT_DEFS[0];
+      var rows = def && def.load ? def.load() : null;
+      html += _acMiniKpiChip(rows ? rows.length : '—', 'Rows', 'ac-tki-yes');
+    } else if (tab === 'worklog') {
+      var wlDays = 0;
+      var wlDisc = 0;
+      if (_acWorkLogData) {
+        Object.keys(_acWorkLogData).forEach(function(v) {
+          Object.keys(_acWorkLogData[v]._cities).forEach(function(c) {
+            Object.keys(_acWorkLogData[v]._cities[c]._fdhs).forEach(function(f) {
+              Object.keys(_acWorkLogData[v]._cities[c]._fdhs[f]._dates).forEach(function(d) {
+                wlDays++;
+                if (_acWorkLogData[v]._cities[c]._fdhs[f]._dates[d].diff.hasDiscrepancy) wlDisc++;
+              });
+            });
+          });
+        });
+      }
+      html += _acMiniKpiChip(_acWorkLogData ? wlDays : '—', 'Days', 'ac-tki-info');
+      html += _acMiniKpiChip(_acWorkLogData ? wlDisc : '—', 'Diffs', wlDisc > 0 ? 'ac-tki-no' : 'ac-tki-info');
+    }
+
+    return html ? html + '<div class="ac-ufb-sep ac-ufb-kpi-sep"></div>' : '';
+  }
+
   // ── Universal filter bar ─────────────────────────────────
   function _acRenderUniversalFilterBar(tab) {
     var el = document.getElementById('ac-universal-filter-bar');
@@ -358,24 +414,14 @@
 
     var qSafe = _e(_acUniversalSearchQuery);
 
-    // For crossings: prepend KPI mini chips — hidden by CSS until ac-xing-scrolled
-    var kpiPrefix = '';
-    if (tab === 'crossings') {
-      var ufbItems = _acGetFilteredCrossingItems();
-      var ufbPend = ufbItems.filter(function(i){ return _acResolveCrossing(i).pending; }).length;
-      var ufbYes  = ufbItems.filter(function(i){ return (_acResolveCrossing(i).xing || '').toUpperCase() === 'YES'; }).length;
-      var ufbNo   = ufbItems.filter(function(i){ return (_acResolveCrossing(i).xing || '').toUpperCase() === 'NO';  }).length;
-      kpiPrefix = '<span class="ac-tki-chip ac-tki-pend">' + ufbPend + ' Pend</span>'
-        + '<span class="ac-tki-chip ac-tki-yes">'  + ufbYes + ' YES</span>'
-        + '<span class="ac-tki-chip ac-tki-no">'   + ufbNo  + ' NO</span>'
-        + '<div class="ac-ufb-sep ac-ufb-kpi-sep"></div>';
-    }
+    var kpiPrefix = _acRenderMiniKpiPrefix(tab);
 
     var html = kpiPrefix + '<input type="text" class="ac-ufb-search" id="ac-ufb-search" value="' + qSafe + '" ' +
       'placeholder="Search ' + (tab === 'crossings' ? 'FDH, vendor, city, details' :
                                 tab === 'boms'      ? 'FDH, vendor, city' :
                                 tab === 'comments'  ? 'FDH, vendor, city' :
                                 tab === 'offenders' ? 'vendor, FDH, flag' : 
+                                tab === 'reports'   ? 'report rows' :
                                 tab === 'worklog'   ? 'FDH, vendor, city' : '') + '…" ' +
       'oninput="_acOnUniversalSearch(this.value)">';
 
@@ -475,6 +521,11 @@
       count = offProjs + ' projects';
     }
     else if (tab === 'worklog')   count = _acWorkLogData ? (Object.keys(_acWorkLogData).length + ' vendors') : '—';
+    else if (tab === 'reports') {
+      var reportDef = _AC_REPORT_DEFS.find(function(d){ return d.key === _acReportsView; }) || _AC_REPORT_DEFS[0];
+      var reportRows = reportDef && reportDef.load ? reportDef.load() : null;
+      count = reportRows ? reportRows.length + ' rows' : '—';
+    }
 
     if (count) html += '<span class="ac-ufb-count">' + count + '</span>';
 
@@ -718,11 +769,18 @@
   }
 
   function _acBindTabScroll(tab) {
-    var selectors = ['#ac-tab-' + tab + ' .ac-table-wrap', '#ac-tab-' + tab + ' .ac-xing-grid-wrap'];
+    var selectors = ['#ac-tab-' + tab + ' .ac-table-wrap', '#ac-tab-' + tab + ' .ac-xing-grid-wrap', '#ac-tab-' + tab + ' .ac-reports-preview-table-wrap'];
     var wrap = document.querySelector(selectors.join(','));
-    if (!wrap || wrap._acScrollBound) return;
-    wrap._acScrollBound = true;
-    wrap.addEventListener('scroll', _acOnTabScroll, { passive: true });
+    var ws = document.getElementById('action-workspace');
+    if (!wrap) {
+      if (ws) ws.classList.remove('ac-tab-scrolled');
+      return;
+    }
+    if (ws) ws.classList.toggle('ac-tab-scrolled', wrap.scrollTop > 0);
+    if (!wrap._acScrollBound) {
+      wrap._acScrollBound = true;
+      wrap.addEventListener('scroll', _acOnTabScroll, { passive: true });
+    }
   }
 
   function _acBindXingGridInteractions() {
@@ -2059,7 +2117,7 @@
                 '<div class="ac-reports-preview-title">' + _e(def.label) + '</div>' +
                 '<div class="ac-reports-preview-meta">' + (isLoading ? 'Awaiting data load' : rowCount + ' rows') + '</div>' +
               '</div>' +
-              '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + exportBtns + '</div>' +
+              '<div class="ac-reports-toolbar-actions">' + exportBtns + '</div>' +
             '</div>' +
             previewHtml +
           '</div>' +
