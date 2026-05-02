@@ -1376,42 +1376,6 @@ function buildInferenceHistoryContext(histData, histHeaders) {
   return context;
 }
 
-function getRecentInferenceSignals(fdhId, rowDate, inferenceHistoryContext, lookbackDays) {
-  let windowDays = Number(lookbackDays) || 14;
-  let result = {
-    hasRecentActivity: false,
-    recentActiveDays: 0,
-    recentWindowLabel: "0d",
-    recentTotals: { ug: 0, ae: 0, fib: 0, nap: 0 },
-    latestComment: ""
-  };
-  if (!fdhId || !rowDate || !inferenceHistoryContext || !inferenceHistoryContext[fdhId]) return result;
-
-  let anchorDate = rowDate instanceof Date ? rowDate : new Date(rowDate);
-  if (isNaN(anchorDate.getTime())) return result;
-  let anchor = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate());
-  let startTs = anchor.getTime() - ((windowDays - 1) * 86400000);
-  let entries = inferenceHistoryContext[fdhId];
-  let commentEntries = [];
-
-  entries.forEach(function(entry) {
-    if (entry.ts < startTs || entry.ts > anchor.getTime()) return;
-    let entryHasActivity = entry.dailyUG > 0 || entry.dailyAE > 0 || entry.dailyFIB > 0 || entry.dailyNAP > 0;
-    if (entryHasActivity) {
-      result.hasRecentActivity = true;
-      result.recentActiveDays++;
-      result.recentTotals.ug += entry.dailyUG;
-      result.recentTotals.ae += entry.dailyAE;
-      result.recentTotals.fib += entry.dailyFIB;
-      result.recentTotals.nap += entry.dailyNAP;
-    }
-    if (entry.comment) commentEntries.push(entry.comment);
-  });
-
-  if (commentEntries.length > 0) result.latestComment = commentEntries[commentEntries.length - 1];
-  result.recentWindowLabel = `${windowDays}d`;
-  return result;
-}
 
 function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, lkvDict, adapter) {
   if (!adapter) adapter = createSchemaAdapter(HISTORY_HEADERS);
@@ -1420,7 +1384,7 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
   let fdhId = row[adapter.getIdx("FDH")] ? _normalizeFdhId(row[adapter.getIdx("FDH")]) : "";
   let vendorComment = row[adapter.getIdx("COMMENT")] ? row[adapter.getIdx("COMMENT")].toString().trim() : "";
   
-  // 🧠 HEURISTIC: ID Correction & Reference Data Hydration (Moved early for BOM prioritization)
+  // 🧠 HEURISTIC: ID Correction & Reference Data Hydration
   healedId = null;
   let blockedTarget = extractBlockedAutoMatchTarget(vendorComment);
   const origMatch = vendorComment.match(/\[Auto-Fixed FDH: (.*?)\]/);
@@ -1450,147 +1414,56 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
     if (rowState !== "COMPLETE" && rowState !== "OFS") {
         qbGaps.push((refData.hasSOW ? "SOW" : "SOW"));
         qbGaps.push((refData.hasCD ? "CD" : "CD"));
-
-        // 🧠 Smart BOM Gap: Data-driven trigger
         const dUG = Number(row[adapter.getIdx("DAILY_UG")]) || 0;
         const dAE = Number(row[adapter.getIdx("DAILY_AE")]) || 0;
         const dFIB = Number(row[adapter.getIdx("DAILY_FIB")]) || 0;
         const dNAP = Number(row[adapter.getIdx("DAILY_NAP")]) || 0;
-
-        let bomMissingData = false;
-        if (dUG > 0 && (refData.ugBOM || 0) === 0) bomMissingData = true;
-        if (dAE > 0 && (refData.aeBOM || 0) === 0) bomMissingData = true;
-        if (dFIB > 0 && (refData.fibBOM || 0) === 0) bomMissingData = true;
-        if (dNAP > 0 && (refData.napBOM || 0) === 0) bomMissingData = true;
-
-        if (bomMissingData) {
-            qbGaps.push("BOM");
-        } else {
-            // If data is present for active phases, show green even if checkbox is off
-            const hasAnyBomData = (refData.ugBOM || 0) > 0 || (refData.aeBOM || 0) > 0 || (refData.fibBOM || 0) > 0 || (refData.napBOM || 0) > 0;
-            qbGaps.push("BOM");
-        }
+        let bomMissingData = (dUG > 0 && (refData.ugBOM || 0) === 0) || (dAE > 0 && (refData.aeBOM || 0) === 0) || (dFIB > 0 && (refData.fibBOM || 0) === 0) || (dNAP > 0 && (refData.napBOM || 0) === 0);
+        qbGaps.push("BOM");
     }
     if (refData.isSpecialX) qbGaps.push("X-ING");
 
-    // CROSSING CHECK — skip OFS and Complete projects; crossing status is irrelevant at those stages
+    // CROSSING CHECK
     const xingVal = (refData.rawSpecialX || "").toString().trim().toLowerCase();
     const hasBeenChecked = refData.adminDate && refData.adminDate !== "";
-    const _xingStage  = (refData.stage  || "").toUpperCase();
-    const _xingStatus = (refData.status || "").toUpperCase();
-    if (xingVal === "" && !hasBeenChecked && !_xingStage.includes("OFS") && !_xingStatus.includes("COMPLETE")) {
+    if (xingVal === "" && !hasBeenChecked && !rowState.includes("OFS") && !rowState.includes("COMPLETE")) {
         flags.push("ADMIN: CHECK CROSSINGS");
         flagColors.push("#991b1b");
     }
-
-    // QB STAGE HYGIENE
-    const stageStr = (refData.stage || "").toUpperCase().trim();
-    const statusStr = (refData.status || "").toUpperCase().trim();
-    if (stageStr === "" || stageStr === "-" || statusStr === "" || statusStr === "-") {
-        flags.push("STAGE MISMATCH");
-        flagColors.push("#991b1b");
-        drafts.push("Action: Update QuickBase. Project is missing a valid Stage or Status.");
-    }
   }
 
-  // 🧠 PRODUCTION SUMMARY & METRICS (Centralized)
+  // 🧠 PRODUCTION SUMMARY & METRICS
   const prod = ProductionSummarizer.generateSummary(row, adapter, refData, vTracker);
   summary = prod.visualLines;
   const m = prod.metrics;
 
-  let actualActivity = m.dailyUG > 0 || m.dailyAE > 0 || m.dailyFIB > 0 || m.dailyNAP > 0;
-  let lightToCab = row[adapter.getIdx("Light to Cabinets")] === true;
+  // 🚀 UNIFIED RECONCILIATION ENGINE
+  const recon = ReconciliationEngine.reconcile(row, adapter, refData, m, {
+      fdhId: fdhId,
+      refDict: refDict,
+      lkvDict: lkvDict,
+      vTracker: vTracker,
+      rowState: rowState,
+      inferenceHistoryContext: inferenceHistoryContext
+  });
 
-  if (refData && actualActivity) {
-      const stageStr = (refData.stage || "").toUpperCase().trim();
-      const statusStr = (refData.status || "").toUpperCase().trim();
-      const isFieldCx = stageStr.includes("FIELD CX");
-      if (!isFieldCx) {
-          // Cleanup heuristic: Ignore activity if it occurs in the same month as OFS.
-          let isOfs = stageStr.includes("OFS") || statusStr.includes("OFS") || statusStr.includes("OPEN FOR SALE");
-          let isCleanUp = false;
-          if (isOfs && refData.canonicalOfsDate) {
-              let ofsDate = new Date(refData.canonicalOfsDate);
-              let reportDate = row[0] instanceof Date ? row[0] : new Date(row[0]);
-              if (!isNaN(ofsDate.getTime()) && !isNaN(reportDate.getTime())) {
-                  if (ofsDate.getUTCMonth() === reportDate.getUTCMonth() && ofsDate.getUTCFullYear() === reportDate.getUTCFullYear()) {
-                      isCleanUp = true;
-                  }
-              }
-          }
-          if (!isCleanUp) {
-            let hasSyncedToday = false;
-            if (refData.statusSyncDate) {
-                let syncDate = new Date(refData.statusSyncDate);
-                let today = new Date();
-                if (syncDate.getDate() === today.getDate() && syncDate.getMonth() === today.getMonth() && syncDate.getFullYear() === today.getFullYear()) {
-                    hasSyncedToday = true;
-                }
-            }
-            if (hasSyncedToday) {
-                flags.push("ADMIN: REFRESH REF DATA");
-                flagColors.push("#991b1b");
-                drafts.push("Action: Refresh Reference Data. QB status was synced today but is still showing " + stageStr + ". Verify if project is truly in Field CX.");
-            } else {
-                flags.push("STAGE MISMATCH");
-                flagColors.push("#991b1b");
-                drafts.push("Action: Update QuickBase Stage. Vendor is reporting production but QB is currently set to " + stageStr + ".");
-            }
-          }
-      }
-  }
+  flags = flags.concat(recon.flags);
+  drafts = drafts.concat(recon.drafts);
+  flagColors = flagColors.concat(recon.flagColors);
+  inferredStage = recon.inferredStage;
+  inferredStatus = recon.inferredStatus;
+  
+  // Merge column highlighting
+  Object.keys(recon.hCols).forEach(k => {
+    if (recon.hCols[k].length > 0) hCols[k] = hCols[k].concat(recon.hCols[k]);
+  });
 
-  let rowDateRaw = row[adapter.getIdx("DATE")];
-  let rowDate = rowDateRaw instanceof Date ? rowDateRaw : new Date(rowDateRaw);
-  let targetDateRaw = row[adapter.getIdx("Target Completion Date")];
-  let targetDate = (targetDateRaw instanceof Date) ? targetDateRaw : new Date(targetDateRaw);
-
-  // DATE VALIDATION (Gantt Freeze Protection & Bad Data Filtering)
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const checkBounds = (d, label) => {
-    if (!d || isNaN(d.getTime())) return;
-    let diff = (d.getTime() - today.getTime()) / 86400000;
-    if (diff > 60) {
-      flags.push(`INVALID FUTURE DATE (${label})`);
-      flagColors.push(TEXT_COLORS.WARN);
-      drafts.push(`${label} (${Utilities.formatDate(d, "GMT-5", "MM/dd/yy")}) is > 60 days in the future. Please verify data entry.`);
-    } else if (d.getFullYear() < 2020) {
-      flags.push(`INVALID PAST DATE (${label})`);
-      flagColors.push(TEXT_COLORS.WARN);
-      drafts.push(`${label} (${Utilities.formatDate(d, "GMT-5", "MM/dd/yy")}) is suspiciously old (pre-2020). Please verify data entry.`);
-    }
-  };
-  checkBounds(targetDate, "Target Date");
-  let cxSIdx = adapter.getIdx("CX_START");
-  let cxEIdx = adapter.getIdx("CX_COMPLETE");
-  let cxStartObj = null, cxCompleteObj = null;
-  if (cxSIdx > -1) {
-    let d = row[cxSIdx];
-    cxStartObj = (d instanceof Date) ? d : new Date(d);
+  // Additional formatting for row state
+  if (rowState !== "ACTIVE") { 
+    flags.push(`${ROW_THEMES[rowState].label}`); 
+    flagColors.push(ROW_THEMES[rowState].text); 
+    drafts.push(`QB shows this FDH as ${refData ? refData.status : "Unknown"}.`); 
   }
-  if (cxEIdx > -1) {
-    let d = row[cxEIdx];
-    cxCompleteObj = (d instanceof Date) ? d : new Date(d);
-  }
-  if (cxStartObj && cxCompleteObj && !isNaN(cxStartObj.getTime()) && !isNaN(cxCompleteObj.getTime()) && cxStartObj.getTime() > cxCompleteObj.getTime()) {
-    flags.push("INVALID DATE CHRONOLOGY");
-    flagColors.push(TEXT_COLORS.WARN);
-    drafts.push(`CX chronology is invalid. CX Start (${Utilities.formatDate(cxStartObj, "GMT-5", "MM/dd/yy")}) is after CX Complete (${Utilities.formatDate(cxCompleteObj, "GMT-5", "MM/dd/yy")}).`);
-  }
-  if (cxStartObj) checkBounds(cxStartObj, "CX Start");
-  if (cxCompleteObj) checkBounds(cxCompleteObj, "CX Complete");
-  const parseFdhList = (value) => String(value || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
-  const isTruthyTransport = (value) => {
-      let normalized = String(value || "").trim().toLowerCase();
-      return normalized === "true" || normalized === "yes" || normalized === "1" || normalized === "y";
-  };
-  const refIsLit = (entry) => {
-      if (!entry) return false;
-      let refStatus = String(entry.status || "").toLowerCase();
-      let refStage = String(entry.stage || "").toLowerCase();
-      return refStatus.includes("complete") || refStage.includes("ofs");
-  };
 
   // Supporting metrics for diagnostics
   const drills = Number(row[adapter.getIdx("Drills")]) || 0;
@@ -1598,80 +1471,12 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
   const crewsFIB = Number(row[adapter.getIdx("Fiber Pulling Crews")]) || 0;
   const crewsNAP = Number(row[adapter.getIdx("Splicing Crews")]) || 0;
 
-  let isFormatValid = /^[A-Z]{3}\d{2,3}[a-z]?-F\d{2,4}$/i.test(fdhId);
-
-  if (fdhId !== "" && !isFormatValid) {
+  if (fdhId !== "" && !/^[A-Z]{3}\d{2,3}[a-z]?-F\d{2,4}$/i.test(fdhId)) {
       flags.push(`FORMAT ERROR`);
       flagColors.push(TEXT_COLORS.WARN);
       hCols.warn.push("FDH Engineering ID");
   } else if (fdhId !== "" && !refData) {
-      flags.push("NOT IN QB REFERENCE");
-      flagColors.push(TEXT_COLORS.WARN);
-      let inferredState = resolveMissingReferenceState({
-          fdhId: fdhId,
-          rowDate: rowDate,
-          vendorComment: vendorComment,
-          dailyUG: m.dailyUG,
-          dailyAE: m.dailyAE,
-          dailyFIB: m.dailyFIB,
-          dailyNAP: m.dailyNAP,
-          totalUG: m.totalUG,
-          totalAE: m.totalAE,
-          totalFIB: m.totalFIB,
-          totalNAP: m.totalNAP,
-          vendorBOMUG: m.bomUG,
-          vendorBOMAE: m.bomAE,
-          vendorBOMFIB: m.bomFIB,
-          vendorBOMNAP: m.bomNAP,
-          splicingCrews: crewsNAP,
-          lightToCab: lightToCab,
-          vTracker: vTracker,
-          inferenceHistoryContext: inferenceHistoryContext,
-          lastKnownState: (lkvDict && lkvDict[fdhId]) ? lkvDict[fdhId] : null
-      });
-
-      if (inferredState.flag) flags.push(inferredState.flag);
-      flagColors.push(inferredState.flagColor || TEXT_COLORS.WARN);
-      drafts.push(inferredState.note);
-      inferredStage = inferredState.stage;
-      inferredStatus = inferredState.status;
       hCols.warn.push("FDH Engineering ID");
-  }
-  
-  if (targetDate && !isNaN(targetDate.getTime()) && !lightToCab && rowState !== "COMPLETE") { let daysToTarget = Math.ceil((targetDate - new Date()) / (1000 * 60 * 60 * 24)); if (daysToTarget <= 2) { flags.push(`LIGHTING RISK`); flagColors.push(TEXT_COLORS.WARN); hCols.warn.push("Target Completion Date", "Light to Cabinets"); } }
-  if (refData) {
-      let howFed = parseFdhList((refData.qbRef && refData.qbRef.howFed) || refData.howFed);
-      let whatFeeds = parseFdhList((refData.qbRef && refData.qbRef.whatFeeds) || refData.whatFeeds);
-      let isTransportReady = isTruthyTransport((refData.qbRef && refData.qbRef.transport) || refData.transport);
-      let isLit = lightToCab || rowState === "COMPLETE" || rowState === "OFS";
-
-      if (howFed.length > 0 && !isTransportReady) {
-          let blockingUpstream = howFed.find(upstreamId => !refIsLit(refDict[upstreamId]));
-          if (blockingUpstream) {
-              flags.push("BLOCKED BY UPSTREAM");
-              flagColors.push(TEXT_COLORS.WARN);
-              drafts.push(`Waiting on light from upstream (${blockingUpstream}). Transport is not in place to override.`);
-          }
-      }
-
-      if (whatFeeds.length > 0 && !isLit) {
-          let delayedDownstream = whatFeeds.find(downstreamId => {
-              let downstreamRef = refDict[downstreamId];
-              let downstreamTransport = isTruthyTransport((downstreamRef && downstreamRef.qbRef && downstreamRef.qbRef.transport) || (downstreamRef && downstreamTransport));
-              return !downstreamTransport;
-          });
-          if (delayedDownstream) {
-              flags.push("DELAYING DOWNSTREAM");
-              flagColors.push(TEXT_COLORS.WARN);
-              drafts.push(`This FDH feeds ${delayedDownstream}, which does not have transport. Prioritize lighting.`);
-          }
-      }
-
-      if (howFed.length > 0 && isTransportReady && !isLit) {
-          flags.push("TRANSPORT OVERRIDE");
-          flagColors.push(TEXT_COLORS.MAGIC);
-          drafts.push(`Transport is available. This FDH can be lit independently of ${howFed[0]}.`);
-      }
   }
   
   if (m.dailyUG > 0 && drills === 0) { flags.push("GHOST UG"); flagColors.push(TEXT_COLORS.UG); hCols.ug.push("Daily UG Footage", "Drills"); adaePaletteIdx = "UG"; }
@@ -1699,84 +1504,10 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
       flagColors.push(TEXT_COLORS.MISMATCH);
       drafts.push("Reported daily footage does not reconcile with the total column jump. One of these values is likely wrong.");
   }
-
-  if (refData && rowState !== "COMPLETE" && rowState !== "OFS") {
-     const checkPhase = (name, vBom, rBom, vDaily, vTot, bomColName, totColName) => {
-         // A. MISSING BOM: Activity exists but QB is 0
-         if (rBom === 0 && (vDaily > 0 || vTot > 0)) {
-             flags.push("MISSING BOM");
-             flagColors.push(TEXT_COLORS.WARN);
-             drafts.push(`Action: Update QuickBase BOM. ${name} activity reported but ${name} BOM is 0 in QuickBase.`);
-             hCols.mismatch.push(totColName);
-         } 
-         // B. BOM DISCREPANCY: Input mismatch
-         else if (rBom > 0 && vBom > 0 && vBom !== rBom) {
-             flags.push("BOM DISCREPANCY");
-             flagColors.push(TEXT_COLORS.MISMATCH);
-             drafts.push(`Action: Verify BOM Data. ${name} BOM mismatch found: Vendor reported ${vBom} vs QuickBase ${rBom}.`);
-             hCols.mismatch.push(bomColName);
-         }
-         
-         // C. BOM OVERRUN: Production exceeds BOM
-         if (vTot > 0 && rBom > 0 && (vTot / rBom) > OVERAGE_THRESHOLD) {
-             flags.push("BOM OVERRUN");
-             flagColors.push(TEXT_COLORS.WARN);
-             drafts.push(`Action: Audit Production. ${name} production is at ${Math.round((vTot/rBom)*100)}% of BOM (${vTot} of ${rBom}).`);
-             hCols.warn.push(totColName, bomColName);
-         }
-     };
-     
-     // QB Reference is source of truth; vendor history row is fallback if QB is 0
-     const _ugBom  = refData.ugBOM  > 0 ? refData.ugBOM  : (m.bomUG  > 0 ? m.bomUG  : 0);
-     const _aeBom  = refData.aeBOM  > 0 ? refData.aeBOM  : (m.bomAE  > 0 ? m.bomAE  : 0);
-     const _fibBom = refData.fibBOM > 0 ? refData.fibBOM : (m.bomFIB > 0 ? m.bomFIB : 0);
-     const _napBom = refData.napBOM > 0 ? refData.napBOM : (m.bomNAP > 0 ? m.bomNAP : 0);
-
-     const allBomZero = _ugBom === 0 && _aeBom === 0 && _fibBom === 0 && _napBom === 0;
-
-     if (allBomZero) {
-         if (m.dailyUG > 0 || m.dailyAE > 0 || m.dailyFIB > 0 || m.dailyNAP > 0) {
-             flags.push("MISSING BOM");
-             flagColors.push(TEXT_COLORS.WARN);
-             drafts.push("Active progress reported but all BOM quantities are 0. Please verify BOM data in QuickBase.");
-         }
-     } else {
-         checkPhase("Underground", m.bomUG,  _ugBom,  m.dailyUG,  m.totalUG,  "UG BOM Quantity",     "Total UG Footage Completed");
-         checkPhase("Strand",      m.bomAE,  _aeBom,  m.dailyAE,  m.totalAE,  "Strand BOM Quantity", "Total Strand Footage Complete?");
-         checkPhase("Fiber",       m.bomFIB, _fibBom, m.dailyFIB, m.totalFIB, "Fiber BOM Quantity",  "Total Fiber Footage Complete");
-         checkPhase("NAP",         m.bomNAP, _napBom, m.dailyNAP, m.totalNAP, "NAP/Encl. BOM Qty.", "Total NAPs Completed");
-     }
-  }
   
-  if (vTracker && rowState !== "COMPLETE") {
-     const evalTrackerPhase = (phaseName, totalColName, bomVal, repTotal, trkPct) => {
-        if (!trkPct || trkPct <= 0 || !bomVal || bomVal <= 0) return;
-        let repPct = repTotal / bomVal;
-        let diff = trkPct - repPct;
-
-        if (diff > 0.05) { 
-            flags.push(`TRACKER UPDATE (${phaseName})`);
-            flagColors.push(TEXT_COLORS.MAGIC); 
-            drafts.push(`Tracker shows ${phaseName} higher at ${Math.round(trkPct*100)}%. Suggested: Update to match their tracker.`);
-        } else if (diff < -0.15) { 
-            flags.push(`TRACKER VARIANCE (${phaseName})`);
-            flagColors.push(TEXT_COLORS.MISMATCH); 
-            drafts.push(`Daily reports ${Math.round(repPct*100)}% ${phaseName}, but Tracker shows ${Math.round(trkPct*100)}%. Check if tracker is lagging.`);
-            hCols.mismatch.push(totalColName);
-        }
-     };
-
-     if (refData) {
-         evalTrackerPhase("UG", "Total UG Footage Completed", refData.ugBOM, totalUG, vTracker.ugPct);
-         evalTrackerPhase("AE", "Total Strand Footage Complete?", refData.aeBOM, totalAE, vTracker.aePct);
-         evalTrackerPhase("FIB", "Total Fiber Footage Complete", refData.fibBOM, totalFIB, vTracker.fibPct);
-         evalTrackerPhase("NAP", "Total NAPs Completed", refData.napBOM, totalNAP, vTracker.napPct);
-     }
-     
-     if (vTracker.notes && vTracker.notes !== "") {
-         let spacing = vendorComment === "" ? "" : "\n\n";
-         vendorComment += spacing + `[Tracker Note]: "${vTracker.notes}"`;
-     }
+  if (vTracker && vTracker.notes && vTracker.notes !== "") {
+      let spacing = vendorComment === "" ? "" : "\n\n";
+      vendorComment += spacing + `[Tracker Note]: "${vTracker.notes}"`;
   }
   
   if (summary.length === 0) {
@@ -1785,8 +1516,6 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
   } else if (vTracker) {
       summary.push("\n[📡 Tracker Linked]");
   }
-
-  if (rowState !== "ACTIVE") { flags.push(`${ROW_THEMES[rowState].label}`); flagColors.push(ROW_THEMES[rowState].text); drafts.push(`QB shows this FDH as ${refData ? refData.status : "Unknown"}.`); }
 
   if (hCols.warn.length > 0) adaePaletteIdx = "RED"; else if (hCols.mismatch.length > 0) adaePaletteIdx = "YELLOW";
   
@@ -1808,6 +1537,7 @@ function runBennyDiagnostics(row, refDict, vendorDict, inferenceHistoryContext, 
       healedId: healedId, overrides: overrides, inferredStage: inferredStage, inferredStatus: inferredStatus
   };
 }
+
 
 // --- CX DATE INFERENCE HELPERS ---
 

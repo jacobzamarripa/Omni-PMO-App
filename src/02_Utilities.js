@@ -931,14 +931,9 @@ function _buildPortfolioActionItems(options) {
     );
     const isFinished = qbFinished || stageStr.includes("OFS") || stageStr.includes("COMPLETE") || statusStr.includes("OOS") || currentFlags.includes("LIKELY OFS");
     if (isFinished) {
-      const irrelevantRisks = ["CHECK CROSSINGS", "CHECK BOM", "LIGHTING RISK", "STATUS MISMATCH", "PLEASE INPUT BOM", "HIGH UG VARIANCE", "HIGH STRAND VARIANCE", "HIGH FIBER VARIANCE", "MISSING BOM", "MISSING UG BOM", "MISSING STRAND BOM", "MISSING FIBER BOM", "MISSING SPLICING BOM", "POSSIBLE REROUTE", "BOM DISCREPANCY", "ADMIN: REFRESH REF DATA"];
-      currentFlags = currentFlags.split("\n")
-        .filter(function(line) {
-          const upLine = String(line || "").toUpperCase();
-          return !irrelevantRisks.some(function(risk) { return upLine.includes(risk); });
-        })
-        .join("\n").trim();
+      currentFlags = ReconciliationEngine.filterIrrelevantRisks(currentFlags, rawStage, rawStatus);
     }
+
 
     let safeRawRow = [];
     if (overlay && row) {
