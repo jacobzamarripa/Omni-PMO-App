@@ -339,10 +339,14 @@
   }
 
   // ── Per-tab contextual KPI strip ─────────────────────────
-  function _acKpiChip(val, label, cls, onclick) {
+  function _acKpiChip(val, label, cls, onclick, iconName, valColor) {
     var clickAttr = onclick ? 'onclick="' + onclick + '"' : '';
+    var valStyle = valColor ? 'style="color:' + valColor + '"' : '';
     return '<div class="ac-kpi-chip ' + (cls || '') + '" ' + clickAttr + '>' +
-      '<div class="ac-kpi-val">' + val + '</div>' +
+      '<div class="ac-kpi-header">' +
+        '<div class="ac-kpi-val" ' + valStyle + '>' + val + '</div>' +
+        (iconName ? '<div class="ac-kpi-icon">' + icon(iconName) + '</div>' : '') +
+      '</div>' +
       '<div class="ac-kpi-label">' + label + '</div>' +
     '</div>';
   }
@@ -357,25 +361,46 @@
       var yes     = xings.filter(function(i){ return _acResolveCrossing(i).xing.toUpperCase() === 'YES'; }).length;
       var no      = xings.filter(function(i){ return _acResolveCrossing(i).xing.toUpperCase() === 'NO'; }).length;
       var xf = _acUniversalFilters.crossings;
-      html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue');
-      html += _acKpiChip(pending, 'Pending', (pending > 0 ? 'ac-chip-crit' : 'ac-chip-queue') + (xf === 'pending' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('crossings','pending')");
-      html += _acKpiChip(yes, 'YES', 'ac-chip-yes' + (xf === 'YES' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('crossings','YES')");
-      html += _acKpiChip(no, 'NO', (no > 0 ? 'ac-chip-no' : 'ac-chip-queue') + (xf === 'NO' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('crossings','NO')");
+      html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue', null, 'grid');
+      html += _acKpiChip(pending, 'Pending', (pending > 0 ? 'ac-chip-gray' : 'ac-chip-queue') + (xf === 'pending' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('crossings','pending')", 'clock');
+      html += _acKpiChip(yes, 'YES', 'ac-chip-yes' + (xf === 'YES' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('crossings','YES')", 'check');
+      html += _acKpiChip(no, 'NO', (no > 0 ? 'ac-chip-no' : 'ac-chip-queue') + (xf === 'NO' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('crossings','NO')", 'close');
 
     } else if (tab === 'boms') {
       var bomRows = _acGetBomRows();
       var diffs   = bomRows.filter(function(r){ return r.hasDiff; }).length;
       var clean   = bomRows.length - diffs;
       var bf = _acUniversalFilters.boms;
-      html += _acKpiChip(_acBomData ? bomRows.length : '—', 'Total Projects', 'ac-chip-queue');
-      html += _acKpiChip(_acBomData ? diffs : '—', 'With Diffs', (diffs > 0 ? 'ac-chip-no' : 'ac-chip-queue') + (bf === 'diffs' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('boms','diffs')");
-      html += _acKpiChip(_acBomData ? clean : '—', 'Clean', 'ac-chip-yes' + (bf === 'clean' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('boms','clean')");
+      html += _acKpiChip(_acBomData ? bomRows.length : '—', 'Total Projects', 'ac-chip-queue', null, 'grid');
+      html += _acKpiChip(_acBomData ? diffs : '—', 'With Diffs', (diffs > 0 ? 'ac-chip-no' : 'ac-chip-queue') + (bf === 'diffs' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('boms','diffs')", 'diff');
+      html += _acKpiChip(_acBomData ? clean : '—', 'Clean', 'ac-chip-yes' + (bf === 'clean' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('boms','clean')", 'check');
 
     } else if (tab === 'comments') {
       var edited = Object.keys(_acCommentsEdits).length;
       var cf = _acUniversalFilters.comments;
-      html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue');
-      html += _acKpiChip(edited, 'Edited', (edited > 0 ? 'ac-chip-warn' : 'ac-chip-queue') + (cf === 'edited' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('comments','edited')");
+      html += _acKpiChip(items.length, 'Active Projects', 'ac-chip-queue', null, 'grid');
+      html += _acKpiChip(edited, 'Edited', (edited > 0 ? 'ac-chip-warn' : 'ac-chip-queue') + (cf === 'edited' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('comments','edited')", 'pencil');
+
+    } else if (tab === 'offenders') {
+      var offData = (typeof _buildOffendersData === 'function') ? _buildOffendersData() : null;
+      var offVendors = offData && offData.vendors ? offData.vendors.length : 0;
+      var offFlags = 0;
+      if (offData && offData.vendorMap) {
+        Object.keys(offData.vendorMap).forEach(function(v){ offFlags += offData.vendorMap[v].totalFlags || 0; });
+      }
+      html += _acKpiChip(offVendors, 'Vendors', 'ac-chip-queue', null, 'menu');
+      html += _acKpiChip(offFlags, 'Total Flags', (offFlags > 0 ? 'ac-chip-crit' : 'ac-chip-queue'), null, 'fire');
+
+      if (offData && offData.globalFlagCounts) {
+        var sortedFlags = Object.keys(offData.globalFlagCounts).sort(function(a, b) { return offData.globalFlagCounts[b] - offData.globalFlagCounts[a]; });
+        sortedFlags.slice(0, 3).forEach(function(flag) {
+          var label = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
+          var flagJs = (typeof escJs === 'function') ? escJs(flag) : String(flag || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          var isActive = window._offendersActiveFlagFilter === flag;
+          var iconName = (label.toLowerCase().indexOf('missed') !== -1 || label.toLowerCase().indexOf('stale') !== -1) ? 'clock' : 'shield';
+          html += _acKpiChip(offData.globalFlagCounts[flag], _e(label), isActive ? 'ac-chip-active' : 'ac-chip-queue', "_offendersSetFlagFilter('" + flagJs + "')", iconName);
+        });
+      }
 
     } else if (tab === 'worklog') {
       var wlVendors = _acWorkLogData ? Object.keys(_acWorkLogData).length : '—';
@@ -393,21 +418,18 @@
         });
       }
       var wf = _acUniversalFilters.worklog;
-      html += _acKpiChip(wlVendors, 'Vendors', 'ac-chip-queue');
-      html += _acKpiChip(_acWorkLogData ? wlDays : '—', 'Record-Days', 'ac-chip-queue');
-      html += _acKpiChip(_acWorkLogData ? wlDisc : '—', 'Discrepancies', (wlDisc > 0 ? 'ac-chip-crit' : 'ac-chip-queue') + (wf === 'discrepancies' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('worklog','discrepancies')");
-      html += _acKpiChip(_acWorkLogSelected.size || '—', 'Selected', 'ac-chip-queue' + (wf === 'selected' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('worklog','selected')");
+      html += _acKpiChip(wlVendors, 'Vendors', 'ac-chip-queue', null, 'menu');
+      html += _acKpiChip(_acWorkLogData ? wlDays : '—', 'Record-Days', 'ac-chip-queue', null, 'agenda');
+      html += _acKpiChip(_acWorkLogData ? wlDisc : '—', 'Discrepancies', (wlDisc > 0 ? 'ac-chip-crit' : 'ac-chip-queue') + (wf === 'discrepancies' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('worklog','discrepancies')", 'diff');
+      html += _acKpiChip(_acWorkLogSelected.size || '—', 'Selected', 'ac-chip-queue' + (wf === 'selected' ? ' ac-chip-active' : ''), "_acSetUniversalFilter('worklog','selected')", 'pin');
 
     } else if (tab === 'reports') {
       _AC_REPORT_DEFS.forEach(function(d) {
         var isActive = _acReportsView === d.key;
         var rows = d.load();
         var count = rows ? rows.length : '—';
-        html += '<div class="ac-kpi-chip' + (isActive ? ' ac-chip-active' : '') + '" ' +
-          'onclick="_acReportsSwitchView(\'' + d.key + '\')" style="cursor:pointer">' +
-          '<div class="ac-kpi-val" style="color:' + d.dot + '">' + count + '</div>' +
-          '<div class="ac-kpi-label">' + _e(d.label) + '</div>' +
-          '</div>';
+        var iconName = d.key === 'crossings' ? 'shield' : (d.key === 'boms' ? 'sync' : 'pencil');
+        html += _acKpiChip(count, _e(d.label), isActive ? 'ac-chip-active' : 'ac-chip-queue', "_acReportsSwitchView('" + d.key + "')", iconName, d.dot);
       });
     }
 
@@ -2009,6 +2031,15 @@
   // TAB 4 — TOP OFFENDERS (unchanged)
   // ════════════════════════════════════════════════════════════
   function _acRenderOffendersTab() {
+    var container = document.getElementById('action-offenders-panel');
+    if (!container) return;
+
+    var html = _acRenderTabKpi('offenders');
+    
+    // Clear the container first so _renderSignalOffenders can append or manage it
+    // Actually, _renderSignalOffenders overwrites innerHTML.
+    // So I should probably let _renderSignalOffenders handle its own structure but update it to use the global helper.
+    
     if (typeof _renderSignalOffenders === 'function') _renderSignalOffenders();
     _acSyncTabBadges();
   }

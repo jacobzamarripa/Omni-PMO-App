@@ -793,7 +793,7 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
 
           if (prevVal === 0 && dailyVal > 0 && totalVal > dailyVal) {
               let priorWork = totalVal - dailyVal;
-              calculatedNotes.push(`Opening Balance: Total (${totalVal}') implies ${priorWork}' of prior unreported work before first submission — QB running total will be understated by this amount`);
+              calculatedNotes.push(`Opening Balance: Total (${totalVal}') implies ${priorWork}' of prior unreported work before first submission`);
           }
 
           if (dailyVal === 0 && totalVal > prevVal && prevVal > 0) {
@@ -1074,6 +1074,11 @@ function _mapHistoryRowsWithCorrections(filteredRows, prevTotals) {
       const prev = existingTotals[type] || { val: 0, date: "" };
       const prevVal  = prev.val  || 0;
       const prevDate = prev.date || "";
+
+      if (prevVal === 0 && dailyVal > 0 && totalVal > dailyVal) {
+        const priorWork = totalVal - dailyVal;
+        calculatedNotes.push(`Opening Balance: Total (${totalVal}') implies ${priorWork}' of prior unreported work before first submission`);
+      }
 
       if (dailyVal === 0 && totalVal > prevVal && prevVal > 0) {
         const diff = totalVal - prevVal;

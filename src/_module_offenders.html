@@ -418,6 +418,7 @@
     return flag;
   }
 
+  window._buildOffendersData = _buildOffendersData;
   function _buildOffendersData() {
     var src = (typeof allActionItems !== 'undefined') ? allActionItems : [];
     var q = (typeof _signalSearchQuery !== 'undefined') ? _signalSearchQuery.trim().toLowerCase() : '';
@@ -506,18 +507,16 @@
       : '';
 
     // 2. KPI Rail (Standardized helper)
-    html += '<div class="ac-kpi-rail ac-tab-kpi-rail">';
-    if (typeof _acKpiChip === 'function') {
-      html += _acKpiChip(vendors.length, 'Active Vendors', 'ac-chip-queue');
-      html += _acKpiChip(totalFlags, 'Total Flags', totalFlags > 0 ? 'ac-chip-crit' : 'ac-chip-queue');
-      sortedFlags.slice(0, 3).forEach(function(flag) {
-        var isActive = _offendersActiveFlagFilter === flag;
-        var label = (typeof cleanDiagnosticFlagText === 'function') ? cleanDiagnosticFlagText(flag) : flag;
-        var flagJs = (typeof escJs === 'function') ? escJs(flag) : String(flag || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        html += _acKpiChip(globalFlagCounts[flag], _esc(label), isActive ? 'ac-chip-active' : 'ac-chip-queue', '_offendersSetFlagFilter(\'' + flagJs + '\')');
-      });
+    if (typeof _acRenderTabKpi === 'function') {
+      html += _acRenderTabKpi('offenders');
+    } else {
+      html += '<div class="ac-kpi-rail ac-tab-kpi-rail">';
+      if (typeof _acKpiChip === 'function') {
+        html += _acKpiChip(vendors.length, 'Active Vendors', 'ac-chip-queue', null, 'menu');
+        html += _acKpiChip(totalFlags, 'Total Flags', totalFlags > 0 ? 'ac-chip-crit' : 'ac-chip-queue', null, 'fire');
+      }
+      html += '</div>';
     }
-    html += '</div>';
 
     // 3. Toolbar (Standard style)
     html += '<div class="ac-toolbar ac-offenders-toolbar">' +
@@ -933,8 +932,10 @@
     _renderSignalOffenders();
   }
 
+  window._offendersActiveFlagFilter = null;
   function _offendersSetFlagFilter(flag) {
-    _offendersActiveFlagFilter = flag;
+    window._offendersActiveFlagFilter = (window._offendersActiveFlagFilter === flag) ? null : flag;
+    _offendersActiveFlagFilter = window._offendersActiveFlagFilter;
     _renderSignalOffenders();
   }
 
