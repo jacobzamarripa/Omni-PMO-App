@@ -77,48 +77,6 @@ function getExistingTotals() {
   return totals;
 }
 
-function countMissedReportBusinessDays(reportDate, targetDate) {
-  const toLocalMidnight = (value) => {
-    if (!value) return null;
-    if (value instanceof Date && !isNaN(value.getTime())) {
-      return new Date(value.getFullYear(), value.getMonth(), value.getDate(), 0, 0, 0, 0);
-    }
-
-    const raw = String(value).trim();
-    if (!raw) return null;
-
-    let parts = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if (parts) return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), 0, 0, 0, 0);
-
-    parts = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-    if (parts) {
-      const year = parts[3].length === 2 ? Number(`20${parts[3]}`) : Number(parts[3]);
-      return new Date(year, Number(parts[1]) - 1, Number(parts[2]), 0, 0, 0, 0);
-    }
-
-    const parsed = new Date(raw);
-    if (isNaN(parsed.getTime())) return null;
-    return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 0, 0, 0, 0);
-  };
-
-  const from = toLocalMidnight(reportDate);
-  const target = toLocalMidnight(targetDate);
-  if (!from || !target || isNaN(from.getTime()) || isNaN(target.getTime()) || target <= from) return 0;
-
-  const cursor = new Date(from.getTime());
-  cursor.setDate(cursor.getDate() + 1);
-
-  let missed = 0;
-  while (cursor <= target) {
-    const dow = cursor.getDay();
-    const isWeekday = dow !== 0 && dow !== 6;
-    const isMondayCarryMonday = cursor.getTime() === target.getTime() && dow === 1;
-    if (isWeekday && !isMondayCarryMonday) missed++;
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return missed;
-}
-
 function extractAutoFixedFdhFromComment(comment) {
   let match = String(comment || "").match(/\[Auto-Fixed FDH: (.*?)\]/);
   return match ? String(match[1] || "").trim().toUpperCase() : "";
@@ -1970,259 +1928,51 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
 
     const hasHistory = latestReportMap.get(ghostFdhId);
     const hasHandoff = benchmarkDict[ghostFdhId] && benchmarkDict[ghostFdhId].includes("HANDOFF");
-
     let cxDates = ReconciliationEngine.resolveCxDates(ghostFdhId, ref, lkvDict, histData, HISTORY_HEADERS);
-    const portfolioMeta = _getPortfolioVisibilityMeta({
-      stage: ref.stage,
-      status: ref.status,
-      primaryOfsDate: ref.canonicalOfsDate || ref.forecastedOFS || "",
-      fallbackOfsDate: ref.canonicalOfsDate || ref.forecastedOFS || "",
-      cxStart: cxDates.cxStart,
-      targetDate: ref.canonicalOfsDate || ref.forecastedOFS || "",
-      reportDate: normalizedTargets[0] || new Date(),
-      referenceDate: targetDateObj,
-      hasHistory: !!hasHistory
-    });
-
-    // 🧠 VISIBILITY OVERRIDE: If a handoff is detected, force the project into the portfolio 
-    // regardless of stage, so the historical vendor sections remain populated.
-    if (!portfolioMeta.includeInPortfolio && !hasHandoff) return;
-
-    // A report is not missing if the start date has not passed yet.
-    let startDate = cxDates.cxStart ? new Date(cxDates.cxStart) : null;
-    let isUpcomingWindowOnly = portfolioMeta.reason === 'approved-upcoming-60d' || portfolioMeta.reason === 'active-upcoming-start';
-    let isStartGraceOnly = portfolioMeta.reason === 'active-start-grace' || portfolioMeta.reason === 'reported-start-grace';
-    if (startDate && !isNaN(startDate.getTime())) {
-        let todayAtMid = new Date();
-        todayAtMid.setHours(0,0,0,0);
-        if (startDate > todayAtMid) isUpcomingWindowOnly = true;
-    }
 
     const latest = latestReportMap.get(ghostFdhId);
-    let ghostRowObj = {};
     
+    let diag = null;
     if (hasHistory && latest) {
-      // 🧠 UPGRADE: Use latest known report data instead of zeroes
-      const lRow = latest.row;
-      
       // 🧠 GHOST DIAGNOSTICS: Run full diagnostics on the latest row, but zero out daily production
-      let ghostDiagnosticRow = [...lRow];
+      let ghostDiagnosticRow = [...latest.row];
       const dailyCols = ["Daily UG Footage", "Daily Strand Footage", "Daily Fiber Footage", "Daily NAPs/Encl. Completed", "Locates Called In", "Drills", "AE Crews", "Fiber Pulling Crews", "Splicing Crews"];
       dailyCols.forEach(col => {
-          let idx = HISTORY_HEADERS.indexOf(col);
-          if (idx > -1) ghostDiagnosticRow[idx] = (col === "Locates Called In") ? false : 0;
-          });
-
-          let diag = runBennyDiagnostics(ghostDiagnosticRow, refDict, vendorDict, inferenceHistoryContext, lkvDict, historyAdapter);
-
-          HISTORY_HEADERS.forEach((h, i) => {        ghostRowObj[h] = lRow[i];
+        let idx = HISTORY_HEADERS.indexOf(col);
+        if (idx > -1) ghostDiagnosticRow[idx] = (col === "Locates Called In") ? false : 0;
       });
-      
-      let reportDate = parseDateToMidnight(lRow[0]);
-
-      // Count only completed business days since the last report. Monday carries Friday
-      // so a Thursday latest report does not become stale until Tuesday.
-      let daysAgo = countMissedReportBusinessDays(reportDate, targetDateObj);
-      const isMondayCarry = targetDateObj.getDay() === 1 && daysAgo <= 1;
-
-      // 🧠 SUPPRESSION OVERRIDE: Always show active ghost projects to keep the dashboard count consistent.
-      // We no longer return early here if daysAgo === 0; we want all legitimate projects visible.
-
-      let staleFlag = "STALE REPORT";
-      let staleColor = TEXT_COLORS.GHOST;
-      let staleDraft = `Action: Contact Vendor. Active project with reporting history is missing a submission for this date. Last report was ${daysAgo} business day(s) ago.`;
-
-      if (isMondayCarry) {
-        staleFlag = "WEEKEND CARRY";
-        staleColor = TEXT_COLORS.GHOST;
-        staleDraft = `Weekend carry applied. Last report was ${Utilities.formatDate(reportDate, "GMT-5", "MM/dd/yy")}.`;
-      } else if (daysAgo >= 2) {
-        staleFlag = `STALE REPORT (${daysAgo} Business Days)`;
-        staleColor = TEXT_COLORS.WARN;
-      } else if (daysAgo === 1) {
-        // Normal 1-day reporting lag - show project but don't mark as "STALE"
-        staleFlag = "REPORT PENDING";
-        staleColor = TEXT_COLORS.GHOST;
-        staleDraft = `Latest report is from the previous business day. Expected update later today.`;
-      } else {
-        // daysAgo is 0 (Up to date)
-        staleFlag = "CURRENT";
-        staleColor = TEXT_COLORS.DONE;
-        staleDraft = `Project is up to date based on the latest business day.`;
-      }
-      // Merge stale flag with existing diagnostics
-      if (staleFlag !== "CURRENT") {
-          if (diag.flags !== "No Anomalies" && diag.flags !== "") {
-              diag.flags = staleFlag + "\n" + diag.flags;
-              diag.flagColors.unshift(staleColor);
-          } else {
-              diag.flags = staleFlag;
-              diag.flagColors = [staleColor];
-          }
-      }
-
-      if (isUpcomingWindowOnly) {
-        ghostRowObj["Health Flags"] = "UPCOMING START WINDOW";
-        ghostRowObj["Action Required"] = "Action: Monitor schedule. Approved project is inside the rolling 60-day horizon and not expected to report yet.";
-        ghostRowObj["Vendor Comment"] = "Approved upcoming project inside the 60-day planning window.";
-      } else if (isStartGraceOnly) {
-        ghostRowObj["Health Flags"] = "REPORT PENDING";
-        ghostRowObj["Action Required"] = "Action: Monitor start. First daily report is expected on the next business day after CX Start.";
-        ghostRowObj["Vendor Comment"] = "First daily report is due on the next business day after CX Start.";
-      } else {
-        ghostRowObj["Health Flags"]    = diag.flags;
-        ghostRowObj["Action Required"] = (diag.draft ? diag.draft + "\n" : "") + staleDraft;
-        ghostRowObj["Vendor Comment"]  = lRow[HISTORY_HEADERS.indexOf("Vendor Comment")] || "No update provided.";
-      }
-
-      // 🧠 HANDOFF PERSISTENCE: Ensure handoff flags/notes survive grace window and missing report overrides
-      if (hasHandoff) {
-          let handoffMatch = benchmarkDict[ghostFdhId].match(/(\d{2}\/\d{2}\/\d{2}): HANDOFF: (.*)/);
-          let fullDate = handoffMatch ? handoffMatch[1] : Utilities.formatDate(targetDateObj, "GMT-5", "MM/dd/yy");
-          let dateParts = fullDate.split('/');
-          let mmDd = (dateParts.length >= 2) ? (dateParts[0] + '/' + dateParts[1]) : fullDate;
-          let handoffDetail = handoffMatch ? handoffMatch[2] : "Multi-vendor detected";
-          let handoffFlag = `HANDOFF (${mmDd})`;
-
-          let currentFlags = ghostRowObj["Health Flags"] || "";
-          if (currentFlags.includes("HANDOFF")) {
-              currentFlags = currentFlags.split("\n").map(function(f) { return f.trim() === "HANDOFF" ? handoffFlag : f; }).join("\n");
-          } else if (currentFlags !== "" && currentFlags !== "No Anomalies") {
-              currentFlags += "\n" + handoffFlag;
-          } else {
-              currentFlags = handoffFlag;
-          }
-          ghostRowObj["Health Flags"] = currentFlags;
-          
-          const handoffNote = `Project handoff detected on ${mmDd} (${handoffDetail}).`;
-          let currentDraft = ghostRowObj["Action Required"] || "";
-          if (!currentDraft.includes("handoff detected")) {
-              ghostRowObj["Action Required"] = (currentDraft ? currentDraft + "\n" : "") + handoffNote;
-          }
-      }
-      ghostRowObj["Archive_Row"]     = latest.idx + 1;
-
-      // Ensure other fields are synced with Ref Data
-      ghostRowObj["Contractor"]         = ref.vendor;
-      ghostRowObj["City"]               = ref.city || "-";
-      ghostRowObj["Stage"]              = ref.stage || "-";
-      ghostRowObj["Status"]             = ref.status || "-";
-      ghostRowObj["BSLs"]               = ref.bsls || "-";
-      ghostRowObj["Budget OFS"]         = ref.canonicalOfsDate || ref.forecastedOFS || "-";
-      
-      // 🧠 MULTI-VENDOR DISCOVERY: Include all discovered vendors for Ghost rows
-      let discoveredVendors = Array.from(projectVendorMap.get(ghostFdhId) || []);
-      ghostRowObj["AllVendors"] = discoveredVendors.join(", ");
-
-      ghostRowObj["CX Start"]           = cxDates.cxStart;
-      ghostRowObj["CX Complete"]        = cxDates.cxComplete;
-      ghostRowObj["CX Inferred"]        = cxDates.inferredLabel;
-      ghostRowObj["Historical Milestones"] = benchmarkDict[ghostFdhId] || "No history logged.";
-      
-      let xingString = "X-ING UNCHECKED";
-      const xingVal = (ref.rawSpecialX || "").toString().trim().toLowerCase();
-      if (xingVal === "yes" || xingVal === "true") xingString = "X-ING YES";
-      else if (xingVal === "no" || xingVal === "false") xingString = "X-ING CLEAR";
-      let hasBeenChecked = ref.adminDate && ref.adminDate !== "";
-      let adminDateStr = hasBeenChecked ? `[Chk: ${ref.adminDate}]` : `[Chk: NEVER]`;
-      let adminGapsStr = `${adminDateStr}  |  ${ref.hasSOW ? "SOW" : "SOW"}  ${ref.hasCD ? "CD" : "CD"}  ${ref.hasBOM ? "BOM" : "BOM"}  |  ${xingString}`;
-      ghostRowObj["QB Context & Gaps"] = adminGapsStr;
-
-      // 🧠 CD INJECTION: Ensure CD Intelligence survives in Ghost rows
-      let cdIntelText = "";
-      if (xingsDict[ghostFdhId]) {
-          let cdData = xingsDict[ghostFdhId];
-          if (cdData.summary !== "") cdIntelText = cdData.summary;
-          if (cdData.hasFindings) {
-              if (ghostRowObj["Health Flags"] !== "No Anomalies" && ghostRowObj["Health Flags"] !== "") {
-                  ghostRowObj["Health Flags"] += "\nCD: MAJOR CROSSING RISK";
-              } else {
-                  ghostRowObj["Health Flags"] = "CD: MAJOR CROSSING RISK";
-              }
-              if (!diag.flagColors.includes("#b45309")) diag.flagColors.push("#b45309");
-          }
-      }
-      ghostRowObj["CD Intelligence"] = cdIntelText;
-
-      reviewData.push(finalMirrorHeaders.map(h => ghostRowObj[h] !== undefined ? ghostRowObj[h] : ""));
-      highlightsData.push({
-        rowState:       "ACTIVE",
-        adaePaletteIdx: "GHOST",
-        colors:         diag.colors,
-        summary:        isUpcomingWindowOnly
-          ? "Upcoming approved project inside 60-day planning window."
-          : (isStartGraceOnly ? "Start-day grace window active. First report due next business day." : `Last Report: ${Utilities.formatDate(reportDate, "GMT-5", "MM/dd/yy")}`),
-        gaps:           adminGapsStr,
-        flags:          ghostRowObj["Health Flags"],
-        flagColors:     (isUpcomingWindowOnly || isStartGraceOnly) ? [TEXT_COLORS.GHOST] : diag.flagColors,
-        cleanComment:   ghostRowObj["Vendor Comment"],
-        draft:          ghostRowObj["Action Required"],
-        benchmark:      benchmarkDict[ghostFdhId] || ""
-      });
-
-    } else {
-      // TRULY MISSING: No history at all
-      finalMirrorHeaders.forEach(h => { ghostRowObj[h] = ""; });
-      ghostRowObj["FDH Engineering ID"] = ghostFdhId;
-      ghostRowObj["City"]               = ref.city || "-";
-      ghostRowObj["Stage"]              = ref.stage || "-";
-      ghostRowObj["Status"]             = ref.status || "-";
-      ghostRowObj["BSLs"]               = ref.bsls || "-";
-      ghostRowObj["Budget OFS"]         = ref.canonicalOfsDate || ref.forecastedOFS || "-";
-      ghostRowObj["CX Start"]    = cxDates.cxStart;
-      ghostRowObj["CX Complete"] = cxDates.cxComplete;
-      ghostRowObj["CX Inferred"] = cxDates.inferredLabel;
-      ghostRowObj["Contractor"]         = ref.vendor;
-      if (isUpcomingWindowOnly) {
-        ghostRowObj["Health Flags"]       = "UPCOMING START WINDOW";
-        ghostRowObj["Action Required"]    = "Action: Monitor schedule. Approved project is inside the rolling 60-day horizon and has not started reporting yet.";
-        ghostRowObj["Field Production"]   = "No reporting history yet. Upcoming within the 60-day planning window.";
-        ghostRowObj["Vendor Comment"]     = "Approved upcoming project inside the 60-day planning window.";
-      } else if (isStartGraceOnly) {
-        ghostRowObj["Health Flags"]       = "REPORT PENDING";
-        ghostRowObj["Action Required"]    = "Action: Monitor start. First daily report is expected on the next business day after CX Start.";
-        ghostRowObj["Field Production"]   = "Start-day grace window active. First daily report is not due until the next business day.";
-        ghostRowObj["Vendor Comment"]     = "First daily report is due on the next business day after CX Start.";
-      } else {
-        ghostRowObj["Health Flags"]       = "MISSING DAILY REPORT";
-        ghostRowObj["Action Required"]    = `Action: Contact Vendor. Active project with no submission history. Verify if Field CX has started.`;
-        ghostRowObj["Field Production"]   = "No daily report history found.";
-        ghostRowObj["Vendor Comment"]     = "Missing daily report.";
-      }
-      ghostRowObj["Historical Milestones"] = benchmarkDict[ghostFdhId] || "No history logged.";
-      ghostRowObj["Archive_Row"]        = "";
-
-      // 🧠 CD INJECTION: Ensure CD Intelligence survives in "No History" Ghost rows
-      let cdIntelText = "";
-      let hasMajorXing = false;
-      if (xingsDict[ghostFdhId]) {
-          let cdData = xingsDict[ghostFdhId];
-          if (cdData.summary !== "") cdIntelText = cdData.summary;
-          if (cdData.hasFindings) {
-              hasMajorXing = true;
-              if (ghostRowObj["Health Flags"] !== "No Anomalies" && ghostRowObj["Health Flags"] !== "") {
-                  ghostRowObj["Health Flags"] += "\nCD: MAJOR CROSSING RISK";
-              } else {
-                  ghostRowObj["Health Flags"] = "CD: MAJOR CROSSING RISK";
-              }
-          }
-      }
-      ghostRowObj["CD Intelligence"] = cdIntelText;
-
-      reviewData.push(finalMirrorHeaders.map(h => ghostRowObj[h] !== undefined ? ghostRowObj[h] : ""));
-      highlightsData.push({
-        rowState:       "ACTIVE",
-        adaePaletteIdx: "GHOST",
-        colors:         { warn: [], mismatch: [], ug: [], ae: [], fib: [], nap: [] },
-        summary:        isUpcomingWindowOnly ? "Upcoming approved project inside 60-day planning window." : "No daily report history found.",
-        gaps:           "",
-        flags:          ghostRowObj["Health Flags"],
-        flagColors:     isUpcomingWindowOnly ? [TEXT_COLORS.GHOST] : (hasMajorXing ? [TEXT_COLORS.WARN, "#b45309"] : [isUpcomingWindowOnly ? TEXT_COLORS.GHOST : TEXT_COLORS.WARN]),
-        cleanComment:   ghostRowObj["Vendor Comment"],
-        draft:          ghostRowObj["Action Required"],
-        benchmark:      benchmarkDict[ghostFdhId] || ""
-      });
+      diag = runBennyDiagnostics(ghostDiagnosticRow, refDict, vendorDict, inferenceHistoryContext, lkvDict, historyAdapter);
     }
+
+    // 🧠 GHOST SYNTHESIS: Unified Visibility Engine call
+    let xingString = "X-ING UNCHECKED";
+    const xingVal = (ref.rawSpecialX || "").toString().trim().toLowerCase();
+    if (xingVal === "yes" || xingVal === "true") xingString = "X-ING YES";
+    else if (xingVal === "no" || xingVal === "false") xingString = "X-ING CLEAR";
+    let hasBeenChecked = ref.adminDate && ref.adminDate !== "";
+    let adminDateStr = hasBeenChecked ? `[Chk: ${ref.adminDate}]` : `[Chk: NEVER]`;
+    let adminGapsStr = `${adminDateStr}  |  ${ref.hasSOW ? "SOW" : "SOW"}  ${ref.hasCD ? "CD" : "CD"}  ${ref.hasBOM ? "BOM" : "BOM"}  |  ${xingString}`;
+
+    let ghostResult = VisibilityEngine.generateGhostRow({
+      fdhId: ghostFdhId,
+      refData: ref,
+      latestReport: latest ? { date: parseDateToMidnight(latest.row[0]), data: latest.row, idx: latest.idx } : null,
+      targetDate: targetDateObj,
+      hasHandoff: hasHandoff,
+      handoffDetail: (benchmarkDict[ghostFdhId] && benchmarkDict[ghostFdhId].includes("HANDOFF")) ? benchmarkDict[ghostFdhId].split("HANDOFF:")[1] : "",
+      cdSummary: (xingsDict[ghostFdhId] && xingsDict[ghostFdhId].summary) || "",
+      projectVendors: Array.from(projectVendorMap.get(ghostFdhId) || []),
+      cxDates: cxDates,
+      benchmarks: benchmarkDict[ghostFdhId],
+      adminGapsStr: adminGapsStr,
+      diagnostics: diag
+    });
+
+    if (!ghostResult) return;
+
+    let ghostRowObj = ghostResult.row;
+    reviewData.push(finalMirrorHeaders.map(h => ghostRowObj[h] !== undefined ? ghostRowObj[h] : ""));
+    highlightsData.push(ghostResult.highlights);
   });
   markTiming("ghostRowInjectionMs", timerStartMs);
 
