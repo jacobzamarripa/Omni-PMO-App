@@ -1,5 +1,14 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-05-01: Production Auditor Shadow Mode Integrated (WS28)
+- **Goal:** Safely integrate the new `ProductionAuditor` module for live validation.
+- **Changes:**
+  - Created `src/01_Engine_Auditor.js` with pure JS footage auditing logic.
+  - Created `scripts/validate-production-auditor.js` (TDD suite) and verified all scenarios (100% pass).
+  - Injected Shadow calls to `ProductionAuditor.audit()` in `src/01_Engine_Archive.js` (paths: `parseFileToRows` and `_mapHistoryRowsWithCorrections`).
+  - Implemented `_acShadowAuditCompare` to log any logic divergences to `System_Logs`.
+- **Note:** System still uses legacy logic for final output; new logic is strictly in "Shadow Mode" for observation.
+
 > [!success] 2026-05-01: UI Terminology Alignment (Ubiquitous Language)
 - **Goal:** Align Action Center UI with the sharpened domain model established in `CONTEXT.md`.
 - **Changes:**

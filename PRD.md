@@ -126,6 +126,14 @@
 
 ---
 
+## Workstream 28 — Architectural Deepening (Production Auditor)
+- [x] Phase 1 — Design the Production Auditor seam
+- [x] Phase 2 — Test-Driven Implementation of Auditor logic
+- [x] Phase 3 — Shadow Mode Integration (01_Engine_Archive.js)
+- [ ] Phase 4 — Live Validation & Switch
+
+---
+
 ## Workstream 27 — Domain Alignment (Ubiquitous Language) ✓
 - [x] Phase 1 — Establish canonical glossary (`CONTEXT.md`)
 - [x] Phase 2 — Refine Action Center terminology (Manager Notes, Reconciliation)

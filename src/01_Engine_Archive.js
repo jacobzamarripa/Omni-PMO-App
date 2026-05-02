@@ -849,8 +849,33 @@ function parseFileToRows(file, existingKeys, refDict, folderDate, newRowsAppende
       calculateDiscrepancy("Daily Fiber Footage", "Total Fiber Footage Complete", "fib");
       calculateDiscrepancy("Daily NAPs/Encl. Completed", "Total NAPs Completed", "nap");
       
+      // 🕵️ SHADOW AUDIT (Workstream 28: Production Auditor)
+      try {
+        const auditorVerdict = ProductionAuditor.audit({
+          reportDate: rowTargetDate,
+          currentReport: {
+            dailyUG:  safeParseFootage(row[getIdx("Daily UG Footage")]),
+            totalUG:  safeParseFootage(row[getIdx("Total UG Footage Completed")]),
+            dailyAE:  safeParseFootage(row[getIdx("Daily Strand Footage")]),
+            totalAE:  safeParseFootage(row[getIdx("Total Strand Footage Complete?")]),
+            dailyFIB: safeParseFootage(row[getIdx("Daily Fiber Footage")]),
+            totalFIB: safeParseFootage(row[getIdx("Total Fiber Footage Complete")]),
+            dailyNAP: safeParseFootage(row[getIdx("Daily NAPs/Encl. Completed")]),
+            totalNAP: safeParseFootage(row[getIdx("Total NAPs Completed")])
+          },
+          historicalTotals: existingTotals[fdhId] || { 
+            ug: { val: 0, date: "" }, ae: { val: 0, date: "" }, 
+            fib: { val: 0, date: "" }, nap: { val: 0, date: "" } 
+          }
+        });
+        _acShadowAuditCompare(fdhId, calculatedNotes, calculatedOverrides, auditorVerdict);
+      } catch (e) {
+        logMsg(`❌ SHADOW AUDIT CRASHED [${fdhId}]: ${e.message}`);
+      }
+
       // Save the updated totals back
       existingTotals[fdhId] = rowTotals;
+
 
       const buildMappedRow = (overrides = null) => {
         return HISTORY_HEADERS.map(h => {
@@ -1096,7 +1121,29 @@ function _mapHistoryRowsWithCorrections(filteredRows, prevTotals) {
     applyCorrection("Daily Fiber Footage",         "Total Fiber Footage Complete",   "fib");
     applyCorrection("Daily NAPs/Encl. Completed",  "Total NAPs Completed",           "nap");
 
+    // 🕵️ SHADOW AUDIT (Workstream 28: Production Auditor)
+    try {
+      const auditorVerdict = ProductionAuditor.audit({
+        reportDate: rowDate,
+        currentReport: {
+          dailyUG:  safeParseFootage(row[hIdx("Daily UG Footage")]),
+          totalUG:  safeParseFootage(row[hIdx("Total UG Footage Completed")]),
+          dailyAE:  safeParseFootage(row[hIdx("Daily Strand Footage")]),
+          totalAE:  safeParseFootage(row[hIdx("Total Strand Footage Complete?")]),
+          dailyFIB: safeParseFootage(row[hIdx("Daily Fiber Footage")]),
+          totalFIB: safeParseFootage(row[hIdx("Total Fiber Footage Complete")]),
+          dailyNAP: safeParseFootage(row[hIdx("Daily NAPs/Encl. Completed")]),
+          totalNAP: safeParseFootage(row[hIdx("Total NAPs Completed")])
+        },
+        historicalTotals: existingTotals
+      });
+      _acShadowAuditCompare(fdh, calculatedNotes, calculatedOverrides, auditorVerdict);
+    } catch (e) {
+      logMsg(`❌ SHADOW AUDIT CRASHED [${fdh}]: ${e.message}`);
+    }
+
     return QB_HEADERS.map(h => {
+
       const lookupH = h === "Construction Comments" ? "Vendor Comment" : h;
       const idx = HISTORY_HEADERS.indexOf(lookupH);
       let val = idx > -1 ? row[idx] : "";
@@ -2955,3 +3002,33 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
     SpreadsheetApp.getUi().alert(`No data found in Master Archive for Date(s): ${targetDates.join(", ")}`);
   }
 }
+
+/**
+ * 🕵️ SHADOW AUDIT HELPER: Compares legacy results with new ProductionAuditor results.
+ * Used during Workstream 28 validation.
+ */
+function _acShadowAuditCompare(fdhId, legacyNotes, legacyOverrides, auditorVerdict) {
+  const legacyFlags = (legacyNotes || []).join(" | ").trim();
+  const auditorFlags = (auditorVerdict.flags || []).join(" | ").trim();
+  
+  // Normalize strings for comparison (spacing/casing)
+  const norm = (s) => s.toUpperCase().replace(/\s+/g, " ").trim();
+
+  if (norm(legacyFlags) !== norm(auditorFlags)) {
+    logMsg(`⚠️ SHADOW AUDIT DIVERGENCE [${fdhId}]:\n  Legacy: [${legacyFlags}]\n  Auditor: [${auditorFlags}]`);
+  }
+  
+  const legacyKeys = Object.keys(legacyOverrides || {}).sort();
+  const auditorKeys = Object.keys(auditorVerdict.adjustments || {}).sort();
+  
+  if (JSON.stringify(legacyKeys) !== JSON.stringify(auditorKeys)) {
+     logMsg(`⚠️ SHADOW ADJUSTMENT DIVERGENCE [${fdhId}]: Adjustment keys mismatch.`);
+  } else {
+    legacyKeys.forEach(k => {
+      if (legacyOverrides[k] !== auditorVerdict.adjustments[k]) {
+        logMsg(`⚠️ SHADOW ADJUSTMENT DIVERGENCE [${fdhId}]: Value mismatch for ${k} (${legacyOverrides[k]} vs ${auditorVerdict.adjustments[k]})`);
+      }
+    });
+  }
+}
+
