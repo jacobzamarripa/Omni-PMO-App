@@ -14,7 +14,8 @@
 
       function getVendorTheme(vendorName, index) {
           const clean = String(vendorName || 'Unknown Vendor').trim() || 'Unknown Vendor';
-          if (clean.toLowerCase().includes('unknown')) {
+          const isUnassigned = /^(unknown|unknown vendor|unassigned|unassigned vendor|no vendor)$/i.test(clean);
+          if (isUnassigned) {
               return {
                   accent: '#eab308',
                   accentStrong: '#ca8a04',
@@ -93,7 +94,7 @@
 
       function renderVendorGroupHeader(label, items, opts) {
           const vendor = String(label || 'Unknown Vendor').trim() || 'Unknown Vendor';
-          const isUnknown = vendor.toLowerCase().includes('unknown');
+          const isUnknown = /^(unknown|unknown vendor|unassigned|unassigned vendor|no vendor)$/i.test(vendor);
           const theme = getVendorTheme(vendor, opts && opts.themeIndex);
           const monogram = getVendorMonogram(vendor);
           const activeCount = (items || []).length;
