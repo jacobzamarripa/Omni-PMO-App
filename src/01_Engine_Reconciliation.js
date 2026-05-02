@@ -693,6 +693,45 @@ const ReconciliationEngine = (function() {
   }
 
   /**
+   * Full three-tier resolution chain for CX Start and CX Complete.
+   * Returns { cxStart, cxComplete, inferredLabel }
+   * inferredLabel is "" when Tier-1 (real QB data) is used, otherwise "start:<src>,end:<src>".
+   */
+  function resolveCxDates(fdh, refData, lkvDict, histData, histHeaders) {
+    // Tier 1: QB Reference Data — no inference
+    if (refData && refData.cxStart) {
+      return { cxStart: refData.cxStart, cxComplete: refData.cxComplete || "", inferredLabel: "" };
+    }
+
+    let result = { cxStart: "", cxComplete: "", inferredLabel: "" };
+    let startSource = "", endSource = "";
+
+    // Tier 2: Last Known Value from prior Daily Review rows
+    let lkv = lkvDict[fdh] || {};
+    if (lkv.cxStart)    { result.cxStart    = lkv.cxStart;    startSource = "lkv"; }
+    if (lkv.cxComplete) { result.cxComplete = lkv.cxComplete; endSource   = "lkv"; }
+
+    // Tier 3: Inference from Master Archive (only fills still-missing fields)
+    if (!result.cxStart || !result.cxComplete) {
+      let inf = inferCxDatesFromHistory(fdh, histData, histHeaders);
+      if (!result.cxStart    && inf.cxStart)    { result.cxStart    = inf.cxStart;    startSource = inf.startSource; }
+      if (!result.cxComplete && inf.cxComplete) { result.cxComplete = inf.cxComplete; endSource   = inf.endSource; }
+    }
+
+    let parts = [];
+    const _fmtInfDate = (d) => {
+      if (!d) return "";
+      let obj = (d instanceof Date) ? d : new Date(d);
+      return isNaN(obj.getTime()) ? String(d) : Utilities.formatDate(obj, "GMT-5", "MM/dd/yy");
+    };
+    if (startSource) parts.push("start:" + (startSource.includes('/') ? _fmtInfDate(startSource) : startSource));
+    if (endSource)   parts.push("end:"   + (endSource.includes('/')   ? _fmtInfDate(endSource)   : endSource));
+    result.inferredLabel = parts.join(",");
+
+    return result;
+  }
+
+  /**
    * Filters out risks that are irrelevant for finished or OFS projects.
    */
   function filterIrrelevantRisks(flags, stage, status) {
@@ -719,6 +758,7 @@ const ReconciliationEngine = (function() {
     getRecentInferenceSignals: getRecentInferenceSignals,
     buildCxLkvDictionary: buildCxLkvDictionary,
     inferCxDatesFromHistory: inferCxDatesFromHistory,
+    resolveCxDates: resolveCxDates,
     filterIrrelevantRisks: filterIrrelevantRisks
   };
 })();
