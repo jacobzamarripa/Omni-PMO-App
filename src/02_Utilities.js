@@ -1001,7 +1001,7 @@ function _buildPortfolioActionItems(options) {
       cxStart: _dashboardParseDate(rawCxStart),
       cxEnd: _dashboardParseDate(getRowVal(fieldMap.cxEndIdx, refData.cxComplete || "")),
       cxInferred: String(getRowVal(fieldMap.cxInferredIdx, "") || ""),
-      isXing: String(getRowVal(fieldMap.gapsIdx, refData.isSpecialX ? "X-ING YES" : "") || "").includes("X-ING YES") || !!refData.isSpecialX,
+      isXing: String(getRowVal(fieldMap.gapsIdx, refData.isSpecialX ? "X-ING YES" : "") || "").includes("X-ING YES") || !!refData.isSpecialX || currentFlags.includes("CD: MAJOR CROSSING RISK") || String(getRowVal(fieldMap.cdIntelIdx, "") || "").trim() !== "",
       gaps: String(getRowVal(fieldMap.gapsIdx, _buildSyntheticAdminGaps(refData)) || ""),
       flags: currentFlags,
       draft: draft,

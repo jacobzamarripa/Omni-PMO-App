@@ -2799,6 +2799,22 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       let adminGapsStr = `${adminDateStr}  |  ${ref.hasSOW ? "SOW" : "SOW"}  ${ref.hasCD ? "CD" : "CD"}  ${ref.hasBOM ? "BOM" : "BOM"}  |  ${xingString}`;
       ghostRowObj["QB Context & Gaps"] = adminGapsStr;
 
+      // 🧠 CD INJECTION: Ensure CD Intelligence survives in Ghost rows
+      let cdIntelText = "";
+      if (xingsDict[ghostFdhId]) {
+          let cdData = xingsDict[ghostFdhId];
+          if (cdData.summary !== "") cdIntelText = cdData.summary;
+          if (cdData.hasFindings) {
+              if (ghostRowObj["Health Flags"] !== "No Anomalies" && ghostRowObj["Health Flags"] !== "") {
+                  ghostRowObj["Health Flags"] += "\nCD: MAJOR CROSSING RISK";
+              } else {
+                  ghostRowObj["Health Flags"] = "CD: MAJOR CROSSING RISK";
+              }
+              if (!diag.flagColors.includes("#b45309")) diag.flagColors.push("#b45309");
+          }
+      }
+      ghostRowObj["CD Intelligence"] = cdIntelText;
+
       reviewData.push(finalMirrorHeaders.map(h => ghostRowObj[h] !== undefined ? ghostRowObj[h] : ""));
       highlightsData.push({
         rowState:       "ACTIVE",
@@ -2847,6 +2863,23 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
       ghostRowObj["Historical Milestones"] = benchmarkDict[ghostFdhId] || "No history logged.";
       ghostRowObj["Archive_Row"]        = "";
 
+      // 🧠 CD INJECTION: Ensure CD Intelligence survives in "No History" Ghost rows
+      let cdIntelText = "";
+      let hasMajorXing = false;
+      if (xingsDict[ghostFdhId]) {
+          let cdData = xingsDict[ghostFdhId];
+          if (cdData.summary !== "") cdIntelText = cdData.summary;
+          if (cdData.hasFindings) {
+              hasMajorXing = true;
+              if (ghostRowObj["Health Flags"] !== "No Anomalies" && ghostRowObj["Health Flags"] !== "") {
+                  ghostRowObj["Health Flags"] += "\nCD: MAJOR CROSSING RISK";
+              } else {
+                  ghostRowObj["Health Flags"] = "CD: MAJOR CROSSING RISK";
+              }
+          }
+      }
+      ghostRowObj["CD Intelligence"] = cdIntelText;
+
       reviewData.push(finalMirrorHeaders.map(h => ghostRowObj[h] !== undefined ? ghostRowObj[h] : ""));
       highlightsData.push({
         rowState:       "ACTIVE",
@@ -2855,7 +2888,7 @@ function generateDailyReviewCore(targetDateStr, optionalRefDict = null, isSilent
         summary:        isUpcomingWindowOnly ? "Upcoming approved project inside 60-day planning window." : "No daily report history found.",
         gaps:           "",
         flags:          ghostRowObj["Health Flags"],
-        flagColors:     [isUpcomingWindowOnly ? TEXT_COLORS.GHOST : TEXT_COLORS.WARN],
+        flagColors:     isUpcomingWindowOnly ? [TEXT_COLORS.GHOST] : (hasMajorXing ? [TEXT_COLORS.WARN, "#b45309"] : [isUpcomingWindowOnly ? TEXT_COLORS.GHOST : TEXT_COLORS.WARN]),
         cleanComment:   ghostRowObj["Vendor Comment"],
         draft:          ghostRowObj["Action Required"],
         benchmark:      benchmarkDict[ghostFdhId] || ""

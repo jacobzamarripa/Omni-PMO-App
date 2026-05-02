@@ -491,7 +491,6 @@ function renderList(items) {
         const headerTitle = useVendorTaxonomy
             ? renderVendorGroupHeader(section.label, section.items, { compact: !!section.isSubGroup, themeIndex: effectiveThemeIndex })
             : `<div class="queue-group-title">
-                    <span class="queue-group-toggle"></span>
                     <span>${esc(section.label)}</span>
                </div>`;
 

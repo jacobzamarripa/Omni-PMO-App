@@ -1821,12 +1821,12 @@
         '</div>' +
         '<div class="ac-toolbar-right">' +
           (selCount > 0
-            ? '<button class="ac-bulk-action-btn" onclick="_acAuditSelectedComments()">Audit History (' + selCount + ')</button>'
+            ? '<button class="ac-bulk-action-btn" onclick="_acAuditSelectedComments()">History (' + selCount + ')</button>'
             : '') +
           (editCount > 0
-            ? '<button class="ac-bulk-action-btn btn-primary" onclick="_acSaveAllComments()">Save Edited (' + editCount + ')</button>'
+            ? '<button class="ac-bulk-action-btn btn-primary" onclick="_acSaveAllComments()">Save (' + editCount + ')</button>'
             : '') +
-          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportLatestComments()">Export Latest</button>' +
+          '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acExportLatestComments()">Export</button>' +
         '</div>' +
       '</div>';
 
@@ -1839,7 +1839,7 @@
             ' onchange="_acToggleAllComments(this.checked,' + JSON.stringify(allFdhs) + ')"></th>' +
           '<th>FDH</th>' +
           '<th>Current Note</th>' +
-          '<th class="ac-th-comment">New Omni Comment</th>' +
+          '<th class="ac-th-comment">New Note</th>' +
           '<th class="ac-th-peek"></th>' +
         '</tr></thead><tbody>';
 
@@ -1885,7 +1885,7 @@
                 '<textarea class="chat-bubble" ' +
                   'oninput="_acOpenPeek(\'' + _acJs(item.fdh) + '\');_acOnCommentChange(\'' + fdhSafe + '\',this.value);this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
                   'onfocus="_acOpenPeek(\'' + _acJs(item.fdh) + '\');this.style.height=\'\';this.style.height=this.scrollHeight+\'px\'" ' +
-                  'placeholder="Enter Omni/Manager comment…">' + _e(edited || '') + '</textarea>' +
+                  'placeholder="Enter Manager Note…">' + _e(edited || '') + '</textarea>' +
               '</td>' +
               '<td class="ac-td-peek" onclick="event.stopPropagation()">' +
                 '<button class="ac-detail-btn' + (isPeekOpen ? ' is-active' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acTogglePeek(\'' + _acJs(item.fdh) + '\')" title="Open detail panel">&#8250;</button>' +
@@ -1946,10 +1946,10 @@
       payload.push({ fdh: fdh, rid: (item.qbRef && item.qbRef.pmRid) || '', comment: _acCommentsEdits[fdh] });
     });
     if (!payload.length) return;
-    if (typeof showToast === 'function') showToast('Saving ' + payload.length + ' comment' + (payload.length > 1 ? 's' : '') + '…', 'info');
+    if (typeof showToast === 'function') showToast('Saving ' + payload.length + ' note' + (payload.length > 1 ? 's' : '') + '…', 'info');
     google.script.run
       .withSuccessHandler(function() {
-        if (typeof showToast === 'function') showToast('Comments saved to QuickBase.', 'success');
+        if (typeof showToast === 'function') showToast('Manager Notes saved to QuickBase.', 'success');
         _acCommentsEdits = {};
         _acRenderCommentsTab();
         _acSyncTabBadges();
@@ -1961,10 +1961,10 @@
   }
 
   function _acExportLatestComments() {
-    if (typeof showToast === 'function') showToast('Generating comments export…', 'info');
+    if (typeof showToast === 'function') showToast('Generating notes export…', 'info');
     google.script.run
       .withSuccessHandler(function(url) {
-        if (typeof showToast === 'function') showToast('Latest comments saved to Drive.', 'success');
+        if (typeof showToast === 'function') showToast('Latest notes saved to Drive.', 'success');
         if (url) window.open(url, '_blank');
       })
       .withFailureHandler(function(err) {
@@ -1976,7 +1976,7 @@
   function _acAuditSelectedComments() {
     var fdhs = Array.from(_acCommentsSelected);
     if (!fdhs.length) return;
-    if (typeof showToast === 'function') showToast('Loading comment history…', 'info');
+    if (typeof showToast === 'function') showToast('Loading note history…', 'info');
     google.script.run
       .withSuccessHandler(_acShowCommentAuditModal)
       .withFailureHandler(function(err) {
@@ -1987,7 +1987,7 @@
 
   function _acShowCommentAuditModal(rows) {
     if (!rows || !rows.length) {
-      _acShowModal('Comment History', '<div class="ac-empty-sm">No comment history found for selected FDHs.</div>', 'Close', function(){});
+      _acShowModal('Note History', '<div class="ac-empty-sm">No history found for selected FDHs.</div>', 'Close', function(){});
       return;
     }
     var bodyHtml =
@@ -2002,7 +2002,7 @@
           '<td class="ac-td-time">' + _e(r.time||'') + '</td></tr>';
       }).join('') +
       '</tbody></table></div>';
-    _acShowModal('Comment History (' + rows.length + ' entries)', bodyHtml, 'Close', function(){});
+    _acShowModal('Note History (' + rows.length + ' entries)', bodyHtml, 'Close', function(){});
   }
 
   // ════════════════════════════════════════════════════════════
@@ -2211,7 +2211,7 @@
       '<button class="ac-bulk-action-btn ac-bulk-export" onclick="_acReportsExport(\'' + def.key + '\')">Export to Drive</button>' +
       (def.key === 'crossings' ? '<button class="ac-bulk-action-btn" onclick="_acSwitchTab(\'crossings\')">Open Crossings Tab</button>' : '') +
       (def.key === 'boms' && !_acBomData ? '<button class="ac-bulk-action-btn" onclick="_acSwitchTab(\'boms\')">Load BOM Data</button>' : '') +
-      (def.key === 'comments' ? '<button class="ac-bulk-action-btn" onclick="_acSwitchTab(\'comments\')">Open Comments Tab</button>' : '');
+      (def.key === 'comments' ? '<button class="ac-bulk-action-btn" onclick="_acSwitchTab(\'comments\')">Open Notes Tab</button>' : '');
 
     container.innerHTML =
       _acRenderTabKpi('reports') +

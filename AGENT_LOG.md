@@ -1,5 +1,15 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-05-01: UI Terminology Alignment (Ubiquitous Language)
+- **Goal:** Align Action Center UI with the sharpened domain model established in `CONTEXT.md`.
+- **Changes:**
+  - Renamed "New Omni Comment" header to "New Note".
+  - Shortened toolbar buttons: "Audit History" -> "History", "Save Edited" -> "Save", "Export Latest" -> "Export".
+  - Updated textarea placeholder to "Enter Manager Note…".
+  - Updated all toasts/notifications to use authoritative "Manager Note" terminology.
+  - Aligned "Comments" report definition label and navigation buttons to "Manager Notes".
+- **Files touched:** `src/_module_action_center.html`.
+
 > [!success] 2026-05-01: Action Center scroll clipping / white artifact fixed
 - **Branch:** `fix/action-center-uniformity`.
 - **Root cause (white artifact):** `body` is `display: flex; flex-direction: column`. In a flex-column, `flex-basis` controls HEIGHT. The `ac-peek-open` rule used `flex: 0 1 calc(100% - var(--ac-peek-width))` which shrunk the workspace HEIGHT by 390px instead of the intended width reduction. Comments tab auto-opens the peek panel, triggering this every time. The area below the shortened workspace showed as body background (white).

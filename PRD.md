@@ -126,6 +126,14 @@
 
 ---
 
+## Workstream 27 — Domain Alignment (Ubiquitous Language) ✓
+- [x] Phase 1 — Establish canonical glossary (`CONTEXT.md`)
+- [x] Phase 2 — Refine Action Center terminology (Manager Notes, Reconciliation)
+- [x] Phase 3 — UI Alignment (Rename Omni Comments -> Manager Notes)
+- [x] Phase 4 — Glossary-driven code audit (Inferred vs. Target, Mismatch vs. Discrepancy)
+
+---
+
 ## Workstream 26 — Daily Work Log Audit (Reconciliation) ✓
 - [x] Phase 1 — Reconciliation Engine (Archive vs. QB bvay4aqkz)
 - [x] Phase 2 — Hierarchical Action Center Tab (Vendor > City > FDH)
