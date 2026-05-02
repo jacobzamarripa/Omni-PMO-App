@@ -1,5 +1,16 @@
 # Agent Log — Omni PMO App
 
+> [!success] 2026-05-01: Action Center scroll clipping / white artifact fixed
+- **Branch:** `fix/action-center-uniformity`.
+- **Root cause (white artifact):** `body` is `display: flex; flex-direction: column`. In a flex-column, `flex-basis` controls HEIGHT. The `ac-peek-open` rule used `flex: 0 1 calc(100% - var(--ac-peek-width))` which shrunk the workspace HEIGHT by 390px instead of the intended width reduction. Comments tab auto-opens the peek panel, triggering this every time. The area below the shortened workspace showed as body background (white).
+- **Root cause (scroll chain):** `.ac-tab-content` had no `display: flex`, so child `height: 100%` and `flex: 1 1 auto` on `.ac-tab-panel` had no flex context to resolve against. Without a definite height, `.ac-table-wrap`'s `overflow-y: auto` had no bounding box and couldn't activate scrolling.
+- **Fixes (3 changes in `src/_styles_action_center.html`):**
+  1. `ac-peek-open` flex: `flex: 0 1 calc(100% - var(--ac-peek-width))` → `flex: 1 1 auto` — workspace height restored; width reduction comes from `width`/`max-width` properties.
+  2. `.ac-tab-content`: added `display: flex; flex-direction: column` — creates proper flex chain so `.ac-tab-panel` fills height and `.ac-table-wrap` scrolls.
+  3. `.ac-tab-panel`: `height: auto` → `height: 100%`, plus tab-scoped `padding-bottom: 24px` on BOMs/Comments/Work Log table wraps and Crossings grid wrap for last-row breathing room.
+- **Validator updated:** `scripts/validate-crossings-bulk-actions.js` line 101 updated to match corrected `flex: 1 1 auto`.
+- **Verification:** `node scripts/validate-crossings-bulk-actions.js` (all PASS), `git diff --check` passed.
+
 > [!success] 2026-05-01: Action Center uniformity visual fixes
 - **Branch:** `fix/action-center-uniformity`.
 - **Unassigned vendor treatment:** Standardized missing vendors to `Unassigned`, bottom-sorted them, restored the yellow warning theme in Action Center and Active Portfolio, and moved the warning icon into the vendor avatar slot instead of the vendor name text.

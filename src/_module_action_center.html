@@ -17,6 +17,7 @@
   var _acXingGroupCollapsed = {};
   var _acXingVendorFilter   = null;    // null or vendor string
   var _acXingCityFilter     = null;    // null or city string
+  var _acXingSourceFilter   = null;    // null | 'qb' | 'cd'
   var _acVisibleXingFdhs = [];
   var _acCrossingsEdits  = {};        // {fdh: {xing, details}}
   var _acCommentsEdits   = {};        // {fdh: text}
@@ -27,6 +28,7 @@
   var _acReportsView     = 'crossings'; // which report is staged in Reports tab
   var _acWorkLogData     = null;
   var _acWorkLogLoading  = false;
+  var _acAliasMap        = {};
   var _acWorkLogDates    = { start: '', end: '' };
   var _acWorkLogVendorFilter = 'ALL';
   var _acWorkLogCollapsed = {}; // { groupKey: boolean }
@@ -83,7 +85,7 @@
   function _acVendorDisplay(val) {
     var clean = _acCleanVal(val);
     if (!clean || /^(unknown|unknown vendor|unassigned vendor|no vendor)$/i.test(clean)) return 'Unassigned';
-    return clean;
+    return _acAliasMap[clean.toLowerCase()] || clean;
   }
 
   function _acIsUnassignedVendor(val) {
@@ -102,6 +104,17 @@
 
   function _acVendorGroupClass(vendor) {
     return _acIsUnassignedVendor(vendor) ? ' is-unassigned-vendor' : '';
+  }
+
+  function _acLoadAliasMap() {
+    google.script.run
+      .withSuccessHandler(function(data) {
+        _acAliasMap = {};
+        (data.builtin || []).concat(data.custom || []).forEach(function(a) {
+          if (a.raw && a.canonical) _acAliasMap[a.raw.toLowerCase()] = a.canonical;
+        });
+      })
+      .getVendorAliasData();
   }
 
   function _acWarningSvgIcon() {
@@ -487,6 +500,13 @@
         html += '<button class="ac-filter-pill' + (active ? ' active' : '') +
           '" onclick="_acSetUniversalFilter(\'crossings\',\'' + val + '\')">' + label + '</button>';
       });
+      html += '<div class="ac-ufb-sep"></div>';
+      [['all','Any Source'],['qb','QB'],['cd','CD']].forEach(function(pair) {
+        var val = pair[0]; var label = pair[1];
+        var active = (_acXingSourceFilter || 'all') === val;
+        html += '<button class="ac-filter-pill' + (active ? ' active' : '') +
+          '" onclick="_acSetXingSourceFilter(\'' + val + '\')">' + label + '</button>';
+      });
     } else if (tab === 'boms' && _acBomData) {
       html += '<div class="ac-ufb-sep"></div>';
       ['all','diffs'].forEach(function(val) {
@@ -748,6 +768,14 @@
         return x === filter.toUpperCase();
       });
     }
+    if (_acXingSourceFilter) {
+      items = items.filter(function(i) {
+        var src = _acResolveCrossing(i).source;
+        if (_acXingSourceFilter === 'cd') return src === 'cd';
+        if (_acXingSourceFilter === 'qb') return src === 'quickbase';
+        return true;
+      });
+    }
     var q = _acUniversalSearchQuery.trim().toLowerCase();
     if (q) {
       items = items.filter(function(i) {
@@ -774,6 +802,14 @@
     }
     if (_acXingVendorFilter) items = items.filter(function(i) { return _acVendorDisplay(i.vendor) === _acXingVendorFilter; });
     if (_acXingCityFilter)   items = items.filter(function(i) { return (i.city   || '') === _acXingCityFilter;   });
+    if (_acXingSourceFilter) {
+      items = items.filter(function(i) {
+        var src = _acResolveCrossing(i).source;
+        if (_acXingSourceFilter === 'cd') return src === 'cd';
+        if (_acXingSourceFilter === 'qb') return src === 'quickbase';
+        return true;
+      });
+    }
     return items;
   }
 
@@ -807,6 +843,13 @@
 
   function _acSetXingCityFilter(c) {
     _acXingCityFilter = (_acXingCityFilter === c) ? null : c;
+    _acRenderCrossingsTab();
+  }
+
+  function _acSetXingSourceFilter(val) {
+    _acXingSourceFilter = (val === 'all') ? null : val;
+    _acXingsSelected.clear();
+    _acRenderUniversalFilterBar('crossings');
     _acRenderCrossingsTab();
   }
 
@@ -1650,9 +1693,9 @@
         var fdhSafe = _e(fId);
         var isPeekOpen = _acOpenPeekFdh === fId;
 
-        html += '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (r.hasDiff ? ' ac-bom-diff-row' : '') + (isPeekOpen ? ' is-active-row' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acToggleBomRow(\'' + _acJs(fId) + '\');_acOpenPeek(\'' + _acJs(fId) + '\')">' +
-          '<td class="ac-td-check" onclick="event.stopPropagation();_acOpenPeek(\'' + _acJs(fId) + '\');_acToggleBomRow(\'' + _acJs(fId) + '\')">' +
-            '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acOpenPeek(\'' + _acJs(fId) + '\');_acToggleBomRow(\'' + _acJs(fId) + '\')" onclick="event.stopPropagation()">' +
+        html += '<tr class="ac-row' + (isSel ? ' is-selected' : '') + (r.hasDiff ? ' ac-bom-diff-row' : '') + (isPeekOpen ? ' is-active-row' : '') + '" data-fdh="' + fdhSafe + '" onclick="_acOpenPeek(\'' + _acJs(fId) + '\')">' +
+          '<td class="ac-td-check" onclick="event.stopPropagation();_acToggleBomRow(\'' + _acJs(fId) + '\')">' +
+            '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="_acToggleBomRow(\'' + _acJs(fId) + '\')" onclick="event.stopPropagation()">' +
           '</td>' +
           '<td class="ac-td-fdh" style="padding-left:60px !important;"><span class="ac-fdh">' + fdhSafe + '</span></td>' +
           _acBomCell(r.qbUG,  r.vendorUG)  +
@@ -2704,6 +2747,7 @@
 
   // ── Master entry point ────────────────────────────────────
   function _renderActionCenter() {
+    _acLoadAliasMap();
     _acRenderUniversalFilterBar(_acActiveTab);
     _acSwitchTab(_acActiveTab);
     _acSyncTabBadges();

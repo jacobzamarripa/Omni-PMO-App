@@ -44,7 +44,7 @@ body.action-view-active #action-workspace {
 body.action-view-active #action-workspace.ac-peek-open {
   width: calc(100% - var(--ac-peek-width)) !important;
   max-width: calc(100% - var(--ac-peek-width)) !important;
-  flex: 0 1 calc(100% - var(--ac-peek-width)) !important;
+  flex: 1 1 auto !important;
   padding-right: 0 !important;
   transition: none !important;
 }
@@ -320,6 +320,8 @@ body.dark-mode .ac-tab-btn.active { color: #0f0f0f; }
 
 /* ── Tab Content ─────────────────────────────────────────── */
 .ac-tab-content {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
@@ -332,7 +334,7 @@ body.dark-mode .ac-tab-btn.active { color: #0f0f0f; }
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: auto;
+  height: 100%;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
@@ -1256,6 +1258,15 @@ body.dark-mode .ac-tab-btn.active { color: #0f0f0f; }
   box-sizing: border-box;
   background: var(--card-bg);
 }
+/* Breathing room so the last row in expanded vendor groups isn't flush against the scroll edge */
+#ac-tab-boms > .ac-table-wrap,
+#ac-tab-comments > .ac-table-wrap,
+#ac-tab-worklog > .ac-table-wrap {
+  padding-bottom: 24px;
+}
+#ac-tab-crossings .ac-xing-grid-wrap {
+  padding-bottom: 24px;
+}
 .ac-table-crossings-grid {
   width: 100%;
   min-width: 900px;
@@ -1361,6 +1372,7 @@ body.dark-mode .ac-tab-btn.active { color: #0f0f0f; }
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: var(--text-main);
   flex: 1;
 }
